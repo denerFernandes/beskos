@@ -66,7 +66,7 @@ func main() {
 			bucket = "mailin"
 		}
 		st, err = storage.New(ep, os.Getenv("MINIO_ACCESS_KEY"), os.Getenv("MINIO_SECRET_KEY"),
-			bucket, os.Getenv("MINIO_SSL") == "true")
+			bucket, os.Getenv("MINIO_REGION"), os.Getenv("MINIO_SSL") == "true")
 		if err != nil {
 			log.Fatalf("storage: %v", err)
 		}

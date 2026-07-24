@@ -5,6 +5,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -17,11 +18,15 @@ type Service struct {
 	bucket string
 }
 
-// New conecta ao MinIO e garante o bucket. endpoint ex.: "localhost:9000".
-func New(endpoint, accessKey, secretKey, bucket string, useSSL bool) (*Service, error) {
+// New conecta a um storage S3-compatível e garante o bucket. Funciona com MinIO (endpoint
+// "minio:9000", region "") E com Cloudflare R2 (endpoint "<acct>.r2.cloudflarestorage.com",
+// useSSL=true, region "auto"). No R2 o bucket é pré-criado no painel — se não conseguirmos criá-lo
+// (o R2 restringe o CreateBucket por S3), assumimos que já existe em vez de rebentar.
+func New(endpoint, accessKey, secretKey, bucket, region string, useSSL bool) (*Service, error) {
 	c, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
 		Secure: useSSL,
+		Region: region, // R2 assina com "auto"; MinIO fica com "" (default)
 	})
 	if err != nil {
 		return nil, err
@@ -34,8 +39,9 @@ func New(endpoint, accessKey, secretKey, bucket string, useSSL bool) (*Service, 
 		return nil, err
 	}
 	if !exists {
-		if err := c.MakeBucket(ctx, bucket, minio.MakeBucketOptions{}); err != nil {
-			return nil, err
+		// No R2 os buckets criam-se no painel; o CreateBucket via S3 pode ser negado — não é fatal.
+		if err := c.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: region}); err != nil {
+			return nil, fmt.Errorf("bucket %q não existe e não foi possível criá-lo (cria-o no painel do storage): %w", bucket, err)
 		}
 	}
 	return s, nil

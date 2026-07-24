@@ -473,7 +473,7 @@ func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client)
 	var st *storage.Service
 	if ep := os.Getenv("MINIO_ENDPOINT"); ep != "" {
 		if s, serr := storage.New(ep, os.Getenv("MINIO_ACCESS_KEY"), os.Getenv("MINIO_SECRET_KEY"),
-			os.Getenv("MINIO_BUCKET"), os.Getenv("MINIO_SSL") == "true"); serr == nil {
+			os.Getenv("MINIO_BUCKET"), os.Getenv("MINIO_REGION"), os.Getenv("MINIO_SSL") == "true"); serr == nil {
 			st = s
 		} else {
 			log.Printf("assistant tasks: storage unavailable, docs.create will fail: %v", serr)

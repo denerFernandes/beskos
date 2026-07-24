@@ -1,0 +1,71 @@
+name: build & deploy
+
+# Push no master → constrói imagens (ghcr) e faz deploy no CapRover (rolling update).
+# Segredos necessários (repo → Settings → Secrets):
+#   CAPROVER_URL       ex.: https://captain.beskos.com
+#   CAPROVER_PASSWORD  password do painel CapRover
+# O push para o ghcr usa o GITHUB_TOKEN (packages: write). O CapRover puxa do ghcr — configurar
+# uma vez o registry privado ghcr no painel (Cluster → Docker Registries).
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: denerfernandes          # namespace ghcr (minúsculas)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { name: beskos-api,      context: backend }
+          - { name: beskos-frontend, context: frontend }
+          - { name: beskos-manager,  context: manager }
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: false }
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 1            # um de cada vez (rolling, sem sobrecarregar o cluster)
+      matrix:
+        include:
+          # backend (mesma imagem, comandos diferentes já definidos em cada app do CapRover)
+          - { app: api,         image: beskos-api }
+          - { app: worker,      image: beskos-api }
+          - { app: manager-api, image: beskos-api }
+          # web (a app do webmail chama-se "app" → app.beskos.com no CapRover)
+          - { app: app,         image: beskos-frontend }
+          - { app: manager,     image: beskos-manager }
+    steps:
+      - name: deploy ${{ matrix.app }}
+        run: |
+          npx -y caprover@2 deploy \
+            --caproverUrl "${{ secrets.CAPROVER_URL }}" \
+            --caproverPassword "${{ secrets.CAPROVER_PASSWORD }}" \
+            --appName "${{ matrix.app }}" \
+            --imageName "${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.image }}:${{ github.sha }}"
