@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Operações de provisionamento mapeadas 1:1 do brief §6/§7 para os métodos JMAP reais
@@ -29,7 +30,58 @@ func (c *Client) CreateDomain(ctx context.Context, name, description string) (st
 	if err := json.Unmarshal(raw, &r); err != nil {
 		return "", fmt.Errorf("decode Domain/set: %w", err)
 	}
-	return firstCreatedID(&r)
+	id, err := firstCreatedID(&r)
+	if err == nil {
+		return id, nil
+	}
+	// Idempotência: se o domínio já existe no Stalwart (primaryKeyViolation) — servidor recriado,
+	// domínio default do bootstrap, ou re-tentativa de provisionamento — adota o existente em vez
+	// de falhar em loop. Assim o fluxo genérico (cliente configura o mesmo domínio) é robusto.
+	if isPrimaryKeyViolation(r.NotCreated) {
+		existing, lookupErr := c.domainIDByName(ctx, name)
+		if lookupErr != nil {
+			return "", fmt.Errorf("adopt existing domain %q: %w", name, lookupErr)
+		}
+		return existing, nil
+	}
+	return "", err
+}
+
+// isPrimaryKeyViolation reporta se algum notCreated foi por o objeto já existir (chave duplicada).
+func isPrimaryKeyViolation(nc map[string]json.RawMessage) bool {
+	for _, v := range nc {
+		var e struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(v, &e) == nil && e.Type == "primaryKeyViolation" {
+			return true
+		}
+	}
+	return false
+}
+
+// domainIDByName procura o stalwart_id de um domínio pelo nome (x:Domain/get devolve todos quando
+// não se passam ids). Usado na adoção idempotente de um domínio já existente.
+func (c *Client) domainIDByName(ctx context.Context, name string) (string, error) {
+	raw, err := c.call(ctx, "x:Domain/get", map[string]any{"properties": []string{"name"}})
+	if err != nil {
+		return "", err
+	}
+	var g struct {
+		List []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"list"`
+	}
+	if err := json.Unmarshal(raw, &g); err != nil {
+		return "", fmt.Errorf("decode Domain/get: %w", err)
+	}
+	for _, d := range g.List {
+		if strings.EqualFold(d.Name, name) {
+			return d.ID, nil
+		}
+	}
+	return "", fmt.Errorf("domain %q not found in stalwart", name)
 }
 
 // AccountInput são os campos mínimos para criar uma mailbox individual.
