@@ -1,0 +1,81 @@
+import { useTranslation } from "react-i18next";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { assistantApi, type AssistantTask } from "./api";
+import { ToolCard } from "./ToolCard";
+import { ConfirmAction } from "./ConfirmAction";
+
+// Estados que ainda estão a mexer. Enquanto houver algum, a lista refaz-se sozinha — é o que faz a
+// bolha mostrar progresso mesmo fechada (§3.6).
+const LIVE = ["queued", "running", "awaiting_confirmation"];
+
+export function useAssistantTasks() {
+  const q = useQuery({
+    queryKey: ["assistant-tasks"],
+    queryFn: () => assistantApi.tasks(),
+    retry: false,
+    // Só se sonda enquanto houver trabalho a decorrer. Uma lista parada não precisa de ser
+    // consultada de 3 em 3 segundos para o resto da sessão.
+    refetchInterval: (query) =>
+      (query.state.data?.items ?? []).some((t) => LIVE.includes(t.status)) ? 3000 : false,
+  });
+  const active = (q.data?.items ?? []).filter((t) => LIVE.includes(t.status)).length;
+  return { tasks: q.data?.items ?? [], pending: q.data?.pending ?? [], active, isPending: q.isPending };
+}
+
+// Separador de Tarefas: o que corre em segundo plano, com progresso e cancelamento.
+export function TasksPanel({ onOpenConversation }: { onOpenConversation: (id: string) => void }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { tasks, pending, isPending } = useAssistantTasks();
+
+  const cancel = useMutation({
+    mutationFn: (id: string) => assistantApi.taskCancel(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["assistant-tasks"] }),
+  });
+
+  if (isPending) return <div className="as-tasks"><p className="as-empty">…</p></div>;
+  if (tasks.length === 0) return <div className="as-tasks"><p className="as-empty">{t("assistant.tasks.empty")}</p></div>;
+
+  return (
+    <div className="as-tasks">
+      {tasks.map((task) => (
+        <div key={task.id} className="as-task">
+          <div className="as-task-head">
+            <span className={"as-task-dot " + task.status} />
+            <b>{task.message}</b>
+          </div>
+          <div className="as-task-status">
+            {t(`assistant.tasks.status.${task.status}`, { defaultValue: task.status })}
+            {task.steps.length > 0 && ` · ${t("assistant.tasks.steps", { count: task.steps.length })}`}
+          </div>
+
+          {/* O progresso à vista: os cartões de ação já feitos, não uma barra sem conteúdo. */}
+          {task.steps.map((s, i) => <ToolCard key={i} step={s} />)}
+
+          {/* Uma tarefa parada tem de dizer o que está à espera, senão fica só "a aguardar". */}
+          {pending.filter((p) => p.task_id === task.id).map((p) => (
+            <ConfirmAction key={p.id} req={p}
+              onDecided={() => qc.invalidateQueries({ queryKey: ["assistant-tasks"] })} />
+          ))}
+
+          {task.answer && <div className="as-bubble">{task.answer}</div>}
+          {task.error_code && <p className="as-err">{t(`server.${task.error_code}`, { defaultValue: t("assistant.genericError") })}</p>}
+          {task.stopped && <p className="as-note">{t(`server.assistant.${task.stopped}`, { defaultValue: task.stopped })}</p>}
+
+          <div className="as-task-actions">
+            <button className="chipbtn" onClick={() => onOpenConversation(task.conversation_id)}>
+              {t("assistant.tasks.open")}
+            </button>
+            {LIVE.includes(task.status) && (
+              <button className="chipbtn" disabled={cancel.isPending} onClick={() => cancel.mutate(task.id)}>
+                {t("assistant.tasks.cancel")}
+              </button>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export type { AssistantTask };

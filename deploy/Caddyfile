@@ -1,0 +1,38 @@
+# Reverse proxy same-origin de produção (obrigatório — Stalwart não envia CORS, DIVERGENCES §D7).
+# Serve o SPA React e repassa TUDO pela NOSSA API Go na mesma origem.
+#
+# IMPORTANTE (brokering H11): /jmap, /auth e /.well-known vão para a NOSSA API (control-plane), NÃO
+# direto ao Stalwart. A API autentica pela sessão do webmail e injeta a credencial Basic da caixa
+# server-to-server (ver backend/internal/httpapi/jmap_proxy.go); o browser nunca segura a senha da
+# caixa. Rotear /jmap direto ao Stalwart quebra o webmail (401 — o Stalwart não entende a nossa
+# sessão) e anula o brokering de segurança. Igual ao que o vite.config.ts faz em dev.
+#
+# Ajuste o domínio e os upstreams conforme o deploy.
+
+beskos.com {
+	encode gzip
+
+	# Control plane (nosso Go): API do painel/webmail.
+	handle /api/* {
+		reverse_proxy control-plane:8000
+	}
+
+	# JMAP + OAuth + descoberta: passam pelo BROKER de credencial na nossa API, nunca direto ao
+	# Stalwart (o brokering tem de estar sempre no caminho, na web e no app nativo).
+	handle /jmap/* {
+		reverse_proxy control-plane:8000
+	}
+	handle /auth/* {
+		reverse_proxy control-plane:8000
+	}
+	handle /.well-known/* {
+		reverse_proxy control-plane:8000
+	}
+
+	# SPA (assets estáticos + fallback para index.html)
+	handle {
+		root * /srv/webapp
+		try_files {path} /index.html
+		file_server
+	}
+}

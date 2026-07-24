@@ -1,0 +1,136 @@
+//! Ícone na barra de menu da app (tray nativo do Tauri 2).
+//!
+//! Mostra o estado da sincronização sem ser preciso abrir a janela, e dá as ações rápidas.
+//! O motor é o mesmo que a UI usa (`SyncEngine` no estado do Tauri) — aqui é só apresentação.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use mailin_sync::engine::{Engine, Phase};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::TrayIconBuilder;
+use tauri::{AppHandle, Manager, Runtime};
+
+/// Abre um caminho/URL no ambiente do utilizador (Finder/Explorer/browser).
+fn open_path(target: &str) {
+    #[cfg(target_os = "macos")]
+    let cmd = "open";
+    #[cfg(target_os = "windows")]
+    let cmd = "explorer";
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let cmd = "xdg-open";
+    let _ = std::process::Command::new(cmd).arg(target).spawn();
+}
+
+/// Traz a janela principal para a frente (o "Abrir Beskos" do menu).
+fn focus_main<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+    }
+}
+
+/// Constrói o ícone da barra e arranca a thread que o mantém a par do estado.
+pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Result<()> {
+    // Primeira linha do menu: só informativa (desativada), atualizada pela thread abaixo.
+    // Quem está autenticado (linha informativa, tal como o estado). Fica no topo porque é a pergunta
+    // que mais depressa se faz a um ícone na barra: "esta app está ligada a que conta?".
+    let account_i = MenuItem::with_id(app, "account", "Sessão não iniciada", false, None::<&str>)?;
+    let status_i = MenuItem::with_id(app, "status", "A iniciar…", false, None::<&str>)?;
+    let sync_i = MenuItem::with_id(app, "sync_now", "Sincronizar agora", true, None::<&str>)?;
+    let pause_i = MenuItem::with_id(app, "pause", "Pausar", true, None::<&str>)?;
+    let folder_i = MenuItem::with_id(app, "open_folder", "Abrir pasta", true, None::<&str>)?;
+    let settings_i = MenuItem::with_id(app, "settings", "Definições…", true, None::<&str>)?;
+    let show_i = MenuItem::with_id(app, "show", "Abrir Beskos", true, None::<&str>)?;
+    let quit_i = MenuItem::with_id(app, "quit", "Sair", true, None::<&str>)?;
+
+    let menu = Menu::with_items(
+        app,
+        &[
+            &account_i,
+            &status_i,
+            &PredefinedMenuItem::separator(app)?,
+            &sync_i,
+            &pause_i,
+            &PredefinedMenuItem::separator(app)?,
+            &folder_i,
+            &settings_i,
+            &show_i,
+            &PredefinedMenuItem::separator(app)?,
+            &quit_i,
+        ],
+    )?;
+
+    let eng = Arc::clone(&engine);
+    let pause_item = pause_i.clone();
+    // Ícone PRÓPRIO do tray, não o da app: em modo template o macOS usa só a forma opaca e pinta-a
+    // conforme o tema. O ícone da app tem fundo branco cheio, que sairia como um retângulo sólido.
+    // Este é o monograma sem fundo.
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))
+        .expect("ícone do tray");
+    let tray = TrayIconBuilder::with_id("beskos-sync")
+        .icon(icon)
+        .icon_as_template(true) // no macOS adapta-se a barra clara/escura
+        .tooltip("Beskos")
+        .menu(&menu)
+        .on_menu_event(move |app, event| match event.id.as_ref() {
+            "sync_now" => eng.sync_now(),
+            "pause" => {
+                let paused = !eng.status().paused;
+                eng.set_paused(paused);
+                let _ = pause_item.set_text(if paused { "Retomar" } else { "Pausar" });
+            }
+            "open_folder" => {
+                // Abre a primeira pasta sincronizada (as restantes veem-se em Definições › Sincronização).
+                if let Some(p) = eng.status().pairs.first() {
+                    open_path(&p.local_path);
+                }
+            }
+            "settings" => crate::desktop::open_settings(app),
+            "show" => focus_main(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .build(app)?;
+
+    // Mantém o menu/tooltip a par do estado, sem martelar a UI.
+    let eng = Arc::clone(&engine);
+    let app_h = app.clone();
+    std::thread::spawn(move || loop {
+        // Conta autenticada: a UI empurra-a para o estado quando a sessão abre/fecha.
+        let _ = account_i.set_text(match crate::desktop::account_label(&app_h) {
+            Some(who) => who,
+            None => "Sessão não iniciada".to_string(),
+        });
+        let s = eng.status();
+        let label = if !s.configured {
+            "Sincronização desligada".to_string()
+        } else if s.pairs.is_empty() {
+            "Nenhuma pasta a sincronizar".to_string()
+        } else if s.paused {
+            "Pausado".to_string()
+        } else {
+            match s.phase {
+                Phase::Syncing => "A sincronizar…".to_string(),
+                Phase::Error => format!("Erro: {}", s.message),
+                _ if s.message.is_empty() => "Tudo sincronizado".to_string(),
+                _ => format!("Sincronizado — {}", s.message),
+            }
+        };
+        let _ = status_i.set_text(&label);
+        let _ = tray.set_tooltip(Some(format!("Beskos — {label}")));
+        // Sinal curto na barra só quando há algo a assinalar (a sincronizar / erro / pausa).
+        let active = s.configured && !s.pairs.is_empty();
+        let mark = match (active, s.paused, s.phase) {
+            (true, true, _) => Some("❙❙"),
+            (true, false, Phase::Syncing) => Some("↻"),
+            (true, false, Phase::Error) => Some("!"),
+            _ => None,
+        };
+        let _ = tray.set_title(mark);
+        std::thread::sleep(Duration::from_millis(1500));
+    });
+
+    Ok(())
+}

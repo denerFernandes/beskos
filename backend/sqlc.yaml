@@ -1,0 +1,55 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "internal/db/migrations"
+    queries: "db/queries"
+    gen:
+      go:
+        package: "db"
+        out: "internal/db"
+        sql_package: "pgx/v5"
+        emit_json_tags: true
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: "uuid"
+            go_type: "github.com/google/uuid.UUID"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          # args da notificação sai como JSON cru (não base64) no response; o frontend traduz.
+          - column: "notifications.args"
+            go_type: "encoding/json.RawMessage"
+          # argumentos da chamada de ferramenta: JSON cru, para o ecrã de auditoria ler.
+          - column: "assistant_tool_calls.args"
+            go_type: "encoding/json.RawMessage"
+          # cartões de ação de uma resposta: JSON cru, devolvido tal e qual ao frontend.
+          - column: "assistant_messages.steps"
+            go_type: "encoding/json.RawMessage"
+          - column: "assistant_tasks.steps"
+            go_type: "encoding/json.RawMessage"
+          # argumentos exatos da ação à espera de aprovação: JSON cru, mostrado tal e qual.
+          - column: "assistant_pending_actions.args"
+            go_type: "encoding/json.RawMessage"
+          # campos customizados do contato: JSON cru (não base64) no response.
+          - column: "contacts.custom_fields"
+            go_type: "encoding/json.RawMessage"
+          # body_json da wiki: JSON cru no response (não base64!) — o editor recebe o array de
+          # blocos tal e qual; []byte serializaria em base64 e o frontend caía no fallback de texto.
+          - column: "wiki_pages.body_json"
+            go_type: "encoding/json.RawMessage"
+          - column: "wiki_page_versions.body_json"
+            go_type: "encoding/json.RawMessage"
+          - column: "wiki_home.body_json"
+            go_type: "encoding/json.RawMessage"
+          - column: "wiki_comments.body_json"
+            go_type: "encoding/json.RawMessage"
+          # settings do manager: JSON cru (o handler faz o parse do modelo de custos).
+          - column: "manager_settings.value"
+            go_type: "encoding/json.RawMessage"
+          # payload do audit do manager: JSON cru (não base64) para o ecrã de auditoria ler.
+          - column: "manager_audit.payload"
+            go_type: "encoding/json.RawMessage"
+          # pgvector: o Go passa/recebe o literal textual "[0.1,0.2,...]" e o SQL casta ::vector.
+          - db_type: "vector"
+            go_type: "string"
+          - column: "wiki_chunks.embedding"
+            go_type: "string"

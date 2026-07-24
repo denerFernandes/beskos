@@ -1,0 +1,37 @@
+[package]
+name = "mailin"
+version = "0.1.0"
+description = "Beskos — e-mail e workspace"
+authors = ["Beskos"]
+edition = "2021"
+
+# Biblioteca partilhada pelo desktop e pelo mobile (Tauri 2).
+[lib]
+name = "mailin_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# devtools NÃO é ativado aqui: o Tauri já liga o inspector automaticamente em builds de debug
+# (dev). Forçá-lo por feature exporia o inspector também no build release distribuído — risco de
+# segurança. Para depurar um pacote release pontualmente, ative "devtools" localmente sem commitar.
+# image-png: descodifica o PNG do ícone do tray em tempo de execução (Image::from_bytes).
+tauri = { version = "2", features = ["tray-icon", "image-png", "devtools"] }
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Seletor nativo de pasta (para escolher onde sincronizar).
+tauri-plugin-dialog = "2"
+# O MOTOR de sincronização, embutido na app (sem a feature `agent`: a app já tem o seu tray e
+# event loop; só queremos o motor).
+mailin-sync = { path = "../../sync-daemon", default-features = false }
+
+# Uma só instância (desktop): quando o SO abre um .vcf com a app já a correr, reencaminha o caminho
+# do ficheiro para a instância viva em vez de abrir uma segunda. Cobre Windows/Linux; no macOS o
+# ficheiro chega pelo RunEvent::Opened. O Cargo não conhece o cfg(desktop) do tauri-build, por isso
+# alvejamos "não-mobile" explicitamente.
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"

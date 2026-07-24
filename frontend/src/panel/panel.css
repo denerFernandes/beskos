@@ -1,0 +1,192 @@
+/* Design system do painel administrativo — layout estilo Google Workspace Admin.
+   Sidebar + conteúdo, ícones monocromáticos, modais e drawers. Escopo em .pnl. */
+.pnl {
+  --paper:#F6F7F8; --surface:#FFFFFF; --surface-2:#F1F3F4;
+  --ink:#1F2124; --muted:#5F6368; --faint:#9AA0A6;
+  --border:#E3E6E8; --border-strong:#D5D9DC;
+  --accent:#116466; --accent-ink:#0C4A4B; --accent-tint:#E4F0EE;
+  --danger:#C0392B; --ok:#2E7D5B; --warn:#C0692F;
+  --shadow-sm:0 1px 2px rgba(31,33,36,.06);
+  --shadow:0 1px 3px rgba(31,33,36,.08),0 4px 16px rgba(31,33,36,.06);
+  --shadow-lg:0 8px 30px rgba(31,33,36,.11);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"SF Mono",ui-monospace,"Roboto Mono",Menlo,monospace;
+  --sidebar:248px;
+  font-family:var(--font); color:var(--ink); font-size:14px; line-height:1.5;
+}
+@media (prefers-color-scheme:dark){.pnl{
+  --paper:#141516; --surface:#1C1E1F; --surface-2:#26292A; --ink:#E8EAED; --muted:#9AA0A6; --faint:#6B7075;
+  --border:#2C2F31; --border-strong:#3A3E40; --accent:#57B4A8; --accent-ink:#7FC9BF; --accent-tint:#17302E;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  --shadow-lg:0 10px 44px rgba(0,0,0,.5);
+}}
+.pnl *,.pnl *::before,.pnl *::after{box-sizing:border-box;}
+.pnl button{font-family:inherit;cursor:pointer;}
+.pnl a{color:inherit;text-decoration:none;}
+
+.pnl-app{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh;background:var(--paper);}
+
+/* Sidebar */
+.pnl-side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+.pnl-brand{display:flex;align-items:center;gap:11px;padding:18px 20px;}
+.pnl-mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(150deg,var(--accent),var(--accent-ink));display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;}
+.pnl-brand b{font-size:16px;letter-spacing:-.01em;}
+.pnl-brand small{display:block;color:var(--faint);font-size:11px;font-weight:500;}
+.pnl-nav{display:flex;flex-direction:column;gap:2px;padding:8px 12px;flex:1;overflow-y:auto;}
+.pnl-nav button{display:flex;align-items:center;gap:13px;padding:9px 12px;border-radius:10px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:left;}
+.pnl-nav button:hover{background:var(--surface-2);color:var(--ink);}
+.pnl-nav button.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600;}
+.pnl-nav button.on svg{color:var(--accent);}
+.pnl-nav .sep{height:1px;background:var(--border);margin:8px 6px;}
+.pnl-side-foot{padding:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+.pnl-avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:none;}
+.pnl-side-foot .who{flex:1;min-width:0;}
+.pnl-side-foot .who b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pnl-side-foot .who span{font-size:11px;color:var(--faint);}
+.pnl-icon-btn{width:34px;height:34px;border-radius:9px;border:none;background:none;color:var(--muted);display:grid;place-items:center;}
+.pnl-icon-btn:hover{background:var(--surface-2);color:var(--ink);}
+
+/* Content */
+.pnl-main{display:flex;flex-direction:column;min-width:0;}
+.pnl-top{display:flex;align-items:center;gap:16px;padding:22px 32px 6px;}
+.pnl-top h1{margin:0;font-size:22px;font-weight:600;letter-spacing:-.02em;}
+.pnl-top .desc{color:var(--muted);font-size:13px;margin-top:2px;}
+.pnl-top .grow{flex:1;}
+.pnl-content{padding:16px 32px 48px;max-width:1080px;width:100%;}
+
+/* Buttons */
+.pnl-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 16px;font-weight:600;font-size:13.5px;}
+.pnl-btn:hover{background:var(--surface-2);}
+.pnl-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+.pnl-btn.primary:hover{filter:brightness(1.05);}
+.pnl-btn.ghost{border-color:transparent;background:none;}
+.pnl-btn.danger{color:var(--danger);border-color:transparent;}
+.pnl-btn.danger:hover{background:color-mix(in srgb,var(--danger) 12%,transparent);}
+.pnl-btn:disabled{opacity:.5;}
+
+/* Cards & tables */
+.pnl-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);}
+.pnl-card + .pnl-card{margin-top:16px;}
+.pnl-card-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);}
+.pnl-card-h h3{margin:0;font-size:15px;font-weight:600;}
+.pnl-card-h .grow{flex:1;}
+.pnl-card-b{padding:8px 20px 16px;}
+/* Linha de app (ligar/desligar): nome à esquerda, interruptor à direita. */
+.apps-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;cursor:pointer;}
+.apps-row:last-child{border-bottom:none;}
+.pnl-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px;}
+.pnl-stat{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px;box-shadow:var(--shadow-sm);}
+.pnl-stat .l{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;font-weight:500;}
+.pnl-stat .v{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:8px;font-variant-numeric:tabular-nums;}
+.pnl-stat .d{font-size:12px;color:var(--faint);margin-top:2px;}
+
+.pnl-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-top:1px solid var(--border);}
+.pnl-row:first-child{border-top:none;}
+.pnl-row .grow{flex:1;min-width:0;}
+.pnl-row .mono{font-family:var(--mono);font-size:13px;}
+.pnl-row .sub{font-size:12px;color:var(--muted);}
+.pnl-empty{padding:28px 8px;text-align:center;color:var(--faint);font-size:13.5px;}
+
+.pnl-pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;}
+.pnl-pill.ok{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok);}
+.pnl-pill.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn);}
+.pnl-pill.muted{background:var(--surface-2);color:var(--muted);}
+
+.pnl-input,.pnl-select{border:1px solid var(--border-strong);border-radius:10px;padding:9px 12px;font:inherit;background:var(--surface);color:var(--ink);outline:none;width:100%;}
+.pnl-input:focus,.pnl-select:focus{border-color:var(--accent);}
+.pnl-field{margin-bottom:14px;}
+.pnl-field label{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px;}
+.pnl-err{color:var(--danger);font-size:13px;margin-top:8px;}
+
+/* Bars */
+.pnl-bar{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden;}
+.pnl-bar > i{display:block;height:100%;background:var(--accent);}
+.pnl-bar.over > i{background:var(--warn);}
+
+/* Modal */
+.pnl-modal-bg{position:fixed;inset:0;background:rgba(20,22,24,.45);display:flex;align-items:center;justify-content:center;padding:24px;z-index:100;}
+.pnl-modal{width:460px;max-width:100%;background:var(--surface);border-radius:16px;box-shadow:var(--shadow-lg);overflow:hidden;animation:pnl-pop .16s ease;}
+.pnl-modal-h{display:flex;align-items:center;gap:10px;padding:18px 20px;font-size:16px;font-weight:600;}
+.pnl-modal-h .grow{flex:1;}
+.pnl-modal-b{padding:0 20px 8px;}
+.pnl-modal-f{display:flex;justify-content:flex-end;gap:10px;padding:16px 20px;}
+@keyframes pnl-pop{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:none;}}
+
+/* Drawer (sidecar) */
+.pnl-drawer-bg{position:fixed;inset:0;background:rgba(20,22,24,.45);display:flex;justify-content:flex-end;z-index:100;}
+.pnl-drawer{width:440px;max-width:100%;background:var(--surface);height:100%;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;animation:pnl-slide .2s ease;}
+.pnl-drawer-h{display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--border);font-size:16px;font-weight:600;}
+.pnl-drawer-h .grow{flex:1;}
+.pnl-drawer-b{padding:20px 22px;overflow-y:auto;flex:1;}
+@keyframes pnl-slide{from{transform:translateX(24px);opacity:.5;}to{transform:none;opacity:1;}}
+
+/* Toast */
+.pnl-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:11px;font-size:13.5px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:120;display:flex;align-items:center;gap:9px;}
+.pnl-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+.pnl-code-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:var(--mono);font-size:13px;background:var(--surface-2);border-radius:10px;padding:12px;}
+
+@media (max-width:820px){
+  .pnl-app{grid-template-columns:1fr;}
+  .pnl-side{position:fixed;z-index:50;transform:translateX(-100%);transition:transform .2s;width:var(--sidebar);}
+  .pnl-content,.pnl-top{padding-left:20px;padding-right:20px;}
+}
+
+/* Aparência (branding): swatches de cor + preview do logo */
+.brand-swatches{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 6px;}
+.brand-swatch{width:36px;height:36px;border-radius:9px;border:2px solid transparent;cursor:pointer;display:grid;place-items:center;color:#fff;font-weight:700;box-shadow:0 0 0 1px rgba(0,0,0,.06) inset;}
+.brand-swatch.on{border-color:var(--ink);}
+.brand-swatch.none{background:var(--surface-2);color:var(--faint);}
+.brand-logo-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
+.brand-logo-preview{height:56px;min-width:120px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:10px;display:grid;place-items:center;background:var(--surface-2);}
+.brand-logo-preview img{max-height:40px;max-width:180px;object-fit:contain;}
+
+/* Ferramentas de um agente do assistente: grelha de caixas. Cada uma é uma capacidade real —
+   o que está marcado é o que o agente consegue fazer (§3.2 do desenho do assistente). */
+.agent-tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 16px;margin-top:6px;}
+/* Cada ferramenta é um <label> DENTRO de .pnl-field, e `.pnl-field label` (linha 98) impõe
+   display:block/negrito/cinza/margin. Anulamos aqui com especificidade suficiente para o layout
+   voltar a ser uma linha flex: interruptor + rótulo lado a lado, centrados. */
+.agent-tools .agent-tool{display:flex;align-items:center;gap:11px;margin:0;font-size:13px;font-weight:400;line-height:1.2;color:var(--ink);cursor:pointer;}
+/* Fixa o interruptor no tamanho pequeno de FORMULÁRIO (34×20), independentemente de qual regra base
+   de .switch vença a cascata, e dá folga entre ele e o rótulo. */
+.wm .agent-tools .agent-tool > .switch{width:34px;height:20px;flex:none;background:transparent;}
+.wm .agent-tools .agent-tool > .switch > .track{border-radius:20px;}
+.wm .agent-tools .agent-tool > .switch > .track::before{width:14px;height:14px;top:3px;left:3px;}
+.wm .agent-tools .agent-tool > .switch > input:checked + .track::before{transform:translateX(14px);}
+.agent-tools .agent-tool > span:last-child{flex:1;min-width:0;}
+/* Aviso ao lado do interruptor-mestre do assistente (agente geral). Curto e à direita, para não
+   empurrar o switch nem competir com o nome do agente. */
+.agent-master-hint{max-width:230px;text-align:right;font-size:11.5px;line-height:1.25;}
+
+/* Memória do assistente: acrescentar à mão + lista. */
+.mem-add{display:flex;gap:8px;}
+.mem-add .pnl-input{flex:1;}
+
+/* Registo de auditoria no ecrã do assistente. */
+.mem-audit{display:flex;flex-direction:column;gap:3px;padding:6px 0;}
+.mem-audit .sub{font-size:11px;}
+
+/* Aparência (23/07/2026): preview do logo nos dois temas + barra de ações. */
+.brand-logo-duo{display:flex;gap:10px;flex-wrap:wrap;}
+.brand-logo-preview{position:relative;}
+.brand-logo-preview .tag{position:absolute;bottom:4px;right:8px;font-size:10px;color:var(--faint);}
+.brand-logo-preview.light{background:#FBFAF8;border-color:#DAD3C7;}
+.brand-logo-preview.dark{background:#121313;border-color:#343838;}
+.brand-logo-preview.dark .desc{color:#9E9A91;}
+.brand-actions{display:flex;justify-content:flex-end;margin-top:16px;}
+
+/* Tabela comparativa de planos (catálogo do manager) */
+.plans-scroll{overflow-x:auto;}
+.plans-table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px;}
+.plans-table th,.plans-table td{padding:10px 14px;text-align:center;border-bottom:1px solid var(--border);}
+.plans-table thead th{vertical-align:top;padding-top:16px;}
+.plans-table .pt-feat{text-align:left;color:var(--muted);font-weight:500;white-space:nowrap;}
+.plans-table .pt-name{font-size:14px;font-weight:700;}
+.plans-table .pt-price{font-size:21px;font-weight:700;margin-top:3px;}
+.plans-table .pt-per{font-size:11px;color:var(--muted);}
+.plans-table td.cur,.plans-table th.cur{background:color-mix(in srgb,var(--accent) 6%,transparent);}
+.plans-table th.cur{box-shadow:inset 0 3px 0 var(--accent);}
+.plans-table tr.strong td{font-weight:650;}
+.plans-table .pt-actions td{padding:14px;border-bottom:none;}
+.pnl-note{margin-top:4px;padding:9px 12px;border-radius:10px;font-size:12.5px;line-height:1.5;background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);color:var(--ink);}

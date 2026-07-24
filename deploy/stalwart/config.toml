@@ -1,0 +1,86 @@
+# Config MÍNIMA do Stalwart v0.16.4 — Fase 0.
+# Editar config é permitido; modificar o código/binário do Stalwart NÃO é (brief §2).
+# Store embutido (RocksDB) para simplicidade na Fase 0; migrar para Postgres compartilhado é opcional depois.
+#
+# ATENÇÃO: o schema de config muda entre versões do Stalwart. Valide contra a doc/openapi
+# da 0.16.4 no primeiro `docker compose up` e ajuste (ver deploy/DIVERGENCES.md).
+
+[server.listener.http]
+bind = ["[::]:8080"]
+protocol = "http"
+
+[server.listener.smtp]
+bind = ["[::]:25"]
+protocol = "smtp"
+
+[server.listener.submission]
+bind = ["[::]:587"]
+protocol = "smtp"
+
+[server.listener.submissions]
+bind = ["[::]:465"]
+protocol = "smtp"
+tls.implicit = true
+
+[server.listener.imap]
+bind = ["[::]:143"]
+protocol = "imap"
+
+[server.listener.imaptls]
+bind = ["[::]:993"]
+protocol = "imap"
+tls.implicit = true
+
+[storage]
+data = "rocksdb"
+blob = "rocksdb"
+fts = "rocksdb"
+lookup = "rocksdb"
+directory = "internal"
+
+[store.rocksdb]
+type = "rocksdb"
+path = "/opt/stalwart/data"
+
+[directory.internal]
+type = "internal"
+store = "rocksdb"
+
+# Administrador global (fallback). O secret vem do ambiente; só o backend Go o consome.
+[authentication.fallback-admin]
+user = "admin"
+secret = "%{env:STALWART_ADMIN_SECRET}%"
+
+[tracer.stdout]
+type = "stdout"
+level = "info"
+enable = true
+
+# ---------------------------------------------------------------------------
+# RELAY DE SAÍDA VIA AMAZON SES (produção — docs/manager.md §4, consulting 22/07/2026).
+# Todo o correio para domínios EXTERNOS sai pelo SES (reputação de IP/entregabilidade);
+# correio local continua com entrega direta. Para LIGAR em produção:
+#   1. defina SES_SMTP_USER / SES_SMTP_PASS no ambiente do container stalwart
+#      (credenciais SMTP do SES, região do endpoint abaixo);
+#   2. remova os comentários do bloco abaixo (e ajuste a região se não for eu-west-1);
+#   3. verifique os domínios/identidades no SES antes (senão o SES recusa o MAIL FROM).
+# Fica COMENTADO em dev: sem SES, a config ativa quebraria o envio externo no arranque.
+# Schema validado contra a doc 0.16 (queue.strategy.route + queue.route type=relay).
+# ---------------------------------------------------------------------------
+#[queue.strategy]
+#route = [ { if = "is_local_domain('', rcpt_domain)", then = "'local'" },
+#          { else = "'ses'" } ]
+#
+#[queue.route."ses"]
+#type = "relay"
+#address = "email-smtp.eu-west-1.amazonaws.com"
+#port = 587
+#protocol = "smtp"
+#
+#[queue.route."ses".tls]
+#implicit = false
+#allow-invalid-certs = false
+#
+#[queue.route."ses".auth]
+#username = "%{env:SES_SMTP_USER}%"
+#secret = "%{env:SES_SMTP_PASS}%"

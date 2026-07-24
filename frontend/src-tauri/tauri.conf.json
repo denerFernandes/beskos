@@ -1,0 +1,49 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Beskos",
+  "version": "0.1.0",
+  "identifier": "app.mailin",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build:app",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Beskos",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 380,
+        "minHeight": 600,
+        "resizable": true,
+        "maximized": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https: wss: http://localhost:* ws://localhost:*; img-src 'self' data: blob: https: http://localhost:*; media-src 'self' blob: https: http://localhost:*; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; frame-src 'self' data: blob:; object-src 'none'; base-uri 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["vcf"],
+        "name": "vCard",
+        "description": "Cartão de contacto (vCard)",
+        "mimeType": "text/vcard",
+        "role": "Editor"
+      }
+    ]
+  }
+}

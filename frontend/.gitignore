@@ -1,0 +1,8 @@
+node_modules
+dist
+
+# segredos/config local — nunca versionar (exceto o exemplo)
+.env
+.env.local
+.env.*.local
+!.env.example

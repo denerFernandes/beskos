@@ -1,0 +1,31 @@
+[package]
+name = "mailin-sync"
+version = "0.1.0"
+edition = "2021"
+description = "Motor de sincronização de ficheiros do Beskos, embutido na app desktop."
+license = "MIT"
+
+# Só biblioteca: o MOTOR. Quem o hospeda (janela, tray, menus) é a app desktop.
+[lib]
+name = "mailin_sync"
+path = "src/lib.rs"
+
+
+[dependencies]
+# HTTP com TLS via rustls (sem dependência de OpenSSL do sistema — portável).
+ureq = { version = "2", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Índice local: SQLite embutido (bundled) — não exige SQLite do sistema.
+rusqlite = { version = "0.31", features = ["bundled"] }
+# Hash de conteúdo: SHA-256, o MESMO algoritmo do servidor (ETag), para detetar mudanças locais.
+sha2 = "0.10"
+anyhow = "1"
+# Watcher do sistema de ficheiros (FSEvents no macOS, inotify no Linux): sincroniza quase de
+# imediato em vez de esperar o intervalo de polling.
+notify = "6"
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
