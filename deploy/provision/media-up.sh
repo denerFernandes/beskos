@@ -13,7 +13,11 @@ MEET_HOST="${MEET_HOST:-meet.beskos.com}"
 PUBLIC_IP="${PUBLIC_IP:-$(curl -s https://api.ipify.org || true)}"
 API_WEBHOOK_URL="${API_WEBHOOK_URL:-https://app.beskos.com/meet/webhook}"
 DIR=/opt/beskos/livekit
-LK_IMG='livekit/livekit-server:v1.8'
+# Servidor atualizado p/ v1.13 (25/07/2026): o client livekit-client 2.20.x usa o caminho de
+# sinalização /rtc/v1, que a v1.8 não tinha (dava 404 → "negotiation timed out", Meet não ligava).
+LK_IMG='livekit/livekit-server:v1.13'
+# NOTA: o egress continua em v1.8. Se a gravação falhar com o servidor v1.13, subir para uma versão
+# de egress compatível (livekit/egress:latest) e recriar o container beskos-egress.
 EG_IMG='livekit/egress:v1.8'
 
 sudo mkdir -p "$DIR"
