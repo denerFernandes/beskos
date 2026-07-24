@@ -120,7 +120,7 @@ func (s *Server) handleSavePlan(w http.ResponseWriter, r *http.Request) {
 	prices := map[string]int{}
 	for cur, cents := range req.Prices {
 		cur = strings.ToUpper(strings.TrimSpace(cur))
-		if (cur == "BRL" || cur == "USD" || cur == "EUR" || cur == "PLN") && cents > 0 {
+		if (cur == "BRL" || cur == "USD" || cur == "EUR" || cur == "PLN" || cur == "GBP") && cents > 0 {
 			prices[cur] = cents
 		}
 	}
@@ -250,7 +250,7 @@ func (s *Server) handleSetTenantCurrency(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	cur := strings.ToUpper(strings.TrimSpace(req.Currency))
-	if cur != "" && cur != "BRL" && cur != "USD" && cur != "EUR" && cur != "PLN" {
+	if cur != "" && cur != "BRL" && cur != "USD" && cur != "EUR" && cur != "PLN" && cur != "GBP" {
 		writeErr(w, http.StatusBadRequest, "manager.invalid_currency")
 		return
 	}
