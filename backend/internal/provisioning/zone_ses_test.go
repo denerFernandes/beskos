@@ -13,9 +13,10 @@ stw._domainkey.acme.com. IN TXT "v=DKIM1; k=ed25519; p=abc"
 func TestAugmentZoneForSES(t *testing.T) {
 	// White-label: Stalwart não assina (o DKIM dele é removido antes), o SES assina com a nossa chave.
 	stripped := StripStalwartDKIM(sampleZone)
-	out := AugmentZoneForSES(stripped, "acme.com", "mail", "PUBKEYb64", "beskos.com")
+	out := AugmentZoneForSES(stripped, "acme.com", "mail", "PUBKEYb64", "beskos.com",
+		"bounce.acme.com", "feedback-smtp.eu-west-1.amazonses.com")
 
-	// SPF ganhou include:_spf.beskos.com ANTES do -all (esconde o amazonses).
+	// SPF do apex ganhou include:_spf.beskos.com ANTES do -all (esconde o amazonses).
 	if !strings.Contains(out, `"v=spf1 a:mail.beskos.com include:_spf.beskos.com -all"`) {
 		t.Errorf("SPF not augmented: %s", out)
 	}
@@ -27,10 +28,22 @@ func TestAugmentZoneForSES(t *testing.T) {
 	if !strings.Contains(out, `_dmarc.acme.com. IN TXT "v=DMARC1; p=quarantine; rua=mailto:dmarc@beskos.com"`) {
 		t.Errorf("missing DMARC: %s", out)
 	}
-	// White-label: NADA do Amazon no DNS do cliente.
-	for _, forbidden := range []string{"amazonses", "dkim.amazonses", "feedback-smtp"} {
-		if strings.Contains(out, forbidden) {
-			t.Errorf("zone leaks %q:\n%s", forbidden, out)
+	// Custom MAIL FROM: MX (bounces) + SPF no subdomínio — o destinatário vê bounce.acme.com em
+	// "enviado por", não o amazonses.
+	if !strings.Contains(out, `bounce.acme.com. IN MX 10 feedback-smtp.eu-west-1.amazonses.com.`) {
+		t.Errorf("missing MAIL FROM MX: %s", out)
+	}
+	if !strings.Contains(out, `bounce.acme.com. IN TXT "v=spf1 include:amazonses.com ~all"`) {
+		t.Errorf("missing MAIL FROM SPF: %s", out)
+	}
+
+	// White-label: amazonses/feedback-smtp SÓ no subdomínio de MAIL FROM (bounce.acme.com), nunca
+	// nos registos do domínio apex.
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "amazonses") || strings.Contains(line, "feedback-smtp") {
+			if !strings.HasPrefix(strings.TrimSpace(line), "bounce.acme.com.") {
+				t.Errorf("zone leaks amazonses outside MAIL FROM subdomain:\n%s", line)
+			}
 		}
 	}
 	// DKIM do Stalwart foi removido.
@@ -39,10 +52,12 @@ func TestAugmentZoneForSES(t *testing.T) {
 	}
 
 	// Idempotente: aplicar de novo não duplica.
-	again := AugmentZoneForSES(out, "acme.com", "mail", "PUBKEYb64", "beskos.com")
+	again := AugmentZoneForSES(out, "acme.com", "mail", "PUBKEYb64", "beskos.com",
+		"bounce.acme.com", "feedback-smtp.eu-west-1.amazonses.com")
 	if strings.Count(again, "mail._domainkey.acme.com") != 1 ||
 		strings.Count(again, "include:_spf.beskos.com") != 1 ||
-		strings.Count(again, "_dmarc.acme.com") != 1 {
+		strings.Count(again, "_dmarc.acme.com") != 1 ||
+		strings.Count(again, "bounce.acme.com. IN MX") != 1 {
 		t.Errorf("not idempotent:\n%s", again)
 	}
 
@@ -52,8 +67,8 @@ func TestAugmentZoneForSES(t *testing.T) {
 	for _, r := range recs {
 		byType[r.Type]++
 	}
-	if byType["TXT"] < 3 { // SPF + DKIM nosso + DMARC
-		t.Errorf("parsed TXTs = %d, want >= 3", byType["TXT"])
+	if byType["TXT"] < 4 { // SPF apex + DKIM nosso + DMARC + SPF do bounce
+		t.Errorf("parsed TXTs = %d, want >= 4", byType["TXT"])
 	}
 }
 
