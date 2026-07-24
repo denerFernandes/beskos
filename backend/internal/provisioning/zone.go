@@ -5,54 +5,53 @@ import (
 	"strings"
 )
 
-// AugmentZoneForSES acrescenta à zona do Stalwart os registros exigidos pelo relay SES
-// (docs/manager.md §4): os 3 CNAMEs de Easy DKIM, o include:amazonses.com no SPF existente e
-// um DMARC básico se ainda não houver. Idempotente: registros já presentes não se repetem.
-func AugmentZoneForSES(zone, domain string, tokens []string) string {
+// AugmentZoneForSES prepara a zona do cliente em modo WHITE-LABEL: o SES assina via BYODKIM (chave
+// nossa), por isso o cliente publica só um TXT DKIM genérico (a nossa chave pública num seletor da
+// marca) — SEM qualquer referência ao amazonses. O SPF passa a incluir `_spf.<brand>` (que na NOSSA
+// zona embrulha o include:amazonses.com), e há um DMARC com rua na nossa marca. Não há custom MAIL
+// FROM (evita o MX feedback-smtp que revelaria o SES); o DMARC alinha por DKIM. Idempotente.
+func AugmentZoneForSES(zone, domain, selector, publicKey, brand string) string {
+	spfInclude := "include:_spf." + brand
 	lines := strings.Split(strings.TrimRight(zone, "\n"), "\n")
-	// SPF: injeta o include do SES na TXT v=spf1 (antes do mecanismo terminal ...all).
 	for i, line := range lines {
-		if strings.Contains(line, "v=spf1") && !strings.Contains(line, "amazonses.com") {
-			lines[i] = spfWithSES(line)
+		if strings.Contains(line, "v=spf1") && !strings.Contains(line, spfInclude) {
+			lines[i] = spfWithInclude(line, spfInclude)
 		}
 	}
 	out := strings.Join(lines, "\n")
-	for _, tok := range tokens {
-		rec := fmt.Sprintf("%s._domainkey.%s. IN CNAME %s.dkim.amazonses.com.", tok, domain, tok)
-		if !strings.Contains(out, rec) {
-			out += "\n" + rec
-		}
+	dkim := fmt.Sprintf("%s._domainkey.%s. IN TXT \"v=DKIM1; k=rsa; p=%s\"", selector, domain, publicKey)
+	if !strings.Contains(out, selector+"._domainkey."+domain) {
+		out += "\n" + dkim
 	}
 	if !strings.Contains(out, "_dmarc."+domain) {
-		out += fmt.Sprintf("\n_dmarc.%s. IN TXT \"v=DMARC1; p=quarantine; rua=mailto:postmaster@%s\"", domain, domain)
+		out += fmt.Sprintf("\n_dmarc.%s. IN TXT \"v=DMARC1; p=quarantine; rua=mailto:dmarc@%s\"", domain, brand)
 	}
 	return out + "\n"
 }
 
-// AugmentZoneMailFrom acrescenta os 2 registos do custom MAIL FROM (mailer.<domínio>): o MX para
-// o feedback-smtp da região (bounces do SES) e o SPF do próprio subdomínio. Idempotente.
-func AugmentZoneMailFrom(zone, mailFrom, mxTarget string) string {
-	out := strings.TrimRight(zone, "\n")
-	mx := fmt.Sprintf("%s. IN MX 10 %s.", mailFrom, mxTarget)
-	if !strings.Contains(out, mx) {
-		out += "\n" + mx
+// StripStalwartDKIM remove da zona os registos DKIM gerados pelo Stalwart (TXT `..._domainkey...`
+// com `DKIM1`). No modo relay o Stalwart não assina (DKIM Manual), então esses registos não devem
+// chegar ao cliente — quem assina é o SES com a nossa chave (via AugmentZoneForSES).
+func StripStalwartDKIM(zone string) string {
+	var kept []string
+	for _, line := range strings.Split(zone, "\n") {
+		if strings.Contains(line, "_domainkey") && strings.Contains(line, "DKIM1") {
+			continue
+		}
+		kept = append(kept, line)
 	}
-	spf := fmt.Sprintf("%s. IN TXT \"v=spf1 include:amazonses.com ~all\"", mailFrom)
-	if !strings.Contains(out, spf) {
-		out += "\n" + spf
-	}
-	return out + "\n"
+	return strings.Join(kept, "\n")
 }
 
-// spfWithSES insere "include:amazonses.com" antes do mecanismo terminal (-all/~all/?all);
+// spfWithInclude insere um mecanismo `include:...` antes do mecanismo terminal (-all/~all/?all);
 // sem terminal, anexa ao fim do valor.
-func spfWithSES(line string) string {
+func spfWithInclude(line, include string) string {
 	for _, term := range []string{"-all", "~all", "?all", "+all"} {
 		if i := strings.Index(line, term); i >= 0 {
-			return line[:i] + "include:amazonses.com " + line[i:]
+			return line[:i] + include + " " + line[i:]
 		}
 	}
-	return line + " include:amazonses.com"
+	return line + " " + include
 }
 
 // DNSRecord é um registro pronto para o cliente publicar, estruturado para a UI (tela dns_pending).

@@ -1,13 +1,18 @@
 // Package ses fala com a API do Amazon SES v2 por HTTP assinado (SigV4) — sem SDK (lei 2.5),
-// no mesmo espírito do provider Stripe. Uso: registar automaticamente o domínio de um tenant
-// como identidade SES (Easy DKIM) quando ele é provisionado (docs/manager.md §4).
+// no mesmo espírito do provider Stripe. Uso: registar o domínio de um tenant como identidade SES
+// quando ele é provisionado, em modo WHITE-LABEL (BYODKIM): NÓS geramos a chave DKIM e o SES assina
+// com ela, para que o DNS do cliente NUNCA revele o Amazon (docs/manager.md §4).
 package ses
 
 import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -22,13 +27,15 @@ type Client struct {
 	region    string
 	accessKey string
 	secretKey string
+	selector  string // seletor DKIM neutro (marca), ex.: "beskos" — nunca revela o SES
 	host      string
 	http      *http.Client
 	now       func() time.Time // injetável nos testes de assinatura
 }
 
 // NewFromEnv monta o cliente a partir de SES_REGION + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY.
-// Sem as três, devolve nil (feature desligada — dev não fala com a AWS).
+// SES_DKIM_SELECTOR (opcional) é o seletor da marca no DNS do cliente (default "mail").
+// Sem as três primeiras, devolve nil (feature desligada — dev não fala com a AWS).
 func NewFromEnv() *Client {
 	region := os.Getenv("SES_REGION")
 	key := os.Getenv("AWS_ACCESS_KEY_ID")
@@ -36,90 +43,89 @@ func NewFromEnv() *Client {
 	if region == "" || key == "" || secret == "" {
 		return nil
 	}
-	return New(region, key, secret)
+	selector := os.Getenv("SES_DKIM_SELECTOR")
+	if selector == "" {
+		selector = "mail"
+	}
+	c := New(region, key, secret)
+	c.selector = selector
+	return c
 }
 
 func New(region, accessKey, secretKey string) *Client {
 	return &Client{
 		region: region, accessKey: accessKey, secretKey: secretKey,
-		host: "email." + region + ".amazonaws.com",
-		http: &http.Client{Timeout: 20 * time.Second},
-		now:  time.Now,
+		selector: "mail",
+		host:     "email." + region + ".amazonaws.com",
+		http:     &http.Client{Timeout: 20 * time.Second},
+		now:      time.Now,
 	}
 }
 
-// CreateIdentity regista o domínio como identidade SES (Easy DKIM) e devolve os 3 tokens DKIM
-// (CNAMEs <token>._domainkey.<domínio> → <token>.dkim.amazonses.com). Idempotente: identidade
-// já existente não é erro — busca os tokens.
-func (c *Client) CreateIdentity(ctx context.Context, domain string) ([]string, error) {
-	body, _ := json.Marshal(map[string]any{"EmailIdentity": domain})
+// CreateIdentity regista o domínio como identidade SES em modo BYODKIM: gera uma chave RSA nossa,
+// entrega a PRIVADA ao SES (que passa a assinar com ela, d=domínio-do-cliente) e devolve o SELETOR
+// e a CHAVE PÚBLICA para o cliente publicar `<selector>._domainkey.<domínio>` IN TXT. Assim o DNS
+// do cliente só mostra uma chave DKIM genérica — sem qualquer referência ao amazonses.
+// Idempotente: identidade já existente → (re)define a assinatura BYODKIM com uma chave nova.
+func (c *Client) CreateIdentity(ctx context.Context, domain string) (selector, publicKeyB64 string, err error) {
+	privB64, pubB64, err := generateDKIMKeypair()
+	if err != nil {
+		return "", "", err
+	}
+	body, _ := json.Marshal(map[string]any{
+		"EmailIdentity": domain,
+		"DkimSigningAttributes": map[string]any{
+			"DomainSigningSelector":   c.selector,
+			"DomainSigningPrivateKey": privB64,
+		},
+	})
 	status, out, err := c.do(ctx, http.MethodPost, "/v2/email/identities", body)
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
 	if status == http.StatusOK || status == http.StatusCreated {
-		var resp struct {
-			DkimAttributes struct {
-				Tokens []string `json:"Tokens"`
-			} `json:"DkimAttributes"`
-		}
-		if err := json.Unmarshal(out, &resp); err != nil {
-			return nil, fmt.Errorf("ses create identity: parse: %w", err)
-		}
-		return resp.DkimAttributes.Tokens, nil
+		return c.selector, pubB64, nil
 	}
+	// Já existe: (re)configura a assinatura BYODKIM com a chave nova (idempotente).
 	if status == http.StatusConflict || strings.Contains(string(out), "AlreadyExists") {
-		tokens, _, err := c.GetIdentity(ctx, domain)
-		return tokens, err
+		putBody, _ := json.Marshal(map[string]any{
+			"SigningAttributesOrigin": "EXTERNAL",
+			"SigningAttributes": map[string]any{
+				"DomainSigningSelector":   c.selector,
+				"DomainSigningPrivateKey": privB64,
+			},
+		})
+		st, o, e := c.do(ctx, http.MethodPut, "/v2/email/identities/"+domain+"/dkim/signing", putBody)
+		if e != nil {
+			return "", "", e
+		}
+		if st != http.StatusOK {
+			return "", "", fmt.Errorf("ses set byodkim: HTTP %d: %s", st, o)
+		}
+		return c.selector, pubB64, nil
 	}
-	return nil, fmt.Errorf("ses create identity: HTTP %d: %s", status, out)
+	return "", "", fmt.Errorf("ses create identity: HTTP %d: %s", status, out)
 }
 
-// GetIdentity devolve os tokens DKIM e se a identidade já está verificada para envio.
-func (c *Client) GetIdentity(ctx context.Context, domain string) (tokens []string, verified bool, err error) {
+// IdentityVerified diz se a identidade já pode enviar (DKIM verificado do lado do SES).
+func (c *Client) IdentityVerified(ctx context.Context, domain string) (bool, error) {
 	status, out, err := c.do(ctx, http.MethodGet, "/v2/email/identities/"+domain, nil)
 	if err != nil {
-		return nil, false, err
+		return false, err
 	}
 	if status != http.StatusOK {
-		return nil, false, fmt.Errorf("ses get identity: HTTP %d: %s", status, out)
+		return false, fmt.Errorf("ses get identity: HTTP %d: %s", status, out)
 	}
 	var resp struct {
 		VerifiedForSendingStatus bool `json:"VerifiedForSendingStatus"`
 		DkimAttributes           struct {
-			Status string   `json:"Status"` // PENDING | SUCCESS | FAILED | ...
-			Tokens []string `json:"Tokens"`
+			Status string `json:"Status"` // PENDING | SUCCESS | FAILED
 		} `json:"DkimAttributes"`
 	}
 	if err := json.Unmarshal(out, &resp); err != nil {
-		return nil, false, fmt.Errorf("ses get identity: parse: %w", err)
+		return false, fmt.Errorf("ses get identity: parse: %w", err)
 	}
-	ok := resp.VerifiedForSendingStatus || resp.DkimAttributes.Status == "SUCCESS"
-	return resp.DkimAttributes.Tokens, ok, nil
-}
-
-// SetupMailFrom configura o custom MAIL FROM da identidade (tem de ser SUBDOMÍNIO dela — regra
-// do SES) e devolve o alvo do MX que o cliente publica (feedback-smtp da região). Com falha de MX
-// o SES cai no envelope default (USE_DEFAULT_VALUE) em vez de recusar o envio (fail-safe).
-func (c *Client) SetupMailFrom(ctx context.Context, identity, mailFromDomain string) (string, error) {
-	body, _ := json.Marshal(map[string]any{
-		"MailFromDomain":      mailFromDomain,
-		"BehaviorOnMxFailure": "USE_DEFAULT_VALUE",
-	})
-	status, out, err := c.do(ctx, http.MethodPut, "/v2/email/identities/"+identity+"/mail-from", body)
-	if err != nil {
-		return "", err
-	}
-	if status != http.StatusOK && status != http.StatusCreated {
-		return "", fmt.Errorf("ses mail-from: HTTP %d: %s", status, out)
-	}
-	return "feedback-smtp." + c.region + ".amazonses.com", nil
-}
-
-// IdentityVerified diz se a identidade já pode enviar (satisfaz provisioning.EmailRelay).
-func (c *Client) IdentityVerified(ctx context.Context, domain string) (bool, error) {
-	_, ok, err := c.GetIdentity(ctx, domain)
-	return ok, err
+	return resp.VerifiedForSendingStatus || resp.DkimAttributes.Status == "SUCCESS", nil
 }
 
 // DeleteIdentity remove a identidade (quando um domínio é apagado). 404 não é erro (idempotente).
@@ -132,6 +138,24 @@ func (c *Client) DeleteIdentity(ctx context.Context, domain string) error {
 		return nil
 	}
 	return fmt.Errorf("ses delete identity: HTTP %d: %s", status, out)
+}
+
+// generateDKIMKeypair cria uma chave RSA 2048 e devolve (privada PKCS8 base64 p/ o SES,
+// pública SubjectPublicKeyInfo base64 p/ o registo DKIM `p=`). Ambas sem armadura PEM.
+func generateDKIMKeypair() (privB64, pubB64 string, err error) {
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return "", "", fmt.Errorf("gerar chave DKIM: %w", err)
+	}
+	privDER, err := x509.MarshalPKCS8PrivateKey(k)
+	if err != nil {
+		return "", "", err
+	}
+	pubDER, err := x509.MarshalPKIXPublicKey(&k.PublicKey)
+	if err != nil {
+		return "", "", err
+	}
+	return base64.StdEncoding.EncodeToString(privDER), base64.StdEncoding.EncodeToString(pubDER), nil
 }
 
 // do assina (SigV4) e executa uma chamada à API SESv2.

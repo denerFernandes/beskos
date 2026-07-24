@@ -375,11 +375,16 @@ func main() {
 	}
 
 	machine := provisioning.NewMachine(sw, verifier, q)
-	// Relay SES (produção): com SES_REGION + credenciais AWS, cada domínio novo é registado como
-	// identidade SES (Easy DKIM) e a zona ganha os CNAMEs/SPF/DMARC do relay automaticamente.
+	// Relay SES (produção, white-label): com SES_REGION + credenciais AWS, cada domínio novo é
+	// registado no SES com BYODKIM (chave nossa) e a zona reportada esconde o Amazon (`_spf.<brand>`,
+	// DKIM com a nossa chave, sem MAIL FROM). brand = MAIL_BRAND_DOMAIN (default STALWART_DEFAULT_DOMAIN).
 	if relay := ses.NewFromEnv(); relay != nil {
-		machine.WithRelay(relay)
-		log.Printf("SES relay enabled (identities auto-registered on domain provisioning)")
+		brand := os.Getenv("MAIL_BRAND_DOMAIN")
+		if brand == "" {
+			brand = os.Getenv("STALWART_DEFAULT_DOMAIN")
+		}
+		machine.WithRelay(relay, brand)
+		log.Printf("SES relay enabled (white-label BYODKIM; brand=%s)", brand)
 	}
 	runner := provisioning.NewRunner(machine, q)
 
