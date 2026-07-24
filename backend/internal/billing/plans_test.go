@@ -3,8 +3,8 @@ package billing
 import "testing"
 
 func TestPlanLookup(t *testing.T) {
-	if _, ok := PlanByID("growth"); !ok {
-		t.Error("growth deveria existir")
+	if _, ok := PlanByID("base"); !ok {
+		t.Error("base deveria existir")
 	}
 	if _, ok := PlanByID("inexistente"); ok {
 		t.Error("plano inexistente não deveria existir")

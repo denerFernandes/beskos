@@ -64,16 +64,21 @@ func RangeLabel(min, max int) string {
 
 const GB = 1 << 30
 
-// plans é o catálogo autoritativo. Preço por usuário decresce nas faixas maiores (desconto por volume).
+// plans é o catálogo de FALLBACK (a fonte de verdade é a tabela `plans`; ver planFromRow).
+// Feature-tiers (25/07/2026): moeda base USD, o preço SOBE conforme os recursos. Enterprise
+// ("fale conosco") não entra aqui — é só marketing na landing, sem checkout self-serve.
 var plans = []Plan{
 	{ID: "trial", Name: "Trial", MailboxRange: "até 3", MaxMailboxes: 3, MaxStorageBytes: 5 * GB, MaxDailySend: 200, MaxMeetParticipants: 5, PriceCentsPerUser: 0,
 		Recording: "none", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
-	{ID: "starter", Name: "Starter", MailboxRange: "1–10", MaxMailboxes: 10, MaxStorageBytes: 50 * GB, MaxDailySend: 1000, MaxMeetParticipants: 25, PriceCentsPerUser: 1900,
+	{ID: "base", Name: "Base", MailboxRange: "1–10", MaxMailboxes: 10, MaxStorageBytes: 30 * GB, MaxDailySend: 1000, MaxMeetParticipants: 25, PriceCentsPerUser: 700,
+		Prices: map[string]int{"EUR": 699, "GBP": 599, "BRL": 3900, "PLN": 2900},
 		MinUsers: 1, Recording: "offline", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
-	{ID: "growth", Name: "Growth", MailboxRange: "11–50", MaxMailboxes: 50, MaxStorageBytes: 250 * GB, MaxDailySend: 5000, MaxMeetParticipants: 50, PriceCentsPerUser: 1500,
-		MinUsers: 11, Recording: "offline", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
-	{ID: "business", Name: "Business", MailboxRange: "51–200", MaxMailboxes: 200, MaxStorageBytes: 1024 * GB, MaxDailySend: 20000, MaxMeetParticipants: 200, PriceCentsPerUser: 1200,
-		MinUsers: 51, Recording: "offline_priority", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
+	{ID: "business", Name: "Business", MailboxRange: "1–50", MaxMailboxes: 50, MaxStorageBytes: 200 * GB, MaxDailySend: 5000, MaxMeetParticipants: 100, PriceCentsPerUser: 1200,
+		Prices: map[string]int{"EUR": 1199, "GBP": 999, "BRL": 6900, "PLN": 4900},
+		MinUsers: 1, Recording: "offline", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
+	{ID: "pro", Name: "Pro", MailboxRange: "1–200", MaxMailboxes: 200, MaxStorageBytes: 1024 * GB, MaxDailySend: 20000, MaxMeetParticipants: 200, PriceCentsPerUser: 2000,
+		Prices: map[string]int{"EUR": 1999, "GBP": 1699, "BRL": 10900, "PLN": 7900},
+		MinUsers: 1, Recording: "offline_priority", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
 }
 
 // Settings globais de cobrança (por deploy, via .env).

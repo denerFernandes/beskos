@@ -98,7 +98,7 @@ func FromEnv() Config {
 		WebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
 		SuccessURL:    getenv("BILLING_SUCCESS_URL", "https://app.mailin/billing?ok=1"),
 		CancelURL:     getenv("BILLING_CANCEL_URL", "https://app.mailin/billing?canceled=1"),
-		Currency:      strings.ToUpper(getenv("BILLING_CURRENCY", "BRL")),
+		Currency:      strings.ToUpper(getenv("BILLING_CURRENCY", "USD")),
 		MinPaidUsers:  atoiDefault(os.Getenv("BILLING_MIN_PAID_USERS"), 1),
 	}
 }
@@ -106,8 +106,8 @@ func FromEnv() Config {
 // Settings expõe as configurações globais (moeda + mínimo de usuários) para os handlers/UI.
 func (c Config) Settings() Settings {
 	cur := c.Currency
-	if cur != "BRL" && cur != "EUR" && cur != "USD" && cur != "PLN" {
-		cur = "BRL"
+	if cur != "BRL" && cur != "EUR" && cur != "USD" && cur != "PLN" && cur != "GBP" {
+		cur = "USD"
 	}
 	min := c.MinPaidUsers
 	if min < 1 {
