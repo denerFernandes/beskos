@@ -33,7 +33,10 @@ func NewDeepSeek(apiKey, baseURL, model string) *DeepSeek {
 		baseURL = "https://api.deepseek.com"
 	}
 	if model == "" {
-		model = "deepseek-chat"
+		// A DeepSeek descontinuou "deepseek-chat"; a API só aceita os v4 (deepseek-v4-flash /
+		// deepseek-v4-pro), que são modelos de reasoning. Flash é o default (mais barato/rápido);
+		// troca-se por AI_MODEL. O texto vem em `content` (o `reasoning_content` é ignorado).
+		model = "deepseek-v4-flash"
 	}
 	return &DeepSeek{
 		apiKey:  apiKey,
