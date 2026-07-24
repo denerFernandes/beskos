@@ -51,6 +51,12 @@ type DNSVerifier interface {
 type EmailRelay interface {
 	CreateIdentity(ctx context.Context, domain string) (selector, publicKey string, err error)
 	IdentityVerified(ctx context.Context, domain string) (bool, error)
+	// SetMailFrom define o custom MAIL FROM (Return-Path bounce.<domínio>) para o "enviado por"
+	// mostrar o domínio do cliente, não o amazonses.
+	SetMailFrom(ctx context.Context, domain string) error
+	// MailFromSubdomain/MailFromMX descrevem o registo que o cliente publica para o MAIL FROM.
+	MailFromSubdomain(domain string) string
+	MailFromMX() string
 }
 
 // Store é o subconjunto do db.Queries usado pela máquina.
@@ -134,8 +140,14 @@ func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error
 		if err != nil {
 			return false, fmt.Errorf("registar identidade no relay: %w", err) // retry no próximo tick
 		}
+		// Custom MAIL FROM (bounce.<domínio>): sem ele o "enviado por" do destinatário mostra o
+		// amazonses. Fallback USE_DEFAULT_VALUE — não bloqueia o envio enquanto o MX não propaga.
+		if err := m.relay.SetMailFrom(ctx, d.Dominio); err != nil {
+			return false, fmt.Errorf("configurar MAIL FROM no relay: %w", err) // retry no próximo tick
+		}
 		zone = StripStalwartDKIM(zone)
-		zone = AugmentZoneForSES(zone, d.Dominio, selector, publicKey, m.brand)
+		zone = AugmentZoneForSES(zone, d.Dominio, selector, publicKey, m.brand,
+			m.relay.MailFromSubdomain(d.Dominio), m.relay.MailFromMX())
 		return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "ses", d.DnsStatus, &zone)
 	}
 	// Sem relay: espera o DKIM do Stalwart (não aparece na hora — DIVERGENCES §D4).

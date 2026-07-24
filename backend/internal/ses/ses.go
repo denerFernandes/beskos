@@ -107,6 +107,31 @@ func (c *Client) CreateIdentity(ctx context.Context, domain string) (selector, p
 	return "", "", fmt.Errorf("ses create identity: HTTP %d: %s", status, out)
 }
 
+// MailFromSubdomain é o subdomínio de MAIL FROM (Return-Path) do white-label: o destinatário vê
+// este domínio em "enviado por", nunca o amazonses.
+func (c *Client) MailFromSubdomain(domain string) string { return "bounce." + domain }
+
+// MailFromMX é o alvo do MX que o SES exige no subdomínio de MAIL FROM (recebe os bounces).
+func (c *Client) MailFromMX() string { return "feedback-smtp." + c.region + ".amazonses.com" }
+
+// SetMailFrom configura o custom MAIL FROM da identidade (Return-Path = bounce.<domínio>), para o
+// "enviado por" do destinatário mostrar o domínio do cliente. BehaviorOnMxFailure=USE_DEFAULT_VALUE:
+// enquanto o MX não propaga, o SES cai no default em vez de recusar o envio. Idempotente.
+func (c *Client) SetMailFrom(ctx context.Context, domain string) error {
+	body, _ := json.Marshal(map[string]any{
+		"MailFromDomain":      c.MailFromSubdomain(domain),
+		"BehaviorOnMxFailure": "USE_DEFAULT_VALUE",
+	})
+	status, out, err := c.do(ctx, http.MethodPut, "/v2/email/identities/"+domain+"/mail-from", body)
+	if err != nil {
+		return err
+	}
+	if status != http.StatusOK {
+		return fmt.Errorf("ses set mail-from: HTTP %d: %s", status, out)
+	}
+	return nil
+}
+
 // IdentityVerified diz se a identidade já pode enviar (DKIM verificado do lado do SES).
 func (c *Client) IdentityVerified(ctx context.Context, domain string) (bool, error) {
 	status, out, err := c.do(ctx, http.MethodGet, "/v2/email/identities/"+domain, nil)

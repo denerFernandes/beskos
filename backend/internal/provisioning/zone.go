@@ -7,14 +7,22 @@ import (
 
 // AugmentZoneForSES prepara a zona do cliente em modo WHITE-LABEL: o SES assina via BYODKIM (chave
 // nossa), por isso o cliente publica só um TXT DKIM genérico (a nossa chave pública num seletor da
-// marca) — SEM qualquer referência ao amazonses. O SPF passa a incluir `_spf.<brand>` (que na NOSSA
-// zona embrulha o include:amazonses.com), e há um DMARC com rua na nossa marca. Não há custom MAIL
-// FROM (evita o MX feedback-smtp que revelaria o SES); o DMARC alinha por DKIM. Idempotente.
-func AugmentZoneForSES(zone, domain, selector, publicKey, brand string) string {
+// marca) — SEM qualquer referência ao amazonses nos registos do domínio APEX. O SPF passa a incluir
+// `_spf.<brand>` (que na NOSSA zona embrulha o include:amazonses.com), e há um DMARC com rua na nossa
+// marca. Emite ainda o custom MAIL FROM em `bounce.<domínio>` (MX + SPF) — é o ÚNICO ponto que
+// referencia o amazonses, e só no subdomínio de bounce; sem ele o "enviado por" do destinatário
+// mostraria o amazonses (decisão 25/07/2026, ver DIVERGENCES). O DMARC alinha por DKIM+SPF.
+// Idempotente. mailFromHost = "bounce.<domínio>", mailFromMX = "feedback-smtp.<região>.amazonses.com".
+func AugmentZoneForSES(zone, domain, selector, publicKey, brand, mailFromHost, mailFromMX string) string {
 	spfInclude := "include:_spf." + brand
 	lines := strings.Split(strings.TrimRight(zone, "\n"), "\n")
 	for i, line := range lines {
 		if strings.Contains(line, "v=spf1") && !strings.Contains(line, spfInclude) {
+			// A SPF do subdomínio de MAIL FROM (bounce) fica intacta — precisa do include:amazonses
+			// e NÃO leva o _spf.<brand> (senão duplicaria no 2º passe / desalinhava).
+			if mailFromHost != "" && strings.HasPrefix(strings.TrimSpace(line), mailFromHost+".") {
+				continue
+			}
 			lines[i] = spfWithInclude(line, spfInclude)
 		}
 	}
@@ -25,6 +33,11 @@ func AugmentZoneForSES(zone, domain, selector, publicKey, brand string) string {
 	}
 	if !strings.Contains(out, "_dmarc."+domain) {
 		out += fmt.Sprintf("\n_dmarc.%s. IN TXT \"v=DMARC1; p=quarantine; rua=mailto:dmarc@%s\"", domain, brand)
+	}
+	// Custom MAIL FROM: MX (bounces) + SPF do subdomínio. O SES exige ambos para verificar o domínio.
+	if mailFromHost != "" && mailFromMX != "" && !strings.Contains(out, mailFromHost+". IN MX") {
+		out += fmt.Sprintf("\n%s. IN MX 10 %s.", mailFromHost, mailFromMX)
+		out += fmt.Sprintf("\n%s. IN TXT \"v=spf1 include:amazonses.com ~all\"", mailFromHost)
 	}
 	return out + "\n"
 }

@@ -173,6 +173,23 @@ Implicações operacionais:
 - **Verificação:** exige teste de integração end-to-end com a stack completa (Stalwart + API + proxy). O
   brokering usa só Basic auth (comprovado em D7); o risco está na fiação, não no Stalwart.
 
+## White-label do envio (SES) — custom MAIL FROM (25/07/2026)
+O Gmail (e afins) mostram **"enviado por" = domínio do envelope MAIL FROM (Return-Path)**. Sem custom
+MAIL FROM na identidade SES, esse domínio é o default `<região>.amazonses.com` → **todos os
+destinatários viam o Amazon**, apesar do DKIM (`assinado por`) já ser `beskos.com`.
+
+**Decisão:** configurar custom MAIL FROM `bounce.<domínio>` por tenant (`ses.SetMailFrom`,
+`BehaviorOnMxFailure=USE_DEFAULT_VALUE` para não travar o envio antes do MX propagar). O
+`AugmentZoneForSES` passa a emitir, no subdomínio de bounce, `MX 10 feedback-smtp.<região>.amazonses.com`
++ `TXT "v=spf1 include:amazonses.com ~all"`.
+
+**Trade-off aceite:** este é o **único** ponto do DNS do cliente que referencia o amazonses, e só no
+subdomínio `bounce.<domínio>` (visível apenas a quem faz `dig` nesse subdomínio). Os registos do
+domínio apex continuam sem qualquer Amazon (SPF via `_spf.<brand>`, DKIM da nossa chave, DMARC). Ganha-se
+o white-label no que **todos os destinatários** veem, ao custo de um MX de bounce técnico. Alternativa
+descartada (sem custom MAIL FROM): DNS 100% limpo mas `mailed-by: amazonses` para todos. Ver
+`provisioning/zone.go`, `ses/ses.go`, testes `zone_ses_test.go`/`machine_test.go`.
+
 ## Como reproduzir / re-verificar
 Container de teste: `docker run -d --name mailin-sw-probe -e STALWART_RECOVERY_ADMIN='admin:probe-secret' -p 18080:8080 stalwartlabs/stalwart:v0.16.4`
 Auth: `admin:probe-secret`. Ver `backend/internal/stalwart/*_test.go` (testes de integração que exercem estes payloads).

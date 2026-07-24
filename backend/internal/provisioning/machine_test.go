@@ -185,6 +185,7 @@ func TestIdempotentActivate(t *testing.T) {
 
 type fakeRelay struct {
 	created  int
+	mailFrom int
 	verified bool
 }
 
@@ -195,6 +196,9 @@ func (f *fakeRelay) CreateIdentity(context.Context, string) (string, string, err
 func (f *fakeRelay) IdentityVerified(context.Context, string) (bool, error) {
 	return f.verified, nil
 }
+func (f *fakeRelay) SetMailFrom(context.Context, string) error { f.mailFrom++; return nil }
+func (f *fakeRelay) MailFromSubdomain(domain string) string    { return "bounce." + domain }
+func (f *fakeRelay) MailFromMX() string                        { return "feedback-smtp.eu-west-1.amazonses.com" }
 
 // Com relay (white-label): a zona ganha o DKIM da NOSSA chave (sem amazonses), o SPF via _spf.<brand>
 // e um DMARC; o DKIM do Stalwart é removido; e o dns_verified só sai quando o SES confirma.
@@ -213,15 +217,24 @@ func TestRelaySES(t *testing.T) {
 	for _, want := range []string{
 		"mail._domainkey.cliente.com.br. IN TXT \"v=DKIM1; k=rsa; p=PUBKEYbase64\"",
 		"include:_spf.beskos.com", "_dmarc.cliente.com.br.", "rua=mailto:dmarc@beskos.com",
+		// Custom MAIL FROM (o "enviado por" do destinatário mostra bounce.<domínio>, não amazonses).
+		"bounce.cliente.com.br. IN MX 10 feedback-smtp.eu-west-1.amazonses.com.",
+		"bounce.cliente.com.br. IN TXT \"v=spf1 include:amazonses.com ~all\"",
 	} {
 		if !containsStr(zone, want) {
 			t.Errorf("zona sem %q:\n%s", want, zone)
 		}
 	}
-	// White-label: nada do Amazon deve aparecer no DNS do cliente.
-	for _, forbidden := range []string{"amazonses.com", "dkim.amazonses", "feedback-smtp"} {
-		if containsStr(zone, forbidden) {
-			t.Errorf("zona NÃO devia revelar %q:\n%s", forbidden, zone)
+	if relay.mailFrom != 1 {
+		t.Errorf("SetMailFrom deveria ser 1x, veio %d", relay.mailFrom)
+	}
+	// White-label: o amazonses só pode aparecer no subdomínio de MAIL FROM (bounce.<domínio>) —
+	// nunca nos registos do domínio apex, que é o que o cliente e o destinatário veem em primeiro.
+	for _, line := range strings.Split(zone, "\n") {
+		if strings.Contains(line, "amazonses") || strings.Contains(line, "feedback-smtp") {
+			if !strings.HasPrefix(strings.TrimSpace(line), "bounce.cliente.com.br.") {
+				t.Errorf("amazonses fora do subdomínio de bounce:\n%s", line)
+			}
 		}
 	}
 	// DKIM do Stalwart tem de ser removido (só a nossa chave via SES).
