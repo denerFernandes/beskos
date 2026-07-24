@@ -113,10 +113,16 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
         if (pres && pres.by === myId) resendRef.current(from ? [from] : undefined);
         break;
       case "start":
-        setPres({ id: m.id, token: m.token, by: m.by });
+        // Idempotente: só (re)carrega quando é uma apresentação NOVA (id diferente). O apresentador
+        // reemite "start" em heartbeat (ver abaixo) — sem esta guarda, cada reemissão recriava o
+        // objeto `pres` e o efeito rebuscava o PDF, além de forçar setHidden(false) em quem tinha
+        // escondido localmente. `pres` aqui é o atual (onMsgRef reatribui onMsg a cada render).
+        if (!pres || pres.id !== m.id) {
+          setPres({ id: m.id, token: m.token, by: m.by });
+          setPage(m.slide || 1);
+          setHidden(false);
+        }
         setGranted(new Set(m.granted));
-        setPage(m.slide || 1);
-        setHidden(false);
         break;
       case "slide": setPage(m.n); break;
       case "stroke": {
@@ -206,6 +212,18 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
 
   // Ao montar/reconectar, pergunta o estado (para entrar a meio da apresentação).
   useEffect(() => { post({ t: "hello" }); }, [post]);
+
+  // HEARTBEAT do apresentador: reemite "start" a TODOS a cada 4s. Sem isto, um participante que
+  // perca o único broadcast inicial de "start" fica em branco — em especial um CONVIDADO, que NÃO
+  // tem fallback REST (handleGetPresentation exige sessão → 401). Como o handler de "start" é
+  // idempotente (mesmo id não rebusca o PDF), reemitir é barato e auto-recupera quem entrou/perdeu.
+  useEffect(() => {
+    if (!pres || pres.by !== myId) return;
+    const iv = setInterval(() => {
+      post({ t: "start", id: pres.id, token: pres.token, by: myId, slide: pageRef.current, granted: [...granted] });
+    }, 4000);
+    return () => clearInterval(iv);
+  }, [pres, myId, granted, post]);
 
   // Recuperação por REST só UMA vez, ao entrar (caso ninguém responda ao hello a tempo). Não pode
   // correr sempre que `pres` fica null, senão logo após "Encerrar" voltaria a buscar e reabria.
