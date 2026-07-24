@@ -84,7 +84,10 @@ func (r *Router) Pick(ctx context.Context, message string, choices []AgentChoice
 			{Role: ai.RoleUser, Content: message},
 		},
 		Temperature: 0,
-		MaxTokens:   8,
+		// Folga para modelos de reasoning (DeepSeek v4): o raciocínio consome tokens ANTES do
+		// texto; com um teto baixo (8) o `content` viria vazio e o routing cairia sempre no
+		// fallback. O texto útil continua a ser uma palavra — a folga é só para o pensamento.
+		MaxTokens: 256,
 	})
 	if err != nil {
 		return fallback
