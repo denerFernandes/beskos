@@ -21,7 +21,7 @@ type fakeMailserver struct {
 	failCreateAccount bool
 }
 
-func (f *fakeMailserver) CreateDomain(context.Context, string, string) (string, error) {
+func (f *fakeMailserver) CreateDomain(context.Context, string, string, bool) (string, error) {
 	f.createDomainCalls++
 	return "sw-dom-1", nil
 }
@@ -186,27 +186,23 @@ func TestIdempotentActivate(t *testing.T) {
 type fakeRelay struct {
 	created  int
 	verified bool
-	mailFrom string
 }
 
-func (f *fakeRelay) CreateIdentity(context.Context, string) ([]string, error) {
+func (f *fakeRelay) CreateIdentity(context.Context, string) (string, string, error) {
 	f.created++
-	return []string{"tok1", "tok2", "tok3"}, nil
-}
-func (f *fakeRelay) SetupMailFrom(_ context.Context, _, mailFrom string) (string, error) {
-	f.mailFrom = mailFrom
-	return "feedback-smtp.eu-west-1.amazonses.com", nil
+	return "mail", "PUBKEYbase64", nil // seletor da marca + chave pública nossa (BYODKIM)
 }
 func (f *fakeRelay) IdentityVerified(context.Context, string) (bool, error) {
 	return f.verified, nil
 }
 
-// Com relay: a zona ganha os registros do SES e o dns_verified só sai quando o SES confirma.
+// Com relay (white-label): a zona ganha o DKIM da NOSSA chave (sem amazonses), o SPF via _spf.<brand>
+// e um DMARC; o DKIM do Stalwart é removido; e o dns_verified só sai quando o SES confirma.
 func TestRelaySES(t *testing.T) {
 	sw := &fakeMailserver{zone: "cliente.com.br. IN TXT \"v=spf1 a:mail.x -all\"\nsel._domainkey.cliente.com.br. IN TXT \"v=DKIM1; p=abc\""}
 	store := &fakeStore{domain: newDomain(StatePending)}
 	relay := &fakeRelay{}
-	m := NewMachine(sw, AlwaysVerified{}, store).WithRelay(relay)
+	m := NewMachine(sw, AlwaysVerified{}, store).WithRelay(relay, "beskos.com")
 
 	final := runToActive(t, m, store)
 	// SES ainda não verificou → trava em dns_pending.
@@ -214,19 +210,26 @@ func TestRelaySES(t *testing.T) {
 		t.Fatalf("esperado dns_pending enquanto o SES não verifica, veio %s", final.ProvisionState)
 	}
 	zone := strval(final.DnsZone)
-	for _, want := range []string{"tok1._domainkey.cliente.com.br. IN CNAME tok1.dkim.amazonses.com.",
-		"include:amazonses.com", "_dmarc.cliente.com.br.",
-		"mailer.cliente.com.br. IN MX 10 feedback-smtp.eu-west-1.amazonses.com.",
-		"mailer.cliente.com.br. IN TXT \"v=spf1 include:amazonses.com ~all\""} {
+	for _, want := range []string{
+		"mail._domainkey.cliente.com.br. IN TXT \"v=DKIM1; k=rsa; p=PUBKEYbase64\"",
+		"include:_spf.beskos.com", "_dmarc.cliente.com.br.", "rua=mailto:dmarc@beskos.com",
+	} {
 		if !containsStr(zone, want) {
 			t.Errorf("zona sem %q:\n%s", want, zone)
 		}
 	}
+	// White-label: nada do Amazon deve aparecer no DNS do cliente.
+	for _, forbidden := range []string{"amazonses.com", "dkim.amazonses", "feedback-smtp"} {
+		if containsStr(zone, forbidden) {
+			t.Errorf("zona NÃO devia revelar %q:\n%s", forbidden, zone)
+		}
+	}
+	// DKIM do Stalwart tem de ser removido (só a nossa chave via SES).
+	if containsStr(zone, "sel._domainkey.cliente.com.br") {
+		t.Errorf("DKIM do Stalwart não foi removido:\n%s", zone)
+	}
 	if relay.created != 1 {
 		t.Errorf("CreateIdentity deveria ser 1x, veio %d", relay.created)
-	}
-	if relay.mailFrom != "mailer.cliente.com.br" {
-		t.Errorf("mail-from = %q, esperado mailer.cliente.com.br", relay.mailFrom)
 	}
 
 	// SES confirma → segue até active.

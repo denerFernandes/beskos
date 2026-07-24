@@ -10,17 +10,21 @@ import (
 // Operações de provisionamento mapeadas 1:1 do brief §6/§7 para os métodos JMAP reais
 // da v0.16.4. Ver deploy/DIVERGENCES.md §D4 para os payloads testados.
 
-// CreateDomain cria um domínio (equivalente ao antigo type:domain). DKIM é auto-gerado
-// (dkimManagement=Automatic por default). Retorna o stalwart_id a guardar em domains.stalwart_id.
-func (c *Client) CreateDomain(ctx context.Context, name, description string) (string, error) {
+// CreateDomain cria um domínio (equivalente ao antigo type:domain). Com autoDKIM=true o Stalwart
+// gere e assina o DKIM (dkimManagement=Automatic). Com autoDKIM=false (modo relay/white-label) o
+// DKIM fica Manual — o Stalwart NÃO assina, deixando o relay (SES BYODKIM) ser o único assinante,
+// evitando o cabeçalho DKIM-Signature duplicado. Retorna o stalwart_id.
+func (c *Client) CreateDomain(ctx context.Context, name, description string, autoDKIM bool) (string, error) {
+	create := map[string]any{
+		"name":        name,
+		"isEnabled":   true,
+		"description": description, // guardamos "tenant_id=<n>" aqui, como no brief
+	}
+	if !autoDKIM {
+		create["dkimManagement"] = map[string]any{"@type": "Manual"}
+	}
 	args := map[string]any{
-		"create": map[string]any{
-			"d1": map[string]any{
-				"name":        name,
-				"isEnabled":   true,
-				"description": description, // guardamos "tenant_id=<n>" aqui, como no brief
-			},
-		},
+		"create": map[string]any{"d1": create},
 	}
 	raw, err := c.call(ctx, "x:Domain/set", args)
 	if err != nil {

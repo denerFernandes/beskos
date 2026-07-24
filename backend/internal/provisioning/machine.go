@@ -34,7 +34,8 @@ var ActiveStates = []string{StatePending, StateDomainCreated, StateDKIMCreated, 
 
 // Mailserver é o subconjunto do client Stalwart que a máquina usa (mockável nos testes).
 type Mailserver interface {
-	CreateDomain(ctx context.Context, name, description string) (string, error)
+	// autoDKIM=false (modo relay) cria o domínio com DKIM Manual — o Stalwart não assina.
+	CreateDomain(ctx context.Context, name, description string, autoDKIM bool) (string, error)
 	GetDomainDNSZone(ctx context.Context, domainID string) (string, error)
 	CreateAccount(ctx context.Context, in stalwart.AccountInput) (string, error)
 }
@@ -44,18 +45,13 @@ type DNSVerifier interface {
 	Verify(ctx context.Context, domain, zone string) (bool, error)
 }
 
-// EmailRelay é o relay de saída (Amazon SES): regista o domínio como identidade (Easy DKIM),
-// configura o custom MAIL FROM (subdomínio do próprio domínio — regra do SES) e diz quando a
-// verificação do lado do relay concluiu. nil = sem relay (dev/self-hosted puro).
+// EmailRelay é o relay de saída (Amazon SES) em modo WHITE-LABEL (BYODKIM): regista o domínio como
+// identidade com uma chave DKIM NOSSA e devolve o seletor + a chave pública para o cliente publicar
+// — o DNS do cliente nunca revela o Amazon. nil = sem relay (dev/self-hosted puro).
 type EmailRelay interface {
-	CreateIdentity(ctx context.Context, domain string) (dkimTokens []string, err error)
-	// SetupMailFrom devolve o alvo do MX (feedback-smtp da região) para a zona do cliente.
-	SetupMailFrom(ctx context.Context, domain, mailFromDomain string) (mxTarget string, err error)
+	CreateIdentity(ctx context.Context, domain string) (selector, publicKey string, err error)
 	IdentityVerified(ctx context.Context, domain string) (bool, error)
 }
-
-// mailFromPrefix é o subdomínio de MAIL FROM por tenant (pedido 22/07/2026): mailer.<domínio>.
-const mailFromPrefix = "mailer."
 
 // Store é o subconjunto do db.Queries usado pela máquina.
 type Store interface {
@@ -69,15 +65,18 @@ type Machine struct {
 	dns   DNSVerifier
 	store Store
 	relay EmailRelay // nil = sem SES
+	brand string     // domínio da marca (ex.: beskos.com) para _spf.<brand> e rua do DMARC
 }
 
 func NewMachine(sw Mailserver, dns DNSVerifier, store Store) *Machine {
 	return &Machine{sw: sw, dns: dns, store: store}
 }
 
-// WithRelay liga o registo automático no relay de saída (SES) ao provisionar domínios.
-func (m *Machine) WithRelay(r EmailRelay) *Machine {
+// WithRelay liga o relay de saída (SES white-label) ao provisionar domínios. brand é o domínio da
+// plataforma usado nos registos que escondem o SES (`_spf.<brand>`, rua do DMARC).
+func (m *Machine) WithRelay(r EmailRelay, brand string) *Machine {
 	m.relay = r
+	m.brand = brand
 	return m
 }
 
@@ -108,7 +107,9 @@ func (m *Machine) AdvanceOnce(ctx context.Context, d db.Domain) (changed bool, e
 func (m *Machine) stepCreateDomain(ctx context.Context, d db.Domain) (bool, error) {
 	stalwartID := strval(d.StalwartID)
 	if stalwartID == "" {
-		id, err := m.sw.CreateDomain(ctx, d.Dominio, "tenant_id="+d.TenantID.String())
+		// Com relay (SES), o Stalwart não gere DKIM (autoDKIM=false): quem assina é o SES via BYODKIM.
+		autoDKIM := m.relay == nil
+		id, err := m.sw.CreateDomain(ctx, d.Dominio, "tenant_id="+d.TenantID.String(), autoDKIM)
 		if err != nil {
 			return false, fmt.Errorf("criar domínio: %w", err)
 		}
@@ -126,23 +127,20 @@ func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error
 	if err != nil {
 		return false, fmt.Errorf("ler zona: %w", err)
 	}
-	if !hasDKIM(zone) {
-		return false, nil // ainda não gerado; tenta de novo depois
-	}
 	if m.relay != nil {
-		tokens, err := m.relay.CreateIdentity(ctx, d.Dominio)
+		// White-label: o SES assina via BYODKIM (chave nossa). Registamos a identidade e trocamos o
+		// DKIM do Stalwart pelo nosso — o cliente publica só a nossa chave pública, sem ver o Amazon.
+		selector, publicKey, err := m.relay.CreateIdentity(ctx, d.Dominio)
 		if err != nil {
 			return false, fmt.Errorf("registar identidade no relay: %w", err) // retry no próximo tick
 		}
-		// MAIL FROM próprio (mailer.<domínio>): alinhamento SPF+DKIM no DMARC e envelope com a
-		// marca do cliente em vez de amazonses.com.
-		mailFrom := mailFromPrefix + d.Dominio
-		mxTarget, err := m.relay.SetupMailFrom(ctx, d.Dominio, mailFrom)
-		if err != nil {
-			return false, fmt.Errorf("configurar mail-from no relay: %w", err)
-		}
-		zone = AugmentZoneForSES(zone, d.Dominio, tokens)
-		zone = AugmentZoneMailFrom(zone, mailFrom, mxTarget)
+		zone = StripStalwartDKIM(zone)
+		zone = AugmentZoneForSES(zone, d.Dominio, selector, publicKey, m.brand)
+		return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "ses", d.DnsStatus, &zone)
+	}
+	// Sem relay: espera o DKIM do Stalwart (não aparece na hora — DIVERGENCES §D4).
+	if !hasDKIM(zone) {
+		return false, nil // ainda não gerado; tenta de novo depois
 	}
 	return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "generated", d.DnsStatus, &zone)
 }
