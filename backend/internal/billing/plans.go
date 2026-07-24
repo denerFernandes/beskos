@@ -77,7 +77,7 @@ var plans = []Plan{
 		Prices: map[string]int{"EUR": 1199, "GBP": 999, "BRL": 6900, "PLN": 4900},
 		MinUsers: 1, Recording: "offline", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
 	{ID: "pro", Name: "Pro", MailboxRange: "1–200", MaxMailboxes: 200, MaxStorageBytes: 1024 * GB, MaxDailySend: 20000, MaxMeetParticipants: 200, PriceCentsPerUser: 2000,
-		Prices: map[string]int{"EUR": 1999, "GBP": 1699, "BRL": 10900, "PLN": 7900},
+		Prices: map[string]int{"EUR": 1899, "GBP": 1699, "BRL": 10900, "PLN": 7900},
 		MinUsers: 1, Recording: "offline_priority", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
 }
 
