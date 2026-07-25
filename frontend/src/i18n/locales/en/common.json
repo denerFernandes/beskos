@@ -936,7 +936,8 @@
     "remove": "Remove",
     "removeAttachment": "Remove attachment",
     "prevPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "retry": "Try again"
   },
   "panel": {
     "overview": "Home",

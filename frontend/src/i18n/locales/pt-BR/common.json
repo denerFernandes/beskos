@@ -936,7 +936,8 @@
     "remove": "Remover",
     "removeAttachment": "Remover anexo",
     "prevPage": "Página anterior",
-    "nextPage": "Próxima página"
+    "nextPage": "Próxima página",
+    "retry": "Tentar de novo"
   },
   "panel": {
     "overview": "Início",
