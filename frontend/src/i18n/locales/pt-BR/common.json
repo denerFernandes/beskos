@@ -255,6 +255,7 @@
       "moreFormal": "Mais formal",
       "shorter": "Mais curto",
       "extractedTasks": "Tarefas extraídas",
+      "noTasks": "Este e-mail não tem tarefas para extrair.",
       "addToBoard": "Adicionar ao quadro",
       "assigneeUnmatched": "(sem correspondência — não atribuído)",
       "due": "Vence",
