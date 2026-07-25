@@ -23,6 +23,11 @@ pub struct SyncPair {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub server_url: String,
+    /// Identidade da CONTA a que esta config pertence (ex.: id/e-mail do utilizador). Isola a config
+    /// por conta na mesma máquina: ao trocar de utilizador, os pares de outra conta não são mostrados
+    /// nem herdados. Vazio = config antiga (pré-isolamento) — nesse caso compara-se só o server_url.
+    #[serde(default)]
+    pub account: String,
     /// Pares de pastas sincronizadas. Vazio = nada sincroniza (é preciso adicionar uma pasta).
     #[serde(default)]
     pub pairs: Vec<SyncPair>,

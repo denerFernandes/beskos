@@ -11,23 +11,36 @@ use tauri::State;
 /// Guardado no estado do Tauri para os comandos alcançarem o mesmo motor.
 pub struct SyncEngine(pub Arc<Engine>);
 
+/// Estado do sync PARA A CONTA ATUAL. Recebe a identidade da sessão (server_url + account) e, se a
+/// config gravada pertencer a OUTRA conta (troca de utilizador na mesma máquina), esconde os pares
+/// dela — a UI mostra "ligar esta máquina" em vez das pastas de outrem. Compara também o server_url
+/// para cobrir configs antigas (sem `account`).
 #[tauri::command]
-pub fn sync_status(engine: State<'_, SyncEngine>) -> Status {
-    engine.0.status()
+pub fn sync_status(engine: State<'_, SyncEngine>, account: String, server_url: String) -> Status {
+    let mut s = engine.0.status();
+    let mismatch = (!server_url.is_empty() && !s.server_url.is_empty() && s.server_url != server_url)
+        || (!account.is_empty() && !s.account.is_empty() && s.account != account);
+    if mismatch {
+        s.configured = false;
+        s.pairs = Vec::new();
+    }
+    s
 }
 
 /// Liga esta máquina à conta (servidor + token). O token vem da UI, que o criou via
-/// `POST /api/devices` com a sessão do utilizador — ninguém copia nada à mão. Ainda não sincroniza:
-/// é preciso adicionar pelo menos uma pasta.
+/// `POST /api/devices` com a sessão do utilizador — ninguém copia nada à mão. `account` isola a
+/// config por utilizador: trocar de conta na mesma máquina não herda as pastas da anterior. Ainda
+/// não sincroniza: é preciso adicionar pelo menos uma pasta.
 #[tauri::command]
 pub fn sync_connect(
     engine: State<'_, SyncEngine>,
     server_url: String,
     token: String,
+    account: String,
 ) -> Result<(), String> {
     engine
         .0
-        .connect(&server_url, &token)
+        .connect(&server_url, &token, &account)
         .map_err(|e| e.to_string())
 }
 
