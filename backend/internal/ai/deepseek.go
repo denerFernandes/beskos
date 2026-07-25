@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -22,10 +23,11 @@ func domainToolName(s string) string { return strings.ReplaceAll(s, "_", ".") }
 // DeepSeek implementa Provider via a API de chat compatível com OpenAI
 // (POST {baseURL}/chat/completions). Provider padrão do Beskos.
 type DeepSeek struct {
-	apiKey  string
-	baseURL string
-	model   string
-	http    *http.Client
+	apiKey    string
+	baseURL   string
+	model     string
+	reasoning bool // v4 "pensa" antes de responder; desligado por defeito (latência)
+	http      *http.Client
 }
 
 func NewDeepSeek(apiKey, baseURL, model string) *DeepSeek {
@@ -42,8 +44,21 @@ func NewDeepSeek(apiKey, baseURL, model string) *DeepSeek {
 		apiKey:  apiKey,
 		baseURL: baseURL,
 		model:   model,
-		http:    &http.Client{Timeout: 60 * time.Second},
+		// Reasoning OFF por defeito: o v4 gera reasoning_content ANTES do texto e, em streaming, o
+		// utilizador fica segundos a ver o nada (parece lento). Desligado responde imediatamente, como
+		// o antigo deepseek-chat. AI_REASONING=on reativa (respostas mais fortes, mais lentas).
+		reasoning: os.Getenv("AI_REASONING") == "on",
+		http:      &http.Client{Timeout: 60 * time.Second},
 	}
+}
+
+// thinkingParam devolve o controlo de reasoning para o corpo do pedido: {"type":"disabled"} quando
+// off (nil quando on, para o modelo usar o default dele). Só afeta os modelos v4 da DeepSeek.
+func (d *DeepSeek) thinkingParam() *thinkingOpt {
+	if d.reasoning {
+		return nil
+	}
+	return &thinkingOpt{Type: "disabled"}
 }
 
 func (d *DeepSeek) Name() string { return "deepseek" }
@@ -52,12 +67,18 @@ func (d *DeepSeek) Name() string { return "deepseek" }
 // ToolCall) não fique preso ao formato de um fornecedor: trocar de provider é escrever outra
 // tradução, não mudar os consumidores.
 type chatRequest struct {
-	Model       string     `json:"model"`
-	Messages    []wireMsg  `json:"messages"`
-	Temperature float64    `json:"temperature,omitempty"`
-	MaxTokens   int        `json:"max_tokens,omitempty"`
-	Stream      bool       `json:"stream"`
-	Tools       []wireTool `json:"tools,omitempty"`
+	Model       string       `json:"model"`
+	Messages    []wireMsg    `json:"messages"`
+	Temperature float64      `json:"temperature,omitempty"`
+	MaxTokens   int          `json:"max_tokens,omitempty"`
+	Stream      bool         `json:"stream"`
+	Tools       []wireTool   `json:"tools,omitempty"`
+	Thinking    *thinkingOpt `json:"thinking,omitempty"`
+}
+
+// thinkingOpt controla o reasoning dos modelos DeepSeek v4 ({"type":"disabled"} = sem pensar).
+type thinkingOpt struct {
+	Type string `json:"type"`
 }
 
 type wireMsg struct {
@@ -152,6 +173,7 @@ func (d *DeepSeek) Complete(ctx context.Context, req Request) (Response, error) 
 		MaxTokens:   req.MaxTokens,
 		Stream:      false,
 		Tools:       toolsToWire(req.Tools),
+		Thinking:    d.thinkingParam(),
 	})
 	if err != nil {
 		return Response{}, err
