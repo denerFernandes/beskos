@@ -81,6 +81,9 @@ export function ExtractTasksModal({
               </button>
             </div>
           )}
+          {tasks.isSuccess && (tasks.data?.length ?? 0) === 0 && (
+            <p className="editor-msg">{t("webmail.ai.noTasks")}</p>
+          )}
           {(tasks.data ?? []).map((tk, i) => (
             <div className="task" key={i}>
               <div className={"cb" + (checked[i] ? " on" : "")} onClick={() => setChecked((c) => ({ ...c, [i]: !c[i] }))}>

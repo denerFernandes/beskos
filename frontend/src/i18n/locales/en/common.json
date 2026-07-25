@@ -255,6 +255,7 @@
       "moreFormal": "More formal",
       "shorter": "Shorter",
       "extractedTasks": "Extracted tasks",
+      "noTasks": "This email has no tasks to extract.",
       "addToBoard": "Add to board",
       "assigneeUnmatched": "(no match — unassigned)",
       "due": "Due",
