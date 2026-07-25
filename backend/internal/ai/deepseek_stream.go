@@ -48,6 +48,7 @@ func (d *DeepSeek) Stream(ctx context.Context, req Request, onDelta func(string)
 		MaxTokens:   req.MaxTokens,
 		Stream:      true,
 		Tools:       toolsToWire(req.Tools),
+		Thinking:    d.thinkingParam(),
 	})
 	if err != nil {
 		return Response{}, err
