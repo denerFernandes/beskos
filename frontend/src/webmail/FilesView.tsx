@@ -46,22 +46,26 @@ export function FilesView({ search, folderParam, onFolder }: {
   const filesCfg = useSection("files");
   const changeView = (v: "grid" | "list") => { setView(v); filesCfg.save({ view: v }); };
   // Pastas sincronizadas com o computador: destacadas na lista (só existe no app de desktop).
+  // A conta atual (e-mail) isola o sync por utilizador — sem ela, ao trocar de conta apareciam as
+  // pastas da conta anterior.
+  const meQ = useQuery({ queryKey: ["me"], queryFn: () => backend.me(), staleTime: 60000 });
+  const account = meQ.data?.email ?? "";
   const [syncedIds, setSyncedIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!syncSupported()) return;
     let alive = true;
     const tick = () => {
-      syncApi.status()
+      syncApi.status(account)
         .then((st) => { if (alive) setSyncedIds(new Set(st.pairs.map((p) => p.folder_id))); })
         .catch(() => {});
     };
     tick();
     const id = setInterval(tick, 3000);
     return () => { alive = false; clearInterval(id); };
-  }, []);
+  }, [account]);
   const addSyncFolder = async () => {
     try {
-      const pair = await syncApi.addFolder();
+      const pair = await syncApi.addFolder(account);
       if (pair) toast(t("files.syncStarted", { name: pair.name }));
     } catch (e) { toast((e as Error).message); }
   };

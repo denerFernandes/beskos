@@ -399,16 +399,20 @@ function SyncSection() {
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [bandwidth, setBandwidth] = useState(0);
   const [busy, setBusy] = useState(false);
+  // Conta atual (e-mail): isola o sync por utilizador. Sem isto, ao trocar de conta na mesma máquina
+  // apareciam as pastas da conta anterior. O daemon compara e esconde a config de outra conta.
+  const [account, setAccount] = useState("");
+  useEffect(() => { if (supported) backend.me().then((m) => setAccount(m.email || "")).catch(() => {}); }, [supported]);
 
   // Sonda o estado enquanto a página está aberta (o motor corre em fundo e vai mudando).
   useEffect(() => {
     if (!supported) return;
     let alive = true;
-    const tick = () => { syncApi.status().then((s) => { if (alive) setStatus(s); }).catch(() => {}); };
+    const tick = () => { syncApi.status(account).then((s) => { if (alive) setStatus(s); }).catch(() => {}); };
     tick();
     const id = setInterval(tick, 1500);
     return () => { alive = false; clearInterval(id); };
-  }, [supported]);
+  }, [supported, account]);
 
   useEffect(() => { if (supported) syncApi.bandwidth().then(setBandwidth).catch(() => {}); }, [supported]);
 
@@ -424,7 +428,7 @@ function SyncSection() {
   const addFolder = async () => {
     try {
       setBusy(true);
-      const pair = await syncApi.addFolder();
+      const pair = await syncApi.addFolder(account);
       if (pair) toast(t("settings.syncFolderAdded", { name: pair.name }));
     } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
   };

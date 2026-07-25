@@ -33,6 +33,10 @@ pub struct Status {
     pub paused: bool,
     /// Se já há credenciais gravadas (senão a UI mostra o ecrã de "ligar esta máquina").
     pub configured: bool,
+    /// Servidor e conta a que a config gravada pertence — a UI compara com a sessão atual para não
+    /// mostrar os pares de outra conta na mesma máquina.
+    pub server_url: String,
+    pub account: String,
     /// Pastas sincronizadas (pares local↔nuvem).
     pub pairs: Vec<crate::config::SyncPair>,
 }
@@ -44,6 +48,8 @@ impl Status {
             message: String::new(),
             paused: false,
             configured: false,
+            server_url: String::new(),
+            account: String::new(),
             pairs: Vec::new(),
         }
     }
@@ -97,6 +103,8 @@ impl Engine {
         let has_token = config::load_token().map(|t| !t.is_empty()).unwrap_or(false);
         let mut s = self.state.lock().unwrap_or_else(|e| e.into_inner());
         s.configured = cfg.is_some() && has_token;
+        s.server_url = cfg.as_ref().map(|c| c.server_url.clone()).unwrap_or_default();
+        s.account = cfg.as_ref().map(|c| c.account.clone()).unwrap_or_default();
         s.pairs = cfg.map(|c| c.pairs).unwrap_or_default();
     }
 
@@ -115,15 +123,26 @@ impl Engine {
 
     /// Liga esta máquina à conta (servidor + token do dispositivo). Ainda não sincroniza nada —
     /// é preciso adicionar pelo menos uma pasta com `add_pair`.
-    pub fn connect(&self, server_url: &str, token: &str) -> Result<()> {
+    pub fn connect(&self, server_url: &str, token: &str, account: &str) -> Result<()> {
         let _ = api::Client::new(server_url, token)?; // valida cedo (exige https fora de localhost)
         let prev = config::load().ok();
+        // Só herda os pares/definições se for a MESMA conta e servidor. Ao trocar de utilizador na
+        // mesma máquina, começa do zero — senão o dfernandes herdava as pastas da ana.
+        let same = prev
+            .as_ref()
+            .map(|c| c.server_url == server_url && c.account == account)
+            .unwrap_or(false);
         config::save(
             &config::Config {
                 server_url: server_url.to_string(),
-                pairs: prev.as_ref().map(|c| c.pairs.clone()).unwrap_or_default(),
-                workers: prev.as_ref().map(|c| c.workers).unwrap_or(0),
-                bandwidth_kbps: prev.as_ref().map(|c| c.bandwidth_kbps).unwrap_or(0),
+                account: account.to_string(),
+                pairs: if same {
+                    prev.as_ref().map(|c| c.pairs.clone()).unwrap_or_default()
+                } else {
+                    Vec::new()
+                },
+                workers: if same { prev.as_ref().map(|c| c.workers).unwrap_or(0) } else { 0 },
+                bandwidth_kbps: if same { prev.as_ref().map(|c| c.bandwidth_kbps).unwrap_or(0) } else { 0 },
             },
             token,
         )?;
