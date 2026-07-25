@@ -32,13 +32,16 @@ export function applyBrandColor(color: string): void {
   if (!el) { el = document.createElement("style"); el.id = STYLE_ID; document.head.appendChild(el); }
   const light =
     `--accent:${color}!important;` +
+    `--accent-solid:${color}!important;` +
     `--accent-ink:color-mix(in srgb, ${color} 82%, #000)!important;` +
     `--accent-tint:color-mix(in srgb, ${color} 16%, transparent)!important;`;
   // Escuro: seleção/ativo em BRANCO (pedido 23/07/2026) — pill de seleção é um véu branco
   // subtil e o texto/ícone ativo fica quase-branco; o accent "funcional" (botões/knobs) é a
-  // marca clareada para não desaparecer no fundo escuro.
+  // marca clareada para não desaparecer no fundo escuro. --accent-solid é o FILL dos botões:
+  // segue a cor da marca, mas pouco clareado (fica vivo, não pastel) e legível com texto branco.
   const dark =
     `--accent:color-mix(in srgb, ${color} 45%, #fff)!important;` +
+    `--accent-solid:color-mix(in srgb, ${color} 85%, #fff)!important;` +
     `--accent-ink:#ECEAE5!important;` +
     `--accent-tint:rgba(255,255,255,.09)!important;`;
   // Mesma cascata do tema (webmail.css): media query como base, data-theme explícito ganha.
