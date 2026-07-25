@@ -31,6 +31,9 @@ export function ExtractTasksModal({
     return hit?.id ?? "";
   };
 
+  // Extração é uma AÇÃO (gera tarefas), não dado cacheável: não guardamos o resultado entre
+  // aberturas (gcTime 0) — senão um erro transitório (ex.: a API a reiniciar) ficava "colado" ao
+  // email e reabrir mostrava o erro sem nunca voltar a tentar. Assim reabrir/refazer corre de novo.
   const tasks = useQuery({
     queryKey: ["extract", subject, body],
     queryFn: async () => {
@@ -39,6 +42,9 @@ export function ExtractTasksModal({
       return r.tasks;
     },
     retry: false,
+    gcTime: 0,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const add = useMutation({
@@ -67,7 +73,14 @@ export function ExtractTasksModal({
         <div className="body">
           <BoardPicker value={boardId} onChange={setBoardId} />
           {tasks.isLoading && <div className="ai-think-row"><AiThinking /></div>}
-          {tasks.isError && <p className="err">{(tasks.error as Error).message}</p>}
+          {tasks.isError && (
+            <div className="err">
+              <p>{(tasks.error as Error).message}</p>
+              <button className="chipbtn" onClick={() => void tasks.refetch()} disabled={tasks.isFetching}>
+                {tasks.isFetching ? <Spinner size={13} /> : t("common.retry")}
+              </button>
+            </div>
+          )}
           {(tasks.data ?? []).map((tk, i) => (
             <div className="task" key={i}>
               <div className={"cb" + (checked[i] ? " on" : "")} onClick={() => setChecked((c) => ({ ...c, [i]: !c[i] }))}>
