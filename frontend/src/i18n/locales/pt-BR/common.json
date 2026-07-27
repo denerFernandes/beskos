@@ -2051,10 +2051,11 @@
     "purposeHint": "Uma linha. É por aqui que o assistente decide sozinho quando usar este perfil.",
     "instructions": "Instruções",
     "tools": "Ferramentas",
-    "toolsHint": "Um assistente só consegue fazer o que estiver marcado aqui. O servidor recusa qualquer ferramenta fora desta lista.",
+    "toolsHint": "Corte fino: desligar uma ferramenta aqui tira-a a TODOS os agentes, incluindo os criados por ti e as tarefas em fundo.",
     "duplicateOf": "Partir de",
     "fromScratch": "Do zero",
-    "duplicateWarning": "A cópia é independente: deixa de receber as nossas melhorias ao perfil de origem."
+    "duplicateWarning": "A cópia é independente: deixa de receber as nossas melhorias ao perfil de origem.",
+    "toolsTitle": "Ferramentas"
   },
   "memory": {
     "title": "Memória do assistente",

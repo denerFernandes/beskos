@@ -168,6 +168,10 @@ export const assistantApi = {
   agentDelete: (key: string) =>
     req<{ status: string }>(`/api/assistant/agents/${key}`, { method: "DELETE" }),
   // Liga ou desliga um agente de ORIGEM. Controla a disponibilidade, nunca o comportamento (§3.2).
+  // Ferramentas desligadas pela organização (teto fino sobre TODOS os agentes).
+  tools: () => req<{ tools: string[]; disabled: string[] }>("/api/assistant/tools"),
+  toolEnable: (tool: string, enabled: boolean) =>
+    req<{ tool: string; enabled: boolean }>(`/api/assistant/tools/${encodeURIComponent(tool)}`, { method: "POST", body: JSON.stringify({ enabled }) }),
   agentEnable: (key: string, enabled: boolean) =>
     req<{ key: string; enabled: boolean }>(`/api/assistant/agents/${key}/enabled`, {
       method: "POST", body: JSON.stringify({ enabled }),

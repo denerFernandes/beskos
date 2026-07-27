@@ -77,6 +77,8 @@ export function AssistantAgentsSection() {
           </div>
         </div>
 
+        <ToolsCard />
+
         <div className="pnl-card">
           <div className="pnl-card-h">{t("agents.custom")}</div>
           <div className="pnl-card-b">
@@ -204,5 +206,42 @@ function AgentEditor({
         <p className="desc">{t("agents.toolsHint")}</p>
       </div>
     </Drawer>
+  );
+}
+
+// Ferramentas do assistente, uma a uma. É o corte FINO por cima do ligar/desligar um agente inteiro:
+// desligar "enviar e-mail" aqui tira a capacidade a TODOS os agentes, de origem ou do cliente, e
+// vale também para as tarefas em fundo. Só restringe — nunca dá a um agente algo que ele não tinha.
+function ToolsCard() {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["assistant-tools"], queryFn: () => assistantApi.tools(), retry: false });
+  const set = useMutation({
+    mutationFn: ({ tool, enabled }: { tool: string; enabled: boolean }) => assistantApi.toolEnable(tool, enabled),
+    // A lista de agentes mostra as ferramentas de cada um: tem de refletir o corte na hora.
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["assistant-tools"] }); qc.invalidateQueries({ queryKey: ["assistant-agents"] }); },
+    onError: (e: Error) => toast(e.message),
+  });
+  const off = new Set(q.data?.disabled ?? []);
+  return (
+    <div className="pnl-card">
+      <div className="pnl-card-h">{t("agents.toolsTitle")}<div className="desc">{t("agents.toolsHint")}</div></div>
+      <div className="pnl-card-b">
+        {(q.data?.tools ?? []).map((tool) => (
+          <div className="pnl-row" key={tool}>
+            <div>
+              <b>{t(`assistant.tools.${tool}`, { defaultValue: tool })}</b>
+              <div className="sub mono">{tool}</div>
+            </div>
+            <div className="grow" />
+            <label className="switch" title={off.has(tool) ? t("agents.off") : t("agents.on")}>
+              <input type="checkbox" checked={!off.has(tool)} disabled={set.isPending}
+                onChange={() => set.mutate({ tool, enabled: off.has(tool) })} />
+              <span className="track" />
+            </label>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

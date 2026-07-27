@@ -46,6 +46,37 @@ func AllowedTools(tools []string, disabledApps []string) []string {
 	return out
 }
 
+// WithoutTools tira da lista as ferramentas que a organização desligou. É um TETO: só remove, nunca
+// acrescenta — nem para agentes criados pelo cliente, que já são validados contra o catálogo. Serve
+// o corte fino ("a IA nunca envia e-mail") sem tocar no que cada agente é (§3.2, decisão 3).
+func WithoutTools(tools []string, blocked []string) []string {
+	if len(blocked) == 0 || len(tools) == 0 {
+		return tools
+	}
+	off := make(map[string]bool, len(blocked))
+	for _, b := range blocked {
+		off[b] = true
+	}
+	out := make([]string, 0, len(tools))
+	for _, t := range tools {
+		if !off[t] {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// AllTools é o catálogo completo, para a governança poder listar o que há para desligar.
+func AllTools() []string {
+	return []string{
+		ToolMailSearch, ToolMailRead, ToolMailDraft, ToolMailSend,
+		ToolContactsSearch, ToolContactsCreate, ToolContactsShare,
+		ToolDriveSearch, ToolDocsCreate, ToolDocsRead, ToolDocsEdit, ToolDocsShare,
+		ToolTasksCreate, ToolCalendarCreate,
+		ToolWikiSearch, ToolWikiRead, ToolWikiCreatePage, ToolWikiEditPage,
+	}
+}
+
 // AgentAvailable diz se um agente de origem continua disponível dadas as apps desligadas.
 func AgentAvailable(agentKey string, disabledApps []string) bool {
 	for app, ag := range AppAgent {

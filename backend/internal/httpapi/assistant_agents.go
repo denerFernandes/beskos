@@ -135,6 +135,7 @@ func (s *Server) handleAssistantAgents(w http.ResponseWriter, r *http.Request) {
 	// Apps desligadas pela organização também tiram o agente que delas depende (ex.: sem Ficheiros,
 	// sem agente de Documentos; sem Correio, sem o de Caixa) — não só das ferramentas, mas do picker.
 	disabledApps := s.disabledAppsEffective(r.Context(), mu.TenantID)
+	blockedTools := s.disabledAssistantTools(r.Context(), mu.TenantID)
 
 	items := make([]agentJSON, 0, 6)
 	for _, key := range assistant.BuiltinKeys() {
@@ -143,7 +144,7 @@ func (s *Server) handleAssistantAgents(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		items = append(items, agentJSON{
-			Key: ag.Key, Builtin: true, Tools: assistant.AllowedTools(ag.Tools, disabledApps),
+			Key: ag.Key, Builtin: true, Tools: assistant.WithoutTools(assistant.AllowedTools(ag.Tools, disabledApps), blockedTools),
 			Enabled: !disabled[key],
 		})
 	}

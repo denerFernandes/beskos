@@ -8003,6 +8003,32 @@ func (q *Queries) ListDeviceTokens(ctx context.Context, mailUserID uuid.UUID) ([
 	return items, nil
 }
 
+const listDisabledAssistantTools = `-- name: ListDisabledAssistantTools :many
+
+SELECT tool FROM assistant_tool_settings WHERE tenant_id = $1 AND enabled = false ORDER BY tool
+`
+
+// ---------- Ferramentas do assistente desligadas (governança fina) ----------
+func (q *Queries) ListDisabledAssistantTools(ctx context.Context, tenantID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listDisabledAssistantTools, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var tool string
+		if err := rows.Scan(&tool); err != nil {
+			return nil, err
+		}
+		items = append(items, tool)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDisabledBuiltinAgents = `-- name: ListDisabledBuiltinAgents :many
 SELECT agent_key FROM assistant_builtin_settings
 WHERE tenant_id = $1 AND enabled = FALSE
@@ -11683,6 +11709,23 @@ type SetAnnouncementPublishedParams struct {
 
 func (q *Queries) SetAnnouncementPublished(ctx context.Context, arg SetAnnouncementPublishedParams) error {
 	_, err := q.db.Exec(ctx, setAnnouncementPublished, arg.ID, arg.TenantID, arg.Published)
+	return err
+}
+
+const setAssistantToolEnabled = `-- name: SetAssistantToolEnabled :exec
+INSERT INTO assistant_tool_settings (tenant_id, tool, enabled)
+VALUES ($1, $2, $3)
+ON CONFLICT (tenant_id, tool) DO UPDATE SET enabled = EXCLUDED.enabled
+`
+
+type SetAssistantToolEnabledParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	Tool     string    `json:"tool"`
+	Enabled  bool      `json:"enabled"`
+}
+
+func (q *Queries) SetAssistantToolEnabled(ctx context.Context, arg SetAssistantToolEnabledParams) error {
+	_, err := q.db.Exec(ctx, setAssistantToolEnabled, arg.TenantID, arg.Tool, arg.Enabled)
 	return err
 }
 

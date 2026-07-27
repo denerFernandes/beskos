@@ -96,6 +96,9 @@ func (s *Server) handleAssistantChat(w http.ResponseWriter, r *http.Request) {
 		}
 		turn.agent.Tools = assistant.AllowedTools(turn.agent.Tools, disabled)
 	}
+	// Teto fino: ferramentas que a organização desligou uma a uma. Vale para TODOS os agentes e é
+	// aplicado DEPOIS do filtro das apps — é a última palavra sobre o que a IA pode fazer.
+	turn.agent.Tools = assistant.WithoutTools(turn.agent.Tools, s.disabledAssistantTools(r.Context(), mu.TenantID))
 	if req.Background {
 		// A conversa devolve logo um cartão de tarefa; o trabalho continua no servidor. Sem SSE:
 		// não há nada a transmitir, o progresso vê-se no separador de Tarefas.
