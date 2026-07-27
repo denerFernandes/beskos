@@ -738,6 +738,11 @@
 .wm .tk{width:480px;max-width:92vw;background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;}
 .wm .tk header{padding:16px 18px;border-bottom:1px solid var(--border);font-weight:600;display:flex;align-items:center;justify-content:space-between;}
 .wm .tk .body{padding:4px 18px 8px;}
+/* .tk-body: o corpo dos modais pequenos (agendadas, emojis, transferir contato, seletor de tarefa).
+   Estava sem regra nenhuma — o conteúdo colava-se à borda e o texto de apoio saía com o tamanho de
+   um parágrafo solto. Fica com o mesmo respiro do .tk .body. */
+.wm .tk-body{padding:14px 18px 16px;}
+.wm .tk-body .desc{margin:0;color:var(--muted);font-size:13px;line-height:1.45;}
 .wm .tk .task{display:flex;gap:11px;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--border);}
 .wm .tk .task:last-child{border-bottom:none;}
 .wm .tk .cb{width:19px;height:19px;border:2px solid var(--border-strong);border-radius:6px;flex:none;margin-top:1px;display:grid;place-items:center;color:#fff;font-size:12px;cursor:pointer;}
@@ -1312,6 +1317,9 @@
 .wm .mention-pop{position:absolute;bottom:calc(100% - 4px);left:20px;right:20px;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;z-index:9;}
 .wm .mention-pop button{display:flex;align-items:center;gap:9px;width:100%;padding:8px 11px;border:none;background:none;text-align:left;color:var(--ink);cursor:pointer;}
 .wm .mention-pop button:hover{background:var(--surface-2);}
+/* .on = item destacado pelas setas; mesma cor do hover, para o teclado e o rato falarem a mesma
+   língua. A barra à esquerda diz qual é o que o Enter escolhe. */
+.wm .mention-pop button.on{background:var(--surface-2);box-shadow:inset 3px 0 0 var(--accent);}
 .wm .mention-pop .av{width:26px;height:26px;border-radius:50%;color:#fff;font-size:11px;display:grid;place-items:center;}
 .wm .mention-pop .nm{font-size:13px;font-weight:600;}
 .wm .mention-pop .em{font-size:12px;color:var(--faint);margin-left:auto;}
@@ -1826,10 +1834,15 @@
 .wm .task-ref .tr-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Menu de comandos ("/"): mesma caixa das menções, com o "/" no lugar do avatar. */
 .wm .slash-pop .av.special{background:var(--surface-2);color:var(--accent-ink);font-weight:700;}
+/* Seletor de tarefas (/task): altura mínima para o modal não saltar entre "escreve algo", o spinner
+   e os resultados enquanto se escreve. */
+.wm .task-pick-list{display:flex;flex-direction:column;gap:2px;min-height:168px;max-height:52vh;overflow-y:auto;}
+.wm .task-pick-list .loading{padding:24px;}
 /* Linha do seletor de tarefas (/task) */
 .wm .task-hit{display:flex;align-items:flex-start;gap:9px;width:100%;text-align:left;background:none;
   border:0;color:var(--text);padding:8px 10px;border-radius:8px;cursor:pointer;}
-.wm .task-hit:hover{background:var(--hover);}
+.wm .task-hit:hover,.wm .task-hit.on{background:var(--hover);}
+.wm .task-hit.on{box-shadow:inset 3px 0 0 var(--accent);}
 .wm .task-hit .th-key{font-family:ui-monospace,monospace;font-size:12px;color:var(--accent-ink);flex:none;padding-top:1px;}
 .wm .task-hit .th-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .wm .task-hit .th-title{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
