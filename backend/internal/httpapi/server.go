@@ -49,6 +49,7 @@ type Server struct {
 	corsOrigins  []string      // origens permitidas para CORS (app nativo Tauri, web externa)
 	cookieSecure bool          // cookie de sessão como Secure+SameSite=None (HTTPS/cross-site)
 	publicURL    string        // URL pública da app p/ links absolutos que saem em e-mails (sem "/" final)
+	mailHost     string        // host público do servidor de correio (IMAP/SMTP/JMAP) para os clientes externos
 	aiProxyBase  string        // endpoint DeepSeek (OpenAI-compat) p/ o proxy de IA do editor
 	aiProxyKey   string        // chave real do DeepSeek — SÓ no servidor, nunca vai ao browser
 	aiProxyModel string        // modelo a forçar no proxy (ex.: deepseek-chat)
@@ -240,6 +241,7 @@ func (s *Server) Router() http.Handler {
 			r.Patch("/mail/templates/{id}", s.handleUpdateTemplate)
 			r.Delete("/mail/templates/{id}", s.handleDeleteTemplate)
 			r.Get("/me", s.handleMe)
+			r.Get("/me/mail-connection", s.handleMailConnection) // IMAP/SMTP para clientes externos
 
 			// MFA (enrollment do 2º fator). Requer sessão já ativa.
 			// Política de segurança da organização (MFA obrigatório) — só quem gere a org.

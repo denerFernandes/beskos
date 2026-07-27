@@ -2211,6 +2211,7 @@
 .wm .set-page h2{margin:0 0 16px;font-size:20px;font-weight:700;}
 /* Subtítulo dentro de uma página de definições (ex.: "Sincronização" dentro de Ficheiros): separa
    grupos de cartões sem inventar outra página. */
+.wm .ios-row-sub.mono{font-family:ui-monospace,monospace;font-size:12.5px;word-break:break-all;}
 .wm .set-page .set-sub{margin:22px 0 10px;font-size:15px;font-weight:650;}
 .wm .set-card{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;}
 .wm .set-field{display:flex;align-items:center;justify-content:space-between;gap:14px;}

@@ -356,6 +356,8 @@ export const backend = {
   presentationPdfUrl: (id: string, token: string) => apiUrl(`/api/public/meet/presentation/${id}/pdf?token=${encodeURIComponent(token)}`),
   setMyStatus: (emoji: string, text: string) => req<{ emoji: string; text: string }>("/api/me/status", { method: "PUT", body: JSON.stringify({ emoji, text }) }),
   userStatus: (email: string) => req<{ emoji: string; text: string }>(`/api/user-status?email=${encodeURIComponent(email)}`),
+  // Dados de ligação para clientes externos (IMAP/SMTP) — o que se cola no Outlook ou no site.
+  mailConnection: () => req<MailConnection>("/api/me/mail-connection"),
   me: () => req<{ id?: string; presence?: string; email?: string; name?: string; role?: string; mfa_setup_required?: boolean; mfa_required_method?: string; avatar?: string }>("/api/me"),
   myProfile: () => req<{ email: string; name: string; job_title: string; phone: string; avatar: string }>("/api/me/profile"),
   updateMyProfile: (p: { name: string; job_title: string; phone: string; avatar: string }) =>
@@ -442,6 +444,12 @@ export interface Branding { name: string; color: string; logo: string; logo_whit
 export interface Announcement { id: string; title: string; body: string; author: string; published: boolean; created_at: string }
 export interface Notif { id: string; kind: string; title: string; body: string; link: string; read_at: string | null; created_at: string; args?: Record<string, string> }
 
+export interface MailConnection {
+  host: string; username: string;
+  imap: { host: string; port: number; security: string };
+  smtp: { host: string; port: number; security: string }[];
+  jmap: { url: string }; caldav: { url: string };
+}
 export interface ChatChannel { id: string; kind: "public" | "private" | "dm"; name: string; topic: string; is_general?: boolean; unread?: number; last_read_at?: string; other_id?: string; listed?: boolean; add_policy?: "open" | "restricted"; my_role?: string; notif_pref?: "all" | "mentions" | "none" }
 // Tarefa devolvida pela busca (/task no chat). card_key vem do servidor como "PREFIXO-Nº".
 export interface CardHit { id: string; board_id: string; title: string; label: string; due: string; priority: string; card_key: string; board_name: string; column_name: string; assignee_name: string }
