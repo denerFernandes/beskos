@@ -8,7 +8,7 @@ import (
 // A marca só chega ao editor se `logo` e `customer` forem para o config; e a atribuição à
 // Ascensio System SIA tem de viajar sempre, porque é ela que cumpre a AGPL no "Sobre".
 func TestApplyBrandingSetsLogoAndAttribution(t *testing.T) {
-	o := &onlyoffice{}
+	o := &onlyoffice{publicURL: "http://localhost:8082"}
 	c := map[string]any{"uiTheme": "theme-light"}
 	o.applyBranding(c)
 
@@ -16,10 +16,15 @@ func TestApplyBrandingSetsLogoAndAttribution(t *testing.T) {
 	if !ok {
 		t.Fatal("customization.logo em falta — o cabeçalho ficaria com a marca original")
 	}
+	// URL curta, servida pelo próprio Document Server. Um data: URI aqui rebenta a query string
+	// do iframe do editor (nginx 414) — foi assim que partiu da primeira vez.
 	for _, k := range []string{"image", "imageLight", "imageDark"} {
 		v, _ := logo[k].(string)
-		if !strings.HasPrefix(v, "data:image/svg+xml;base64,") {
-			t.Errorf("logo.%s devia ser um data: URI, veio %q", k, v)
+		if !strings.HasPrefix(v, "http://localhost:8082"+brandLogoPath) {
+			t.Errorf("logo.%s devia ser uma URL no Document Server, veio %q", k, v)
+		}
+		if len(v) > 200 {
+			t.Errorf("logo.%s tem %d chars — vai para a query string do iframe, tem de ser curta", k, len(v))
 		}
 	}
 

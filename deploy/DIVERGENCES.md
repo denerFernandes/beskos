@@ -210,6 +210,12 @@ para o OnlyOffice** — e só para ele. O Stalwart continua intocado (lei §5.4)
   desnecessário, porque o veredito da licença só é *aplicado* no cliente.
 - O nginx do DS serve com `gzip_static`: sem regenerar o `.gz` ao lado, o browser recebe o ficheiro
   original e o patch parece não ter efeito. É o erro fácil desta modificação.
+- **O logo NÃO pode ser um `data:` URI.** O `api.js` do DS passa `customization.logo.{image,imageDark,
+  imageLight}` na **query string do iframe** do editor (linhas ~1216-1219). Três data URIs de ~7 KB,
+  percent-encoded, dão ~57 KB de linha de pedido → **`414 Request-URI Too Large`** ao abrir qualquer
+  documento. Solução: o patch copia os SVG para dentro do webroot do DS
+  (`web-apps/apps/common/main/resources/img/beskos/`) e o backend manda a URL — 362 chars, mesma
+  origem do editor, sem CORS e sem depender de a app estar publicamente exposta.
 
 **Decisão:** aplicar o patch no arranque do container (`deploy/onlyoffice-branding-patch.sh`, chamado
 pelo entrypoint), mantendo a imagem oficial pinada por digest. Idempotente e fail-safe: se o padrão

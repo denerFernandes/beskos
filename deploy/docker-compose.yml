@@ -208,6 +208,9 @@ services:
     volumes:
       - ./onlyoffice-ai-init.sh:/scripts/onlyoffice-ai-init.sh:ro
       - ./onlyoffice-branding-patch.sh:/scripts/onlyoffice-branding-patch.sh:ro
+      # Logos da marca: o patch copia-os para dentro do webroot do DS e o backend referencia-os
+      # por URL (data: URI não serve — ver o comentário no script).
+      - ./onlyoffice-brand:/scripts/brand:ro
     ports:
       - "127.0.0.1:8082:80"   # só no host (browser em dev via localhost; prod atrás de proxy HTTPS)
     healthcheck:
