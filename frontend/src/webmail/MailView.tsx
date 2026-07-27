@@ -154,9 +154,31 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
   const [advFilter, setAdvFilter] = useState<Record<string, unknown> | null>(null);
 
   // A lista recarrega sozinha (novos e-mails sem recarregar a página). Busca não fica em polling.
+  // Separação por endereço (estilo Mail do Mac): um alias entrega na MESMA caixa, por isso "separar"
+  // é filtrar por destinatário, não abrir uma conta nova. Sem aliases, nada disto aparece.
+  const addrQ = useQuery({ queryKey: ["my-addresses"], queryFn: () => backend.myAddresses(), retry: false, staleTime: 300000 });
+  const aliases = addrQ.data?.aliases ?? [];
+  const [addrFilter, setAddrFilter] = useState(""); // "" = tudo o que chega à caixa
+  // O filtro por endereço vira uma busca avançada limitada à pasta atual: para/cc com o endereço.
+  const addrJmapFilter = useMemo(() => {
+    if (!addrFilter || !activeFolder) return null;
+    return {
+      operator: "AND",
+      conditions: [
+        { inMailbox: activeFolder },
+        { operator: "OR", conditions: [{ to: addrFilter }, { cc: addrFilter }] },
+      ],
+    } as Record<string, unknown>;
+  }, [addrFilter, activeFolder]);
+
   const listQ = useQuery({
-    queryKey: ["emails", advFilter ? `adv:${JSON.stringify(advFilter)}` : search ? `s:${search}` : starred ? "starred" : labelId ? `label:${labelId}` : activeFolder, page],
-    queryFn: () => (advFilter ? svc.searchAdvanced(advFilter, position) : search ? svc.search(search, position) : starred ? svc.listStarred(position) : labelId ? svc.listByLabel(labelKeyword(labelId), position) : svc.listEmails(activeFolder!, position)),
+    queryKey: ["emails", advFilter ? `adv:${JSON.stringify(advFilter)}` : search ? `s:${search}` : starred ? "starred" : labelId ? `label:${labelId}` : activeFolder, addrFilter, page],
+    queryFn: () => (advFilter ? svc.searchAdvanced(advFilter, position)
+      : search ? svc.search(search, position)
+      : starred ? svc.listStarred(position)
+      : labelId ? svc.listByLabel(labelKeyword(labelId), position)
+      : addrJmapFilter ? svc.searchAdvanced(addrJmapFilter, position)
+      : svc.listEmails(activeFolder!, position)),
     enabled: advFilter ? true : search ? search.length > 1 : starred || !!labelId || !!activeFolder,
     refetchInterval: (search || advFilter) ? false : 20000, refetchOnWindowFocus: true,
   });
@@ -412,6 +434,20 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
       {folderMenu && <div className="mgrid-backdrop" onClick={() => setFolderMenu(false)} />}
       <aside className={"mrail" + (folderMenu ? " open" : "")} onClick={() => setFolderMenu(false)}>
         <button className="compose" onClick={() => { if (rules) nav("/mail/mail"); openComposer({}); }}><IcPencil size={16} /> <span>{t("webmail.compose.new")}</span></button>
+        {aliases.length > 0 && (
+          // Só aparece quando há aliases: sem eles, uma lista de "caixas" com uma entrada só seria ruído.
+          <div className="mail-accounts">
+            <div className="ma-title">{t("webmail.accounts")}</div>
+            <button className={"ma-btn" + (addrFilter === "" ? " on" : "")} onClick={() => setAddrFilter("")}>
+              {t("webmail.accountsAll")}
+            </button>
+            {[addrQ.data?.primary ?? "", ...aliases].filter(Boolean).map((a) => (
+              <button key={a} className={"ma-btn" + (addrFilter === a ? " on" : "")} onClick={() => setAddrFilter(a)} title={a}>
+                {a}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="nav">
           {layoutFolders(boxesQ.data ?? []).map(({ f, depth }) => (
             <div key={f.id} className="folder-row" style={{ marginLeft: depth * 12 }}>

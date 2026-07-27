@@ -73,9 +73,9 @@ export function UsersSection({ me }: { me: Me | undefined }) {
             </div>
           ))}
         </div></div>
-      </div>
 
-      <AliasesCard domains={activeDomains} canManage={canManage} />
+        <AliasesCard domains={activeDomains} canManage={canManage} />
+      </div>
 
       {adding && <AddUserModal domains={activeDomains} actorRole={me?.role ?? ""} onClose={() => setAdding(false)}
         onDone={() => { setAdding(false); qc.invalidateQueries({ queryKey: ["members"] }); qc.invalidateQueries({ queryKey: ["admin-mailboxes"] }); toast(t("usersSection.created")); }} />}
@@ -263,18 +263,20 @@ function AliasesCard({ domains, canManage }: { domains: { id: string; dominio: s
   const canCreate = canManage && domains.length > 0 && people.length > 0 && local.trim() !== "" && ownerId !== "";
 
   return (
-    <div className="pnl-card" style={{ marginTop: 16 }}>
-      <div className="pnl-card-h">{t("aliases.title")}<div className="desc">{t("aliases.hint")}</div></div>
+    <div className="pnl-card">
+      <div className="pnl-card-h">
+        <div><h3>{t("aliases.title")}</h3><div className="desc">{t("aliases.hint")}</div></div>
+      </div>
       <div className="pnl-card-b">
         {canManage && (
           <div className="alias-new">
-            <input className="pnl-input" placeholder={t("aliases.localPh")} value={local}
+            <input className="pnl-input" style={{ width: 160 }} placeholder={t("aliases.localPh")} value={local}
               onChange={(e) => setLocal(e.target.value.replace(/[@\s]/g, ""))} />
             <span className="alias-at">@</span>
-            <select className="pnl-select" value={domainId || domains[0]?.id || ""} onChange={(e) => setDomainId(e.target.value)}>
+            <select className="pnl-select" style={{ width: 200 }} value={domainId || domains[0]?.id || ""} onChange={(e) => setDomainId(e.target.value)}>
               {domains.map((d) => <option key={d.id} value={d.id}>{d.dominio}</option>)}
             </select>
-            <select className="pnl-select" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+            <select className="pnl-select" style={{ width: 240 }} value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
               <option value="">{t("aliases.pickOwner")}</option>
               {people.map((m) => <option key={m.id} value={m.id}>{m.email}</option>)}
             </select>

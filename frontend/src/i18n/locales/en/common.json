@@ -474,7 +474,9 @@
     "clearSelection": "Clear selection",
     "prevPage": "Previous page",
     "nextPage": "Next page",
-    "more": "More"
+    "more": "More",
+    "accounts": "Mailboxes",
+    "accountsAll": "All"
   },
   "settings": {
     "title": "Settings",

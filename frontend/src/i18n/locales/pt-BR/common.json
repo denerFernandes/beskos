@@ -474,7 +474,9 @@
     "clearSelection": "Limpar seleção",
     "prevPage": "Página anterior",
     "nextPage": "Próxima página",
-    "more": "Mais"
+    "more": "Mais",
+    "accounts": "Caixas",
+    "accountsAll": "Todas"
   },
   "settings": {
     "title": "Definições",
