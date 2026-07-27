@@ -166,6 +166,7 @@ function RecordsCard({ title, hint, records, checks }: {
     <div className="pnl-card">
       <div className="pnl-card-h"><div><h3>{title}</h3>{hint && <div className="desc">{hint}</div>}</div></div>
       <div className="pnl-card-b">
+        <div className="dns-scroll">
         <table className="dns-table">
           <thead>
             <tr>
@@ -179,11 +180,12 @@ function RecordsCard({ title, hint, records, checks }: {
               const cls = !c ? "muted" : c.status === "ok" ? "ok" : c.required ? "err" : "warn";
               return (
                 <tr key={i}>
-                  <td><span className={"dns-pill " + cls}>{c ? t(`domains.dnsStatus.${c.status}`) : "…"}</span></td>
-                  <td><span className="pnl-pill muted">{t(`domains.purpose.${r.purpose}`, { defaultValue: r.purpose })}</span></td>
-                  <td className="mono">{r.type}</td>
-                  <td className="mono">{r.host}</td>
-                  <td>
+                  {/* data-label alimenta o modo empilhado (ecrã estreito), onde o cabeçalho some. */}
+                  <td data-label={t("domains.colStatus")}><span className={"dns-pill " + cls}>{c ? t(`domains.dnsStatus.${c.status}`) : "…"}</span></td>
+                  <td data-label={t("domains.colPurpose")}><span className="pnl-pill muted">{t(`domains.purpose.${r.purpose}`, { defaultValue: r.purpose })}</span></td>
+                  <td className="mono" data-label={t("domains.colType")}>{r.type}</td>
+                  <td className="mono" data-label={t("domains.colHost")}>{r.host}</td>
+                  <td data-label={t("domains.colValue")}>
                     {/* Quando diverge, as DUAS linhas etiquetadas: sem dizer qual é qual, ver dois
                         valores lado a lado não ajuda ninguém a decidir o que corrigir. */}
                     {c?.status === "mismatch" ? (
@@ -195,7 +197,7 @@ function RecordsCard({ title, hint, records, checks }: {
                       <div className="dns-val mono">{r.value}</div>
                     )}
                   </td>
-                  <td>
+                  <td className="dns-copy">
                     <button className="pnl-btn ghost" onClick={() => { void navigator.clipboard.writeText(r.value); setCopied(i); setTimeout(() => setCopied(-1), 1500); }}>
                       {copied === i ? t("domains.copied") : t("domains.copy")}
                     </button>
@@ -205,6 +207,7 @@ function RecordsCard({ title, hint, records, checks }: {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
