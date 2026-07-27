@@ -82,22 +82,27 @@ export function RulesView({ session }: { session: WebmailSession }) {
         <button className="chipbtn" onClick={() => setEditing(newRule())}><IcPlus size={15} /> {t("rules.new")}</button>
       </div>
 
-      <p className="rule-hint">{t("rules.explain")}</p>
-      {foreign && <p className="rule-hint warn">{t("rules.foreign")}</p>}
+      {/* Corpo com a mesma métrica das outras páginas (padding + largura máxima). Sem isto, o
+          cabeçalho vinha recuado e o conteúdo colado às bordas, e num ecrã largo os campos do
+          painel de férias esticavam de ponta a ponta. */}
+      <div className="rules-body">
+        <p className="rule-hint">{t("rules.explain")}</p>
+        {foreign && <p className="rule-hint warn">{t("rules.foreign")}</p>}
 
-      {vacation && <VacationPanel value={vacation} domain={myDomain} saving={saving}
-        onSave={(v) => void persist(undefined, { ...v, domain: myDomain })} />}
+        {vacation && <VacationPanel value={vacation} domain={myDomain} saving={saving}
+          onSave={(v) => void persist(undefined, { ...v, domain: myDomain })} />}
 
-      {rules.length === 0 ? <div className="empty">{t("rules.empty")}</div> : (
-        <div className="rules-list">
-          {rules.map((r) => (
-            <RuleCard key={r.id} r={r} folders={(folders.data ?? []).map((f) => f.name)}
-              onEdit={() => setEditing(r)}
-              onToggle={() => persist(rules.map((x) => (x.id === r.id ? { ...x, enabled: !x.enabled } : x)))}
-              onDelete={() => persist(rules.filter((x) => x.id !== r.id))} />
-          ))}
-        </div>
-      )}
+        {rules.length === 0 ? <div className="empty">{t("rules.empty")}</div> : (
+          <div className="rules-list">
+            {rules.map((r) => (
+              <RuleCard key={r.id} r={r} folders={(folders.data ?? []).map((f) => f.name)}
+                onEdit={() => setEditing(r)}
+                onToggle={() => persist(rules.map((x) => (x.id === r.id ? { ...x, enabled: !x.enabled } : x)))}
+                onDelete={() => persist(rules.filter((x) => x.id !== r.id))} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {editing && (
         <RuleEditor rule={editing} folders={(folders.data ?? []).map((f) => f.name)}
