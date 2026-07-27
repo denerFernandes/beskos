@@ -38,7 +38,8 @@ func TestIntegrationProvisioning(t *testing.T) {
 	// Nome único-ish sem depender de time.Now() no domínio (base32 curto do unix nano).
 	domain := "it-" + time.Now().Format("150405") + ".test"
 
-	domID, err := c.CreateDomain(ctx, domain, "tenant_id=integration")
+	// autoDKIM=true: o teste de integração quer a zona completa, incluindo o registo DKIM.
+	domID, err := c.CreateDomain(ctx, domain, "tenant_id=integration", true)
 	if err != nil {
 		t.Fatalf("CreateDomain: %v", err)
 	}

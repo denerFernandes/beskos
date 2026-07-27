@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { settingsApi } from "./backend";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -73,6 +73,23 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   const contactGroups = useQuery({ queryKey: ["contact-groups"], queryFn: () => contactsApi.groups(), retry: false });
   // Identidades de envio (De:): o principal + aliases. Só mostra o seletor quando há mais de uma.
   const identities = useQuery({ queryKey: ["identities"], queryFn: () => service.identities(), retry: false });
+  // Aliases nossos: um alias entrega na mesma caixa, mas o servidor pode não publicar uma identidade
+  // JMAP para ele. Juntamos as duas fontes para o endereço aparecer no "De:" de qualquer forma.
+  const myAddr = useQuery({ queryKey: ["my-addresses"], queryFn: () => backend.myAddresses(), retry: false });
+  const fromOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: { email: string; label: string }[] = [];
+    const add = (email: string, label?: string) => {
+      const k = email.toLowerCase();
+      if (!email || seen.has(k)) return;
+      seen.add(k);
+      out.push({ email, label: label || email });
+    };
+    add(from);
+    for (const i of identities.data ?? []) add(i.email, i.name ? `${i.name} <${i.email}>` : i.email);
+    for (const a of myAddr.data?.aliases ?? []) add(a);
+    return out;
+  }, [from, identities.data, myAddr.data]);
   const [fromAddr, setFromAddr] = useState(from);
   // Regras de saída (mesmo cache do RulesView): avaliadas no envio para aplicar Bcc automático.
   const rulesQ = useQuery({
@@ -361,11 +378,11 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
           </div>
         </header>
 
-        {(identities.data?.length ?? 0) > 1 && (
+        {fromOptions.length > 1 && (
           <div className="rcpt from-row">
             <label>{t("webmail.compose.from")}</label>
             <select value={fromAddr} onChange={(e) => { markDirty(); setFromAddr(e.target.value); }}>
-              {identities.data!.map((i) => <option key={i.id} value={i.email}>{i.name ? `${i.name} <${i.email}>` : i.email}</option>)}
+              {fromOptions.map((o) => <option key={o.email} value={o.email}>{o.label}</option>)}
             </select>
           </div>
         )}

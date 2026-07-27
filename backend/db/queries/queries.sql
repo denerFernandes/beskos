@@ -805,7 +805,11 @@ WHERE c.owner_user_id = $1;
 -- ===== Billing e cotas =====
 
 -- name: CountMailboxesByTenant :one
-SELECT count(*) FROM mail_users WHERE tenant_id = $1;
+-- Conta caixas E aliases: um alias e cobrado como uma caixa (regra de negocio, 27/07/2026). Esta
+-- e a contagem que alimenta o plano, os lugares faturados e o teto de mailboxes — por isso o alias
+-- tem de entrar aqui e nao so no relatorio de uso.
+SELECT (SELECT count(*) FROM mail_users u WHERE u.tenant_id = $1)
+     + (SELECT count(*) FROM email_aliases a WHERE a.tenant_id = $1);
 
 -- name: SumStorageBytes :one
 SELECT COALESCE(sum(tamanho), 0)::bigint
@@ -2213,3 +2217,33 @@ SELECT tool FROM assistant_tool_settings WHERE tenant_id = @tenant_id AND enable
 INSERT INTO assistant_tool_settings (tenant_id, tool, enabled)
 VALUES (@tenant_id, @tool, @enabled)
 ON CONFLICT (tenant_id, tool) DO UPDATE SET enabled = EXCLUDED.enabled;
+
+-- ---------- Aliases de e-mail ----------
+
+-- name: CreateEmailAlias :one
+INSERT INTO email_aliases (tenant_id, domain_id, mail_user_id, address)
+VALUES (@tenant_id, @domain_id, @mail_user_id, @address)
+RETURNING *;
+
+-- name: ListEmailAliases :many
+-- Aliases do tenant com o dono, para o painel. O nome do dono vem junto para não ser N+1 na UI.
+SELECT a.id, a.address, a.mail_user_id, a.domain_id, a.created_at,
+       u.email AS owner_email, u.name AS owner_name, d.dominio AS domain
+FROM email_aliases a
+JOIN mail_users u ON u.id = a.mail_user_id
+JOIN domains d ON d.id = a.domain_id
+WHERE a.tenant_id = @tenant_id
+ORDER BY a.address;
+
+-- name: ListAliasesForUser :many
+-- Endereços extra de UMA pessoa: é o que o compositor mostra no "De:".
+SELECT address FROM email_aliases WHERE tenant_id = @tenant_id AND mail_user_id = @user_id ORDER BY address;
+
+-- name: GetEmailAlias :one
+SELECT * FROM email_aliases WHERE id = @id AND tenant_id = @tenant_id;
+
+-- name: DeleteEmailAlias :exec
+DELETE FROM email_aliases WHERE id = @id AND tenant_id = @tenant_id;
+
+-- name: CountEmailAliases :one
+SELECT count(*) FROM email_aliases WHERE tenant_id = @tenant_id;

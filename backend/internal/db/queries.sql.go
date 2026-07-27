@@ -786,6 +786,17 @@ func (q *Queries) CountChannelMembers(ctx context.Context, arg CountChannelMembe
 	return count, err
 }
 
+const countEmailAliases = `-- name: CountEmailAliases :one
+SELECT count(*) FROM email_aliases WHERE tenant_id = $1
+`
+
+func (q *Queries) CountEmailAliases(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countEmailAliases, tenantID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countMailUsersOnDomain = `-- name: CountMailUsersOnDomain :one
 SELECT count(*) FROM mail_users WHERE tenant_id = $1 AND email LIKE '%@' || $2
 `
@@ -805,15 +816,19 @@ func (q *Queries) CountMailUsersOnDomain(ctx context.Context, arg CountMailUsers
 
 const countMailboxesByTenant = `-- name: CountMailboxesByTenant :one
 
-SELECT count(*) FROM mail_users WHERE tenant_id = $1
+SELECT (SELECT count(*) FROM mail_users u WHERE u.tenant_id = $1)
+     + (SELECT count(*) FROM email_aliases a WHERE a.tenant_id = $1)
 `
 
 // ===== Billing e cotas =====
-func (q *Queries) CountMailboxesByTenant(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+// Conta caixas E aliases: um alias e cobrado como uma caixa (regra de negocio, 27/07/2026). Esta
+// e a contagem que alimenta o plano, os lugares faturados e o teto de mailboxes — por isso o alias
+// tem de entrar aqui e nao so no relatorio de uso.
+func (q *Queries) CountMailboxesByTenant(ctx context.Context, tenantID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countMailboxesByTenant, tenantID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const countOwners = `-- name: CountOwners :one
@@ -1804,6 +1819,40 @@ func (q *Queries) CreateDomain(ctx context.Context, arg CreateDomainParams) (Dom
 		&i.DnsStatus,
 		&i.ProvisionState,
 		&i.DnsZone,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createEmailAlias = `-- name: CreateEmailAlias :one
+
+INSERT INTO email_aliases (tenant_id, domain_id, mail_user_id, address)
+VALUES ($1, $2, $3, $4)
+RETURNING id, tenant_id, domain_id, mail_user_id, address, created_at
+`
+
+type CreateEmailAliasParams struct {
+	TenantID   uuid.UUID `json:"tenant_id"`
+	DomainID   uuid.UUID `json:"domain_id"`
+	MailUserID uuid.UUID `json:"mail_user_id"`
+	Address    string    `json:"address"`
+}
+
+// ---------- Aliases de e-mail ----------
+func (q *Queries) CreateEmailAlias(ctx context.Context, arg CreateEmailAliasParams) (EmailAlias, error) {
+	row := q.db.QueryRow(ctx, createEmailAlias,
+		arg.TenantID,
+		arg.DomainID,
+		arg.MailUserID,
+		arg.Address,
+	)
+	var i EmailAlias
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.DomainID,
+		&i.MailUserID,
+		&i.Address,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -3126,6 +3175,20 @@ type DeleteDomainRowParams struct {
 
 func (q *Queries) DeleteDomainRow(ctx context.Context, arg DeleteDomainRowParams) error {
 	_, err := q.db.Exec(ctx, deleteDomainRow, arg.ID, arg.TenantID)
+	return err
+}
+
+const deleteEmailAlias = `-- name: DeleteEmailAlias :exec
+DELETE FROM email_aliases WHERE id = $1 AND tenant_id = $2
+`
+
+type DeleteEmailAliasParams struct {
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) DeleteEmailAlias(ctx context.Context, arg DeleteEmailAliasParams) error {
+	_, err := q.db.Exec(ctx, deleteEmailAlias, arg.ID, arg.TenantID)
 	return err
 }
 
@@ -4833,6 +4896,29 @@ func (q *Queries) GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, erro
 	return i, err
 }
 
+const getEmailAlias = `-- name: GetEmailAlias :one
+SELECT id, tenant_id, domain_id, mail_user_id, address, created_at FROM email_aliases WHERE id = $1 AND tenant_id = $2
+`
+
+type GetEmailAliasParams struct {
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) GetEmailAlias(ctx context.Context, arg GetEmailAliasParams) (EmailAlias, error) {
+	row := q.db.QueryRow(ctx, getEmailAlias, arg.ID, arg.TenantID)
+	var i EmailAlias
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.DomainID,
+		&i.MailUserID,
+		&i.Address,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getEventInTenant = `-- name: GetEventInTenant :one
 SELECT id, tenant_id, owner_user_id, title, description, location, color, starts_at, ends_at, source_email_id, created_at, tags, meeting_room, remind_minutes, reminded, all_day, recur, recur_until, deleted_at, calendar_id, booking_id, kind FROM events WHERE id = $1 AND tenant_id = $2
 `
@@ -6077,6 +6163,36 @@ func (q *Queries) ListActiveRecoveryCodes(ctx context.Context, userID uuid.UUID)
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAliasesForUser = `-- name: ListAliasesForUser :many
+SELECT address FROM email_aliases WHERE tenant_id = $1 AND mail_user_id = $2 ORDER BY address
+`
+
+type ListAliasesForUserParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	UserID   uuid.UUID `json:"user_id"`
+}
+
+// Endereços extra de UMA pessoa: é o que o compositor mostra no "De:".
+func (q *Queries) ListAliasesForUser(ctx context.Context, arg ListAliasesForUserParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAliasesForUser, arg.TenantID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var address string
+		if err := rows.Scan(&address); err != nil {
+			return nil, err
+		}
+		items = append(items, address)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -8117,6 +8233,57 @@ func (q *Queries) ListDomainsInState(ctx context.Context, arg ListDomainsInState
 			&i.ProvisionState,
 			&i.DnsZone,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEmailAliases = `-- name: ListEmailAliases :many
+SELECT a.id, a.address, a.mail_user_id, a.domain_id, a.created_at,
+       u.email AS owner_email, u.name AS owner_name, d.dominio AS domain
+FROM email_aliases a
+JOIN mail_users u ON u.id = a.mail_user_id
+JOIN domains d ON d.id = a.domain_id
+WHERE a.tenant_id = $1
+ORDER BY a.address
+`
+
+type ListEmailAliasesRow struct {
+	ID         uuid.UUID `json:"id"`
+	Address    string    `json:"address"`
+	MailUserID uuid.UUID `json:"mail_user_id"`
+	DomainID   uuid.UUID `json:"domain_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	OwnerEmail string    `json:"owner_email"`
+	OwnerName  string    `json:"owner_name"`
+	Domain     string    `json:"domain"`
+}
+
+// Aliases do tenant com o dono, para o painel. O nome do dono vem junto para não ser N+1 na UI.
+func (q *Queries) ListEmailAliases(ctx context.Context, tenantID uuid.UUID) ([]ListEmailAliasesRow, error) {
+	rows, err := q.db.Query(ctx, listEmailAliases, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEmailAliasesRow
+	for rows.Next() {
+		var i ListEmailAliasesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Address,
+			&i.MailUserID,
+			&i.DomainID,
+			&i.CreatedAt,
+			&i.OwnerEmail,
+			&i.OwnerName,
+			&i.Domain,
 		); err != nil {
 			return nil, err
 		}

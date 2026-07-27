@@ -846,7 +846,14 @@
     "rbac.cannot_grant": "You cannot grant or revoke a permission you do not hold.",
     "rbac.unknown_permission": "Unknown permission.",
     "rbac.not_found": "Member not found.",
-    "rbac.invalid_id": "Invalid identifier."
+    "rbac.invalid_id": "Invalid identifier.",
+    "aliases.address_taken": "That address already exists.",
+    "aliases.invalid_local": "Invalid name for the address.",
+    "aliases.invalid_domain": "Invalid domain.",
+    "aliases.invalid_owner": "Pick the receiving mailbox.",
+    "aliases.provision_failed": "The mail server rejected the alias.",
+    "aliases.failed": "Could not complete.",
+    "aliases.not_found": "Alias not found."
   },
   "members": {
     "title": "Members",
@@ -2415,5 +2422,17 @@
       "assistant.manage": "Assistant agents and governance",
       "wiki.manage": "Knowledge base home"
     }
+  },
+  "aliases": {
+    "title": "Email aliases",
+    "hint": "An extra address that delivers into someone else's mailbox. Not an organisation member — mail only — and it counts as a mailbox on your plan.",
+    "localPh": "contact",
+    "pickOwner": "Delivers to…",
+    "create": "Create alias",
+    "none": "No aliases yet.",
+    "deliversTo": "delivers to {{who}}",
+    "remove": "Remove alias",
+    "created": "Alias created.",
+    "removed": "Alias removed."
   }
 }

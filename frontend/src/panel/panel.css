@@ -214,3 +214,8 @@
 .dns-pill.err{background:rgba(180,35,24,.14);color:#b42318;}
 .dns-val{max-width:420px;overflow-x:auto;}
 .dns-found{margin-top:2px;font-size:11px;color:#b42318;max-width:420px;overflow-x:auto;}
+
+/* Criar alias: uma linha só — nome, @, domínio, caixa que recebe. */
+.alias-new{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.alias-new .pnl-input{width:150px;}
+.alias-at{color:var(--muted);}

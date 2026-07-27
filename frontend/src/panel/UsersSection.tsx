@@ -75,6 +75,8 @@ export function UsersSection({ me }: { me: Me | undefined }) {
         </div></div>
       </div>
 
+      <AliasesCard domains={activeDomains} canManage={canManage} />
+
       {adding && <AddUserModal domains={activeDomains} actorRole={me?.role ?? ""} onClose={() => setAdding(false)}
         onDone={() => { setAdding(false); qc.invalidateQueries({ queryKey: ["members"] }); qc.invalidateQueries({ queryKey: ["admin-mailboxes"] }); toast(t("usersSection.created")); }} />}
       {reset && <ResetModal email={reset} onClose={() => setReset(null)} />}
@@ -230,5 +232,67 @@ function UserPermissionsModal({ userId, label, onClose }: { userId: string; labe
         </>
       )}
     </Modal>
+  );
+}
+
+// Aliases: um endereço extra que entrega na caixa de outra pessoa (contacto@empresa.com → caixa da
+// Ana). NÃO é um membro — não entra no chat, nos grupos nem na lista de pessoas; é só correio. Conta
+// como uma caixa para efeitos de plano e faturação, e é por isso que aparece aqui, ao lado delas.
+function AliasesCard({ domains, canManage }: { domains: { id: string; dominio: string }[]; canManage: boolean }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["aliases"], queryFn: () => api.aliases(), retry: false });
+  const members = useQuery({ queryKey: ["members"], queryFn: () => api.members(), retry: false });
+  const [local, setLocal] = useState("");
+  const [domainId, setDomainId] = useState("");
+  const [ownerId, setOwnerId] = useState("");
+
+  const create = useMutation({
+    mutationFn: () => api.createAlias(local.trim(), domainId || domains[0]?.id || "", ownerId),
+    onSuccess: () => { setLocal(""); qc.invalidateQueries({ queryKey: ["aliases"] }); toast(t("aliases.created")); },
+    onError: (e) => toast((e as Error).message),
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => api.deleteAlias(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["aliases"] }); toast(t("aliases.removed")); },
+    onError: (e) => toast((e as Error).message),
+  });
+
+  const list = q.data?.aliases ?? [];
+  const people = members.data ?? [];
+  const canCreate = canManage && domains.length > 0 && people.length > 0 && local.trim() !== "" && ownerId !== "";
+
+  return (
+    <div className="pnl-card" style={{ marginTop: 16 }}>
+      <div className="pnl-card-h">{t("aliases.title")}<div className="desc">{t("aliases.hint")}</div></div>
+      <div className="pnl-card-b">
+        {canManage && (
+          <div className="alias-new">
+            <input className="pnl-input" placeholder={t("aliases.localPh")} value={local}
+              onChange={(e) => setLocal(e.target.value.replace(/[@\s]/g, ""))} />
+            <span className="alias-at">@</span>
+            <select className="pnl-select" value={domainId || domains[0]?.id || ""} onChange={(e) => setDomainId(e.target.value)}>
+              {domains.map((d) => <option key={d.id} value={d.id}>{d.dominio}</option>)}
+            </select>
+            <select className="pnl-select" value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
+              <option value="">{t("aliases.pickOwner")}</option>
+              {people.map((m) => <option key={m.id} value={m.id}>{m.email}</option>)}
+            </select>
+            <button className="pnl-btn primary" disabled={!canCreate || create.isPending} onClick={() => create.mutate()}>
+              {t("aliases.create")}
+            </button>
+          </div>
+        )}
+        {list.length === 0 ? <div className="pnl-empty">{t("aliases.none")}</div> : list.map((a) => (
+          <div className="pnl-row" key={a.id}>
+            <div className="grow">
+              <div className="mono">{a.address}</div>
+              <div className="sub">{t("aliases.deliversTo", { who: a.owner_email })}</div>
+            </div>
+            {canManage && <button className="pnl-icon-btn" title={t("aliases.remove")} onClick={() => remove.mutate(a.id)}><IcTrash size={16} /></button>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
