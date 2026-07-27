@@ -92,6 +92,15 @@ func classify(r DNSRecord) string {
 		return "dkim_ses"
 	case strings.Contains(r.Host, "_domainkey"):
 		return "dkim"
+	case r.Type == "SRV":
+		return "srv" // descoberta automática de clientes (IMAP/JMAP/CalDAV/…): conveniência, não requisito
+	case strings.Contains(r.Host, "mta-sts"):
+		return "mta_sts" // política de transporte estrito (reforço)
+	case strings.HasPrefix(r.Host, "_smtp._tls"):
+		return "tls_rpt" // relatórios de falhas de TLS (reforço)
+	// O Stalwart emite "ua-auto-config" (com hífen); outros servidores usam autoconfig/autodiscover.
+	case strings.Contains(r.Host, "auto-config") || strings.Contains(r.Host, "autoconfig") || strings.Contains(r.Host, "autodiscover"):
+		return "autoconfig" // configuração automática dos clientes
 	default:
 		return "other"
 	}

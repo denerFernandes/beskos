@@ -62,7 +62,11 @@
       "dkim_ses": "Relay DKIM (SES)",
       "dmarc": "DMARC",
       "other": "Other",
-      "mailfrom": "MAIL FROM (SES)"
+      "mailfrom": "MAIL FROM (SES)",
+      "srv": "Client discovery",
+      "mta_sts": "MTA-STS",
+      "tls_rpt": "TLS reports",
+      "autoconfig": "Auto-configuration"
     },
     "copy": "Copy",
     "copied": "Copied ✓",
@@ -147,7 +151,15 @@
           "Come back here and hit \"Check now\"."
         ]
       }
-    }
+    },
+    "dnsRequiredTitle": "Required",
+    "dnsRequiredHint": "Without these, mail neither arrives nor leaves. They are the only ones you really must publish.",
+    "dnsOptionalTitle": "Advanced (optional)",
+    "dnsOptionalHint": "Client auto-discovery and transport hardening. Everything works without them — publish them if you want Outlook and phones to configure themselves.",
+    "dnsSummaryEssential": "{{ok}} of {{total}} required published",
+    "dnsOptionalCount": "{{n}} optional",
+    "dnsShow": "Show {{n}}",
+    "dnsHide": "Hide"
   },
   "webmail": {
     "list": {
