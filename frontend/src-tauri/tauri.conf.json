@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https: wss: http://localhost:* ws://localhost:*; img-src 'self' data: blob: https: http://localhost:*; media-src 'self' blob: https: http://localhost:*; font-src 'self' data: https://docs.beskos.com; style-src 'self' 'unsafe-inline' https://docs.beskos.com; script-src 'self' 'wasm-unsafe-eval' https://docs.beskos.com; worker-src 'self' blob:; frame-src 'self' data: blob: https://docs.beskos.com; object-src 'none'; base-uri 'self'"
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https: wss: http://localhost:* ws://localhost:*; img-src 'self' data: blob: https: http://localhost:*; media-src 'self' blob: https: http://localhost:*; font-src 'self' data: https://docs.beskos.com; style-src 'self' 'unsafe-inline' https://docs.beskos.com; script-src 'self' 'wasm-unsafe-eval' https://docs.beskos.com; worker-src 'self' blob:; frame-src 'self' data: blob: https://docs.beskos.com; object-src 'none'; base-uri 'self'"
     }
   },
   "bundle": {
