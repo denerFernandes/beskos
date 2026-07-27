@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { LiveKitRoom, VideoConference, PreJoin, type LocalUserChoices } from "@livekit/components-react";
+import { LiveKitRoom, VideoConference, PreJoin, useRoomContext, type LocalUserChoices } from "@livekit/components-react";
 import "@livekit/components-styles";
 import { MeetEffects } from "./MeetEffects";
 import { MeetReactions } from "./MeetReactions";
@@ -13,6 +13,7 @@ import { useUserSettings } from "./useSettings";
 import { backend, type MeetSession, type Recording, type MeetControls, type BreakoutSession } from "./backend";
 import { toast } from "./toast";
 import { openInWindow } from "./nativeWindow";
+import { onTauriEvent } from "./tauriNotify";
 import { publicUrl } from "../apiBase";
 import { IcUsers, IcLink, IcGear, IcX, IcPencilBox, IcLogout, IcMicOff, IcStar } from "../panel/icons";
 import { Switch } from "./Switch";
@@ -92,6 +93,7 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
         onDisconnected={() => { if (switching.current) { switching.current = false; return; } onLeave(); }}
         data-lk-theme="default" style={{ height: "100%" }}>
         <VideoConference />
+        <LeaveWhenWindowHidden />
 
         {/* Barra de breakout (topo): entrar na tua sala / voltar à principal; some quando não há salas. */}
         {session.meeting_id && session.identity && (
@@ -140,6 +142,16 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
       </LiveKitRoom>
     </div>
   );
+}
+
+// Fechar a janela = sair da reunião. No app de desktop, fechar a janela principal NÃO fecha a app:
+// ela esconde-se no tray e o webview continua vivo — a pessoa ficava na sala, com a câmara congelada
+// para os outros, sem forma de perceber porquê. O lado nativo avisa ("window-hidden") e nós
+// desligamos a sala; o onDisconnected trata do resto (fecha a vista e encerra a apresentação).
+function LeaveWhenWindowHidden() {
+  const room = useRoomContext();
+  useEffect(() => onTauriEvent("window-hidden", () => { void room.disconnect(); }), [room]);
+  return null;
 }
 
 // Botão redondo da barra de ações (mesma linguagem visual dos controles do LiveKit).

@@ -58,6 +58,11 @@ type Server struct {
 	mfaIP      *rateLimiter // verificações de 2º fator por IP (trava rotação de challenges)
 	aiLimiter  *rateLimiter // chamadas de IA por usuário (custo/abuso)
 	pubLimiter *rateLimiter // endpoints públicos (Meet sem login) por IP
+	// presLimiter: balde próprio para o PDF da apresentação. Um PDF é lido por INTERVALOS (dezenas
+	// de pedidos para um deck grande) e a sala inteira pode estar atrás do mesmo IP (escritório,
+	// casa) — no balde público de 60/min bastavam dois participantes para levarem 429 e a
+	// apresentação nunca abrir. Continua limitado (não é uma torneira aberta), mas com folga real.
+	presLimiter *rateLimiter
 	// agentLimiter tem balde próprio: uma execução agêntica gasta vários pedidos ao modelo, logo
 	// não pode partilhar o limite das chamadas de IA de um só passo.
 	agentLimiter *rateLimiter
@@ -187,6 +192,7 @@ func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSe
 		mfaIP:       newRateLimiter(20, 5*time.Minute),
 		aiLimiter:   newRateLimiter(30, time.Minute),
 		pubLimiter:  newRateLimiter(60, time.Minute),
+		presLimiter: newRateLimiter(600, time.Minute),
 		// 10 execuções por 5 minutos: cada uma pode gastar até DefaultMaxSteps chamadas ao modelo.
 		agentLimiter: newRateLimiter(10, 5*time.Minute),
 		confirms:     newAssistantConfirms(),
@@ -690,7 +696,7 @@ func (s *Server) Router() http.Handler {
 		r.With(s.publicRateLimit).Get("/public/meet/lobby/{id}", s.handlePublicLobbyPoll)
 		// PDF da apresentação (membros E convidados) — sob /api para ser encaminhado por Vite/Caddy.
 		// Autorizado pelo token HMAC (o token é a autorização; sem sessão).
-		r.With(s.publicRateLimit).Get("/public/meet/presentation/{id}/pdf", s.handlePresentationPDF)
+		r.With(s.presentationRateLimit).Get("/public/meet/presentation/{id}/pdf", s.handlePresentationPDF)
 
 		// Download público de anexo grande por token (SEM login) — o token é a autorização.
 		r.With(s.publicRateLimit).Post("/public/chat/hook/{token}", s.handleInboundWebhook) // webhook de entrada (bot)
@@ -789,6 +795,17 @@ func (s *Server) csrfGuard(next http.Handler) http.Handler {
 func (s *Server) publicRateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !s.pubLimiter.allow("pub:"+clientIP(r), time.Now()) {
+			writeErr(w, http.StatusTooManyRequests, "rate_limited")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// presentationRateLimit limita o PDF da apresentação num balde próprio e generoso (ver presLimiter).
+func (s *Server) presentationRateLimit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.presLimiter.allow("pres:"+clientIP(r), time.Now()) {
 			writeErr(w, http.StatusTooManyRequests, "rate_limited")
 			return
 		}

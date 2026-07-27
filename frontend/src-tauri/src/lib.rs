@@ -138,6 +138,13 @@ pub fn run() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                    // A janela só ESCONDE — o webview continua vivo, por isso a UI não nota que o
+                    // utilizador "fechou" a app. Avisamos quem precisa de encerrar coisas ao vivo
+                    // (ex.: quem está a apresentar no Meet tem de acabar a apresentação).
+                    // emit_to("main"): só o webview desta janela reage. Um emit global apanharia
+                    // também as janelas dedicadas (sala do Meet, editor), que não foram fechadas.
+                    use tauri::Emitter;
+                    let _ = window.emit_to("main", "window-hidden", ());
                 }
             }
         })

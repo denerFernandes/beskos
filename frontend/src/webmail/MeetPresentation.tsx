@@ -8,8 +8,9 @@ import { backend, type Presentation, type StorageFile } from "./backend";
 import { loadPdf, type PDFDocument } from "./pdfjs";
 import { toast } from "./toast";
 import { Spinner } from "./Spinner";
-import { IcX, IcTrash, IcUpload, IcFolder, IcPencil, IcPresent, IcSearch, IcArrowLeft, IcUsers, IcPaperclip, IcChevron, IcExternal } from "../panel/icons";
+import { IcX, IcTrash, IcUpload, IcFolder, IcPencil, IcPresent, IcSearch, IcArrowLeft, IcUsers, IcPaperclip, IcChevron, IcExternal, IcMaximize, IcRestoreWin } from "../panel/icons";
 import { hueFor, initials } from "./util";
+import { onTauriEvent } from "./tauriNotify";
 
 // Apresentação no Meet (estilo BBB). O apresentador escolhe PDF/PPTX (upload ou Drive); todos
 // renderizam o PDF localmente (pdf.js) e o slide/caneta/laser sincronizam pelo data channel do
@@ -58,6 +59,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(false); // esconder localmente (não encerra; mostra as câmaras)
   const [barCollapsed, setBarCollapsed] = useState(false); // encolher a barra de controlos (aba)
+  const [full, setFull] = useState(false); // apresentação a ocupar o ecrã todo (esconde as câmaras)
   const isPresenter = !!pres && pres.by === myId;
 
   // Envio pelo data channel do LiveKit (tópico "pres"). publishData SÓ funciona com a sala
@@ -160,6 +162,20 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     if (pres && pres.by === myId) backend.presentationStop(pres.id).catch(() => {});
   };
   useEffect(() => () => selfStopRef.current(), []);
+  // Saída "dura" (fechar a janela/aba): o cleanup do React NÃO corre. Na web dispara `pagehide`; no
+  // desktop, fechar a janela principal só a ESCONDE (fica no tray) e o webview continua vivo — por
+  // isso o lado nativo emite "window-hidden". Em ambos, quem apresenta encerra: avisa a sala pelo
+  // data channel e desativa no servidor (o pedido vai keepalive, sobrevive ao fecho da página).
+  useEffect(() => {
+    const onHardExit = () => {
+      if (!myId || presByRef.current !== myId) return; // só o apresentador encerra
+      post({ t: "stop" });
+      selfStopRef.current();
+    };
+    window.addEventListener("pagehide", onHardExit);
+    const offNative = onTauriEvent("window-hidden", onHardExit);
+    return () => { window.removeEventListener("pagehide", onHardExit); offNative(); };
+  }, [post, myId]);
   // resendState: o apresentador reemite o estado atual (usado ao entrar alguém novo).
   const resendRef = useRef<(to?: string[]) => void>(() => {});
   useEffect(() => {
@@ -252,6 +268,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   // correr sempre que `pres` fica null, senão logo após "Encerrar" voltaria a buscar e reabria.
   const askedRef = useRef(false);
   useEffect(() => {
+    if (viewerOnly) return; // convidado não tem sessão: este endpoint dava 401 (e o 401 global mandava-o para o login)
     if (askedRef.current) return;
     askedRef.current = true;
     let stop = false;
@@ -264,17 +281,30 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     return () => { stop = true; };
   }, [room]);
 
-  // Carrega o PDF quando a apresentação fica ativa.
+  // Carrega o PDF quando a apresentação fica ativa. O estado (a carregar / falhou) é mostrado NO
+  // PALCO: antes, quem não era o apresentador via só um retângulo branco enquanto o ficheiro descia
+  // — ou para sempre, se falhasse (o toast passava despercebido).
+  const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    if (!pres) { docRef.current = null; setNumPages(0); return; }
+    if (!pres) { docRef.current = null; setNumPages(0); setPdfState("idle"); return; }
     let stop = false;
+    setPdfState("loading");
     loadPdf(backend.presentationPdfUrl(pres.id, pres.token)).then((doc) => {
       if (stop) return;
-      docRef.current = doc; setNumPages(doc.numPages); setRedraw((v) => v + 1);
+      docRef.current = doc; setNumPages(doc.numPages); setRedraw((v) => v + 1); setPdfState("idle");
       if (DEBUG) dbg.current.err = "pdf ok " + doc.numPages;
-    }).catch((e) => { if (DEBUG) dbg.current.err = "pdf ERR: " + String((e as Error).message).slice(0, 40); toast(t("meet.presLoadFail")); });
+    }).catch((e) => {
+      if (stop) return;
+      setPdfState("error");
+      if (DEBUG) dbg.current.err = "pdf ERR: " + String((e as Error).message).slice(0, 40);
+      // O motivo real (rede, CORS, PDF corrompido) só vive aqui: sem o log, uma falha de
+      // apresentação era impossível de diagnosticar (o utilizador só via a mensagem genérica).
+      console.error("meet: falha a carregar o PDF da apresentação", e);
+      toast(t("meet.presLoadFail"));
+    });
     return () => { stop = true; };
-  }, [pres, t]);
+  }, [pres, t, retry]);
 
   // Renderiza a página atual no canvas do PDF e ajusta o canvas de anotação. Depende de `hidden`
   // porque ao esconder/mostrar os canvas são remontados (novos e em branco) — sem re-renderizar,
@@ -430,15 +460,25 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
       )}
 
       {pres && !hidden && (
-        <div className="pres-stage">
+        <div className={"pres-stage" + (full ? " full" : "")}>
           <div className="pres-canvas-wrap" ref={stageRef}>
-            <div className="pres-slide">
+            <div className="pres-slide" style={pdfState === "idle" ? undefined : { visibility: "hidden" }}>
               <canvas ref={pdfCanvas} className="pres-pdf" />
               <canvas ref={annoCanvas} className="pres-anno"
                 style={{ cursor: canDraw ? (tool === "pen" ? "crosshair" : "none") : "default", pointerEvents: canDraw ? "auto" : "none" }}
                 onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onLeave} />
               <span className="pres-laser" ref={laserRef} />
             </div>
+            {/* Estado do PDF sobre a área da apresentação (e só ela) — não tapa as câmaras. */}
+            {pdfState === "loading" && (
+              <div className="pres-state"><Spinner size={22} /><span>{t("meet.presLoading")}</span></div>
+            )}
+            {pdfState === "error" && (
+              <div className="pres-state">
+                <span>{t("meet.presLoadFail")}</span>
+                <button className="pres-retry" onClick={() => setRetry((v) => v + 1)}>{t("common.retry")}</button>
+              </div>
+            )}
           </div>
 
           {barCollapsed ? (
@@ -472,6 +512,10 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
               <span className="pres-sep" />
             </>}
             {isPresenter && peers.length > 0 && <GrantMenu peers={peers} granted={granted} onToggle={toggleGrant} label={t("meet.presAllow")} />}
+            {/* Ecrã inteiro: o slide ocupa tudo e as câmaras saem da frente (só para mim). */}
+            <button className="ib" title={full ? t("meet.presExitFull") : t("meet.presFull")} onClick={() => setFull((f) => !f)}>
+              {full ? <IcRestoreWin size={15} /> : <IcMaximize size={15} />}
+            </button>
             {/* Esconder é LOCAL (não encerra): traz as câmaras de volta. */}
             <button className="ib" title={t("meet.presHide")} onClick={() => setHidden(true)}><IcExternal size={15} /></button>
             {isPresenter && <>

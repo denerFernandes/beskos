@@ -2498,7 +2498,19 @@
   .wm:has(.pres-stage) .lk-focus-layout-wrapper{top:auto !important;bottom:84px;left:0 !important;right:0;width:auto;height:66px;overflow-x:auto;overflow-y:hidden;}
   .wm:has(.pres-stage) .lk-grid-layout{grid-auto-flow:column !important;grid-template-columns:none !important;grid-auto-columns:94px;grid-auto-rows:60px !important;}
 }
+/* Ecrã inteiro (só para quem liga): o slide ocupa toda a largura e as câmaras saem da frente. A
+   barra de controlos do LiveKit continua em baixo (z-index 45), por isso mantém-se a faixa livre. */
+.pres-stage.full{right:0;}
+.wm:has(.pres-stage.full) .lk-grid-layout-wrapper,
+.wm:has(.pres-stage.full) .lk-focus-layout-wrapper{display:none !important;}
+/* Pedido de entrada (sala de espera) DURANTE a apresentação: sem isto o cartão ficava por baixo do
+   palco (z-index 40) e ninguém era admitido enquanto houvesse apresentação. */
+.wm:has(.pres-stage) .host-lobby{z-index:46;}
 .pres-canvas-wrap{position:relative;flex:1;display:flex;align-items:center;justify-content:center;min-height:0;padding:12px;}
+/* Estado do PDF (a carregar / falhou) — dentro da área da apresentação, nunca por cima das câmaras. */
+.pres-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#fff;font-size:14px;text-align:center;padding:16px;}
+.pres-retry{padding:7px 14px;border:1px solid rgba(255,255,255,.22);border-radius:10px;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-size:13px;}
+.pres-retry:hover{background:rgba(255,255,255,.16);}
 .pres-slide{position:relative;line-height:0;max-width:100%;max-height:100%;}
 .pres-pdf{display:block;max-width:100%;max-height:100%;box-shadow:0 8px 40px rgba(0,0,0,.5);border-radius:4px;background:#fff;}
 /* Mesmo limite do canvas do PDF: se as medidas divergirem (ex.: durante um redimensionamento), a
