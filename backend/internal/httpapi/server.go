@@ -627,10 +627,12 @@ func (s *Server) Router() http.Handler {
 			r.Post("/chat/emojis", s.handleCreateEmoji)                                // liga :nome: a um ficheiro (imagem)
 			r.Delete("/chat/emojis/{id}", s.handleDeleteEmoji)                         // remove um emoji custom
 			r.Post("/chat/dm", s.handleOpenDM)
-			r.Post("/chat/group-dm", s.handleOpenGroupDM)                 // DM de grupo (3+ pessoas)
-			r.Get("/chat/channels/{id}/webhooks", s.handleListWebhooks)   // integrações/bots do canal
-			r.Post("/chat/channels/{id}/webhooks", s.handleCreateWebhook) // cria token de entrada
-			r.Delete("/chat/webhooks/{id}", s.handleDeleteWebhook)        // remove integração
+			r.Post("/chat/group-dm", s.handleOpenGroupDM)                  // DM de grupo (3+ pessoas)
+			r.Get("/chat/channels/archived", s.handleListArchivedChannels) // canais arquivados (restaurar)
+			r.Post("/chat/channels/{id}/archive", s.handleArchiveChannel)  // arquivar/restaurar (dono do canal ou admin)
+			r.Get("/chat/channels/{id}/webhooks", s.handleListWebhooks)    // integrações/bots do canal
+			r.Post("/chat/channels/{id}/webhooks", s.handleCreateWebhook)  // cria token de entrada
+			r.Delete("/chat/webhooks/{id}", s.handleDeleteWebhook)         // remove integração
 			r.Get("/chat/channels/{id}/members", s.handleListChannelMembers)
 			r.Get("/chat/channels/{id}/members/search", s.handleSearchChannelMembers) // paginado/busca
 			r.Get("/chat/channels/{id}/canvas", s.handleGetCanvas)

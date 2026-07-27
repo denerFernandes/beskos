@@ -803,6 +803,11 @@ func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.memberOr403(w, r, id); !ok {
 		return
 	}
+	// Canal arquivado é só de leitura — senão "arquivar" não queria dizer nada.
+	if ch, err := s.q.GetChannel(r.Context(), db.GetChannelParams{ID: id, TenantID: mu.TenantID}); err == nil && ch.ArchivedAt.Valid {
+		writeErr(w, http.StatusForbidden, "chat.channel_archived")
+		return
+	}
 	var req sendMessageReq
 	if !decode(w, r, &req) {
 		return
@@ -1123,6 +1128,76 @@ func (s *Server) handleDeleteMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDeleteChannel exclui um canal — só o OWNER. A cascata remove membros e mensagens.
+// canArchiveChannel: o DONO do canal ou um admin/dono da organização. O admin da organização pode
+// não ser membro do canal (privado) — daí a elevação vir antes da associação.
+func (s *Server) canArchiveChannel(r *http.Request, channelID uuid.UUID) bool {
+	mu := mailUserFrom(r.Context())
+	if mu.Role == "owner" || mu.Role == "admin" || mu.Role == "internal_admin" {
+		return true
+	}
+	m, err := s.q.GetMembership(r.Context(), db.GetMembershipParams{ChannelID: channelID, UserID: mu.ID})
+	return err == nil && m.Role == "owner"
+}
+
+// handleArchiveChannel arquiva/restaura um canal. Arquivado sai das listas e ninguém escreve nele —
+// mas o histórico fica e dá para restaurar, ao contrário de apagar.
+func (s *Server) handleArchiveChannel(w http.ResponseWriter, r *http.Request) {
+	mu := mailUserFrom(r.Context())
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "chat.invalid_id")
+		return
+	}
+	ch, err := s.q.GetChannel(r.Context(), db.GetChannelParams{ID: id, TenantID: mu.TenantID})
+	if err != nil || ch.Kind == "dm" {
+		writeErr(w, http.StatusNotFound, "chat.not_found")
+		return
+	}
+	if !s.canArchiveChannel(r, id) {
+		writeErr(w, http.StatusForbidden, "chat.not_owner")
+		return
+	}
+	var req struct {
+		Archived bool `json:"archived"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	// Mesma razão do apagar: o canal por defeito voltaria na listagem seguinte (ensureGeneral).
+	if req.Archived && ch.IsGeneral {
+		writeErr(w, http.StatusBadRequest, "chat.cannot_archive_general")
+		return
+	}
+	out, err := s.q.SetChannelArchived(r.Context(), db.SetChannelArchivedParams{ID: id, TenantID: mu.TenantID, Archived: req.Archived})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "chat.failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": out.ID, "archived": out.ArchivedAt.Valid})
+}
+
+// handleListArchivedChannels lista os canais arquivados que a pessoa pode restaurar.
+func (s *Server) handleListArchivedChannels(w http.ResponseWriter, r *http.Request) {
+	mu := mailUserFrom(r.Context())
+	isAdmin := mu.Role == "owner" || mu.Role == "admin" || mu.Role == "internal_admin"
+	list, err := s.q.ListArchivedChannels(r.Context(), db.ListArchivedChannelsParams{
+		TenantID: mu.TenantID, IsAdmin: isAdmin, UserID: mu.ID,
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "chat.failed")
+		return
+	}
+	out := make([]map[string]any, 0, len(list))
+	for _, c := range list {
+		out = append(out, map[string]any{
+			"id": c.ID, "kind": c.Kind, "name": c.Name, "topic": c.Topic,
+			"is_general":  c.IsGeneral && c.Name == generalChannelName,
+			"archived_at": iso(c.ArchivedAt.Time),
+		})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"channels": out})
+}
+
 func (s *Server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))

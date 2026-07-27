@@ -1005,15 +1005,32 @@ SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.cre
             AND m.user_id <> $1 AND m.deleted_at IS NULL) AS unread
 FROM channels c
 JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = $1
-WHERE c.tenant_id = $2
+WHERE c.tenant_id = $2 AND c.archived_at IS NULL
 ORDER BY c.kind, c.name;
 
 -- name: ListPublicChannels :many
 -- Só canais públicos E listados aparecem na descoberta. Não listados = fechados (só por convite).
 SELECT c.* FROM channels c
-WHERE c.tenant_id = $1 AND c.kind = 'public' AND c.listed = true
+WHERE c.tenant_id = $1 AND c.kind = 'public' AND c.listed = true AND c.archived_at IS NULL
   AND NOT EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $2)
 ORDER BY c.name;
+
+-- name: SetChannelArchived :one
+-- Arquiva (true) ou restaura (false). Arquivado sai das listas e fica só de leitura; o histórico
+-- fica intacto, ao contrário do apagar.
+UPDATE channels SET archived_at = CASE WHEN sqlc.arg(archived)::boolean THEN now() ELSE NULL END
+WHERE id = $1 AND tenant_id = $2 RETURNING *;
+
+-- name: ListArchivedChannels :many
+-- Só lista a quem PODE restaurar: admin da organização ou dono do canal. Assim tudo o que aparece
+-- é acionável, e para os restantes o canal arquivado desaparece (é o efeito que se quer).
+SELECT c.* FROM channels c
+WHERE c.tenant_id = @tenant_id AND c.archived_at IS NOT NULL AND c.kind <> 'dm'
+  AND (
+      sqlc.arg(is_admin)::boolean
+      OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = @user_id AND cm.role = 'owner')
+  )
+ORDER BY c.archived_at DESC;
 
 -- name: UpdateChannelAccess :exec
 UPDATE channels SET listed = $3, add_policy = $4 WHERE id = $1 AND tenant_id = $2;

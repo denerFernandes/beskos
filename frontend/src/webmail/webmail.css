@@ -1823,6 +1823,13 @@
 .wm .md-list{margin:2px 0;padding-left:20px;}
 .wm .md-quote{border-left:3px solid var(--border);padding-left:8px;color:var(--muted);margin:3px 0;}
 .wm .md-code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;font-family:ui-monospace,monospace;font-size:12.5px;}
+/* Canais arquivados na barra lateral: cabeçalho que abre/fecha e linhas com o botão de restaurar. */
+.wm .chat-section.as-toggle{display:flex;align-items:center;gap:6px;width:100%;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit;}
+.wm .chat-section.as-toggle .chev-open{transform:rotate(180deg);}
+.wm .chan.archived{display:flex;align-items:center;gap:8px;opacity:.72;}
+.wm .chan.archived .cn{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Confirmação em linha do arquivar (sem diálogos nativos). */
+.wm .chan-arch-confirm{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;color:var(--muted);}
 /* Referência a uma tarefa dentro de uma mensagem (/task, ou partilhar do quadro): cartão com a
    chave em destaque, para saltar à vista numa conversa cheia de texto. */
 .wm .task-ref{display:inline-flex;align-items:center;gap:7px;max-width:100%;vertical-align:middle;

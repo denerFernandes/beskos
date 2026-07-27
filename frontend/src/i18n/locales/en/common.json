@@ -820,7 +820,9 @@
     "billing.resume_failed": "Resume failed",
     "billing.portal_failed": "Failed to open the billing portal",
     "notif.meet_knock.t": "{{name}} wants to join",
-    "notif.meet_knock.b": "{{name}} is waiting for approval to join {{title}}"
+    "notif.meet_knock.b": "{{name}} is waiting for approval to join {{title}}",
+    "chat.cannot_archive_general": "The default channel cannot be archived.",
+    "chat.channel_archived": "This channel is archived — it is read-only."
   },
   "members": {
     "title": "Members",
@@ -1673,7 +1675,15 @@
     "taskPickTitle": "Pick a task",
     "taskPickPh": "Number (QUA-12 or 12) or title…",
     "taskPickHint": "Search by task key, number or part of the title.",
-    "taskPickEmpty": "No tasks found."
+    "taskPickEmpty": "No tasks found.",
+    "archiveChannel": "Archive channel",
+    "archiveHint": "The channel leaves the lists and becomes read-only. History is kept and it can be restored.",
+    "archiveConfirm": "Archive #{{name}}?",
+    "archiveDo": "Archive",
+    "archivedDone": "Channel archived.",
+    "archivedSection": "Archived",
+    "restore": "Restore",
+    "restored": "Channel restored."
   },
   "groups": {
     "title": "Teams",

@@ -422,6 +422,11 @@ export const backend = {
   chatSearch: (q: string) => req<{ results: ChatSearchHit[] }>(`/api/chat/search?q=${encodeURIComponent(q)}`),
   chatEdit: (msgId: string, body: string) => req<{ id: string; body: string; edited_at: string }>(`/api/chat/messages/${msgId}`, { method: "PATCH", body: JSON.stringify({ body }) }),
   chatDelete: (msgId: string) => req<{ status: string }>(`/api/chat/messages/${msgId}`, { method: "DELETE" }),
+  // Arquivar/restaurar um canal (dono do canal ou admin da organização). Arquivado sai das listas e
+  // fica só de leitura; o histórico fica intacto — ao contrário do apagar.
+  chatArchiveChannel: (id: string, archived: boolean) =>
+    req<{ id: string; archived: boolean }>(`/api/chat/channels/${id}/archive`, { method: "POST", body: JSON.stringify({ archived }) }),
+  chatArchivedChannels: () => req<{ channels: ArchivedChannel[] }>("/api/chat/channels/archived"),
   chatDeleteChannel: (id: string) => req<{ status: string }>(`/api/chat/channels/${id}`, { method: "DELETE" }),
   chatMarkUnread: (msgId: string) => req<{ status: string }>(`/api/chat/messages/${msgId}/unread`, { method: "POST" }),
   chatForward: (msgId: string, channelId: string) => req<ChatMessage>(`/api/chat/messages/${msgId}/forward`, { method: "POST", body: JSON.stringify({ channel_id: channelId }) }),
@@ -440,6 +445,7 @@ export interface Notif { id: string; kind: string; title: string; body: string; 
 export interface ChatChannel { id: string; kind: "public" | "private" | "dm"; name: string; topic: string; is_general?: boolean; unread?: number; last_read_at?: string; other_id?: string; listed?: boolean; add_policy?: "open" | "restricted"; my_role?: string; notif_pref?: "all" | "mentions" | "none" }
 // Tarefa devolvida pela busca (/task no chat). card_key vem do servidor como "PREFIXO-Nº".
 export interface CardHit { id: string; board_id: string; title: string; label: string; due: string; priority: string; card_key: string; board_name: string; column_name: string; assignee_name: string }
+export interface ArchivedChannel { id: string; kind: string; name: string; topic: string; is_general?: boolean; archived_at: string }
 export interface ChatSearchHit { id: string; channel_id: string; channel_name: string; channel_kind: string; author: string; body: string; created_at: string }
 export interface ChatReaction { emoji: string; count: number; mine: boolean; users: string[] }
 export interface ChatAttachment { file_id: string; name: string; size: number }

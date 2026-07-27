@@ -1408,7 +1408,7 @@ func (q *Queries) CreateCardComment(ctx context.Context, arg CreateCardCommentPa
 const createChannel = `-- name: CreateChannel :one
 
 INSERT INTO channels (tenant_id, kind, name, topic, dm_key, created_by)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general, archived_at
 `
 
 type CreateChannelParams struct {
@@ -1445,6 +1445,7 @@ func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (C
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
 		&i.IsGeneral,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -1957,7 +1958,7 @@ const createGeneralChannel = `-- name: CreateGeneralChannel :one
 INSERT INTO channels (tenant_id, kind, name, topic, dm_key, created_by, is_general)
 VALUES ($1, 'public', $2, '', '', $3, true)
 ON CONFLICT DO NOTHING
-RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general
+RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general, archived_at
 `
 
 type CreateGeneralChannelParams struct {
@@ -1985,6 +1986,7 @@ func (q *Queries) CreateGeneralChannel(ctx context.Context, arg CreateGeneralCha
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
 		&i.IsGeneral,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -4437,7 +4439,7 @@ func (q *Queries) GetCardComment(ctx context.Context, arg GetCardCommentParams) 
 }
 
 const getChannel = `-- name: GetChannel :one
-SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general FROM channels WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general, archived_at FROM channels WHERE id = $1 AND tenant_id = $2
 `
 
 type GetChannelParams struct {
@@ -4462,6 +4464,7 @@ func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) (Channel
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
 		&i.IsGeneral,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -4716,7 +4719,7 @@ func (q *Queries) GetContactGroupOwned(ctx context.Context, arg GetContactGroupO
 }
 
 const getDMByKey = `-- name: GetDMByKey :one
-SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general FROM channels WHERE tenant_id = $1 AND kind = 'dm' AND dm_key = $2
+SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general, archived_at FROM channels WHERE tenant_id = $1 AND kind = 'dm' AND dm_key = $2
 `
 
 type GetDMByKeyParams struct {
@@ -4741,6 +4744,7 @@ func (q *Queries) GetDMByKey(ctx context.Context, arg GetDMByKeyParams) (Channel
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
 		&i.IsGeneral,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -5058,7 +5062,7 @@ func (q *Queries) GetFolderInTenant(ctx context.Context, arg GetFolderInTenantPa
 }
 
 const getGeneralChannel = `-- name: GetGeneralChannel :one
-SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general FROM channels WHERE tenant_id = $1 AND is_general
+SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general, archived_at FROM channels WHERE tenant_id = $1 AND is_general
 `
 
 func (q *Queries) GetGeneralChannel(ctx context.Context, tenantID uuid.UUID) (Channel, error) {
@@ -5078,6 +5082,7 @@ func (q *Queries) GetGeneralChannel(ctx context.Context, tenantID uuid.UUID) (Ch
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
 		&i.IsGeneral,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
@@ -6210,6 +6215,59 @@ func (q *Queries) ListArchivedCards(ctx context.Context, arg ListArchivedCardsPa
 	return items, nil
 }
 
+const listArchivedChannels = `-- name: ListArchivedChannels :many
+SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.created_at, c.listed, c.add_policy, c.canvas, c.canvas_updated_at, c.is_general, c.archived_at FROM channels c
+WHERE c.tenant_id = $1 AND c.archived_at IS NOT NULL AND c.kind <> 'dm'
+  AND (
+      $2::boolean
+      OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $3 AND cm.role = 'owner')
+  )
+ORDER BY c.archived_at DESC
+`
+
+type ListArchivedChannelsParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	IsAdmin  bool      `json:"is_admin"`
+	UserID   uuid.UUID `json:"user_id"`
+}
+
+// Só lista a quem PODE restaurar: admin da organização ou dono do canal. Assim tudo o que aparece
+// é acionável, e para os restantes o canal arquivado desaparece (é o efeito que se quer).
+func (q *Queries) ListArchivedChannels(ctx context.Context, arg ListArchivedChannelsParams) ([]Channel, error) {
+	rows, err := q.db.Query(ctx, listArchivedChannels, arg.TenantID, arg.IsAdmin, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Channel
+	for rows.Next() {
+		var i Channel
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Kind,
+			&i.Name,
+			&i.Topic,
+			&i.DmKey,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.Listed,
+			&i.AddPolicy,
+			&i.Canvas,
+			&i.CanvasUpdatedAt,
+			&i.IsGeneral,
+			&i.ArchivedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAssistantConversations = `-- name: ListAssistantConversations :many
 SELECT id, tenant_id, mail_user_id, agent, title, created_at, updated_at, pinned_agent FROM assistant_conversations
 WHERE tenant_id = $1 AND mail_user_id = $2
@@ -7216,7 +7274,7 @@ SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.cre
             AND m.user_id <> $1 AND m.deleted_at IS NULL) AS unread
 FROM channels c
 JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = $1
-WHERE c.tenant_id = $2
+WHERE c.tenant_id = $2 AND c.archived_at IS NULL
 ORDER BY c.kind, c.name
 `
 
@@ -9483,8 +9541,8 @@ func (q *Queries) ListPinnedByChannel(ctx context.Context, channelID uuid.UUID) 
 }
 
 const listPublicChannels = `-- name: ListPublicChannels :many
-SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.created_at, c.listed, c.add_policy, c.canvas, c.canvas_updated_at, c.is_general FROM channels c
-WHERE c.tenant_id = $1 AND c.kind = 'public' AND c.listed = true
+SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.created_at, c.listed, c.add_policy, c.canvas, c.canvas_updated_at, c.is_general, c.archived_at FROM channels c
+WHERE c.tenant_id = $1 AND c.kind = 'public' AND c.listed = true AND c.archived_at IS NULL
   AND NOT EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $2)
 ORDER BY c.name
 `
@@ -9518,6 +9576,7 @@ func (q *Queries) ListPublicChannels(ctx context.Context, arg ListPublicChannels
 			&i.Canvas,
 			&i.CanvasUpdatedAt,
 			&i.IsGeneral,
+			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -11665,6 +11724,41 @@ func (q *Queries) SetCardLabelOnly(ctx context.Context, arg SetCardLabelOnlyPara
 	return err
 }
 
+const setChannelArchived = `-- name: SetChannelArchived :one
+UPDATE channels SET archived_at = CASE WHEN $3::boolean THEN now() ELSE NULL END
+WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general, archived_at
+`
+
+type SetChannelArchivedParams struct {
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+	Archived bool      `json:"archived"`
+}
+
+// Arquiva (true) ou restaura (false). Arquivado sai das listas e fica só de leitura; o histórico
+// fica intacto, ao contrário do apagar.
+func (q *Queries) SetChannelArchived(ctx context.Context, arg SetChannelArchivedParams) (Channel, error) {
+	row := q.db.QueryRow(ctx, setChannelArchived, arg.ID, arg.TenantID, arg.Archived)
+	var i Channel
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Kind,
+		&i.Name,
+		&i.Topic,
+		&i.DmKey,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.Listed,
+		&i.AddPolicy,
+		&i.Canvas,
+		&i.CanvasUpdatedAt,
+		&i.IsGeneral,
+		&i.ArchivedAt,
+	)
+	return i, err
+}
+
 const setChannelNotifPref = `-- name: SetChannelNotifPref :exec
 UPDATE channel_members SET notif_pref = $3 WHERE channel_id = $1 AND user_id = $2
 `
@@ -12658,7 +12752,7 @@ func (q *Queries) UpdateChannelCanvas(ctx context.Context, arg UpdateChannelCanv
 }
 
 const updateChannelName = `-- name: UpdateChannelName :one
-UPDATE channels SET name = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general
+UPDATE channels SET name = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general, archived_at
 `
 
 type UpdateChannelNameParams struct {
@@ -12684,6 +12778,7 @@ func (q *Queries) UpdateChannelName(ctx context.Context, arg UpdateChannelNamePa
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
 		&i.IsGeneral,
+		&i.ArchivedAt,
 	)
 	return i, err
 }
