@@ -348,7 +348,9 @@ export const backend = {
     return res.json();
   },
   presentationSetSlide: (id: string, slide: number) => req<{ status: string }>(`/api/meet/presentation/${id}/slide`, { method: "POST", body: JSON.stringify({ slide }) }),
-  presentationStop: (id: string) => req<{ status: string }>(`/api/meet/presentation/${id}/stop`, { method: "POST" }),
+  // keepalive: o encerrar acontece muitas vezes ao FECHAR a janela/aba — sem isto o browser aborta
+  // o pedido a meio e a apresentação ficava ativa no servidor.
+  presentationStop: (id: string) => req<{ status: string }>(`/api/meet/presentation/${id}/stop`, { method: "POST", keepalive: true }),
   presentationPdfUrl: (id: string, token: string) => apiUrl(`/api/public/meet/presentation/${id}/pdf?token=${encodeURIComponent(token)}`),
   setMyStatus: (emoji: string, text: string) => req<{ emoji: string; text: string }>("/api/me/status", { method: "PUT", body: JSON.stringify({ emoji, text }) }),
   userStatus: (email: string) => req<{ emoji: string; text: string }>(`/api/user-status?email=${encodeURIComponent(email)}`),

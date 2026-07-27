@@ -7,11 +7,21 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export type PDFDocument = Awaited<ReturnType<typeof pdfjsLib.getDocument>["promise"]>;
 
+// loadPdf abre um PDF servido pela nossa API. Duas tentativas, por esta ordem:
+//
+//  1. Normal (streaming + Range): o endpoint da apresentação responde 206, então a primeira página
+//     aparece depois de uns KB em vez de esperar pelo ficheiro inteiro — decisivo num deck de vários
+//     MB, em que os outros participantes ficavam a olhar para um retângulo branco.
+//  2. Ficheiro inteiro (disableRange/disableStream): se algo na cadeia (proxy, cache) estragar os
+//     intervalos — devolver 200 completo a um pedido de Range, por exemplo — o pdf.js falha; então
+//     baixa-se tudo de uma vez, que é o caminho que funciona em qualquer servidor.
 export async function loadPdf(url: string): Promise<PDFDocument> {
-  // Os nossos endpoints de PDF (apresentação do Meet, etc.) servem o ficheiro INTEIRO e NÃO suportam
-  // Range. Para PDFs grandes o pdf.js tenta range requests (quando o proxy anuncia Accept-Ranges/
-  // Content-Length) e recebe 200 completo em vez de 206 → falha a carregar. Pequenos baixam de uma
-  // vez e funcionam — daí "PPT (convertido, pequeno) abre, PDF grande não". Forçar o download
-  // completo (disableRange/disableStream) torna-o robusto para qualquer tamanho.
-  return pdfjsLib.getDocument({ url, disableRange: true, disableStream: true }).promise;
+  try {
+    // Blocos de 512 KB (o default são 64 KB): um deck de vários MB deixa de ser ~100 pedidos, o que
+    // encaixa no limite por IP do endpoint público sem sacrificar o arranque rápido.
+    return await pdfjsLib.getDocument({ url, rangeChunkSize: 512 * 1024 }).promise;
+  } catch (e) {
+    console.warn("pdf: leitura por intervalos falhou, a descarregar o ficheiro inteiro", e);
+    return await pdfjsLib.getDocument({ url, disableRange: true, disableStream: true }).promise;
+  }
 }

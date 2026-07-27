@@ -41,6 +41,23 @@ export async function tauriRequestPermission(): Promise<NotificationPermission> 
   } catch { return "denied"; }
 }
 
+// onTauriEvent escuta um evento emitido pelo lado nativo (ex.: "window-hidden", quando fechar a
+// janela a esconde no tray). Na web é um no-op. Devolve a função que cancela a escuta — o registo
+// é assíncrono, por isso guardamos o "cancelado" para não deixar listeners órfãos.
+export function onTauriEvent(name: string, fn: () => void): () => void {
+  if (!isTauri()) return () => {};
+  let off: (() => void) | null = null;
+  let cancelled = false;
+  void (async () => {
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      const un = await listen(name, () => fn());
+      if (cancelled) un(); else off = un;
+    } catch { /* API indisponível: ignora */ }
+  })();
+  return () => { cancelled = true; off?.(); };
+}
+
 export async function tauriShow(title: string, body?: string): Promise<boolean> {
   try {
     const p = await plugin();

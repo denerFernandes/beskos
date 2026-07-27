@@ -314,7 +314,19 @@ func (s *Server) handlePresentationPDF(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "meet.presentation_not_found")
 		return
 	}
-	s.streamObject(w, r, pres.ObjectKey, "application/pdf")
+	// ServeContent (e não io.Copy): manda Content-Length e responde 206 a um pedido de Range. Com o
+	// io.Copy a resposta ia em chunked, sem tamanho e ignorando Range — mas o proxy à frente anuncia
+	// `Accept-Ranges: bytes`, e então o pdf.js pedia intervalos e recebia 200 com o ficheiro inteiro:
+	// o PDF grande nunca abria (o PPTX convertido, pequeno, baixava de uma vez e abria).
+	obj, err := s.storage.GetSeek(r.Context(), pres.ObjectKey)
+	if err != nil {
+		writeErr(w, http.StatusNotFound, "files.not_found")
+		return
+	}
+	defer obj.Close()
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeContent(w, r, "presentation.pdf", pres.CreatedAt, obj)
 }
 
 // GET /meet/presentation-src/{token} — PÚBLICO: o Document Server busca aqui a FONTE (pptx/…) durante
