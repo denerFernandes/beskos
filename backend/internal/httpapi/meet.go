@@ -481,6 +481,9 @@ func (s *Server) handleMeetWebhook(w http.ResponseWriter, r *http.Request) {
 	case "participant_left":
 		if id, err := uuid.Parse(ev.Participant.Identity); err == nil {
 			_ = s.q.MarkParticipantLeft(ctx, db.MarkParticipantLeftParams{RoomName: ev.Room.Name, UserID: pgtype.UUID{Bytes: id, Valid: true}})
+			// Se quem saiu era o apresentador, encerra a apresentação ativa da sala (senão fica
+			// órfã: ao reentrar continuava "a apresentar"). Só afeta apresentações criadas por ele.
+			_ = s.q.DeactivateRoomPresentationsByCreator(ctx, db.DeactivateRoomPresentationsByCreatorParams{Room: ev.Room.Name, CreatedBy: id})
 		}
 	case "track_published":
 		// Faixa nova numa sala com gravação em modo tracks ativa → liga egress para ela.
