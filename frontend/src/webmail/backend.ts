@@ -358,6 +358,13 @@ export const backend = {
   userStatus: (email: string) => req<{ emoji: string; text: string }>(`/api/user-status?email=${encodeURIComponent(email)}`),
   // Dados de ligação para clientes externos (IMAP/SMTP) — o que se cola no Outlook ou no site.
   mailConnection: () => req<MailConnection>("/api/me/mail-connection"),
+  // Endereços de quem envia: o próprio e os aliases que entregam na sua caixa.
+  myAddresses: () => req<{ primary: string; aliases: string[] }>("/api/me/addresses"),
+  // Aliases da organização (painel de administração).
+  aliases: () => req<{ aliases: EmailAlias[] }>("/api/aliases"),
+  createAlias: (local: string, domainId: string, ownerId: string) =>
+    req<EmailAlias>("/api/aliases", { method: "POST", body: JSON.stringify({ local, domain_id: domainId, owner_id: ownerId }) }),
+  deleteAlias: (id: string) => req<{ status: string }>(`/api/aliases/${id}`, { method: "DELETE" }),
   me: () => req<{ id?: string; presence?: string; email?: string; name?: string; role?: string; mfa_setup_required?: boolean; mfa_required_method?: string; avatar?: string }>("/api/me"),
   myProfile: () => req<{ email: string; name: string; job_title: string; phone: string; avatar: string }>("/api/me/profile"),
   updateMyProfile: (p: { name: string; job_title: string; phone: string; avatar: string }) =>
@@ -444,6 +451,10 @@ export interface Branding { name: string; color: string; logo: string; logo_whit
 export interface Announcement { id: string; title: string; body: string; author: string; published: boolean; created_at: string }
 export interface Notif { id: string; kind: string; title: string; body: string; link: string; read_at: string | null; created_at: string; args?: Record<string, string> }
 
+export interface EmailAlias {
+  id: string; address: string; domain?: string;
+  owner_id: string; owner_email?: string; owner_name?: string; created_at?: string;
+}
 export interface MailConnection {
   host: string; username: string;
   imap: { host: string; port: number; security: string };

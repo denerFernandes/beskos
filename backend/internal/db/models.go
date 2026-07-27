@@ -453,6 +453,15 @@ type Domain struct {
 	CreatedAt      time.Time `json:"created_at"`
 }
 
+type EmailAlias struct {
+	ID         uuid.UUID `json:"id"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	DomainID   uuid.UUID `json:"domain_id"`
+	MailUserID uuid.UUID `json:"mail_user_id"`
+	Address    string    `json:"address"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type Event struct {
 	ID            uuid.UUID          `json:"id"`
 	TenantID      uuid.UUID          `json:"tenant_id"`

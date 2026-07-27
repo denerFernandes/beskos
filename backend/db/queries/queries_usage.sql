@@ -7,7 +7,9 @@
 INSERT INTO tenant_daily_usage (tenant_id, day, users, users_active, storage_bytes, files,
     ai_tokens, meet_minutes, recordings, recordings_bytes, wiki_pages, cards, mail_sent)
 SELECT t.id, cast(@day as date),
-    (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id),
+    -- users inclui os ALIASES: um alias é cobrado como uma caixa (regra de negócio, 27/07/2026).
+    (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)
+        + (SELECT count(*) FROM email_aliases al WHERE al.tenant_id = t.id),
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id
         AND u.mail_seen_at >= cast(@day as date) AND u.mail_seen_at < (cast(@day as date) + 1)),
     (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
@@ -55,7 +57,8 @@ GROUP BY day ORDER BY day;
 -- Base dos ALERTAS de uso exagerado (por tenant): números de HOJE (contadores ao vivo) + a média
 -- de tokens IA dos 7 dias anteriores (baseline do spike) + os limites do plano.
 SELECT t.id, t.nome, t.plano,
-    (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)::int AS users,
+    ((SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)
+      + (SELECT count(*) FROM email_aliases al WHERE al.tenant_id = t.id))::int AS users,
     (SELECT coalesce(sum(f.tamanho), 0) FROM storage_files f
       WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)::bigint AS storage_bytes,
     (SELECT coalesce(sum(a.tokens), 0) FROM assistant_usage a

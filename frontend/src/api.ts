@@ -99,6 +99,10 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
 }
 
 // Estado de um registo DNS no mundo real: o que pedimos, o que está publicado e o veredito.
+export interface EmailAlias {
+  id: string; address: string; domain?: string;
+  owner_id: string; owner_email?: string; owner_name?: string; created_at?: string;
+}
 export interface DNSCheck {
   host: string; type: string; expected: string; purpose: string;
   found: string[]; status: "ok" | "missing" | "mismatch"; required: boolean;
@@ -110,6 +114,11 @@ export interface DNSCheckResult {
 
 export const api = {
   me: () => req<Me>("/api/me"),
+  // Aliases de e-mail (endereço extra que entrega noutra caixa). Não são membros: só correio.
+  aliases: () => req<{ aliases: EmailAlias[] }>("/api/aliases"),
+  createAlias: (local: string, domain_id: string, owner_id: string) =>
+    req<EmailAlias>("/api/aliases", { method: "POST", body: JSON.stringify({ local, domain_id, owner_id }) }),
+  deleteAlias: (id: string) => req<{ status: string }>(`/api/aliases/${id}`, { method: "DELETE" }),
   // Verificação do DNS a pedido (informativa: quem promove o domínio é o worker).
   dnsCheck: (id: string) => req<DNSCheckResult>(`/api/domains/${id}/dns/check`),
   // Exportar a zona: descarrega por fetch (com a sessão) e guarda como ficheiro — assim o token

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -122,6 +123,32 @@ func (c *Client) CreateAccount(ctx context.Context, in AccountInput) (string, er
 		return "", fmt.Errorf("decode Account/set: %w", err)
 	}
 	return firstCreatedID(&r)
+}
+
+// SetAccountAliases substitui a lista de aliases de uma conta. Substitui o MAPA inteiro em vez de
+// mexer em índices: a nossa base é a fonte de verdade da lista, e assim a operação é idempotente —
+// repetir não duplica nem deixa buracos (DIVERGENCES §D4: aliases é um mapa "0","1",…).
+func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliases []string) error {
+	m := make(map[string]any, len(aliases))
+	for i, a := range aliases {
+		m[strconv.Itoa(i)] = a
+	}
+	args := map[string]any{
+		"update": map[string]any{accountID: map[string]any{"aliases": m}},
+	}
+	raw, err := c.call(ctx, "x:Account/set", args)
+	if err != nil {
+		return err
+	}
+	var r setResult
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return fmt.Errorf("decode Account/set: %w", err)
+	}
+	if len(r.NotUpdated) > 0 {
+		b, _ := json.Marshal(r.NotUpdated)
+		return fmt.Errorf("stalwart notUpdated: %s", string(b))
+	}
+	return nil
 }
 
 // SetAccountPassword troca a senha de uma mailbox (x:Account/set update credentials/0/secret).

@@ -846,7 +846,14 @@
     "rbac.cannot_grant": "Não podes conceder nem retirar uma permissão que não tens.",
     "rbac.unknown_permission": "Permissão desconhecida.",
     "rbac.not_found": "Membro não encontrado.",
-    "rbac.invalid_id": "Identificador inválido."
+    "rbac.invalid_id": "Identificador inválido.",
+    "aliases.address_taken": "Esse endereço já existe.",
+    "aliases.invalid_local": "Nome inválido para o endereço.",
+    "aliases.invalid_domain": "Domínio inválido.",
+    "aliases.invalid_owner": "Escolhe a caixa que recebe.",
+    "aliases.provision_failed": "O servidor de correio recusou o alias.",
+    "aliases.failed": "Não foi possível concluir.",
+    "aliases.not_found": "Alias não encontrado."
   },
   "members": {
     "title": "Membros",
@@ -2415,5 +2422,17 @@
       "assistant.manage": "Agentes e governança do assistente",
       "wiki.manage": "Home da base de conhecimento"
     }
+  },
+  "aliases": {
+    "title": "Aliases de e-mail",
+    "hint": "Um endereço extra que entrega na caixa de outra pessoa. Não é um membro da organização — só correio — e conta como uma caixa no plano.",
+    "localPh": "contacto",
+    "pickOwner": "Entrega em…",
+    "create": "Criar alias",
+    "none": "Ainda não há aliases.",
+    "deliversTo": "entrega em {{who}}",
+    "remove": "Remover alias",
+    "created": "Alias criado.",
+    "removed": "Alias removido."
   }
 }
