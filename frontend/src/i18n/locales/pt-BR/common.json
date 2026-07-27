@@ -69,7 +69,19 @@
     "dangerTitle": "Zona de perigo",
     "deleteHint": "Remover o domínio apaga-o do servidor de e-mail e do relay. Só é possível sem caixas no domínio. Escreva o nome do domínio para confirmar.",
     "deleteBtn": "Remover domínio",
-    "deleted": "Domínio removido"
+    "deleted": "Domínio removido",
+    "colStatus": "Estado",
+    "dnsSummary": "{{ok}} de {{total}} publicados",
+    "dnsRequiredPending": "{{n}} essencial(is) por publicar",
+    "dnsRecheck": "Verificar agora",
+    "dnsExportZone": "Exportar zona",
+    "dnsCheckedAt": "Verificado às {{when}}",
+    "dnsFound": "Publicado",
+    "dnsStatus": {
+      "ok": "publicado",
+      "missing": "em falta",
+      "mismatch": "diferente"
+    }
   },
   "webmail": {
     "list": {
