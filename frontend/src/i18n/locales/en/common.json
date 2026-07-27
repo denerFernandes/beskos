@@ -578,7 +578,15 @@
     "syncFolderRemoved": "Folder removed from sync",
     "syncNoFolders": "No folders synced yet",
     "calWorkDays": "Working days",
-    "calWorkDaysHint": "Outside these days the calendar is disabled for creating events."
+    "calWorkDaysHint": "Outside these days the calendar is disabled for creating events.",
+    "mailConn": "Email client connection",
+    "mailConnHint": "To set up Outlook, Thunderbird, your phone — or to send from your company site over SMTP.",
+    "mailConnPassword": "The password is your mailbox password. If you send from a website, create a dedicated account for it instead of using yours.",
+    "mailUser": "Username",
+    "mailSec": {
+      "ssl": "SSL/TLS",
+      "starttls": "STARTTLS"
+    }
   },
   "errors": {
     "generic": "Something went wrong",

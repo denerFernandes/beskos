@@ -608,6 +608,49 @@ function EmailSection() {
           </button>
         </div>
       </div>
+
+      <MailConnectionCard />
     </div>
+  );
+}
+
+// Dados de ligação para clientes externos e para enviar por SMTP a partir de outro sítio (o site da
+// empresa, por exemplo). É informação pública — porta, host e nome de utilizador; a senha é a da
+// caixa e nunca aparece aqui. O nome de utilizador é o endereço COMPLETO: é o que o servidor espera,
+// e é o erro mais comum de quem configura à mão.
+function MailConnectionCard() {
+  const { t } = useTranslation();
+  const q = useQuery({ queryKey: ["mail-connection"], queryFn: () => backend.mailConnection(), retry: false, staleTime: Infinity });
+  const c = q.data;
+  const copy = (v: string) => { navigator.clipboard?.writeText(v); toast(t("settings.deviceCopied")); };
+  const Row = ({ label, value }: { label: string; value: string }) => (
+    <div className="ios-row">
+      <div className="ios-row-text">
+        <span className="ios-row-label">{label}</span>
+        <span className="ios-row-sub mono">{value}</span>
+      </div>
+      <button className="chipbtn" onClick={() => copy(value)}>{t("settings.deviceCopy")}</button>
+    </div>
+  );
+  const sec = (k: string) => t(`settings.mailSec.${k}`, { defaultValue: k });
+  return (
+    <>
+      <h3 className="set-sub">{t("settings.mailConn")}</h3>
+      <div className="set-card">
+        <p className="desc">{t("settings.mailConnHint")}</p>
+        {!c ? <div className="loading">…</div> : (
+          <div className="ios-list">
+            <Row label={t("settings.mailUser")} value={c.username} />
+            <Row label={`IMAP · ${sec(c.imap.security)}`} value={`${c.imap.host}:${c.imap.port}`} />
+            {c.smtp.map((sm) => (
+              <Row key={sm.port} label={`SMTP · ${sec(sm.security)}`} value={`${sm.host}:${sm.port}`} />
+            ))}
+            <Row label="JMAP" value={c.jmap.url} />
+            <Row label="CalDAV / CardDAV" value={c.caldav.url} />
+          </div>
+        )}
+        <p className="desc">{t("settings.mailConnPassword")}</p>
+      </div>
+    </>
   );
 }

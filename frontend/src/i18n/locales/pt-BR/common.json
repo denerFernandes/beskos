@@ -578,7 +578,15 @@
     "syncFolderRemoved": "Pasta removida da sincronização",
     "syncNoFolders": "Nenhuma pasta a sincronizar",
     "calWorkDays": "Dias de trabalho",
-    "calWorkDaysHint": "Fora destes dias o calendário fica desabilitado para criar eventos."
+    "calWorkDaysHint": "Fora destes dias o calendário fica desabilitado para criar eventos.",
+    "mailConn": "Ligação a clientes de e-mail",
+    "mailConnHint": "Para configurar o Outlook, o Thunderbird, o telemóvel — ou para enviar a partir do site da empresa por SMTP.",
+    "mailConnPassword": "A senha é a mesma da tua caixa. Se enviares a partir de um site, cria uma conta própria para isso em vez de usares a tua.",
+    "mailUser": "Nome de utilizador",
+    "mailSec": {
+      "ssl": "SSL/TLS",
+      "starttls": "STARTTLS"
+    }
   },
   "errors": {
     "generic": "Algo deu errado",

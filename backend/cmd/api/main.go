@@ -109,6 +109,8 @@ func main() {
 
 	// URL pública da app: usada para links absolutos que saem em e-mails (ex.: sala de reunião).
 	srv.SetPublicURL(cfg.PublicURL)
+	// Host público do correio: é o que mostramos a quem liga um cliente externo (IMAP/SMTP).
+	srv.SetMailHost(cfg.StalwartHostname)
 
 	// Proxy de IA para o plugin do OnlyOffice: reencaminha ao DeepSeek com a chave server-side.
 	if aiProvider != nil {
