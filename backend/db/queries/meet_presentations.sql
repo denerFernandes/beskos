@@ -18,3 +18,8 @@ UPDATE meet_presentations SET current_slide = $2 WHERE id = $1;
 
 -- name: DeactivatePresentation :exec
 UPDATE meet_presentations SET active = false WHERE id = $1 AND tenant_id = $2;
+
+-- name: DeactivateRoomPresentationsByCreator :exec
+-- Encerra as apresentações ativas de uma sala criadas por um utilizador (quando ele sai da sala).
+-- Sem tenant: o nome da sala (mailin-<rand>) já é único e o created_by delimita.
+UPDATE meet_presentations SET active = false WHERE room = $1 AND created_by = $2 AND active;

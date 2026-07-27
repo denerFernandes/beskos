@@ -75,6 +75,22 @@ func (q *Queries) DeactivateRoomPresentations(ctx context.Context, arg Deactivat
 	return err
 }
 
+const deactivateRoomPresentationsByCreator = `-- name: DeactivateRoomPresentationsByCreator :exec
+UPDATE meet_presentations SET active = false WHERE room = $1 AND created_by = $2 AND active
+`
+
+type DeactivateRoomPresentationsByCreatorParams struct {
+	Room      string    `json:"room"`
+	CreatedBy uuid.UUID `json:"created_by"`
+}
+
+// Encerra as apresentações ativas de uma sala criadas por um utilizador (quando ele sai da sala).
+// Sem tenant: o nome da sala (mailin-<rand>) já é único e o created_by delimita.
+func (q *Queries) DeactivateRoomPresentationsByCreator(ctx context.Context, arg DeactivateRoomPresentationsByCreatorParams) error {
+	_, err := q.db.Exec(ctx, deactivateRoomPresentationsByCreator, arg.Room, arg.CreatedBy)
+	return err
+}
+
 const getActivePresentation = `-- name: GetActivePresentation :one
 SELECT id, room, tenant_id, name, object_key, current_slide, active, created_by, created_at FROM meet_presentations
 WHERE room = $1 AND tenant_id = $2 AND active
