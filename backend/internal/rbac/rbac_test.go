@@ -63,3 +63,54 @@ func TestInternalAdminNotClientAssignable(t *testing.T) {
 		}
 	}
 }
+
+// As exceções por membro são decisão de segurança: o que interessa testar é a ordem de precedência
+// (retirar ganha), o que fica intocado e que uma permissão inventada não entra por engano.
+func TestEffectiveOverrides(t *testing.T) {
+	has := func(list []Permission, p Permission) bool {
+		for _, x := range list {
+			if x == p {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Conceder por cima do papel: um admin não apaga domínios, mas pode receber a permissão.
+	got := Effective(RoleAdmin, []Permission{PermDomainsDelete}, nil)
+	if !has(got, PermDomainsDelete) {
+		t.Error("conceder devia acrescentar domains.delete ao admin")
+	}
+	if !has(got, PermMembersManage) {
+		t.Error("conceder não pode tirar o que o papel já dava")
+	}
+
+	// Retirar do papel: admin sem gestão de membros.
+	got = Effective(RoleAdmin, nil, []Permission{PermMembersManage})
+	if has(got, PermMembersManage) {
+		t.Error("retirar devia tirar members.manage ao admin")
+	}
+
+	// Contradição: retirar ganha, sempre (fail-closed).
+	got = Effective(RoleAdmin, []Permission{PermBillingManage}, []Permission{PermBillingManage})
+	if has(got, PermBillingManage) {
+		t.Error("com conceder e retirar ao mesmo tempo, deve ficar retirado")
+	}
+
+	// Permissão desconhecida não entra na lista efetiva.
+	got = Effective(RoleMember, []Permission{"inventada.qualquer"}, nil)
+	for _, p := range got {
+		if p == "inventada.qualquer" {
+			t.Error("permissão desconhecida não devia ser concedida")
+		}
+	}
+
+	// Owner com uma exceção a retirar continua a perder a permissão (ninguém está acima da regra).
+	if HasEffective(RoleOwner, nil, []Permission{PermTenantDelete}, PermTenantDelete) {
+		t.Error("retirar tem de valer também para o owner")
+	}
+	// E o caminho rápido concorda com o completo.
+	if HasEffective(RoleMember, []Permission{PermUsageView}, nil, PermUsageView) != has(Effective(RoleMember, []Permission{PermUsageView}, nil), PermUsageView) {
+		t.Error("HasEffective e Effective têm de dar a mesma resposta")
+	}
+}

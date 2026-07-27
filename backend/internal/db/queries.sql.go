@@ -3220,6 +3220,20 @@ func (q *Queries) DeleteMFAChallenge(ctx context.Context, token string) error {
 	return err
 }
 
+const deleteMemberPermissions = `-- name: DeleteMemberPermissions :exec
+DELETE FROM member_permissions WHERE tenant_id = $1 AND user_id = $2
+`
+
+type DeleteMemberPermissionsParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	UserID   uuid.UUID `json:"user_id"`
+}
+
+func (q *Queries) DeleteMemberPermissions(ctx context.Context, arg DeleteMemberPermissionsParams) error {
+	_, err := q.db.Exec(ctx, deleteMemberPermissions, arg.TenantID, arg.UserID)
+	return err
+}
+
 const deleteMessage = `-- name: DeleteMessage :exec
 UPDATE messages SET deleted_at = now(), body = '' WHERE id = $1 AND user_id = $2
 `
@@ -5961,6 +5975,31 @@ func (q *Queries) InsertBoardGrant(ctx context.Context, arg InsertBoardGrantPara
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const insertMemberPermission = `-- name: InsertMemberPermission :exec
+INSERT INTO member_permissions (tenant_id, user_id, permission, allow, created_by)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (user_id, permission) DO UPDATE SET allow = EXCLUDED.allow, created_by = EXCLUDED.created_by
+`
+
+type InsertMemberPermissionParams struct {
+	TenantID   uuid.UUID   `json:"tenant_id"`
+	UserID     uuid.UUID   `json:"user_id"`
+	Permission string      `json:"permission"`
+	Allow      bool        `json:"allow"`
+	CreatedBy  pgtype.UUID `json:"created_by"`
+}
+
+func (q *Queries) InsertMemberPermission(ctx context.Context, arg InsertMemberPermissionParams) error {
+	_, err := q.db.Exec(ctx, insertMemberPermission,
+		arg.TenantID,
+		arg.UserID,
+		arg.Permission,
+		arg.Allow,
+		arg.CreatedBy,
+	)
+	return err
 }
 
 const insertRecoveryCode = `-- name: InsertRecoveryCode :exec
@@ -8855,6 +8894,45 @@ func (q *Queries) ListMailUsersByTenant(ctx context.Context, tenantID uuid.UUID)
 			&i.JobTitle,
 			&i.Avatar,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMemberPermissions = `-- name: ListMemberPermissions :many
+
+SELECT permission, allow FROM member_permissions
+WHERE tenant_id = $1 AND user_id = $2
+ORDER BY permission
+`
+
+type ListMemberPermissionsParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	UserID   uuid.UUID `json:"user_id"`
+}
+
+type ListMemberPermissionsRow struct {
+	Permission string `json:"permission"`
+	Allow      bool   `json:"allow"`
+}
+
+// ---------- Exceções de permissão por membro (RBAC granular) ----------
+// Exceções de UMA pessoa. Filtra tenant: um user_id de outro tenant não devolve nada.
+func (q *Queries) ListMemberPermissions(ctx context.Context, arg ListMemberPermissionsParams) ([]ListMemberPermissionsRow, error) {
+	rows, err := q.db.Query(ctx, listMemberPermissions, arg.TenantID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMemberPermissionsRow
+	for rows.Next() {
+		var i ListMemberPermissionsRow
+		if err := rows.Scan(&i.Permission, &i.Allow); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

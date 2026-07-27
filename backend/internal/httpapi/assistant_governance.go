@@ -201,6 +201,6 @@ func (s *Server) registerAssistantGovernance(r chi.Router) {
 	r.Get("/assistant/audit", s.handleAssistantAudit)
 	// A exclusão de pastas é controlo de alcance da organização (§6.6): administração.
 	r.Get("/assistant/excluded-folders", s.handleAssistantExcludedFolders)
-	r.With(s.requirePerm(rbac.PermOrgSettings)).Post("/assistant/excluded-folders", s.handleAssistantExcludeFolder)
-	r.With(s.requirePerm(rbac.PermOrgSettings)).Delete("/assistant/excluded-folders/{id}", s.handleAssistantUnexcludeFolder)
+	r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/excluded-folders", s.handleAssistantExcludeFolder)
+	r.With(s.requirePerm(rbac.PermAssistantManage)).Delete("/assistant/excluded-folders/{id}", s.handleAssistantUnexcludeFolder)
 }

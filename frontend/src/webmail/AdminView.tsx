@@ -36,11 +36,11 @@ export function AdminView({ section: param, onSection }: { section?: string; onS
     { id: "overview", label: t("panel.overview"), icon: <IcHome size={17} />, show: true },
     { id: "domains", label: t("panel.domains"), icon: <IcGlobe size={17} />, show: hasPerm(d, "domains.view") },
     { id: "users", label: t("panel.users"), icon: <IcUsers size={17} />, show: hasPerm(d, "members.view") || hasPerm(d, "domains.view") },
-    { id: "groups", label: t("panel.groups"), icon: <IcColumns size={17} />, show: hasPerm(d, "members.view") },
-    { id: "billing", label: t("panel.billing"), icon: <IcCard size={17} />, show: hasPerm(d, "usage.view") },
-    { id: "branding", label: t("panel.branding"), icon: <IcStar size={17} />, show: hasPerm(d, "org.settings") },
-    { id: "apps", label: t("panel.apps"), icon: <IcColumns size={17} />, show: hasPerm(d, "org.settings") },
-    { id: "agents", label: t("agents.title"), icon: <IcSparkle size={17} />, show: hasPerm(d, "org.settings") },
+    { id: "groups", label: t("panel.groups"), icon: <IcColumns size={17} />, show: hasPerm(d, "members.view") || hasPerm(d, "groups.manage") },
+    { id: "billing", label: t("panel.billing"), icon: <IcCard size={17} />, show: hasPerm(d, "billing.view") || hasPerm(d, "usage.view") },
+    { id: "branding", label: t("panel.branding"), icon: <IcStar size={17} />, show: hasPerm(d, "org.branding") },
+    { id: "apps", label: t("panel.apps"), icon: <IcColumns size={17} />, show: hasPerm(d, "org.branding") },
+    { id: "agents", label: t("agents.title"), icon: <IcSparkle size={17} />, show: hasPerm(d, "assistant.manage") },
     { id: "security", label: t("panel.security"), icon: <IcShield size={17} />, show: true },
   ];
   const visible = items.filter((i) => i.show);

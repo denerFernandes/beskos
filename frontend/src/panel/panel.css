@@ -190,3 +190,13 @@
 .plans-table tr.strong td{font-weight:650;}
 .plans-table .pt-actions td{padding:14px;border-bottom:none;}
 .pnl-note{margin-top:4px;padding:9px 12px;border-radius:10px;font-size:12.5px;line-height:1.5;background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);color:var(--ink);}
+
+/* Permissões por membro: lista de capacidades com o estado (do papel / concedida / retirada). */
+.perm-list{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto;}
+.perm-row{display:flex;align-items:flex-start;gap:10px;padding:8px 6px;border-radius:8px;cursor:pointer;}
+.perm-row:hover{background:var(--hover,rgba(127,127,127,.08));}
+.perm-row.off{opacity:.5;cursor:not-allowed;}
+.perm-row input{margin-top:2px;}
+.perm-tx{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.perm-nm{font-size:14px;}
+.perm-sub{font-size:12px;color:var(--muted);}

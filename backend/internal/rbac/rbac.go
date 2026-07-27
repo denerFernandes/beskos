@@ -10,14 +10,25 @@ type Permission string
 
 const (
 	PermDomainsView   Permission = "domains.view"
-	PermDomainsManage Permission = "domains.manage"
+	PermDomainsManage Permission = "domains.manage" // adicionar/editar domínio
+	PermDomainsDelete Permission = "domains.delete" // remover domínio (destrutivo, à parte)
 	PermMailboxManage Permission = "mailboxes.manage"
 	PermMembersView   Permission = "members.view"
-	PermMembersManage Permission = "members.manage" // convidar, mudar papel, remover
-	PermBillingManage Permission = "billing.manage"
+	PermMembersInvite Permission = "members.invite" // convidar/criar conta
+	PermMembersManage Permission = "members.manage" // mudar papel, remover, permissões
+	PermGroupsManage  Permission = "groups.manage"  // grupos de utilizadores
+	PermBillingView   Permission = "billing.view"   // ver plano e faturas
+	PermBillingManage Permission = "billing.manage" // trocar plano, portal, cancelar
 	PermUsageView     Permission = "usage.view"
 	PermTenantDelete  Permission = "tenant.delete"
-	PermOrgSettings   Permission = "org.settings" // marca/aparência da organização (cor, logo)
+	// org.settings era o balde de tudo o que fosse "da organização" — marca, apps, política de
+	// segurança, comunicados, assistente e home da wiki. Partido para dar para confiar a alguém uma
+	// coisa sem lhe entregar as outras (era o pedido: permissões mais granulares, 27/07/2026).
+	PermOrgBranding     Permission = "org.branding"      // marca/aparência e apps visíveis
+	PermOrgSecurity     Permission = "org.security"      // política de segurança (MFA, sessões)
+	PermAnnouncements   Permission = "org.announcements" // comunicados internos
+	PermAssistantManage Permission = "assistant.manage"  // agentes e governança do assistente
+	PermWikiManage      Permission = "wiki.manage"       // home da wiki (conteúdo da organização)
 )
 
 // Role é um papel fixo. A hierarquia é por conjunto de permissões, não por herança implícita.
@@ -35,24 +46,29 @@ const (
 var rolePermissions = map[Role]map[Permission]bool{
 	RoleOwner:         allPerms(),
 	RoleInternalAdmin: allPerms(),
+	// Admin = gestão operacional. Não apaga domínios nem mexe em faturação: as duas coisas que um
+	// engano torna caras. Quem precisar, recebe a permissão à parte (exceções por membro).
 	RoleAdmin: set(
 		PermDomainsView, PermDomainsManage, PermMailboxManage,
-		PermMembersView, PermMembersManage, PermUsageView, PermOrgSettings,
+		PermMembersView, PermMembersInvite, PermMembersManage, PermGroupsManage,
+		PermUsageView, PermBillingView,
+		PermOrgBranding, PermOrgSecurity, PermAnnouncements, PermAssistantManage, PermWikiManage,
 	),
 	RoleMember: set(
 		PermDomainsView, PermUsageView,
 	),
 	RoleBilling: set(
-		PermBillingManage, PermUsageView, PermMembersView,
+		PermBillingView, PermBillingManage, PermUsageView, PermMembersView,
 	),
 }
 
 // AllPermissions lista todas as permissões conhecidas (usado por owner/internal e nos testes).
 func AllPermissions() []Permission {
 	return []Permission{
-		PermDomainsView, PermDomainsManage, PermMailboxManage,
-		PermMembersView, PermMembersManage, PermBillingManage,
-		PermUsageView, PermTenantDelete, PermOrgSettings,
+		PermDomainsView, PermDomainsManage, PermDomainsDelete, PermMailboxManage,
+		PermMembersView, PermMembersInvite, PermMembersManage, PermGroupsManage,
+		PermBillingView, PermBillingManage, PermUsageView, PermTenantDelete,
+		PermOrgBranding, PermOrgSecurity, PermAnnouncements, PermAssistantManage, PermWikiManage,
 	}
 }
 
@@ -108,6 +124,46 @@ func Permissions(role Role) []Permission {
 		}
 	}
 	return out
+}
+
+// Effective devolve as permissões de alguém: as do papel, mais as concedidas à pessoa, menos as
+// retiradas. É a resposta autoritativa — os handlers e o /me passam por aqui, nunca por Has direto.
+// Retirar ganha sempre a conceder: numa contradição, a decisão mais restritiva é a que fica.
+func Effective(role Role, allow, deny []Permission) []Permission {
+	granted := map[Permission]bool{}
+	for _, p := range AllPermissions() {
+		granted[p] = Has(role, p)
+	}
+	for _, p := range allow {
+		if _, known := granted[p]; known {
+			granted[p] = true
+		}
+	}
+	for _, p := range deny {
+		granted[p] = false
+	}
+	var out []Permission
+	for _, p := range AllPermissions() {
+		if granted[p] {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// HasEffective é o Effective para uma única permissão (o caminho quente dos handlers).
+func HasEffective(role Role, allow, deny []Permission, perm Permission) bool {
+	for _, p := range deny {
+		if p == perm {
+			return false
+		}
+	}
+	for _, p := range allow {
+		if p == perm {
+			return true
+		}
+	}
+	return Has(role, perm)
 }
 
 func set(perms ...Permission) map[Permission]bool {

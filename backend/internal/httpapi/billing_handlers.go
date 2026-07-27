@@ -1,11 +1,11 @@
 package httpapi
 
 import (
-	"log"
-	"time"
 	"context"
 	"io"
+	"log"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -275,7 +275,7 @@ func (s *Server) syncSeats(tid uuid.UUID) {
 	}()
 }
 
-// tenantCurrency devolve a moeda do tenant ('' → a global BILLING_CURRENCY).
+// tenantCurrency devolve a moeda do tenant (” → a global BILLING_CURRENCY).
 func (s *Server) tenantCurrency(ctx context.Context, tid uuid.UUID) string {
 	if t, err := s.q.GetTenant(ctx, tid); err == nil && t.Currency != "" {
 		return t.Currency

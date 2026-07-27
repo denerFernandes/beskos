@@ -2187,3 +2187,19 @@ SELECT MIN(send_at)::timestamptz AS next_at FROM outbox_emails WHERE status = 'p
 -- name: NotifyOutbox :exec
 -- Acorda o worker de envio: a API chama isto ao enfileirar um e-mail (undo-send/agendado).
 SELECT pg_notify('outbox_new', '');
+
+-- ---------- Exceções de permissão por membro (RBAC granular) ----------
+
+-- name: ListMemberPermissions :many
+-- Exceções de UMA pessoa. Filtra tenant: um user_id de outro tenant não devolve nada.
+SELECT permission, allow FROM member_permissions
+WHERE tenant_id = @tenant_id AND user_id = @user_id
+ORDER BY permission;
+
+-- name: DeleteMemberPermissions :exec
+DELETE FROM member_permissions WHERE tenant_id = @tenant_id AND user_id = @user_id;
+
+-- name: InsertMemberPermission :exec
+INSERT INTO member_permissions (tenant_id, user_id, permission, allow, created_by)
+VALUES (@tenant_id, @user_id, @permission, @allow, @created_by)
+ON CONFLICT (user_id, permission) DO UPDATE SET allow = EXCLUDED.allow, created_by = EXCLUDED.created_by;
