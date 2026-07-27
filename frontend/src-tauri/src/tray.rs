@@ -144,6 +144,9 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
             };
             if key != last_icon {
                 let _ = tray.set_icon(Some(icon.clone()));
+                // set_icon reseta o modo template no macOS → repor a cada TROCA (não a cada volta,
+                // senão volta o flicker). Sem isto o ícone fica preto e não segue a barra clara/escura.
+                let _ = tray.set_icon_as_template(true);
                 last_icon = key;
             }
 
