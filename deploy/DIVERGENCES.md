@@ -190,6 +190,50 @@ o white-label no que **todos os destinatários** veem, ao custo de um MX de boun
 descartada (sem custom MAIL FROM): DNS 100% limpo mas `mailed-by: amazonses` para todos. Ver
 `provisioning/zone.go`, `ses/ses.go`, testes `zone_ses_test.go`/`machine_test.go`.
 
+## Marca própria no editor de office — patch ao Document Server (27/07/2026)
+
+Até aqui a postura era "imagem oficial, sem modificação, só rede" (como o Stalwart). **Deixa de valer
+para o OnlyOffice** — e só para ele. O Stalwart continua intocado (lei §5.4).
+
+**Realidade medida** (imagem pinada, `onlyoffice-documentserver 9.4.0-129`, arm64):
+- A doc oficial marca `customization.logo` e `customization.customer` como exclusivos da **Developer
+  Edition**. Confirmado empiricamente: no Community o servidor reporta a licença com `branding: false`
+  e `customization: false`, e o cliente **descarta os parâmetros em silêncio** — nem erro, nem aviso.
+- O gate são **duas linhas por editor**, em `web-apps/apps/<editor>/main/app/controller/Main.js`:
+  ```js
+  this.appOptions.canBrandingExt = params.asc_getCanBranding() && (...)   // layout, loaderLogo, about
+  this.appOptions.canBranding    = params.asc_getCustomization()          // logo do cabeçalho + "Sobre"
+  ```
+  (Note a inversão: `asc_getCanBranding` alimenta o `Ext`, não o básico.)
+- O `web-apps` do 9.4 vem **sem minificação** — daí o patch caber num `sed`. O `DocService` do 9.4, ao
+  contrário, é um ELF único de ~263 MB com o JS embutido: patchar o servidor seria muito mais caro, e é
+  desnecessário, porque o veredito da licença só é *aplicado* no cliente.
+- O nginx do DS serve com `gzip_static`: sem regenerar o `.gz` ao lado, o browser recebe o ficheiro
+  original e o patch parece não ter efeito. É o erro fácil desta modificação.
+
+**Decisão:** aplicar o patch no arranque do container (`deploy/onlyoffice-branding-patch.sh`, chamado
+pelo entrypoint), mantendo a imagem oficial pinada por digest. Idempotente e fail-safe: se o padrão
+mudar numa versão futura do DS, o script avisa e o editor arranca na mesma, só sem marca.
+
+**Conformidade (AGPL v3 + política de marcas da Ascensio System SIA):**
+- Os termos adicionais do 9.4 já **não** exigem manter o logo ONLYOFFICE na UI de versões modificadas —
+  a antiga cláusula *badgeware* caiu; o cabeçalho do ficheiro remete para a **secção 5** da AGPL
+  ("Appropriate Legal Notices") e diz "No trademark rights are granted under this License".
+- O que continua obrigatório e nós cumprimos: aviso de versão modificada **com data**, identificação do
+  software original, licença ligada, e a oferta do fonte modificado (§13, porque servimos pela rede).
+  Tudo isso vai em `customization.customer.info` (ver `backend/internal/httpapi/onlyoffice_branding.go`),
+  e o próprio `setLicInfo` do DS mantém o bloco *"Powered by / Ascensio System SIA / onlyoffice.com"*
+  no "Sobre" quando enviamos `customer`.
+- `ONLYOFFICE_SOURCE_URL` é **obrigatório em produção** (a config recusa arrancar sem ele) — é o
+  endereço do fonte modificado. Enquanto não existir esse repositório público, não subir em produção.
+- Nota: o *FAQ comercial* deles continua a dizer que remover a marca exige licença paga, o que
+  contradiz os termos do LICENSE. O que vincula é a licença; o risco residual é de disputa, não de
+  incumprimento claro. Decisão tomada com esse risco à vista.
+
+**Verificação:** `docker compose logs onlyoffice | grep branding` → `5 editor(es) modificado(s)`; e
+`curl -sL -H 'Accept-Encoding: gzip' --compressed http://127.0.0.1:8082/web-apps/apps/documenteditor/main/app/controller/Main.js | grep beskos-branding-patch`
+tem de encontrar o marcador (é o teste que apanha o `.gz` desatualizado).
+
 ## Como reproduzir / re-verificar
 Container de teste: `docker run -d --name mailin-sw-probe -e STALWART_RECOVERY_ADMIN='admin:probe-secret' -p 18080:8080 stalwartlabs/stalwart:v0.16.4`
 Auth: `admin:probe-secret`. Ver `backend/internal/stalwart/*_test.go` (testes de integração que exercem estes payloads).

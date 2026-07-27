@@ -87,6 +87,22 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 		uiTheme = "theme-dark"
 	}
 
+	// Mesma marca do editor autenticado — quem abre um link público vê o Beskos, não o ONLYOFFICE.
+	// A atribuição à Ascensio System SIA acompanha, no "Sobre" (ver onlyoffice_branding.go).
+	customization := map[string]any{
+		"uiTheme": uiTheme,
+		// Fita de formatação expandida ao abrir (como no editor autenticado).
+		"compactHeader":  true,
+		"compactToolbar": false,
+		"toolbarNoTabs":  false,
+		"hideRightMenu":  true,
+		"feedback":       false,
+		"help":           false,
+		"chat":           false,
+		"plugins":        false,
+	}
+	s.office.applyBranding(customization)
+
 	config := map[string]any{
 		"document": map[string]any{
 			"fileType": ext,
@@ -100,22 +116,11 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 		},
 		"documentType": documentType(ext),
 		"editorConfig": map[string]any{
-			"mode":        map[bool]string{true: "edit", false: "view"}[canWrite],
-			"lang":        lang,
-			"user":        map[string]any{"id": uuid.NewString(), "name": guestName},
-			"callbackUrl": base + "/doc/callback/" + f.ID.String() + "?token=" + docToken,
-			"customization": map[string]any{
-				"uiTheme": uiTheme,
-				// Fita de formatação expandida ao abrir (como no editor autenticado).
-				"compactHeader":  true,
-				"compactToolbar": false,
-				"toolbarNoTabs":  false,
-				"hideRightMenu":  true,
-				"feedback":       false,
-				"help":           false,
-				"chat":           false,
-				"plugins":        false,
-			},
+			"mode":          map[bool]string{true: "edit", false: "view"}[canWrite],
+			"lang":          lang,
+			"user":          map[string]any{"id": uuid.NewString(), "name": guestName},
+			"callbackUrl":   base + "/doc/callback/" + f.ID.String() + "?token=" + docToken,
+			"customization": customization,
 		},
 	}
 	signed, err := s.office.jwtSign(config)

@@ -14,7 +14,8 @@ import (
 )
 
 // Integração com o OnlyOffice Document Server para edição de office (docx/xlsx/pptx).
-// O Document Server (container rede-only, não modificado — leis §2/§5.4) carrega o config
+// O Document Server (container rede-only, com o patch de branding do arranque — ver
+// deploy/DIVERGENCES.md) carrega o config
 // que ASSINAMOS por JWT; ele então busca o arquivo e devolve o salvo via callback, ambos
 // autenticados por um token HMAC nosso ligado a arquivo+usuário+tenant+permissão.
 
@@ -24,6 +25,18 @@ type onlyoffice struct {
 	filesHostURL string // URL da NOSSA API como o Document Server a alcança (download/callback)
 	jwtSecret    []byte // segredo compartilhado com o DS (assina o config; verifica o callback)
 	tokenSecret  []byte // segredo interno que assina as URLs de download/callback
+	sourceURL    string // fonte do Document Server modificado, mostrado no "Sobre" (AGPL §13)
+	brandURL     string // site para onde o logo do cabeçalho aponta
+}
+
+// SetOfficeBranding define os endereços que acompanham a marca Beskos no editor: o fonte
+// modificado do Document Server (obrigatório em produção, ver config) e o site do logo.
+func (s *Server) SetOfficeBranding(sourceURL, brandURL string) {
+	if s.office == nil {
+		return
+	}
+	s.office.sourceURL = strings.TrimRight(sourceURL, "/")
+	s.office.brandURL = strings.TrimRight(brandURL, "/")
 }
 
 // EnableOnlyOffice liga a edição de office. Sem URLs/segredos, fica desligado. internalURL é
