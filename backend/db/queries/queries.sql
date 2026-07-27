@@ -2203,3 +2203,13 @@ DELETE FROM member_permissions WHERE tenant_id = @tenant_id AND user_id = @user_
 INSERT INTO member_permissions (tenant_id, user_id, permission, allow, created_by)
 VALUES (@tenant_id, @user_id, @permission, @allow, @created_by)
 ON CONFLICT (user_id, permission) DO UPDATE SET allow = EXCLUDED.allow, created_by = EXCLUDED.created_by;
+
+-- ---------- Ferramentas do assistente desligadas (governança fina) ----------
+
+-- name: ListDisabledAssistantTools :many
+SELECT tool FROM assistant_tool_settings WHERE tenant_id = @tenant_id AND enabled = false ORDER BY tool;
+
+-- name: SetAssistantToolEnabled :exec
+INSERT INTO assistant_tool_settings (tenant_id, tool, enabled)
+VALUES (@tenant_id, @tool, @enabled)
+ON CONFLICT (tenant_id, tool) DO UPDATE SET enabled = EXCLUDED.enabled;

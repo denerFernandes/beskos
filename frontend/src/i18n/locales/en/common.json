@@ -2051,10 +2051,11 @@
     "purposeHint": "One line. This is how the assistant decides on its own when to use this profile.",
     "instructions": "Instructions",
     "tools": "Tools",
-    "toolsHint": "An assistant can only do what is ticked here. The server refuses any tool outside this list.",
+    "toolsHint": "Fine-grained: turning a tool off here removes it from EVERY agent, including your own and background tasks.",
     "duplicateOf": "Start from",
     "fromScratch": "From scratch",
-    "duplicateWarning": "The copy is independent: it stops receiving our improvements to the original profile."
+    "duplicateWarning": "The copy is independent: it stops receiving our improvements to the original profile.",
+    "toolsTitle": "Tools"
   },
   "memory": {
     "title": "Assistant memory",

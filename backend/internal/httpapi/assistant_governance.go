@@ -201,6 +201,60 @@ func (s *Server) registerAssistantGovernance(r chi.Router) {
 	r.Get("/assistant/audit", s.handleAssistantAudit)
 	// A exclusão de pastas é controlo de alcance da organização (§6.6): administração.
 	r.Get("/assistant/excluded-folders", s.handleAssistantExcludedFolders)
+	r.With(s.requirePerm(rbac.PermAssistantManage)).Get("/assistant/tools", s.handleAssistantToolsGet)
+	r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/tools/{tool}", s.handleAssistantToolSet)
 	r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/excluded-folders", s.handleAssistantExcludeFolder)
 	r.With(s.requirePerm(rbac.PermAssistantManage)).Delete("/assistant/excluded-folders/{id}", s.handleAssistantUnexcludeFolder)
+}
+
+// --- Ferramentas desligadas pela organização (governança fina) ---
+
+// disabledAssistantTools lê as ferramentas que a organização desligou. Falha de leitura devolve
+// vazio: o teto é uma restrição adicional, e ficar sem ele não abre nada que os outros filtros
+// (apps desligadas, permissões do agente) já não controlassem.
+func (s *Server) disabledAssistantTools(ctx context.Context, tenant uuid.UUID) []string {
+	tools, err := s.q.ListDisabledAssistantTools(ctx, tenant)
+	if err != nil {
+		return nil
+	}
+	return tools
+}
+
+// handleAssistantToolsGet lista o catálogo e o que está desligado.
+func (s *Server) handleAssistantToolsGet(w http.ResponseWriter, r *http.Request) {
+	mu := mailUserFrom(r.Context())
+	writeJSON(w, http.StatusOK, map[string]any{
+		"tools":    assistant.AllTools(),
+		"disabled": orEmpty(s.disabledAssistantTools(r.Context(), mu.TenantID)),
+	})
+}
+
+// handleAssistantToolSet liga/desliga UMA ferramenta para a organização inteira.
+func (s *Server) handleAssistantToolSet(w http.ResponseWriter, r *http.Request) {
+	mu := mailUserFrom(r.Context())
+	tool := chi.URLParam(r, "tool")
+	known := false
+	for _, t := range assistant.AllTools() {
+		if t == tool {
+			known = true
+			break
+		}
+	}
+	if !known {
+		writeErr(w, http.StatusBadRequest, "assistant.unknown_tool")
+		return
+	}
+	var req struct {
+		Enabled bool `json:"enabled"`
+	}
+	if !decode(w, r, &req) {
+		return
+	}
+	if err := s.q.SetAssistantToolEnabled(r.Context(), db.SetAssistantToolEnabledParams{
+		TenantID: mu.TenantID, Tool: tool, Enabled: req.Enabled,
+	}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "assistant.failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"tool": tool, "enabled": req.Enabled})
 }

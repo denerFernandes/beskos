@@ -135,6 +135,12 @@ type AssistantToolCall struct {
 	ConversationID pgtype.UUID     `json:"conversation_id"`
 }
 
+type AssistantToolSetting struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	Tool     string    `json:"tool"`
+	Enabled  bool      `json:"enabled"`
+}
+
 type AssistantUsage struct {
 	ID         uuid.UUID `json:"id"`
 	TenantID   uuid.UUID `json:"tenant_id"`

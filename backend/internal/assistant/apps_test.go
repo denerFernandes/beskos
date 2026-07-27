@@ -38,3 +38,27 @@ func TestAgentAvailableFollowsApps(t *testing.T) {
 		t.Error("o agente geral não depende de uma só app")
 	}
 }
+
+// O teto de ferramentas é uma restrição: tira, nunca acrescenta. Um engano ao contrário aqui daria
+// à IA uma capacidade que a organização desligou de propósito.
+func TestWithoutToolsSoRemove(t *testing.T) {
+	tools := []string{ToolMailSearch, ToolMailSend, ToolWikiRead}
+	got := WithoutTools(tools, []string{ToolMailSend})
+	if len(got) != 2 {
+		t.Fatalf("esperava 2 ferramentas, veio %d (%v)", len(got), got)
+	}
+	for _, g := range got {
+		if g == ToolMailSend {
+			t.Error("a ferramenta desligada continuou na lista")
+		}
+	}
+	// Desligar algo que o agente não tem não pode acrescentá-lo.
+	got = WithoutTools([]string{ToolWikiRead}, []string{ToolMailSend, ToolDocsEdit})
+	if len(got) != 1 || got[0] != ToolWikiRead {
+		t.Errorf("lista alterada indevidamente: %v", got)
+	}
+	// Sem nada desligado, a lista vem intacta.
+	if len(WithoutTools(tools, nil)) != len(tools) {
+		t.Error("sem bloqueios, a lista tem de ficar igual")
+	}
+}
