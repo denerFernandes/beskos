@@ -1,15 +1,15 @@
 package httpapi
 
-import (
-	_ "embed"
-	"encoding/base64"
-)
-
 // Marca Beskos no cabeçalho e no "Sobre" do editor de office.
 //
 // O Document Server Community só honra estes parâmetros com o patch de branding do arranque
 // (deploy/onlyoffice-branding-patch.sh). Sem o patch, o editor descarta-os em silêncio e o
 // cabeçalho fica com a marca original — a app continua a funcionar na mesma.
+//
+// As imagens são URLs servidas pelo PRÓPRIO Document Server (o mesmo patch copia-as para o
+// webroot dele). Não usar data: URI aqui: o api.js do DS passa logo.{image,imageDark,imageLight}
+// na query string do iframe do editor, e três data URIs percent-encoded estouram o limite da
+// linha de pedido do nginx — o editor abre com "414 Request-URI Too Large".
 //
 // Atribuição (AGPL v3 §5 e §13, mais a política de marcas da Ascensio System SIA): o diálogo
 // "Sobre" continua a mostrar "Powered by / Ascensio System SIA / onlyoffice.com" — é o próprio
@@ -17,23 +17,8 @@ import (
 // a nota de versão modificada, com data e o endereço do fonte modificado. Nada disto é opcional:
 // servimos o editor pela rede, logo devemos o aviso e a oferta de fonte a quem o usa.
 
-//go:embed assets/beskos-wordmark-light.svg
-var wordmarkLightSVG []byte
-
-//go:embed assets/beskos-wordmark-dark.svg
-var wordmarkDarkSVG []byte
-
-// Logos em data: URI — o editor corre noutra origem (o DS) e assim a marca não depende de a
-// nossa app estar publicamente alcançável, nem em dev, nem no app desktop, nem no visualizador
-// público de links.
-var (
-	logoForLightHeader = svgDataURI(wordmarkLightSVG)
-	logoForDarkHeader  = svgDataURI(wordmarkDarkSVG)
-)
-
-func svgDataURI(b []byte) string {
-	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(b)
-}
+// brandLogoPath é onde o patch de arranque deixa os logos dentro do Document Server.
+const brandLogoPath = "/web-apps/apps/common/main/resources/img/beskos/"
 
 // officeModifiedOn é a data da modificação do Document Server, exigida pelos termos adicionais
 // da AGPL ("prominent notices ... including the date of such modification"). Atualizar sempre
@@ -47,16 +32,19 @@ const officeUpstreamNotice = "Baseado em ONLYOFFICE® Docs Community Edition, da
 // applyBranding acrescenta a marca Beskos ao objeto customization do config do editor. Recebe o
 // mapa já montado pelo handler para não duplicar a construção do config em dois sítios.
 func (o *onlyoffice) applyBranding(customization map[string]any) {
+	light := o.publicURL + brandLogoPath + "wordmark-light.svg"
+	dark := o.publicURL + brandLogoPath + "wordmark-dark.svg"
+
 	customization["logo"] = map[string]any{
-		"image":      logoForLightHeader,
-		"imageLight": logoForLightHeader,
-		"imageDark":  logoForDarkHeader,
+		"image":      light,
+		"imageLight": light,
+		"imageDark":  dark,
 		"url":        o.brandSiteURL(),
 	}
 	customization["customer"] = map[string]any{
 		"name":     "Beskos",
-		"logo":     logoForLightHeader,
-		"logoDark": logoForDarkHeader,
+		"logo":     light,
+		"logoDark": dark,
 		"www":      o.brandSiteURL(),
 		"info":     o.attributionNotice(),
 	}

@@ -27,9 +27,20 @@
 # sem branding. Idempotente — reaplicar não duplica nada.
 
 WEBAPPS=/var/www/onlyoffice/documentserver/web-apps/apps
+BRANDDIR="$WEBAPPS/common/main/resources/img/beskos"
 MARKER=beskos-branding-patch
 PATCHED=0
 SKIPPED=0
+
+# As imagens do logo ficam DENTRO do Document Server, não em data: URI. O api.js do DS mete
+# customization.logo.{image,imageDark,imageLight} na QUERY STRING do iframe do editor — três data
+# URIs percent-encoded rebentam o limite da linha de pedido e o nginx responde 414. Servidas daqui,
+# são três URLs curtas, na mesma origem do editor (sem CORS, sem depender da app estar exposta).
+if [ -d /scripts/brand ]; then
+	mkdir -p "$BRANDDIR" && cp /scripts/brand/*.svg "$BRANDDIR/" 2>/dev/null &&
+		echo "branding patch: logos copiados para $BRANDDIR" ||
+		echo "branding patch: falhou a copiar os logos — o cabeçalho fica sem imagem"
+fi
 
 for app in documenteditor spreadsheeteditor presentationeditor pdfeditor visioeditor; do
 	f="$WEBAPPS/$app/main/app/controller/Main.js"
