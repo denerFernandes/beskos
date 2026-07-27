@@ -33,4 +33,8 @@ except Exception as e:
     sys.exit(1)
 PY
 
+# Marca Beskos no cabeçalho do editor: liga os interruptores de branding do cliente. Ver o
+# cabeçalho do script para a postura de licença (atribuição mantida) e DIVERGENCES.md.
+sh /scripts/onlyoffice-branding-patch.sh || echo "branding patch: skipped"
+
 exec /app/ds/run-document-server.sh "$@"

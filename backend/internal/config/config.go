@@ -26,10 +26,14 @@ type Config struct {
 	// (api.js + editor); FilesHostURL = URL da NOSSA API como o Document Server a alcança
 	// (download/callback). OnlyOfficeJWTSecret é compartilhado com o DS (assina o config);
 	// DocTokenSecret assina, internamente, as URLs de download/callback. Segredos via env.
+	// OnlyOfficeSourceURL = endereço público do fonte modificado do Document Server. Corremos a
+	// imagem oficial com um patch de branding (deploy/onlyoffice-branding-patch.sh), e a AGPL v3
+	// §13 obriga a oferecer esse fonte a quem usa o editor pela rede. Aparece no "Sobre".
 	OnlyOfficeURL         string
 	OnlyOfficeInternalURL string
 	FilesHostURL          string
 	OnlyOfficeJWTSecret   string
+	OnlyOfficeSourceURL   string
 	DocTokenSecret        string
 
 	// Meet (LiveKit). LiveKitURL = WebSocket do browser; chave/segredo assinam os tokens de sala.
@@ -105,6 +109,7 @@ func Load() (*Config, error) {
 		OnlyOfficeInternalURL: getenv("ONLYOFFICE_INTERNAL_URL", ""),
 		FilesHostURL:          getenv("FILES_HOST_URL", ""),
 		OnlyOfficeJWTSecret:   os.Getenv("ONLYOFFICE_JWT_SECRET"),
+		OnlyOfficeSourceURL:   strings.TrimRight(getenv("ONLYOFFICE_SOURCE_URL", ""), "/"),
 		DocTokenSecret:        os.Getenv("DOC_TOKEN_SECRET"),
 		LiveKitURL:            getenv("LIVEKIT_URL", ""),
 		LiveKitHTTPURL:        getenv("LIVEKIT_HTTP_URL", ""),
@@ -161,6 +166,11 @@ func (c *Config) validateProduction() error {
 	checkSecret("ONLYOFFICE_JWT_SECRET", c.OnlyOfficeJWTSecret, c.OnlyOfficeURL != "")
 	checkSecret("DOC_TOKEN_SECRET", c.DocTokenSecret, c.OnlyOfficeURL != "")
 	checkSecret("LIVEKIT_API_SECRET", c.LiveKitAPISecret, c.LiveKitURL != "")
+	// Conformidade AGPL §13: servimos um Document Server modificado, logo temos de dizer aos
+	// utilizadores onde está o fonte dessas modificações. Sem endereço, não subimos em produção.
+	if c.OnlyOfficeURL != "" && c.OnlyOfficeSourceURL == "" {
+		errs = append(errs, "ONLYOFFICE_SOURCE_URL is required in production (AGPL v3 §13: publish the modified Document Server source)")
+	}
 	if c.LiveKitURL != "" && knownDevSecrets[c.LiveKitAPIKey] {
 		errs = append(errs, "LIVEKIT_API_KEY uses a known dev default — set a real key")
 	}

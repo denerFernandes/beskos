@@ -103,8 +103,14 @@ func main() {
 
 	// Edição de office via OnlyOffice Document Server (opcional). Sem URLs/segredos, fica desligado.
 	srv.EnableOnlyOffice(cfg.OnlyOfficeURL, cfg.OnlyOfficeInternalURL, cfg.FilesHostURL, cfg.OnlyOfficeJWTSecret, cfg.DocTokenSecret)
+	// Marca Beskos no editor. sourceURL é a oferta de fonte modificado exigida pela AGPL §13 —
+	// a config já recusa arrancar sem ela em produção; em dev, o "Sobre" sai sem o endereço.
+	srv.SetOfficeBranding(cfg.OnlyOfficeSourceURL, cfg.PublicURL)
 	if cfg.OnlyOfficeURL != "" {
 		log.Printf("office editing enabled (OnlyOffice %s)", cfg.OnlyOfficeURL)
+		if cfg.OnlyOfficeSourceURL == "" {
+			log.Printf("warning: ONLYOFFICE_SOURCE_URL is empty — the editor's About box cannot offer the modified source")
+		}
 	}
 
 	// URL pública da app: usada para links absolutos que saem em e-mails (ex.: sala de reunião).

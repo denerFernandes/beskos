@@ -147,6 +147,9 @@ services:
       ONLYOFFICE_INTERNAL_URL: "http://onlyoffice"
       FILES_HOST_URL: "http://api:8000"
       ONLYOFFICE_JWT_SECRET: "${ONLYOFFICE_JWT_SECRET:-dev-oo-jwt-secret-change-me}"
+      # Fonte do Document Server modificado (patch de branding), mostrado no "Sobre" do editor.
+      # Obrigatório em APP_ENV=production — é a oferta de fonte que a AGPL v3 §13 exige.
+      ONLYOFFICE_SOURCE_URL: "${ONLYOFFICE_SOURCE_URL:-}"
       DOC_TOKEN_SECRET: "${DOC_TOKEN_SECRET:-dev-doc-token-secret-change-me}"
       # Meet (LiveKit). LIVEKIT_URL: WebSocket que o BROWSER usa. API_KEY/SECRET assinam os
       # tokens de sala (têm de bater com deploy/livekit/livekit.yaml).
@@ -180,16 +183,20 @@ services:
       timeout: 5s
       retries: 10
 
-  # OnlyOffice Document Server — editor de office (docx/xlsx/pptx). Roda a imagem oficial SEM
-  # modificação; falamos só por rede (mesma postura do Stalwart, leis §2/§5.4). JWT_SECRET
-  # tem de bater com ONLYOFFICE_JWT_SECRET da api. Em produção: pinar a tag e servir sob
+  # OnlyOffice Document Server — editor de office (docx/xlsx/pptx). Corre a imagem oficial,
+  # MODIFICADA no arranque por dois scripts nossos (config de IA + branding) — ao contrário do
+  # Stalwart, que continua intocado (lei §5.4). A modificação é permitida pela AGPL v3 e está
+  # registada em DIVERGENCES.md; a atribuição à Ascensio System SIA mantém-se no "Sobre".
+  # JWT_SECRET tem de bater com ONLYOFFICE_JWT_SECRET da api. Em produção: servir sob
   # HTTPS/proxy same-origin. Do Docs 9.4 em diante não há mais teto de 20 conexões.
   onlyoffice:
-    # Pinado por digest (OnlyOffice Docs 8.x, base Ubuntu 24.04) — reprodutível e imutável.
+    # Pinado por digest (OnlyOffice Docs 9.4.0-129, base Ubuntu 24.04) — reprodutível e imutável.
+    # O patch de branding depende do web-apps NÃO minificado, que só existe do 9.4 em diante.
     image: onlyoffice/documentserver@sha256:e3da62a847b9a5d51a11f73cfea1d9c13c3be3809614490d4edddcf01dcf919b
     container_name: mailin-onlyoffice
     restart: unless-stopped
-    # Wrapper de arranque: injeta a config de IA (Beskos AI) no default.json e depois arranca o DS.
+    # Wrapper de arranque: injeta a config de IA (Beskos AI) no default.json, aplica o patch de
+    # branding ao web-apps e só então arranca o DS. Ambos falham fechado: o DS arranca na mesma.
     entrypoint: ["/bin/sh", "/scripts/onlyoffice-ai-init.sh"]
     environment:
       JWT_ENABLED: "true"
@@ -200,6 +207,7 @@ services:
       AI_PROXY_URL: "${AI_PROXY_URL:-http://api:8000}"
     volumes:
       - ./onlyoffice-ai-init.sh:/scripts/onlyoffice-ai-init.sh:ro
+      - ./onlyoffice-branding-patch.sh:/scripts/onlyoffice-branding-patch.sh:ro
     ports:
       - "127.0.0.1:8082:80"   # só no host (browser em dev via localhost; prod atrás de proxy HTTPS)
     healthcheck:

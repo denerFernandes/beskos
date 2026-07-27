@@ -68,6 +68,24 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	// key: único por versão (alfanumérico) — muda a cada nova versão para o DS recarregar.
 	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Versao)))).String(), "-", "")
 
+	// Enxuga o cromo para integrar ao Beskos. A marca do cabeçalho é nossa (applyBranding), o que
+	// exige o patch de branding no Document Server; a atribuição à Ascensio System SIA fica no
+	// "Sobre". Ver onlyoffice_branding.go e deploy/DIVERGENCES.md.
+	customization := map[string]any{
+		"uiTheme": uiTheme,
+		// Cabeçalho compacto (uma linha), MAS a fita de formatação expandida ao abrir — senão o
+		// editor arranca com só as abas e parece "não editável" até se clicar numa.
+		"compactHeader":  true,
+		"compactToolbar": false,
+		"toolbarNoTabs":  false,
+		"hideRightMenu":  true,
+		"feedback":       false,
+		"help":           false,
+		"chat":           false,
+		"plugins":        true,
+	}
+	s.office.applyBranding(customization)
+
 	config := map[string]any{
 		"document": map[string]any{
 			"fileType": ext,
@@ -84,25 +102,11 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 			"lang":        lang,
 			"user":        map[string]any{"id": mu.ID.String(), "name": mu.Name},
 			"callbackUrl": base + "/doc/callback/" + f.ID.String() + "?token=" + token,
-			// Enxuga o cromo para integrar ao Beskos (params grátis; a logo do OnlyOffice
-			// permanece por exigência de licença — AGPL §7(b)). Não removemos a marca.
 			// Plugins LIGADOS no editor autenticado (o de IA usa-se aqui; o público fica sem plugins).
 			"plugins": map[string]any{
 				"autostart": []string{aiPluginGUID},
 			},
-			"customization": map[string]any{
-				"uiTheme": uiTheme,
-				// Cabeçalho compacto (uma linha), MAS a fita de formatação expandida ao abrir — senão o
-				// editor arranca com só as abas e parece "não editável" até se clicar numa.
-				"compactHeader":  true,
-				"compactToolbar": false,
-				"toolbarNoTabs":  false,
-				"hideRightMenu":  true,
-				"feedback":       false,
-				"help":           false,
-				"chat":           false,
-				"plugins":        true,
-			},
+			"customization": customization,
 		},
 	}
 	signed, err := s.office.jwtSign(config)
