@@ -146,6 +146,13 @@ impl Engine {
             },
             token,
         )?;
+        // Trocou de conta/servidor ⇒ o índice (file_ids do servidor anterior) não vale para a nova
+        // conta: esvazia-o para recomeçar do zero (re-sobe o local, re-lê o feed).
+        if !same {
+            if let Ok(idx) = index::Index::open(&index_db_path()?) {
+                let _ = idx.clear();
+            }
+        }
         self.refresh_config();
         self.rearm_watcher();
         Ok(())
@@ -183,6 +190,12 @@ impl Engine {
         };
         cfg.pairs.push(pair.clone());
         config::save(&cfg, &token)?;
+        // Pasta nova na nuvem ⇒ qualquer entrada antiga do índice sob este caminho é inválida (aponta
+        // para file_ids que já não existem/pertencem a outra conta). Limpa-as para o push tratar os
+        // ficheiros como novos e os enviar — senão o índice julga-os sincronizados e nada sobe.
+        if let Ok(idx) = index::Index::open(&index_db_path()?) {
+            let _ = idx.remove_under(local_path);
+        }
         self.refresh_config();
         self.rearm_watcher();
         self.sync_now();

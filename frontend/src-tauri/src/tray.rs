@@ -64,13 +64,27 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
 
     let eng = Arc::clone(&engine);
     let pause_item = pause_i.clone();
-    // Ícone PRÓPRIO do tray, não o da app: em modo template o macOS usa só a forma opaca e pinta-a
-    // conforme o tema. O ícone da app tem fundo branco cheio, que sairia como um retângulo sólido.
-    // Este é o monograma sem fundo.
-    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))
-        .expect("ícone do tray");
+    // Ícones PRÓPRIOS do tray (template: o macOS usa só a forma e recolore-a conforme a barra).
+    // Estados: monograma (desligado), ✓ (sincronizado), spinner animado (a sincronizar), erro, pausa.
+    macro_rules! trayimg {
+        ($p:expr) => {
+            tauri::image::Image::from_bytes(include_bytes!($p)).expect(concat!("ícone ", $p))
+        };
+    }
+    let ico_base = trayimg!("../icons/tray.png");
+    let ico_ok = trayimg!("../icons/tray/ok.png");
+    let ico_err = trayimg!("../icons/tray/error.png");
+    let ico_paused = trayimg!("../icons/tray/paused.png");
+    let spinner: Vec<tauri::image::Image> = vec![
+        trayimg!("../icons/tray/sync-00.png"), trayimg!("../icons/tray/sync-01.png"),
+        trayimg!("../icons/tray/sync-02.png"), trayimg!("../icons/tray/sync-03.png"),
+        trayimg!("../icons/tray/sync-04.png"), trayimg!("../icons/tray/sync-05.png"),
+        trayimg!("../icons/tray/sync-06.png"), trayimg!("../icons/tray/sync-07.png"),
+        trayimg!("../icons/tray/sync-08.png"), trayimg!("../icons/tray/sync-09.png"),
+        trayimg!("../icons/tray/sync-10.png"), trayimg!("../icons/tray/sync-11.png"),
+    ];
     let tray = TrayIconBuilder::with_id("beskos-sync")
-        .icon(icon)
+        .icon(ico_base.clone())
         .icon_as_template(true) // no macOS adapta-se a barra clara/escura
         .tooltip("Beskos")
         .menu(&menu)
@@ -94,42 +108,69 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
         })
         .build(app)?;
 
-    // Mantém o menu/tooltip a par do estado, sem martelar a UI.
+    // Mantém o ÍCONE + menu a par do estado. Quando sincroniza, anima o spinner (frame a cada ~90ms);
+    // nos outros estados, um ícone fixo e uma espera maior. Texto/tooltip só mudam quando mudam de
+    // facto (evita piscar o menu se estiver aberto).
     let eng = Arc::clone(&engine);
     let app_h = app.clone();
-    std::thread::spawn(move || loop {
-        // Conta autenticada: a UI empurra-a para o estado quando a sessão abre/fecha.
-        let _ = account_i.set_text(match crate::desktop::account_label(&app_h) {
-            Some(who) => who,
-            None => "Sessão não iniciada".to_string(),
-        });
-        let s = eng.status();
-        let label = if !s.configured {
-            "Sincronização desligada".to_string()
-        } else if s.pairs.is_empty() {
-            "Nenhuma pasta a sincronizar".to_string()
-        } else if s.paused {
-            "Pausado".to_string()
-        } else {
-            match s.phase {
-                Phase::Syncing => "A sincronizar…".to_string(),
-                Phase::Error => format!("Erro: {}", s.message),
-                _ if s.message.is_empty() => "Tudo sincronizado".to_string(),
-                _ => format!("Sincronizado — {}", s.message),
+    std::thread::spawn(move || {
+        let mut frame = 0usize;
+        let mut last_label = String::new();
+        let mut last_acct = String::new();
+        loop {
+            let s = eng.status();
+            let active = s.configured && !s.pairs.is_empty();
+            let syncing = active && !s.paused && matches!(s.phase, Phase::Syncing);
+
+            // Ícone conforme o estado.
+            let icon = if syncing {
+                let ic = spinner[frame % spinner.len()].clone();
+                frame = frame.wrapping_add(1);
+                ic
+            } else {
+                frame = 0;
+                if !active {
+                    ico_base.clone()
+                } else if s.paused {
+                    ico_paused.clone()
+                } else if matches!(s.phase, Phase::Error) {
+                    ico_err.clone()
+                } else {
+                    ico_ok.clone()
+                }
+            };
+            let _ = tray.set_icon(Some(icon));
+            let _ = tray.set_icon_as_template(true);
+
+            // Texto do menu + tooltip (só quando muda).
+            let acct = crate::desktop::account_label(&app_h)
+                .unwrap_or_else(|| "Sessão não iniciada".to_string());
+            if acct != last_acct {
+                let _ = account_i.set_text(&acct);
+                last_acct = acct;
             }
-        };
-        let _ = status_i.set_text(&label);
-        let _ = tray.set_tooltip(Some(format!("Beskos — {label}")));
-        // Sinal curto na barra só quando há algo a assinalar (a sincronizar / erro / pausa).
-        let active = s.configured && !s.pairs.is_empty();
-        let mark = match (active, s.paused, s.phase) {
-            (true, true, _) => Some("❙❙"),
-            (true, false, Phase::Syncing) => Some("↻"),
-            (true, false, Phase::Error) => Some("!"),
-            _ => None,
-        };
-        let _ = tray.set_title(mark);
-        std::thread::sleep(Duration::from_millis(1500));
+            let label = if !s.configured {
+                "Sincronização desligada".to_string()
+            } else if s.pairs.is_empty() {
+                "Nenhuma pasta a sincronizar".to_string()
+            } else if s.paused {
+                "Pausado".to_string()
+            } else {
+                match s.phase {
+                    Phase::Syncing => "A sincronizar…".to_string(),
+                    Phase::Error => format!("Erro: {}", s.message),
+                    _ if s.message.is_empty() => "Tudo sincronizado".to_string(),
+                    _ => format!("Sincronizado — {}", s.message),
+                }
+            };
+            if label != last_label {
+                let _ = status_i.set_text(&label);
+                let _ = tray.set_tooltip(Some(format!("Beskos — {label}")));
+                last_label = label;
+            }
+
+            std::thread::sleep(Duration::from_millis(if syncing { 90 } else { 700 }));
+        }
     });
 
     Ok(())
