@@ -1986,13 +1986,25 @@
 /* Em modo regras não há lista+leitor: a coluna do meio some e o fluxo ocupa o resto. */
 .wm .mailgrid.rules-mode{grid-template-columns:210px 1fr;}
 .wm .rules{overflow-y:auto;}
-.wm .vac-panel{border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:14px;background:var(--surface);}
+/* Corpo da página: mesma métrica das outras (recuo + teto de largura). O cabeçalho já tinha recuo e
+   o conteúdo não, o que dava a impressão de duas páginas coladas; e sem teto, num ecrã largo os
+   campos do painel esticavam de ponta a ponta. */
+.wm .rules-body{display:flex;flex-direction:column;gap:14px;padding:18px 22px 28px;max-width:900px;}
+.wm .vac-panel{border:1px solid var(--border);border-radius:12px;padding:18px;background:var(--surface);
+  display:flex;flex-direction:column;gap:14px;}
 .wm .vac-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;}
-.wm .vac-body{display:flex;flex-direction:column;gap:10px;margin-top:12px;}
-.wm .vac-body .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.wm .vac-head .rule-hint{background:none;border-left:0;padding:0;}
+.wm .vac-body{display:flex;flex-direction:column;gap:12px;}
+/* Três colunas quando cabem; abaixo disso empilham, em vez de espremer as datas. */
+.wm .vac-body .row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;}
 .wm .vac-body label,.wm .vac-body .row3 label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--muted);}
 .wm .vac-body input,.wm .vac-body select,.wm .vac-body textarea{border:1px solid var(--border);border-radius:9px;padding:8px 10px;font:inherit;background:var(--paper);color:var(--ink);outline:none;}
-.wm .vac-actions{display:flex;justify-content:flex-end;margin-top:12px;}
+.wm .vac-actions{display:flex;justify-content:flex-end;}
+/* O "Guardar" aparecia como texto solto: a classe .add só estava estilizada dentro de gavetas e
+   modais, e esta página não é nem uma coisa nem outra. */
+.wm .vac-actions .add{background:var(--accent-solid);color:#fff;border:none;
+  border-radius:10px;padding:9px 18px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;}
+.wm .vac-actions .add:disabled{opacity:.5;cursor:default;}
 .wm .rules-list{display:flex;flex-direction:column;gap:10px;}
 .wm .rule-card{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:14px 16px;}
 .wm .rule-card.off{opacity:.55;}
