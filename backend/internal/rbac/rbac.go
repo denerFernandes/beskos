@@ -36,7 +36,7 @@ type Role string
 
 const (
 	RoleOwner         Role = "owner"          // dono da organização — tudo
-	RoleAdmin         Role = "admin"          // gestão operacional, sem billing/excluir org
+	RoleAdmin         Role = "admin"          // administra a organização — todas as permissões
 	RoleMember        Role = "member"         // leitura
 	RoleBilling       Role = "billing"        // faturamento + uso
 	RoleInternalAdmin Role = "internal_admin" // nossa equipe (suporte) — tudo
@@ -46,14 +46,11 @@ const (
 var rolePermissions = map[Role]map[Permission]bool{
 	RoleOwner:         allPerms(),
 	RoleInternalAdmin: allPerms(),
-	// Admin = gestão operacional. Não apaga domínios nem mexe em faturação: as duas coisas que um
-	// engano torna caras. Quem precisar, recebe a permissão à parte (exceções por membro).
-	RoleAdmin: set(
-		PermDomainsView, PermDomainsManage, PermMailboxManage,
-		PermMembersView, PermMembersInvite, PermMembersManage, PermGroupsManage,
-		PermUsageView, PermBillingView,
-		PermOrgBranding, PermOrgSecurity, PermAnnouncements, PermAssistantManage, PermWikiManage,
-	),
+	// Admin tem TUDO, por decisão do produto (27/07/2026): quem é admin da organização não deve
+	// esbarrar em permissões. A hierarquia continua a valer noutra dimensão — o rank impede um admin
+	// de mexer num owner (CanManage), e uma permissão pode sempre ser retirada a UMA pessoa concreta
+	// pelas exceções por membro. O que desapareceu foi o teto por papel.
+	RoleAdmin: allPerms(),
 	RoleMember: set(
 		PermDomainsView, PermUsageView,
 	),
