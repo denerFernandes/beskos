@@ -1,9 +1,9 @@
 # Página de DNS dos domínios — melhoria planeada
 
-**Estado: implementado em 27/07/2026**, exceto o guia por fornecedor (§4). Ficou feito: verificação
-por registo (`provisioning.CheckZone`), endpoints `GET /api/domains/{id}/dns/check` e `.../export`,
-página com estado por registo, resumo, "verificar agora" e exportação de zona BIND/CSV.
-O que resta está marcado abaixo.
+**Estado: implementado em 27/07/2026.** Verificação por registo (`provisioning.CheckZone`), endpoints
+`GET /api/domains/{id}/dns/check` e `.../export`, **página** própria (`/mail/admin/domains/<id>`, era
+um sidecar), estado por registo com o esperado vs o publicado, resumo, "verificar agora", exportação
+de zona BIND/CSV e guia por fornecedor (Cloudflare, Route 53, GoDaddy, Namecheap, Google, outro).
 
 ## O que existe hoje
 
@@ -74,14 +74,13 @@ type RecordCheck struct {
 > Nota: o "formato Cloudflare" **é** o ficheiro de zona BIND — o painel deles importa exatamente
 > isso (`DNS › Records › Import`). Não é preciso um formato proprietário.
 
-### 4. Documentação — POR FAZER
+### 4. Documentação — FEITO (guia por fornecedor na própria página)
 
 Link para um guia por fornecedor (Cloudflare, Route 53, GoDaddy, Namecheap) a partir da página.
 O guia ainda não existe; criar em `docs/` ou no site público e apontar daqui.
 
 ## O que ficou por fazer
 
-- Guia por fornecedor (Cloudflare, Route 53, GoDaddy, Namecheap) e o link a partir da página.
 - Agrupar por propósito com os grupos já resolvidos fechados: hoje mantêm-se as duas tabelas
   (receber/enviar), que já era o agrupamento existente.
 

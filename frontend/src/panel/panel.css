@@ -221,3 +221,32 @@
 .alias-at{color:var(--muted);}
 /* Cartões seguidos na mesma página respiram entre si (a lista de utilizadores e a de aliases). */
 .pnl-content > .pnl-card + .pnl-card{margin-top:16px;}
+
+/* ---- Página do domínio (era um sidecar; a informação não cabia lá) ---- */
+.dom-page{display:flex;flex-direction:column;gap:16px;}
+.dom-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:16px;}
+.dom-summary .grow{flex:1;}
+.dom-danger{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.pnl-card.danger{border-color:color-mix(in srgb,#b42318 35%,var(--border));}
+.pnl-btn.danger{color:#b42318;}
+/* Tabela de registos: numa página há largura para o valor respirar; o que for grande rola dentro
+   da própria célula em vez de empurrar a tabela (era o que partia a coluna "Copiar" em vertical). */
+.dns-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.dns-table th{text-align:left;font-weight:600;color:var(--muted);font-size:11.5px;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.dns-table td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;}
+.dns-table tr:last-child td{border-bottom:0;}
+.dns-table td:last-child{text-align:right;white-space:nowrap;}
+.dns-table .dns-val{max-width:min(46vw,560px);overflow-x:auto;white-space:nowrap;}
+/* Diferente: as duas linhas etiquetadas — o que deve estar e o que está publicado. */
+.dns-diff{display:flex;flex-direction:column;gap:4px;}
+.dns-diff-row{display:flex;gap:8px;align-items:baseline;}
+.dns-diff-row.bad .dns-val{color:#b42318;}
+.dns-lbl{flex:none;min-width:96px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+/* Guia por fornecedor: uma lista fechada; abre o que interessa. */
+.guide-item{border-bottom:1px solid var(--border);}
+.guide-item:last-of-type{border-bottom:0;}
+.guide-head{display:flex;align-items:center;gap:8px;width:100%;padding:11px 2px;background:none;border:0;
+  color:var(--ink);font:inherit;cursor:pointer;text-align:left;}
+.guide-head .chev-open{transform:rotate(180deg);}
+.guide-body{padding:0 2px 14px 24px;}
+.guide-body ol{margin:0 0 12px;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;line-height:1.5;}
