@@ -7,6 +7,35 @@ import { customEmojiUrl } from "./customEmoji";
 
 const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(_[^_]+_)|(\[[^\]]+\]\([^)]+\))|(https?:\/\/[^\s]+)|(@[\w.\-]+)|(:[a-z0-9_]{2,32}:)/g;
 
+
+// Link para uma tarefa (/mail/kanban/<quadro>/<tarefa>): em vez de um link azul no meio da frase,
+// vira um cartão com a chave em destaque — é o que se procura numa conversa cheia de texto.
+const TASK_HREF = /^\/mail\/kanban\/[0-9a-fA-F-]{36}\/[0-9a-fA-F-]{36}$/;
+
+// Navegação INTERNA sem recarregar: um href normal faria reload, e no app nativo (Tauri) isso sai da
+// aplicação — o servidor de assets não tem fallback de SPA. pushState + popstate: o router reage.
+// Ctrl/Cmd/Shift continuam a valer (abrir noutro separador/janela) porque não interceptamos.
+function goInternal(e: React.MouseEvent, href: string): void {
+  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+  e.preventDefault();
+  window.history.pushState({}, "", href);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+
+function TaskRef({ href, label }: { href: string; label: string }): ReactNode {
+  // O texto do link vem como "QUA-12 — Título" (é assim que o partilhar e o /task o escrevem);
+  // quando não vier, mostramos o rótulo inteiro sem inventar uma chave.
+  const m = /^([A-Za-z0-9]{1,8}-\d+)\s*[—–-]\s*([\s\S]+)$/.exec(label);
+  return (
+    <a className="task-ref" href={href} onClick={(e) => goInternal(e, href)}>
+      <svg className="tr-ic" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="4" width="18" height="16" rx="2" /><path d="M8 10h8M8 14h5" />
+      </svg>
+      {m ? <><b className="tr-key">{m[1]}</b><span className="tr-title">{m[2]}</span></> : <span className="tr-title">{label}</span>}
+    </a>
+  );
+}
+
 function renderInline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
   let last = 0;
@@ -22,7 +51,9 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
     else if (tok.startsWith("_")) out.push(<em key={key}>{tok.slice(1, -1)}</em>);
     else if (tok.startsWith("[")) {
       const mm = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(tok);
-      if (mm) out.push(<a key={key} href={mm[2]} target="_blank" rel="noreferrer">{mm[1]}</a>);
+      if (mm && TASK_HREF.test(mm[2])) out.push(<TaskRef key={key} href={mm[2]} label={mm[1]} />);
+      else if (mm && mm[2].startsWith("/")) out.push(<a key={key} href={mm[2]} onClick={(e) => goInternal(e, mm[2])}>{mm[1]}</a>);
+      else if (mm) out.push(<a key={key} href={mm[2]} target="_blank" rel="noreferrer">{mm[1]}</a>);
       else out.push(tok);
     } else if (tok.startsWith("http")) out.push(<a key={key} href={tok} target="_blank" rel="noreferrer">{tok}</a>);
     else if (tok.startsWith("@")) out.push(<span key={key} className="md-mention">{tok}</span>);

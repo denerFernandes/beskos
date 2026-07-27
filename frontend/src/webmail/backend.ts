@@ -142,6 +142,8 @@ export const backend = {
   createBoard: (name: string) => req<Board>("/api/boards", { method: "POST", body: JSON.stringify({ name }) }),
   updateBoard: (id: string, name: string) => req<Board>(`/api/boards/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
   deleteBoard: (id: string) => req<{ status: string }>(`/api/boards/${id}`, { method: "DELETE" }),
+  // Busca de tarefas por chave (QUA-12), número ou título — só nos quadros que a pessoa vê.
+  searchCards: (q: string) => req<{ cards: CardHit[] }>(`/api/cards/search?q=${encodeURIComponent(q)}`),
   createCard: (boardId: string, c: Partial<Card> & { column_id: string; title: string }) =>
     req<Card>(`/api/boards/${boardId}/cards`, { method: "POST", body: JSON.stringify(c) }),
   moveCard: (cardId: string, columnId: string, position: number) =>
@@ -436,6 +438,8 @@ export interface Announcement { id: string; title: string; body: string; author:
 export interface Notif { id: string; kind: string; title: string; body: string; link: string; read_at: string | null; created_at: string; args?: Record<string, string> }
 
 export interface ChatChannel { id: string; kind: "public" | "private" | "dm"; name: string; topic: string; is_general?: boolean; unread?: number; last_read_at?: string; other_id?: string; listed?: boolean; add_policy?: "open" | "restricted"; my_role?: string; notif_pref?: "all" | "mentions" | "none" }
+// Tarefa devolvida pela busca (/task no chat). card_key vem do servidor como "PREFIXO-Nº".
+export interface CardHit { id: string; board_id: string; title: string; label: string; due: string; priority: string; card_key: string; board_name: string; column_name: string; assignee_name: string }
 export interface ChatSearchHit { id: string; channel_id: string; channel_name: string; channel_kind: string; author: string; body: string; created_at: string }
 export interface ChatReaction { emoji: string; count: number; mine: boolean; users: string[] }
 export interface ChatAttachment { file_id: string; name: string; size: number }

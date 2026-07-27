@@ -2,7 +2,7 @@ import { Fragment, forwardRef, useEffect, useImperativeHandle, useLayoutEffect, 
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WebmailSession } from "./auth";
-import { backend, colleaguesApi, viewerKind, type ChatChannel, type ChatMessage, type ChatMember, type ChatAttachment } from "./backend";
+import { backend, colleaguesApi, viewerKind, type ChatChannel, type ChatMessage, type ChatMember, type ChatAttachment, type CardHit } from "./backend";
 import { useChatSocket } from "./useChatSocket";
 import { renderRich } from "./richtext";
 import { setCustomEmoji } from "./customEmoji";
@@ -19,6 +19,7 @@ import { initials, shortTime } from "./util";
 import { Avatar } from "./Avatar";
 import { IcPlus, IcUsers, IcTrash, IcPencil, IcReply, IcForward, IcX, IcVideo, IcPhone, IcPaperclip, IcChevron, IcLink, IcPin, IcBell, IcSearch, IcMail, IcList, IcClock, IcFolder, IcColumns } from "../panel/icons";
 import { ExtractTasksModal } from "./ExtractTasksModal";
+import { TaskPickerModal } from "./TaskPickerModal";
 import { DrivePickerDrawer } from "./DrivePickerDrawer";
 
 const KB = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
@@ -55,6 +56,16 @@ function parseCall(body: string): { mode: "video" | "audio"; room: string } | nu
 
 // Slash-commands client-side (estilo Slack): transformam o texto antes do envio. Comandos
 // desconhecidos seguem como texto normal. `/me` e `/shrug` são os úteis; os flips são brincadeira.
+// Comandos disponíveis no composer. `menu` é o que a lista do "/" mostra; os de texto são aplicados
+// no envio (applySlash), o /task abre o seletor de tarefas.
+const SLASH_COMMANDS: { key: string; desc: string; args?: string }[] = [
+  { key: "task", desc: "chat.cmdTaskDesc" },
+  { key: "me", desc: "chat.cmdMeDesc", args: "chat.cmdMeArgs" },
+  { key: "shrug", desc: "chat.cmdShrugDesc" },
+  { key: "tableflip", desc: "chat.cmdTableflipDesc" },
+  { key: "unflip", desc: "chat.cmdUnflipDesc" },
+];
+
 function applySlash(body: string): string {
   const m = /^\/(\w+)(?:\s+([\s\S]*))?$/.exec(body);
   if (!m) return body;
@@ -761,6 +772,8 @@ const Composer = forwardRef<ComposerHandle, {
   const settings = useUserSettings(); // settings.chat.enterSends
   const [text, setText] = useState("");
   const [mentionQ, setMentionQ] = useState<string | null>(null);
+  const [slashQ, setSlashQ] = useState<string | null>(null); // texto depois do "/" (menu de comandos)
+  const [taskPick, setTaskPick] = useState(false);           // seletor de tarefa (/task)
   const [emoji, setEmoji] = useState<DOMRect | null>(null);
   const [gif, setGif] = useState<DOMRect | null>(null);
   const [drivePick, setDrivePick] = useState(false);
@@ -821,8 +834,32 @@ const Composer = forwardRef<ComposerHandle, {
     setText(v);
     const mt = v.match(/@([\w.\-]*)$/);
     setMentionQ(mt ? mt[1] : null);
+    // Menu de comandos: só quando o "/" abre a mensagem (um "e/ou" no meio do texto não é comando).
+    const st = v.match(/^\/(\w*)$/);
+    setSlashQ(st ? st[1] : null);
     const now = Date.now();
     if (now - lastTyping.current > 2000) { lastTyping.current = now; onTyping(); }
+  };
+  const slashCmds = useMemo(() => {
+    if (slashQ === null) return [];
+    const q = slashQ.toLowerCase();
+    return SLASH_COMMANDS.filter((c) => c.key.startsWith(q));
+  }, [slashQ]);
+  const pickCommand = (key: string) => {
+    setSlashQ(null);
+    // O menu só aparece quando o "/" é a mensagem inteira, por isso limpar a caixa não perde nada.
+    if (key === "task") { setText(""); setTaskPick(true); return; }
+    setText(`/${key} `);
+    requestAnimationFrame(() => ta.current?.focus());
+  };
+  // Insere a referência no composer (em vez de enviar já): assim dá para juntar contexto antes de
+  // enviar, e uma escolha errada corrige-se sem apagar mensagem nenhuma. O formato é o MESMO do
+  // partilhar do quadro, portanto os dois caminhos aparecem iguais na conversa.
+  const insertTask = (c: CardHit) => {
+    setTaskPick(false);
+    const ref = `📌 [${String(c.card_key)} — ${c.title}](/mail/kanban/${c.board_id}/${c.id})`;
+    setText((v) => (v.trim() ? v.replace(/\s*$/, " ") : "") + ref + " ");
+    requestAnimationFrame(() => ta.current?.focus());
   };
   const pickMention = (m: ChatMember) => {
     const name = m.name || m.email;
@@ -842,6 +879,18 @@ const Composer = forwardRef<ComposerHandle, {
 
   return (
     <div className="composer-wrap">
+      {slashCmds.length > 0 && (
+        <div className="mention-pop slash-pop">
+          {slashCmds.map((c) => (
+            <button key={c.key} onMouseDown={(e) => { e.preventDefault(); pickCommand(c.key); }}>
+              <span className="av special">/</span>
+              <span className="nm">/{c.key}{c.args ? ` ${t(c.args)}` : ""}</span>
+              <span className="em">{t(c.desc)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {taskPick && <TaskPickerModal onPick={insertTask} onClose={() => setTaskPick(false)} />}
       {(suggestions.length > 0 || specials.length > 0) && (
         <div className="mention-pop">
           {specials.map((o) => (
@@ -896,6 +945,10 @@ const Composer = forwardRef<ComposerHandle, {
             if (files && files.length) { e.preventDefault(); void onFiles(files); }
           }}
           onKeyDown={(e) => {
+            if (e.key === "Escape" && slashQ !== null) { setSlashQ(null); return; }
+            // Com o menu de comandos aberto, Enter escolhe o primeiro (como no Slack) em vez de
+            // enviar "/task" como texto.
+            if (e.key === "Enter" && slashCmds.length > 0) { e.preventDefault(); pickCommand(slashCmds[0].key); return; }
             if (e.key !== "Enter" || suggestions.length) return;
             // settings.chat.enterSends: com Enter-envia (default), Enter envia e Shift+Enter quebra
             // linha; desligado, inverte-se — só Ctrl/Cmd+Enter envia e Enter quebra linha.

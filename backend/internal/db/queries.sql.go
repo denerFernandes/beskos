@@ -11178,6 +11178,91 @@ func (q *Queries) SaveMessage(ctx context.Context, arg SaveMessageParams) error 
 	return err
 }
 
+const searchCards = `-- name: SearchCards :many
+SELECT c.id, c.board_id, c.title, c.label, c.due, c.priority,
+       b.prefix || '-' || c.number AS card_key, b.name AS board_name,
+       col.name AS column_name,
+       COALESCE(u.name, NULLIF(u.email, ''), c.assignee) AS assignee_name
+FROM cards c
+JOIN boards b ON b.id = c.board_id
+JOIN board_columns col ON col.id = c.column_id
+LEFT JOIN mail_users u ON u.id = c.assignee_id
+WHERE c.tenant_id = $1 AND c.archived_at IS NULL AND b.archived_at IS NULL
+  AND (
+      upper(b.prefix || '-' || c.number) = upper($2::text)
+      OR c.number::text = $2::text
+      OR c.title ILIKE '%' || $2::text || '%'
+  )
+  AND (
+      b.owner_user_id = $3
+      OR (b.owner_user_id IS NULL AND NOT EXISTS (SELECT 1 FROM board_grants g WHERE g.board_id = b.id))
+      OR EXISTS (
+          SELECT 1 FROM board_grants g WHERE g.board_id = b.id AND (
+              g.subject_type = 'org'
+              OR (g.subject_type = 'user' AND g.subject_id = $3)
+              OR (g.subject_type = 'group' AND EXISTS (
+                  SELECT 1 FROM user_group_members ugm
+                  WHERE ugm.group_id = g.subject_id AND ugm.user_id = $3))))
+      OR EXISTS (SELECT 1 FROM cards c2 WHERE c2.board_id = b.id AND c2.assignee_id = $3)
+  )
+ORDER BY (upper(b.prefix || '-' || c.number) = upper($2::text)) DESC, c.created_at DESC
+LIMIT 20
+`
+
+type SearchCardsParams struct {
+	TenantID uuid.UUID   `json:"tenant_id"`
+	Q        string      `json:"q"`
+	UserID   pgtype.UUID `json:"user_id"`
+}
+
+type SearchCardsRow struct {
+	ID           uuid.UUID   `json:"id"`
+	BoardID      uuid.UUID   `json:"board_id"`
+	Title        string      `json:"title"`
+	Label        string      `json:"label"`
+	Due          string      `json:"due"`
+	Priority     string      `json:"priority"`
+	CardKey      interface{} `json:"card_key"`
+	BoardName    string      `json:"board_name"`
+	ColumnName   string      `json:"column_name"`
+	AssigneeName string      `json:"assignee_name"`
+}
+
+// Busca de tarefas para referenciar noutro sítio (o `/task` do chat). Casa pela chave (QUA-12),
+// pelo número solto (12) ou por texto do título. A visibilidade é a MESMA do ListBoards — sem
+// isso, o chat viraria uma janela para quadros a que a pessoa não tem acesso (lei §5.1/§5.2).
+// Chave exata primeiro (quem escreve "QUA-12" quer aquela tarefa), depois as mais recentes.
+func (q *Queries) SearchCards(ctx context.Context, arg SearchCardsParams) ([]SearchCardsRow, error) {
+	rows, err := q.db.Query(ctx, searchCards, arg.TenantID, arg.Q, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchCardsRow
+	for rows.Next() {
+		var i SearchCardsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.BoardID,
+			&i.Title,
+			&i.Label,
+			&i.Due,
+			&i.Priority,
+			&i.CardKey,
+			&i.BoardName,
+			&i.ColumnName,
+			&i.AssigneeName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const searchChannelMembers = `-- name: SearchChannelMembers :many
 SELECT cm.user_id, cm.role, cm.last_read_at, u.email, u.name, u.status_emoji, u.status_text
 FROM channel_members cm JOIN mail_users u ON u.id = cm.user_id
