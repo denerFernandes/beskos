@@ -326,6 +326,7 @@ type Channel struct {
 	Canvas          string             `json:"canvas"`
 	CanvasUpdatedAt pgtype.Timestamptz `json:"canvas_updated_at"`
 	IsGeneral       bool               `json:"is_general"`
+	ArchivedAt      pgtype.Timestamptz `json:"archived_at"`
 }
 
 type ChannelBookmark struct {

@@ -820,7 +820,9 @@
     "billing.resume_failed": "Falha ao retomar",
     "billing.portal_failed": "Falha ao abrir o portal de pagamento",
     "notif.meet_knock.t": "{{name}} quer entrar",
-    "notif.meet_knock.b": "{{name}} está à espera de aprovação para entrar em {{title}}"
+    "notif.meet_knock.b": "{{name}} está à espera de aprovação para entrar em {{title}}",
+    "chat.cannot_archive_general": "O canal por defeito não pode ser arquivado.",
+    "chat.channel_archived": "Este canal está arquivado — é só de leitura."
   },
   "members": {
     "title": "Membros",
@@ -1673,7 +1675,15 @@
     "taskPickTitle": "Escolher tarefa",
     "taskPickPh": "Número (QUA-12 ou 12) ou título…",
     "taskPickHint": "Procura pela chave da tarefa, pelo número ou por parte do título.",
-    "taskPickEmpty": "Nenhuma tarefa encontrada."
+    "taskPickEmpty": "Nenhuma tarefa encontrada.",
+    "archiveChannel": "Arquivar canal",
+    "archiveHint": "O canal sai das listas e fica só de leitura. O histórico fica guardado e dá para restaurar.",
+    "archiveConfirm": "Arquivar #{{name}}?",
+    "archiveDo": "Arquivar",
+    "archivedDone": "Canal arquivado.",
+    "archivedSection": "Arquivados",
+    "restore": "Restaurar",
+    "restored": "Canal restaurado."
   },
   "groups": {
     "title": "Equipas",

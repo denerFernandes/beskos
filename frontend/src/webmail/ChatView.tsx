@@ -17,7 +17,7 @@ import { GifPicker } from "./GifPicker";
 import { SHORTCODES } from "./emoji";
 import { initials, shortTime } from "./util";
 import { Avatar } from "./Avatar";
-import { IcPlus, IcUsers, IcTrash, IcPencil, IcReply, IcForward, IcX, IcVideo, IcPhone, IcPaperclip, IcChevron, IcLink, IcPin, IcBell, IcSearch, IcMail, IcList, IcClock, IcFolder, IcColumns } from "../panel/icons";
+import { IcPlus, IcUsers, IcTrash, IcPencil, IcReply, IcForward, IcX, IcVideo, IcPhone, IcPaperclip, IcChevron, IcLink, IcPin, IcBell, IcSearch, IcMail, IcList, IcClock, IcFolder, IcColumns, IcArchive } from "../panel/icons";
 import { ExtractTasksModal } from "./ExtractTasksModal";
 import { TaskPickerModal } from "./TaskPickerModal";
 import { DrivePickerDrawer } from "./DrivePickerDrawer";
@@ -132,6 +132,11 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
     [chansQ.data, t],
   );
   const discover = chansQ.data?.discover ?? [];
+  // Arquivados: a lista só traz os que ESTA pessoa pode restaurar (dono do canal ou admin), por isso
+  // tudo o que aparece aqui é acionável. Para os restantes, o canal simplesmente desaparece.
+  const archQ = useQuery({ queryKey: ["chat-archived"], queryFn: () => backend.chatArchivedChannels(), retry: false, staleTime: 60000 });
+  const archived = archQ.data?.channels ?? [];
+  const [showArch, setShowArch] = useState(false);
   // O canal ativo vem da URL (link compartilhável); sem ele, cai no primeiro.
   const active = channelParam && channels.some((c) => c.id === channelParam) ? channelParam : channels[0]?.id ?? null;
   const activeChan = channels.find((c) => c.id === active) ?? null;
@@ -255,6 +260,26 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
             {channels.filter((c) => c.kind === "dm").map((c) => (
               <ChannelRow key={c.id} c={c} dm presence={presenceOf(c.other_id)} active={c.id === active} onClick={() => setActive(c.id)} />
             ))}
+            {archived.length > 0 && (
+              <>
+                <button className="chat-section as-toggle" onClick={() => setShowArch((v) => !v)}>
+                  <IcChevron size={13} className={showArch ? "chev-open" : ""} /> {t("chat.archivedSection")} ({archived.length})
+                </button>
+                {showArch && archived.map((c) => (
+                  <div key={c.id} className="chan archived">
+                    <span className="cn"># {c.is_general ? t("chat.generalName") : c.name}</span>
+                    <button className="join" onClick={async () => {
+                      try {
+                        await backend.chatArchiveChannel(c.id, false);
+                        qc.invalidateQueries({ queryKey: ["chat-channels"] });
+                        qc.invalidateQueries({ queryKey: ["chat-archived"] });
+                        toast(t("chat.restored"));
+                      } catch (e) { toast((e as Error).message); }
+                    }}>{t("chat.restore")}</button>
+                  </div>
+                ))}
+              </>
+            )}
             {discover.length > 0 && <div className="chat-section">{t("chat.discover")}</div>}
             {discover.map((c) => (
               <button key={c.id} className="chan discover" onClick={async () => { await backend.chatJoin(c.id); qc.invalidateQueries({ queryKey: ["chat-channels"] }); setActive(c.id); }}>
@@ -1047,6 +1072,21 @@ function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; me: stri
 
   const canManage = channel.my_role === "owner" || channel.my_role === "manager";
   const canAdd = canManage || channel.add_policy !== "restricted";
+  // Arquivar é do DONO do canal ou de um admin da organização — este último pode nem ser gestor do
+  // canal, por isso a secção fica fora do bloco de definições (que só o gestor vê).
+  const meQ = useQuery({ queryKey: ["me"], queryFn: () => backend.me(), retry: false, staleTime: Infinity });
+  const orgAdmin = ["owner", "admin", "internal_admin"].includes(meQ.data?.role ?? "");
+  const canArchive = channel.kind !== "dm" && !channel.is_general && (channel.my_role === "owner" || orgAdmin);
+  const [confirmArch, setConfirmArch] = useState(false);
+  const archive = async () => {
+    try {
+      await backend.chatArchiveChannel(channel.id, true);
+      qc.invalidateQueries({ queryKey: ["chat-channels"] });
+      qc.invalidateQueries({ queryKey: ["chat-archived"] });
+      toast(t("chat.archivedDone"));
+      onClose();
+    } catch (e) { toast((e as Error).message); }
+  };
   const members = membersQ.data?.members ?? [];
   const total = membersQ.data?.total ?? 0;
   const q = pick.trim().toLowerCase();
@@ -1106,6 +1146,22 @@ function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; me: stri
               <button className="ib" title={t("common.prevPage")} disabled={page <= 1} onClick={() => setPage((p) => p - 1)}><IcChevron size={16} className="left" /></button>
               <span>{t("announce.pageOf", { page, pages: Math.ceil(total / 20) })}</span>
               <button className="ib" title={t("common.nextPage")} disabled={page * 20 >= total} onClick={() => setPage((p) => p + 1)}><IcChevron size={16} className="right" /></button>
+            </div>
+          )}
+          {canArchive && (
+            <div className="chan-settings">
+              <h4>{t("chat.archiveChannel")}</h4>
+              <p className="wh-hint">{t("chat.archiveHint")}</p>
+              {confirmArch ? (
+                /* Confirmação em linha (o projeto não usa diálogos nativos): pergunta e ação lado a lado. */
+                <div className="chan-arch-confirm">
+                  <span>{t("chat.archiveConfirm", { name: channel.name })}</span>
+                  <button className="chipbtn" onClick={() => setConfirmArch(false)}>{t("common.cancel")}</button>
+                  <button className="chipbtn danger" onClick={archive}>{t("chat.archiveDo")}</button>
+                </div>
+              ) : (
+                <button className="chipbtn" onClick={() => setConfirmArch(true)}><IcArchive size={14} /> {t("chat.archiveChannel")}</button>
+              )}
             </div>
           )}
           {canManage && (
