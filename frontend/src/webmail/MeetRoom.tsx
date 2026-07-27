@@ -13,7 +13,7 @@ import { useUserSettings } from "./useSettings";
 import { backend, type MeetSession, type Recording, type MeetControls, type BreakoutSession } from "./backend";
 import { toast } from "./toast";
 import { openInWindow } from "./nativeWindow";
-import { onTauriEvent } from "./tauriNotify";
+import { isTauri, onTauriEvent } from "./tauriNotify";
 import { publicUrl } from "../apiBase";
 import { IcUsers, IcLink, IcGear, IcX, IcPencilBox, IcLogout, IcMicOff, IcStar } from "../panel/icons";
 import { Switch } from "./Switch";
@@ -93,7 +93,7 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
         onDisconnected={() => { if (switching.current) { switching.current = false; return; } onLeave(); }}
         data-lk-theme="default" style={{ height: "100%" }}>
         <VideoConference />
-        <LeaveWhenWindowHidden />
+        <LeaveOnWindowClose />
 
         {/* Barra de breakout (topo): entrar na tua sala / voltar à principal; some quando não há salas. */}
         {session.meeting_id && session.identity && (
@@ -144,13 +144,39 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
   );
 }
 
-// Fechar a janela = sair da reunião. No app de desktop, fechar a janela principal NÃO fecha a app:
-// ela esconde-se no tray e o webview continua vivo — a pessoa ficava na sala, com a câmara congelada
-// para os outros, sem forma de perceber porquê. O lado nativo avisa ("window-hidden") e nós
-// desligamos a sala; o onDisconnected trata do resto (fecha a vista e encerra a apresentação).
-function LeaveWhenWindowHidden() {
+// Fechar a janela = sair da reunião. No app de desktop nenhum dos dois caminhos corria o cleanup do
+// React, e a pessoa ficava na sala com a câmara congelada para os outros:
+//
+//  (a) Janela PRINCIPAL: fechar não fecha a app — esconde-a no tray e o webview segue ligado. O lado
+//      nativo avisa ("window-hidden").
+//  (b) Janela DEDICADA da sala (é assim que o Meet abre no desktop, ver openRoom): fechá-la destrói
+//      o webview de repente, sem despedida ao servidor. Travamos o fecho, saímos da sala e só então
+//      destruímos a janela — com teto de tempo, para nunca prender a janela do utilizador.
+//
+// Em ambos os casos o onDisconnected trata do resto (fecha a vista e encerra a apresentação).
+function LeaveOnWindowClose() {
   const room = useRoomContext();
-  useEffect(() => onTauriEvent("window-hidden", () => { void room.disconnect(); }), [room]);
+  useEffect(() => {
+    const offHidden = onTauriEvent("window-hidden", () => { void room.disconnect(); });
+    let offClose: (() => void) | null = null;
+    let gone = false;
+    if (isTauri()) {
+      void (async () => {
+        try {
+          const { getCurrentWindow } = await import("@tauri-apps/api/window");
+          const win = getCurrentWindow();
+          if (win.label === "main") return; // a principal é o caso (a)
+          const un = await win.onCloseRequested(async (e) => {
+            e.preventDefault();
+            await Promise.race([room.disconnect(), new Promise((r) => setTimeout(r, 1500))]);
+            await win.destroy();
+          });
+          if (gone) un(); else offClose = un;
+        } catch { /* API indisponível: fica só o caminho (a) */ }
+      })();
+    }
+    return () => { offHidden(); gone = true; offClose?.(); };
+  }, [room]);
   return null;
 }
 
