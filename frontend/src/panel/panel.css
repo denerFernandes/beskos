@@ -215,7 +215,9 @@
 .dns-val{max-width:420px;overflow-x:auto;}
 .dns-found{margin-top:2px;font-size:11px;color:#b42318;max-width:420px;overflow-x:auto;}
 
-/* Criar alias: uma linha só — nome, @, domínio, caixa que recebe. */
-.alias-new{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
-.alias-new .pnl-input{width:150px;}
+/* Criar alias: uma linha só — nome, @, domínio, caixa que recebe. Os campos têm largura própria
+   porque .pnl-input/.pnl-select são width:100% e, numa linha, esticavam cada um para o ecrã todo. */
+.alias-new{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px;}
 .alias-at{color:var(--muted);}
+/* Cartões seguidos na mesma página respiram entre si (a lista de utilizadores e a de aliases). */
+.pnl-content > .pnl-card + .pnl-card{margin-top:16px;}

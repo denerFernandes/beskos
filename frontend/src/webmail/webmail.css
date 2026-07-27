@@ -2211,6 +2211,14 @@
 .wm .set-page h2{margin:0 0 16px;font-size:20px;font-weight:700;}
 /* Subtítulo dentro de uma página de definições (ex.: "Sincronização" dentro de Ficheiros): separa
    grupos de cartões sem inventar outra página. */
+/* Caixas por endereço na barra do e-mail (só existe quando há aliases): o alias entrega na mesma
+   caixa, por isso escolher um filtra a lista por destinatário em vez de abrir outra conta. */
+.wm .mail-accounts{display:flex;flex-direction:column;gap:1px;padding:0 8px 8px;margin-bottom:4px;border-bottom:1px solid var(--border);}
+.wm .ma-title{font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;padding:6px 8px 4px;}
+.wm .ma-btn{display:block;width:100%;text-align:left;border:0;background:none;color:var(--muted);cursor:pointer;
+  padding:6px 8px;border-radius:8px;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wm .ma-btn:hover{background:var(--surface-2);color:var(--ink);}
+.wm .ma-btn.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600;}
 .wm .ios-row-sub.mono{font-family:ui-monospace,monospace;font-size:12.5px;word-break:break-all;}
 .wm .set-page .set-sub{margin:22px 0 10px;font-size:15px;font-weight:650;}
 .wm .set-card{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;}
