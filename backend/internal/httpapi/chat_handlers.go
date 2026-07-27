@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net/http"
 	"sort"
@@ -132,8 +133,42 @@ func (s *Server) publish(ctx context.Context, evType string, channelID uuid.UUID
 
 // ---- Canais ----
 
+// generalChannelName é o nome GUARDADO do canal por defeito. Fica em inglês (lei §4.6): o frontend
+// mostra a tradução enquanto o nome estiver intacto — se alguém o renomear, vale o nome escolhido.
+const generalChannelName = "General"
+
+// ensureGeneral garante que o tenant tem o canal por defeito e que quem está a pedir a lista é
+// membro dele. Fazer isto na listagem (e não só no provisionamento) cobre também os tenants e os
+// utilizadores que já existiam. São duas leituras indexadas no caso normal, sem escrita.
+func (s *Server) ensureGeneral(ctx context.Context, tenant, user uuid.UUID) {
+	ch, err := s.q.GetGeneralChannel(ctx, tenant)
+	if err != nil {
+		created, cerr := s.q.CreateGeneralChannel(ctx, db.CreateGeneralChannelParams{
+			TenantID: tenant, Name: generalChannelName, CreatedBy: user,
+		})
+		if cerr != nil {
+			// Corrida com outro pedido: o índice parcial deixou passar só um. Lê o que ficou.
+			if ch, err = s.q.GetGeneralChannel(ctx, tenant); err != nil {
+				log.Printf("chat: ensure general channel: %v", cerr)
+				return
+			}
+		} else {
+			ch = created
+		}
+	}
+	if _, err := s.q.GetMembership(ctx, db.GetMembershipParams{ChannelID: ch.ID, UserID: user}); err == nil {
+		return // já é membro
+	}
+	if err := s.q.AddChannelMember(ctx, db.AddChannelMemberParams{
+		ChannelID: ch.ID, TenantID: tenant, UserID: user, Role: "member",
+	}); err != nil {
+		log.Printf("chat: join general channel: %v", err)
+	}
+}
+
 func (s *Server) handleListChannels(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
+	s.ensureGeneral(r.Context(), mu.TenantID, mu.ID)
 	mine, err := s.q.ListChannelsForUser(r.Context(), db.ListChannelsForUserParams{UserID: mu.ID, TenantID: mu.TenantID})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "chat.failed")
@@ -148,7 +183,10 @@ func (s *Server) handleListChannels(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, map[string]any{
 			"id": c.ID, "kind": c.Kind, "name": name, "topic": c.Topic, "other_id": otherID,
-			"unread": c.Unread, "last_read_at": iso(c.LastReadAt),
+			// Só marcamos como "o canal por defeito" enquanto o nome for o de origem: renomeado,
+			// o utilizador escolheu um nome e é esse que a UI deve mostrar (sem tradução).
+			"is_general": c.IsGeneral && c.Name == generalChannelName,
+			"unread":     c.Unread, "last_read_at": iso(c.LastReadAt),
 			"listed": c.Listed, "add_policy": c.AddPolicy, "my_role": c.Role, "notif_pref": c.NotifPref,
 		})
 	}
@@ -1098,6 +1136,12 @@ func (s *Server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 	}
 	if m.Role != "owner" {
 		writeErr(w, http.StatusForbidden, "chat.not_owner")
+		return
+	}
+	// O canal por defeito não se apaga: seria recriado na listagem seguinte e o dono ficaria a
+	// olhar para um canal que "voltou". Dizemos porquê em vez de deixar acontecer.
+	if ch, err := s.q.GetChannel(r.Context(), db.GetChannelParams{ID: id, TenantID: mu.TenantID}); err == nil && ch.IsGeneral {
+		writeErr(w, http.StatusBadRequest, "chat.cannot_delete_general")
 		return
 	}
 	recipients := s.channelRecipients(r.Context(), id)

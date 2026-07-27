@@ -949,12 +949,23 @@ VALUES ($1, $2, $3, $4, $5, $6) RETURNING *;
 -- name: GetChannel :one
 SELECT * FROM channels WHERE id = $1 AND tenant_id = $2;
 
+-- name: GetGeneralChannel :one
+SELECT * FROM channels WHERE tenant_id = $1 AND is_general;
+
+-- name: CreateGeneralChannel :one
+-- Canal por defeito do tenant. O índice parcial garante um só por tenant; numa corrida, o segundo
+-- INSERT não devolve linha e o chamador volta a ler o que ficou.
+INSERT INTO channels (tenant_id, kind, name, topic, dm_key, created_by, is_general)
+VALUES ($1, 'public', $2, '', '', $3, true)
+ON CONFLICT DO NOTHING
+RETURNING *;
+
 -- name: GetDMByKey :one
 SELECT * FROM channels WHERE tenant_id = $1 AND kind = 'dm' AND dm_key = $2;
 
 -- name: ListChannelsForUser :many
 SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.created_at,
-       c.listed, c.add_policy, cm.role, cm.notif_pref, cm.last_read_at,
+       c.listed, c.add_policy, c.is_general, cm.role, cm.notif_pref, cm.last_read_at,
        (SELECT count(*) FROM messages m
           WHERE m.channel_id = c.id AND m.created_at > cm.last_read_at
             AND m.user_id <> $1 AND m.deleted_at IS NULL) AS unread

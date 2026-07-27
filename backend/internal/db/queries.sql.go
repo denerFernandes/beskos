@@ -1408,7 +1408,7 @@ func (q *Queries) CreateCardComment(ctx context.Context, arg CreateCardCommentPa
 const createChannel = `-- name: CreateChannel :one
 
 INSERT INTO channels (tenant_id, kind, name, topic, dm_key, created_by)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at
+VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general
 `
 
 type CreateChannelParams struct {
@@ -1444,6 +1444,7 @@ func (q *Queries) CreateChannel(ctx context.Context, arg CreateChannelParams) (C
 		&i.AddPolicy,
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
+		&i.IsGeneral,
 	)
 	return i, err
 }
@@ -1948,6 +1949,42 @@ func (q *Queries) CreateFolder(ctx context.Context, arg CreateFolderParams) (Sto
 		&i.ParentID,
 		&i.Name,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createGeneralChannel = `-- name: CreateGeneralChannel :one
+INSERT INTO channels (tenant_id, kind, name, topic, dm_key, created_by, is_general)
+VALUES ($1, 'public', $2, '', '', $3, true)
+ON CONFLICT DO NOTHING
+RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general
+`
+
+type CreateGeneralChannelParams struct {
+	TenantID  uuid.UUID `json:"tenant_id"`
+	Name      string    `json:"name"`
+	CreatedBy uuid.UUID `json:"created_by"`
+}
+
+// Canal por defeito do tenant. O índice parcial garante um só por tenant; numa corrida, o segundo
+// INSERT não devolve linha e o chamador volta a ler o que ficou.
+func (q *Queries) CreateGeneralChannel(ctx context.Context, arg CreateGeneralChannelParams) (Channel, error) {
+	row := q.db.QueryRow(ctx, createGeneralChannel, arg.TenantID, arg.Name, arg.CreatedBy)
+	var i Channel
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Kind,
+		&i.Name,
+		&i.Topic,
+		&i.DmKey,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.Listed,
+		&i.AddPolicy,
+		&i.Canvas,
+		&i.CanvasUpdatedAt,
+		&i.IsGeneral,
 	)
 	return i, err
 }
@@ -4400,7 +4437,7 @@ func (q *Queries) GetCardComment(ctx context.Context, arg GetCardCommentParams) 
 }
 
 const getChannel = `-- name: GetChannel :one
-SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at FROM channels WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general FROM channels WHERE id = $1 AND tenant_id = $2
 `
 
 type GetChannelParams struct {
@@ -4424,6 +4461,7 @@ func (q *Queries) GetChannel(ctx context.Context, arg GetChannelParams) (Channel
 		&i.AddPolicy,
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
+		&i.IsGeneral,
 	)
 	return i, err
 }
@@ -4678,7 +4716,7 @@ func (q *Queries) GetContactGroupOwned(ctx context.Context, arg GetContactGroupO
 }
 
 const getDMByKey = `-- name: GetDMByKey :one
-SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at FROM channels WHERE tenant_id = $1 AND kind = 'dm' AND dm_key = $2
+SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general FROM channels WHERE tenant_id = $1 AND kind = 'dm' AND dm_key = $2
 `
 
 type GetDMByKeyParams struct {
@@ -4702,6 +4740,7 @@ func (q *Queries) GetDMByKey(ctx context.Context, arg GetDMByKeyParams) (Channel
 		&i.AddPolicy,
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
+		&i.IsGeneral,
 	)
 	return i, err
 }
@@ -5014,6 +5053,31 @@ func (q *Queries) GetFolderInTenant(ctx context.Context, arg GetFolderInTenantPa
 		&i.ParentID,
 		&i.Name,
 		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getGeneralChannel = `-- name: GetGeneralChannel :one
+SELECT id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general FROM channels WHERE tenant_id = $1 AND is_general
+`
+
+func (q *Queries) GetGeneralChannel(ctx context.Context, tenantID uuid.UUID) (Channel, error) {
+	row := q.db.QueryRow(ctx, getGeneralChannel, tenantID)
+	var i Channel
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Kind,
+		&i.Name,
+		&i.Topic,
+		&i.DmKey,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.Listed,
+		&i.AddPolicy,
+		&i.Canvas,
+		&i.CanvasUpdatedAt,
+		&i.IsGeneral,
 	)
 	return i, err
 }
@@ -7146,7 +7210,7 @@ func (q *Queries) ListChannelMembers(ctx context.Context, channelID uuid.UUID) (
 
 const listChannelsForUser = `-- name: ListChannelsForUser :many
 SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.created_at,
-       c.listed, c.add_policy, cm.role, cm.notif_pref, cm.last_read_at,
+       c.listed, c.add_policy, c.is_general, cm.role, cm.notif_pref, cm.last_read_at,
        (SELECT count(*) FROM messages m
           WHERE m.channel_id = c.id AND m.created_at > cm.last_read_at
             AND m.user_id <> $1 AND m.deleted_at IS NULL) AS unread
@@ -7172,6 +7236,7 @@ type ListChannelsForUserRow struct {
 	CreatedAt  time.Time `json:"created_at"`
 	Listed     bool      `json:"listed"`
 	AddPolicy  string    `json:"add_policy"`
+	IsGeneral  bool      `json:"is_general"`
 	Role       string    `json:"role"`
 	NotifPref  string    `json:"notif_pref"`
 	LastReadAt time.Time `json:"last_read_at"`
@@ -7198,6 +7263,7 @@ func (q *Queries) ListChannelsForUser(ctx context.Context, arg ListChannelsForUs
 			&i.CreatedAt,
 			&i.Listed,
 			&i.AddPolicy,
+			&i.IsGeneral,
 			&i.Role,
 			&i.NotifPref,
 			&i.LastReadAt,
@@ -9417,7 +9483,7 @@ func (q *Queries) ListPinnedByChannel(ctx context.Context, channelID uuid.UUID) 
 }
 
 const listPublicChannels = `-- name: ListPublicChannels :many
-SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.created_at, c.listed, c.add_policy, c.canvas, c.canvas_updated_at FROM channels c
+SELECT c.id, c.tenant_id, c.kind, c.name, c.topic, c.dm_key, c.created_by, c.created_at, c.listed, c.add_policy, c.canvas, c.canvas_updated_at, c.is_general FROM channels c
 WHERE c.tenant_id = $1 AND c.kind = 'public' AND c.listed = true
   AND NOT EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.user_id = $2)
 ORDER BY c.name
@@ -9451,6 +9517,7 @@ func (q *Queries) ListPublicChannels(ctx context.Context, arg ListPublicChannels
 			&i.AddPolicy,
 			&i.Canvas,
 			&i.CanvasUpdatedAt,
+			&i.IsGeneral,
 		); err != nil {
 			return nil, err
 		}
@@ -12506,7 +12573,7 @@ func (q *Queries) UpdateChannelCanvas(ctx context.Context, arg UpdateChannelCanv
 }
 
 const updateChannelName = `-- name: UpdateChannelName :one
-UPDATE channels SET name = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at
+UPDATE channels SET name = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, kind, name, topic, dm_key, created_by, created_at, listed, add_policy, canvas, canvas_updated_at, is_general
 `
 
 type UpdateChannelNameParams struct {
@@ -12531,6 +12598,7 @@ func (q *Queries) UpdateChannelName(ctx context.Context, arg UpdateChannelNamePa
 		&i.AddPolicy,
 		&i.Canvas,
 		&i.CanvasUpdatedAt,
+		&i.IsGeneral,
 	)
 	return i, err
 }

@@ -325,6 +325,7 @@ type Channel struct {
 	AddPolicy       string             `json:"add_policy"`
 	Canvas          string             `json:"canvas"`
 	CanvasUpdatedAt pgtype.Timestamptz `json:"canvas_updated_at"`
+	IsGeneral       bool               `json:"is_general"`
 }
 
 type ChannelBookmark struct {

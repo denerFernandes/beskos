@@ -435,7 +435,7 @@ export interface Branding { name: string; color: string; logo: string; logo_whit
 export interface Announcement { id: string; title: string; body: string; author: string; published: boolean; created_at: string }
 export interface Notif { id: string; kind: string; title: string; body: string; link: string; read_at: string | null; created_at: string; args?: Record<string, string> }
 
-export interface ChatChannel { id: string; kind: "public" | "private" | "dm"; name: string; topic: string; unread?: number; last_read_at?: string; other_id?: string; listed?: boolean; add_policy?: "open" | "restricted"; my_role?: string; notif_pref?: "all" | "mentions" | "none" }
+export interface ChatChannel { id: string; kind: "public" | "private" | "dm"; name: string; topic: string; is_general?: boolean; unread?: number; last_read_at?: string; other_id?: string; listed?: boolean; add_policy?: "open" | "restricted"; my_role?: string; notif_pref?: "all" | "mentions" | "none" }
 export interface ChatSearchHit { id: string; channel_id: string; channel_name: string; channel_kind: string; author: string; body: string; created_at: string }
 export interface ChatReaction { emoji: string; count: number; mine: boolean; users: string[] }
 export interface ChatAttachment { file_id: string; name: string; size: number }

@@ -17,7 +17,8 @@ import { GifPicker } from "./GifPicker";
 import { SHORTCODES } from "./emoji";
 import { initials, shortTime } from "./util";
 import { Avatar } from "./Avatar";
-import { IcPlus, IcUsers, IcTrash, IcPencil, IcReply, IcForward, IcX, IcVideo, IcPhone, IcPaperclip, IcChevron, IcLink, IcPin, IcBell, IcSearch, IcMail, IcList, IcClock, IcFolder } from "../panel/icons";
+import { IcPlus, IcUsers, IcTrash, IcPencil, IcReply, IcForward, IcX, IcVideo, IcPhone, IcPaperclip, IcChevron, IcLink, IcPin, IcBell, IcSearch, IcMail, IcList, IcClock, IcFolder, IcColumns } from "../panel/icons";
+import { ExtractTasksModal } from "./ExtractTasksModal";
 import { DrivePickerDrawer } from "./DrivePickerDrawer";
 
 const KB = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
@@ -112,7 +113,13 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
   useEffect(() => { if (emojisQ.data) setCustomEmoji(emojisQ.data); }, [emojisQ.data]);
 
   const chansQ = useQuery({ queryKey: ["chat-channels"], queryFn: () => backend.chatChannels(), refetchInterval: 30000 });
-  const channels = chansQ.data?.channels ?? [];
+  // O canal por defeito chega marcado (is_general) com o nome guardado em inglês; mostramos o nome
+  // no idioma da interface. Trocamos aqui, à entrada, para toda a UI (barra lateral, cabeçalho,
+  // troca rápida, `in:` da busca) falar do mesmo nome — a busca casa por id, não por texto.
+  const channels = useMemo(
+    () => (chansQ.data?.channels ?? []).map((c) => (c.is_general ? { ...c, name: t("chat.generalName") } : c)),
+    [chansQ.data, t],
+  );
   const discover = chansQ.data?.discover ?? [];
   // O canal ativo vem da URL (link compartilhável); sem ele, cai no primeiro.
   const active = channelParam && channels.some((c) => c.id === channelParam) ? channelParam : channels[0]?.id ?? null;
@@ -368,6 +375,7 @@ function ChannelPane({ channel, channels, session, locale, typingAuthor, onTypin
   }, [target, channel.id]);
   const jumpToPin = (msgId: string) => { setTab("messages"); setLocalFocus(msgId); };
   const [forwarding, setForwarding] = useState<string | null>(null); // id da mensagem a encaminhar
+  const [extracting, setExtracting] = useState<ChatMessage | null>(null); // mensagem a virar tarefas
 
   // Preserva a posição do scroll ao prepender antigas (o conteúdo cresce por cima).
   const prevH = useRef<number | null>(null);
@@ -449,6 +457,12 @@ function ChannelPane({ channel, channels, session, locale, typingAuthor, onTypin
       </header>
       {showSched && <ScheduledModal onClose={() => setShowSched(false)} />}
       {profile && <MemberProfile member={profile} me={session.email} onClose={() => setProfile(null)} onOpenDM={(e) => { setProfile(null); onOpenDM(e); }} />}
+      {/* Extrair tarefas da mensagem: reaproveita o mesmo fluxo do e-mail (IA → escolher → quadro). */}
+      {extracting && (
+        <ExtractTasksModal subject={`#${channel.name} · ${extracting.author}`} body={extracting.body}
+          sourceEmailId="" onClose={() => setExtracting(null)} />
+      )}
+
       {forwarding && <ForwardModal channels={channels} onClose={() => setForwarding(null)}
         onPick={async (target) => { try { await backend.chatForward(forwarding, target); setForwarding(null); toast(t("chat.forwarded")); } catch (e) { toast((e as Error).message); } }} />}
       {channel.kind !== "dm" && (
@@ -480,6 +494,7 @@ function ChannelPane({ channel, channels, session, locale, typingAuthor, onTypin
               <MessageRow m={m} prev={messages[i - 1]} locale={locale} mine={m.author_email === session.email} canManage={canManage} highlighted={highlight === m.id}
                 onReact={react} onEdit={async (body) => { await backend.chatEdit(m.id, body); }}
                 onDelete={async () => { await backend.chatDelete(m.id); }} onMarkUnread={() => markUnread(m.id)}
+                onExtractTasks={() => setExtracting(m)}
                 onForward={() => setForwarding(m.id)} onSave={async () => { try { if (m.saved) await backend.chatUnsave(m.id); else await backend.chatSave(m.id); refresh(); } catch (e) { toast((e as Error).message); } }} onOpenThread={onOpenThread}
                 onOpenProfile={() => setProfile({ user_id: m.user_id, email: m.author_email, name: m.author, role: "" })} />
             </Fragment>
@@ -553,10 +568,11 @@ function BookmarkIcon({ filled, size = 13 }: { filled?: boolean; size?: number }
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z" /></svg>;
 }
 
-function MessageRow({ m, prev, locale, mine, canManage, highlighted, onReact, onEdit, onDelete, onMarkUnread, onForward, onSave, onOpenThread, onOpenProfile }: {
+function MessageRow({ m, prev, locale, mine, canManage, highlighted, onReact, onEdit, onDelete, onMarkUnread, onForward, onSave, onExtractTasks, onOpenThread, onOpenProfile }: {
   m: ChatMessage; prev?: ChatMessage; locale: string; mine: boolean; canManage?: boolean; highlighted?: boolean;
   onReact: (mid: string, emoji: string, mine: boolean) => void; onEdit: (body: string) => void; onDelete: () => void;
-  onMarkUnread?: () => void; onForward?: () => void; onSave?: () => void; onOpenThread?: (m: ChatMessage) => void; onOpenProfile?: () => void;
+  onMarkUnread?: () => void; onForward?: () => void; onSave?: () => void; onExtractTasks?: () => void;
+  onOpenThread?: (m: ChatMessage) => void; onOpenProfile?: () => void;
 }) {
   const { t } = useTranslation();
   const [pick, setPick] = useState(false);
@@ -647,6 +663,9 @@ function MessageRow({ m, prev, locale, mine, canManage, highlighted, onReact, on
             </span>
           )}
           {onMarkUnread && <button className="ib sm" title={t("chat.markUnread")} onClick={onMarkUnread}><IcMail size={13} /></button>}
+          {onExtractTasks && m.body.trim() !== "" && (
+            <button className="ib sm" title={t("webmail.ai.extractTasks")} onClick={onExtractTasks}><IcColumns size={13} /></button>
+          )}
           {mine && <button className="ib sm" title={t("chat.edit")} onClick={() => { setDraft(m.body); setEditing(true); }}><IcPencil size={13} /></button>}
           {/* Apaga: o autor a própria; um gestor/owner modera as de terceiros. */}
           {(mine || canManage) && <button className="ib sm" title={t("chat.delete")} onClick={onDelete}><IcTrash size={13} /></button>}
