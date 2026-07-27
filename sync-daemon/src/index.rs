@@ -193,6 +193,43 @@ impl Index {
         Ok(())
     }
 
+    /// Esquece as entradas DENTRO de uma pasta local (prefixo de caminho). Usado ao (re)adicionar um
+    /// par: como a pasta na nuvem é nova, quaisquer file_ids antigos aqui são inválidos — apagá-los faz
+    /// o push tratar os ficheiros como NOVOS e enviá-los (senão o índice julga-os já sincronizados e
+    /// nada sobe). Compara por caminho como o push (Path::starts_with), robusto a `%`/`_` no nome.
+    pub fn remove_under(&self, abs_prefix: &str) -> Result<()> {
+        let conn = self.lock();
+        let root = std::path::Path::new(abs_prefix);
+        let ids: Vec<String> = {
+            let mut stmt = conn.prepare("SELECT file_id, rel_path FROM files")?;
+            let rows = stmt.query_map([], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+            })?;
+            let mut v = Vec::new();
+            for row in rows {
+                let (id, rp) = row?;
+                if std::path::Path::new(&rp).starts_with(root) {
+                    v.push(id);
+                }
+            }
+            v
+        };
+        for id in ids {
+            conn.execute("DELETE FROM files WHERE file_id=?1", params![id])?;
+        }
+        Ok(())
+    }
+
+    /// Esvazia o índice (ficheiros + cursor/reconcile do feed), preservando o schema. Usado ao trocar
+    /// de CONTA na mesma máquina: os file_ids pertencem ao servidor da conta anterior e não valem para
+    /// a nova — recomeça do zero (re-sobe o local, re-lê o feed).
+    pub fn clear(&self) -> Result<()> {
+        let conn = self.lock();
+        conn.execute("DELETE FROM files", [])?;
+        conn.execute("DELETE FROM meta WHERE key IN ('cursor','last_reconcile')", [])?;
+        Ok(())
+    }
+
     pub fn count(&self) -> Result<i64> {
         Ok(self
             .lock()
