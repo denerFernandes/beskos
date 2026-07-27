@@ -69,7 +69,19 @@
     "dangerTitle": "Danger zone",
     "deleteHint": "Removing the domain deletes it from the mail server and the relay. Only possible with no mailboxes on it. Type the domain name to confirm.",
     "deleteBtn": "Remove domain",
-    "deleted": "Domain removed"
+    "deleted": "Domain removed",
+    "colStatus": "Status",
+    "dnsSummary": "{{ok}} of {{total}} published",
+    "dnsRequiredPending": "{{n}} essential one(s) missing",
+    "dnsRecheck": "Check now",
+    "dnsExportZone": "Export zone",
+    "dnsCheckedAt": "Checked at {{when}}",
+    "dnsFound": "Published",
+    "dnsStatus": {
+      "ok": "published",
+      "missing": "missing",
+      "mismatch": "different"
+    }
   },
   "webmail": {
     "list": {

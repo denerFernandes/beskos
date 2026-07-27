@@ -279,6 +279,10 @@ func (s *Server) Router() http.Handler {
 
 			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/domains", s.handleListDomains)
 			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/domains/{id}", s.handleGetDomain)
+			// Estado do DNS registo a registo + exportar a zona (docs/DNS-PAGE.md). Informativo: quem
+			// promove o domínio continua a ser o worker.
+			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/domains/{id}/dns/check", s.handleCheckDomainDNS)
+			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/domains/{id}/dns/export", s.handleExportDomainDNS)
 			r.With(s.requirePerm(rbac.PermDomainsManage)).Post("/domains", s.handleCreateDomain)
 			r.With(s.requirePerm(rbac.PermDomainsDelete)).Delete("/domains/{id}", s.handleDeleteDomain)
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/domains/{id}/mailboxes", s.handleCreateMailbox)

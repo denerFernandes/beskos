@@ -98,8 +98,37 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// Estado de um registo DNS no mundo real: o que pedimos, o que está publicado e o veredito.
+export interface DNSCheck {
+  host: string; type: string; expected: string; purpose: string;
+  found: string[]; status: "ok" | "missing" | "mismatch"; required: boolean;
+}
+export interface DNSCheckResult {
+  records: DNSCheck[]; checked_at: string | null; cached?: boolean;
+  summary: { total: number; ok: number; missing: number; mismatch: number; required_pending: number };
+}
+
 export const api = {
   me: () => req<Me>("/api/me"),
+  // Verificação do DNS a pedido (informativa: quem promove o domínio é o worker).
+  dnsCheck: (id: string) => req<DNSCheckResult>(`/api/domains/${id}/dns/check`),
+  // Exportar a zona: descarrega por fetch (com a sessão) e guarda como ficheiro — assim o token
+  // nunca vai parar a uma URL num href.
+  dnsExport: async (id: string, format: "zone" | "csv", domain: string): Promise<void> => {
+    const res = await fetch(apiUrl(`/api/domains/${id}/dns/export?format=${format}`), {
+      credentials: "include", headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error(translateError(undefined, undefined, res.status));
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = format === "csv" ? `${domain}-dns.csv` : `${domain}.zone`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   // Apps da organização: lista alternáveis + desligadas; PUT grava as desligadas (só admin/owner).
   appsGet: () => req<{ apps: string[]; disabled: string[] }>("/api/apps"),
   appsSet: (disabled: string[]) => req<{ disabled: string[] }>("/api/apps", { method: "PUT", body: JSON.stringify({ disabled }) }),

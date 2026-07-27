@@ -200,3 +200,17 @@
 .perm-tx{display:flex;flex-direction:column;gap:1px;min-width:0;}
 .perm-nm{font-size:14px;}
 .perm-sub{font-size:12px;color:var(--muted);}
+
+/* DNS: barra de resumo + estado por registo. O valor publicado que diverge aparece por baixo do
+   esperado, para se ver a diferença sem sair da página. */
+.dns-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px;}
+.dns-bar .grow{flex:1;}
+.dns-sum{font-size:12.5px;color:var(--muted);}
+.dns-sum.ok{color:#1a7f37;}
+.dns-sum.warn{color:#b42318;}
+.dns-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;white-space:nowrap;}
+.dns-pill.ok{background:rgba(26,127,55,.14);color:#1a7f37;}
+.dns-pill.warn{background:rgba(180,120,0,.16);color:#9a6700;}
+.dns-pill.err{background:rgba(180,35,24,.14);color:#b42318;}
+.dns-val{max-width:420px;overflow-x:auto;}
+.dns-found{margin-top:2px;font-size:11px;color:#b42318;max-width:420px;overflow-x:auto;}
