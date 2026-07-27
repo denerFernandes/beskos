@@ -15,11 +15,16 @@ func (s *Server) cors(next http.Handler) http.Handler {
 			h.Add("Vary", "Origin")
 			if r.Method == http.MethodOptions {
 				h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-				h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Locale")
+				// `Range` é preciso para o app nativo (Tauri, cross-origin): o pdf.js pede intervalos
+				// em PDFs grandes e o browser faz preflight — sem `Range` aqui, a apresentação de PDF
+				// não carregava no desktop (os pequenos, que não usam Range, funcionavam).
+				h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Locale, Range")
 				h.Set("Access-Control-Max-Age", "600")
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
+			// Deixa o cliente ler os headers de range/tamanho numa resposta cross-origin (pdf.js).
+			h.Set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges")
 		}
 		next.ServeHTTP(w, r)
 	})
