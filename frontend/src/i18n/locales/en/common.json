@@ -586,6 +586,7 @@
     "http": "Communication error (HTTP {{status}})"
   },
   "server": {
+    "chat.cannot_delete_general": "The default channel cannot be deleted.",
     "notif": {
       "meeting_invite": {
         "t": "{{actor}} invited you: {{title}}",
@@ -1493,6 +1494,7 @@
     "kind_vacation": "Vacation"
   },
   "chat": {
+    "generalName": "General",
     "title": "Chat",
     "react": "React",
     "channels": "Channels",

@@ -586,6 +586,7 @@
     "http": "Erro de comunicação (HTTP {{status}})"
   },
   "server": {
+    "chat.cannot_delete_general": "O canal por defeito não pode ser apagado.",
     "notif": {
       "meeting_invite": {
         "t": "{{actor}} convidou você: {{title}}",
@@ -1493,6 +1494,7 @@
     "kind_vacation": "Férias"
   },
   "chat": {
+    "generalName": "Geral",
     "title": "Chat",
     "react": "Reagir",
     "channels": "Canais",
