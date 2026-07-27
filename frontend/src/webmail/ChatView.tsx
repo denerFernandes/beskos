@@ -773,6 +773,7 @@ const Composer = forwardRef<ComposerHandle, {
   const [text, setText] = useState("");
   const [mentionQ, setMentionQ] = useState<string | null>(null);
   const [slashQ, setSlashQ] = useState<string | null>(null); // texto depois do "/" (menu de comandos)
+  const [slashIdx, setSlashIdx] = useState(0);               // item destacado no menu (setas ↑/↓)
   const [taskPick, setTaskPick] = useState(false);           // seletor de tarefa (/task)
   const [emoji, setEmoji] = useState<DOMRect | null>(null);
   const [gif, setGif] = useState<DOMRect | null>(null);
@@ -837,6 +838,7 @@ const Composer = forwardRef<ComposerHandle, {
     // Menu de comandos: só quando o "/" abre a mensagem (um "e/ou" no meio do texto não é comando).
     const st = v.match(/^\/(\w*)$/);
     setSlashQ(st ? st[1] : null);
+    setSlashIdx(0); // filtrou, volta ao topo — o destaque nunca fica num item que saiu da lista
     const now = Date.now();
     if (now - lastTyping.current > 2000) { lastTyping.current = now; onTyping(); }
   };
@@ -881,8 +883,9 @@ const Composer = forwardRef<ComposerHandle, {
     <div className="composer-wrap">
       {slashCmds.length > 0 && (
         <div className="mention-pop slash-pop">
-          {slashCmds.map((c) => (
-            <button key={c.key} onMouseDown={(e) => { e.preventDefault(); pickCommand(c.key); }}>
+          {slashCmds.map((c, i) => (
+            <button key={c.key} className={i === slashIdx ? "on" : ""} onMouseEnter={() => setSlashIdx(i)}
+              onMouseDown={(e) => { e.preventDefault(); pickCommand(c.key); }}>
               <span className="av special">/</span>
               <span className="nm">/{c.key}{c.args ? ` ${t(c.args)}` : ""}</span>
               <span className="em">{t(c.desc)}</span>
@@ -946,9 +949,17 @@ const Composer = forwardRef<ComposerHandle, {
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape" && slashQ !== null) { setSlashQ(null); return; }
-            // Com o menu de comandos aberto, Enter escolhe o primeiro (como no Slack) em vez de
-            // enviar "/task" como texto.
-            if (e.key === "Enter" && slashCmds.length > 0) { e.preventDefault(); pickCommand(slashCmds[0].key); return; }
+            // Menu de comandos aberto: ↑/↓ andam na lista (com volta ao início/fim) e Enter/Tab
+            // escolhem o destacado — em vez de enviar "/task" como texto.
+            if (slashCmds.length > 0) {
+              if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => (i + 1) % slashCmds.length); return; }
+              if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => (i - 1 + slashCmds.length) % slashCmds.length); return; }
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                pickCommand(slashCmds[Math.min(slashIdx, slashCmds.length - 1)].key);
+                return;
+              }
+            }
             if (e.key !== "Enter" || suggestions.length) return;
             // settings.chat.enterSends: com Enter-envia (default), Enter envia e Shift+Enter quebra
             // linha; desligado, inverte-se — só Ctrl/Cmd+Enter envia e Enter quebra linha.
