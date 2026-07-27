@@ -33,6 +33,9 @@ pub struct Stats {
     pub moved: usize,
     /// Ficheiros apagados localmente que foram para a lixeira do servidor.
     pub trashed: usize,
+    /// Falhas de envio/criação (cota, rede, servidor). Visível no estado para não parecer que
+    /// "0 enviados" = "nada a fazer" quando na verdade o upload falhou.
+    pub errors: usize,
 }
 
 /// Guarda de segurança: se MUITOS ficheiros rastreados desaparecerem de uma vez, é quase certo que a
@@ -210,6 +213,7 @@ pub fn run_once(
         conflicts: 0,
         moved: 0,
         trashed: 0,
+        errors: 0,
     });
 
     // Árvore de pastas do servidor (para colocar/criar ficheiros no sítio certo).
@@ -489,7 +493,10 @@ fn push_pair(
                 let _ = save_conflict_copy(&path);
                 bump(stats, |s| s.conflicts += 1);
             }
-            Err(e) => eprintln!("aviso: envio de {abs} falhou: {e:#}"),
+            Err(e) => {
+                eprintln!("aviso: envio de {abs} falhou: {e:#}");
+                bump(stats, |s| s.errors += 1);
+            }
         }
     });
 
@@ -569,7 +576,10 @@ fn push_pair(
                 let _ = index.upsert(&m.id, &abs, &m.hash, m.versao, mt, sz);
                 bump(stats, |s| s.uploaded += 1);
             }
-            Err(e) => eprintln!("aviso: criar {rel} falhou: {e:#}"),
+            Err(e) => {
+                eprintln!("aviso: criar {rel} falhou: {e:#}");
+                bump(stats, |s| s.errors += 1);
+            }
         }
     });
     Ok(())

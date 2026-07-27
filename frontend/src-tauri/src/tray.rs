@@ -71,7 +71,7 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
             tauri::image::Image::from_bytes(include_bytes!($p)).expect(concat!("ícone ", $p))
         };
     }
-    let ico_base = trayimg!("../icons/tray.png");
+    let ico_base = trayimg!("../icons/tray/base.png");
     let ico_ok = trayimg!("../icons/tray/ok.png");
     let ico_err = trayimg!("../icons/tray/error.png");
     let ico_paused = trayimg!("../icons/tray/paused.png");
@@ -117,30 +117,35 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
         let mut frame = 0usize;
         let mut last_label = String::new();
         let mut last_acct = String::new();
+        let mut last_icon = String::new();
         loop {
             let s = eng.status();
             let active = s.configured && !s.pairs.is_empty();
             let syncing = active && !s.paused && matches!(s.phase, Phase::Syncing);
 
-            // Ícone conforme o estado.
-            let icon = if syncing {
-                let ic = spinner[frame % spinner.len()].clone();
+            // Ícone conforme o estado — só se TROCA quando muda de facto. Re-setar o mesmo ícone a
+            // cada volta fazia o tray piscar; assim o spinner anima (a chave muda por frame) e os
+            // estados fixos ficam quietos. O modo template vem do builder e persiste.
+            let (icon, key): (&tauri::image::Image, String) = if syncing {
+                let f = frame % spinner.len();
                 frame = frame.wrapping_add(1);
-                ic
+                (&spinner[f], format!("s{f}"))
             } else {
                 frame = 0;
                 if !active {
-                    ico_base.clone()
+                    (&ico_base, "base".into())
                 } else if s.paused {
-                    ico_paused.clone()
+                    (&ico_paused, "paused".into())
                 } else if matches!(s.phase, Phase::Error) {
-                    ico_err.clone()
+                    (&ico_err, "error".into())
                 } else {
-                    ico_ok.clone()
+                    (&ico_ok, "ok".into())
                 }
             };
-            let _ = tray.set_icon(Some(icon));
-            let _ = tray.set_icon_as_template(true);
+            if key != last_icon {
+                let _ = tray.set_icon(Some(icon.clone()));
+                last_icon = key;
+            }
 
             // Texto do menu + tooltip (só quando muda).
             let acct = crate::desktop::account_label(&app_h)

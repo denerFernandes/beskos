@@ -258,9 +258,15 @@ fn spawn_loop(state: Arc<Mutex<Status>>, nudge: Receiver<()>, interval: u64) {
                 Ok(st) => {
                     s.phase = Phase::Idle;
                     s.message = format!(
-                        "{} baixados, {} enviados, {} movidos, {} p/ lixeira, {} conflitos",
-                        st.downloaded, st.uploaded, st.moved, st.trashed, st.conflicts
+                        "{} baixados, {} enviados, {} movidos, {} p/ lixeira, {} conflitos{}",
+                        st.downloaded, st.uploaded, st.moved, st.trashed, st.conflicts,
+                        if st.errors > 0 { format!(", {} erros", st.errors) } else { String::new() }
                     );
+                    // Se houve erros de envio, o estado é de ERRO (não "tudo sincronizado") — assim a
+                    // UI e o tray mostram que algo falhou em vez de fingir sucesso.
+                    if st.errors > 0 {
+                        s.phase = Phase::Error;
+                    }
                 }
                 Err(e) => {
                     s.phase = Phase::Error;
