@@ -12,8 +12,11 @@ import { IcArrowLeft, IcChevron } from "./icons";
 // Três blocos, por esta ordem de utilidade: o que falta publicar, como publicar no teu fornecedor,
 // e a zona de perigo.
 
-// Propósitos que habilitam ENVIO vs RECEÇÃO. Agrupar por isto diz porque é que cada registo existe.
-const SEND_PURPOSES = ["spf", "dkim", "dkim_ses", "dmarc", "mailfrom"];
+// O que o correio precisa mesmo: entregar (MX), ser aceite lá fora (SPF/DKIM/MAIL FROM) e a política
+// que os liga (DMARC). O resto — SRV de descoberta, MTA-STS, TLS-RPT, auto-config — é conveniência
+// para clientes de e-mail e reforço de transporte: o correio funciona sem eles, e por isso vão para
+// "avançados", fechados. Pedir 18 registos quando 4 bastam é o que fazia esta página assustar.
+const ESSENTIAL_PURPOSES = ["mx", "spf", "dkim", "dkim_ses", "mailfrom", "dmarc"];
 
 // Fornecedores cobertos pelo guia. `import` marca os que aceitam ficheiro de zona BIND — nesses, a
 // exportação resolve tudo de uma vez e é o caminho a recomendar primeiro.
@@ -50,8 +53,10 @@ export function DomainPage({ id, canManage, onBack }: { id: string; canManage: b
     return m;
   }, [check.data]);
   const sum = check.data?.summary;
-  const receive = records.filter((r) => !SEND_PURPOSES.includes(r.purpose));
-  const send = records.filter((r) => SEND_PURPOSES.includes(r.purpose));
+  const essential = records.filter((r) => ESSENTIAL_PURPOSES.includes(r.purpose));
+  const essOk = essential.filter((r) => byKey.get(`${r.type}|${r.host}`)?.status === "ok").length;
+  const essPending = essential.length - essOk;
+  const optional = records.filter((r) => !ESSENTIAL_PURPOSES.includes(r.purpose));
 
   return (
     <>
@@ -68,9 +73,10 @@ export function DomainPage({ id, canManage, onBack }: { id: string; canManage: b
         <div className="pnl-card">
           <div className="pnl-card-b dom-summary">
             <StatePill state={d?.provision_state ?? ""} />
-            <span className={"dns-sum" + (sum && sum.required_pending > 0 ? " warn" : sum ? " ok" : "")}>
-              {sum ? t("domains.dnsSummary", { ok: sum.ok, total: sum.total }) : "…"}
-              {sum && sum.required_pending > 0 && ` · ${t("domains.dnsRequiredPending", { n: sum.required_pending })}`}
+            <span className={"dns-sum" + (essPending > 0 ? " warn" : check.data ? " ok" : "")}>
+              {check.data ? t("domains.dnsSummaryEssential", { ok: essOk, total: essential.length }) : "…"}
+              {essPending > 0 && ` · ${t("domains.dnsRequiredPending", { n: essPending })}`}
+              {sum && sum.total > essential.length && ` · ${t("domains.dnsOptionalCount", { n: sum.total - essential.length })}`}
             </span>
             {check.data?.checked_at && (
               <span className="desc">{t("domains.dnsCheckedAt", { when: new Date(check.data.checked_at).toLocaleTimeString(i18n.language) })}</span>
@@ -88,8 +94,8 @@ export function DomainPage({ id, canManage, onBack }: { id: string; canManage: b
 
         <ProviderGuide domain={d?.dominio ?? ""} onExport={() => void api.dnsExport(id, "zone", d?.dominio ?? "").catch((e) => toast((e as Error).message))} />
 
-        <RecordsCard title={t("domains.dnsReceiveTitle")} records={receive} checks={byKey} />
-        <RecordsCard title={t("domains.dnsSendTitle")} hint={t("domains.dnsSendHint")} records={send} checks={byKey} />
+        <RecordsCard title={t("domains.dnsRequiredTitle")} hint={t("domains.dnsRequiredHint")} records={essential} checks={byKey} />
+        <RecordsCard title={t("domains.dnsOptionalTitle")} hint={t("domains.dnsOptionalHint")} records={optional} checks={byKey} collapsible />
 
         {canManage && d && (
           <div className="pnl-card danger">
@@ -156,15 +162,28 @@ function ProviderGuide({ domain, onExport }: { domain: string; onExport: () => v
 
 // Tabela de registos com estado. Numa página há largura para o valor respirar; o que for grande
 // rola dentro da própria célula em vez de empurrar a tabela.
-function RecordsCard({ title, hint, records, checks }: {
-  title: string; hint?: string; records: DNSRecord[]; checks: Map<string, DNSCheck>;
+function RecordsCard({ title, hint, records, checks, collapsible }: {
+  title: string; hint?: string; records: DNSRecord[]; checks: Map<string, DNSCheck>; collapsible?: boolean;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(-1);
+  // Os opcionais começam fechados: quem quiser afina, quem não quiser nem os vê.
+  const [open, setOpen] = useState(!collapsible);
   if (records.length === 0) return null;
   return (
     <div className="pnl-card">
-      <div className="pnl-card-h"><div><h3>{title}</h3>{hint && <div className="desc">{hint}</div>}</div></div>
+      <div className="pnl-card-h">
+        <div><h3>{title}</h3>{hint && <div className="desc">{hint}</div>}</div>
+        {collapsible && (
+          <>
+            <div className="grow" />
+            <button className="pnl-btn ghost" onClick={() => setOpen((v) => !v)}>
+              {open ? t("domains.dnsHide") : t("domains.dnsShow", { n: records.length })}
+            </button>
+          </>
+        )}
+      </div>
+      {open && (
       <div className="pnl-card-b">
         <div className="dns-scroll">
         <table className="dns-table">
@@ -209,6 +228,7 @@ function RecordsCard({ title, hint, records, checks }: {
         </table>
         </div>
       </div>
+      )}
     </div>
   );
 }

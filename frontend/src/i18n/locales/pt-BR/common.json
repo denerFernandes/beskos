@@ -62,7 +62,11 @@
       "dkim_ses": "DKIM do relay (SES)",
       "dmarc": "DMARC",
       "other": "Outro",
-      "mailfrom": "MAIL FROM (SES)"
+      "mailfrom": "MAIL FROM (SES)",
+      "srv": "Descoberta de clientes",
+      "mta_sts": "MTA-STS",
+      "tls_rpt": "Relatórios de TLS",
+      "autoconfig": "Configuração automática"
     },
     "copy": "Copiar",
     "copied": "Copiado ✓",
@@ -147,7 +151,15 @@
           "Volta aqui e carrega em \"Verificar agora\"."
         ]
       }
-    }
+    },
+    "dnsRequiredTitle": "Obrigatórios",
+    "dnsRequiredHint": "Sem estes o correio não entra nem sai. São os únicos que precisas mesmo de publicar.",
+    "dnsOptionalTitle": "Avançados (opcionais)",
+    "dnsOptionalHint": "Descoberta automática nos clientes de e-mail e reforço de transporte. Tudo funciona sem eles — publica-os se quiseres que o Outlook e o telemóvel se configurem sozinhos.",
+    "dnsSummaryEssential": "{{ok}} de {{total}} obrigatórios publicados",
+    "dnsOptionalCount": "{{n}} opcionais",
+    "dnsShow": "Mostrar {{n}}",
+    "dnsHide": "Esconder"
   },
   "webmail": {
     "list": {

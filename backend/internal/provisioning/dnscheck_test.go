@@ -98,3 +98,30 @@ func TestZoneFileMantemOsRegistos(t *testing.T) {
 		t.Error("o cabeçalho tem de ser comentário, senão o import do fornecedor rejeita")
 	}
 }
+
+// A classificação decide o que a página apresenta como obrigatório e o que fica em "avançado".
+// Um engano aqui pede ao cliente registos que ele não precisa — ou esconde um de que precisa.
+func TestClassifyEObrigatoriedade(t *testing.T) {
+	cases := []struct {
+		rec      DNSRecord
+		purpose  string
+		required bool
+	}{
+		{DNSRecord{Type: "MX", Host: "e.com", Value: "10 mail.e.com."}, "mx", true},
+		{DNSRecord{Type: "TXT", Host: "e.com", Value: "v=spf1 include:_spf.b.com ~all"}, "spf", true},
+		{DNSRecord{Type: "TXT", Host: "sel._domainkey.e.com", Value: "v=DKIM1; p=x"}, "dkim", true},
+		{DNSRecord{Type: "TXT", Host: "_dmarc.e.com", Value: "v=DMARC1; p=none"}, "dmarc", false},
+		{DNSRecord{Type: "SRV", Host: "_imaps._tcp.e.com", Value: "0 1 993 mail.e.com."}, "srv", false},
+		{DNSRecord{Type: "CNAME", Host: "mta-sts.e.com", Value: "mail.e.com."}, "mta_sts", false},
+		{DNSRecord{Type: "TXT", Host: "_smtp._tls.e.com", Value: "v=TLSRPTv1; rua=mailto:p@e.com"}, "tls_rpt", false},
+		{DNSRecord{Type: "CNAME", Host: "ua-auto-config.e.com", Value: "mail.e.com."}, "autoconfig", false},
+	}
+	for _, c := range cases {
+		if got := classify(c.rec); got != c.purpose {
+			t.Errorf("classify(%s %s) = %q, quer %q", c.rec.Type, c.rec.Host, got, c.purpose)
+		}
+		if got := requiredPurpose(c.purpose); got != c.required {
+			t.Errorf("requiredPurpose(%s) = %v, quer %v", c.purpose, got, c.required)
+		}
+	}
+}
