@@ -166,10 +166,20 @@ function LeaveOnWindowClose() {
           const { getCurrentWindow } = await import("@tauri-apps/api/window");
           const win = getCurrentWindow();
           if (win.label === "main") return; // a principal é o caso (a)
+          // `closing` é o que deixa a janela fechar à segunda passagem: o nosso close() volta a
+          // disparar o CloseRequested. E fecha-se com close() (não destroy(), que a ACL não concede
+          // — negava a chamada e a janela ficava presa) dentro de um finally, para que um erro a
+          // desligar da sala nunca impeça o fecho.
+          let closing = false;
           const un = await win.onCloseRequested(async (e) => {
+            if (closing) return; // segunda passagem: deixa seguir
             e.preventDefault();
-            await Promise.race([room.disconnect(), new Promise((r) => setTimeout(r, 1500))]);
-            await win.destroy();
+            closing = true;
+            try {
+              await Promise.race([room.disconnect().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
+            } finally {
+              void win.close();
+            }
           });
           if (gone) un(); else offClose = un;
         } catch { /* API indisponível: fica só o caminho (a) */ }
