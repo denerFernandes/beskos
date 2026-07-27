@@ -223,7 +223,9 @@
 .pnl-content > .pnl-card + .pnl-card{margin-top:16px;}
 
 /* ---- Página do domínio (era um sidecar; a informação não cabia lá) ---- */
-.dom-page{display:flex;flex-direction:column;gap:16px;}
+/* A página do domínio usa o ecrã todo: a tabela de DNS tem 6 colunas e valores longos, e o teto de
+   1080px das outras páginas deixava-a apertada com metade do monitor por usar. */
+.dom-page{display:flex;flex-direction:column;gap:16px;max-width:none;}
 .dom-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:16px;}
 .dom-summary .grow{flex:1;}
 .dom-danger{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
@@ -236,7 +238,9 @@
 .dns-table td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;}
 .dns-table tr:last-child td{border-bottom:0;}
 .dns-table td:last-child{text-align:right;white-space:nowrap;}
-.dns-table .dns-val{max-width:min(46vw,560px);overflow-x:auto;white-space:nowrap;}
+.dns-table .dns-val{max-width:min(52vw,760px);overflow-x:auto;white-space:nowrap;}
+/* Rola dentro do cartão: numa janela estreita a tabela nunca empurra a página para o lado. */
+.dns-scroll{overflow-x:auto;}
 /* Diferente: as duas linhas etiquetadas — o que deve estar e o que está publicado. */
 .dns-diff{display:flex;flex-direction:column;gap:4px;}
 .dns-diff-row{display:flex;gap:8px;align-items:baseline;}
@@ -248,5 +252,24 @@
 .guide-head{display:flex;align-items:center;gap:8px;width:100%;padding:11px 2px;background:none;border:0;
   color:var(--ink);font:inherit;cursor:pointer;text-align:left;}
 .guide-head .chev-open{transform:rotate(180deg);}
-.guide-body{padding:0 2px 14px 24px;}
+/* O guia é texto: numa página larga limita-se a medida de leitura, senão as linhas atravessam o
+   monitor. A tabela é que precisa da largura toda, não a prosa. */
+.guide-body{padding:0 2px 14px 24px;max-width:760px;}
 .guide-body ol{margin:0 0 12px;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;line-height:1.5;}
+
+/* Tabela de DNS em ecrã estreito: cada registo vira um bloco com etiquetas, em vez de seis colunas
+   espremidas (era assim que o "Copiar" saía em letras verticais). */
+@media (max-width:900px){
+  .dns-table,.dns-table tbody,.dns-table tr,.dns-table td{display:block;width:100%;}
+  .dns-table thead{display:none;}
+  .dns-table tr{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
+  .dns-table tr:last-child{margin-bottom:0;}
+  .dns-table td{border:0;padding:4px 0;display:flex;gap:10px;align-items:baseline;text-align:left;}
+  .dns-table td::before{content:attr(data-label);flex:none;min-width:64px;color:var(--muted);
+    font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;}
+  .dns-table td.dns-copy{justify-content:flex-end;}
+  .dns-table td.dns-copy::before{content:none;}
+  .dns-table .dns-val{max-width:100%;white-space:normal;word-break:break-all;}
+  .dns-diff-row{flex-direction:column;gap:2px;}
+  .dns-lbl{min-width:0;}
+}
