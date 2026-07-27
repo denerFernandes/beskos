@@ -822,7 +822,11 @@
     "notif.meet_knock.t": "{{name}} wants to join",
     "notif.meet_knock.b": "{{name}} is waiting for approval to join {{title}}",
     "chat.cannot_archive_general": "The default channel cannot be archived.",
-    "chat.channel_archived": "This channel is archived — it is read-only."
+    "chat.channel_archived": "This channel is archived — it is read-only.",
+    "rbac.cannot_grant": "You cannot grant or revoke a permission you do not hold.",
+    "rbac.unknown_permission": "Unknown permission.",
+    "rbac.not_found": "Member not found.",
+    "rbac.invalid_id": "Invalid identifier."
   },
   "members": {
     "title": "Members",
@@ -2361,5 +2365,34 @@
     "keepAll": "Keep events",
     "cancelAll": "Cancel events and mark",
     "willDecline": "someone else's invite — will be declined"
+  },
+  "perms": {
+    "title": "Permissions",
+    "of": "{{who}}'s permissions",
+    "saved": "Permissions saved.",
+    "hint": "The {{role}} role already grants some of these. Adjust per person here; only what you hold yourself is editable.",
+    "fromRole": "from role",
+    "granted": "granted separately",
+    "revoked": "revoked",
+    "notInRole": "—",
+    "p": {
+      "domains.view": "View domains",
+      "domains.manage": "Add and edit domains",
+      "domains.delete": "Delete domains",
+      "mailboxes.manage": "Manage mailboxes and passwords",
+      "members.view": "View members",
+      "members.invite": "Invite and create accounts",
+      "members.manage": "Change role, remove and adjust permissions",
+      "groups.manage": "Manage groups",
+      "billing.view": "View plan and invoices",
+      "billing.manage": "Change plan and billing",
+      "usage.view": "View usage",
+      "tenant.delete": "Delete the organisation",
+      "org.branding": "Branding, appearance and visible apps",
+      "org.security": "Security policy (MFA, sessions)",
+      "org.announcements": "Internal announcements",
+      "assistant.manage": "Assistant agents and governance",
+      "wiki.manage": "Knowledge base home"
+    }
   }
 }

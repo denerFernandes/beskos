@@ -243,8 +243,8 @@ func (s *Server) Router() http.Handler {
 
 			// MFA (enrollment do 2º fator). Requer sessão já ativa.
 			// Política de segurança da organização (MFA obrigatório) — só quem gere a org.
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Get("/org/security", s.handleGetSecurityPolicy)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Put("/org/security", s.handleSetSecurityPolicy)
+			r.With(s.requirePerm(rbac.PermOrgSecurity)).Get("/org/security", s.handleGetSecurityPolicy)
+			r.With(s.requirePerm(rbac.PermOrgSecurity)).Put("/org/security", s.handleSetSecurityPolicy)
 
 			r.Post("/mfa/totp/start", s.handleTOTPStart)
 			r.Post("/mfa/totp/enable", s.handleTOTPEnable)
@@ -263,53 +263,56 @@ func (s *Server) Router() http.Handler {
 			// Domínios/mailboxes — gated por permissão (RBAC).
 			// Marca da organização: qualquer utilizador lê (para o topo do app); só admin/owner grava.
 			r.Get("/branding", s.handleGetBranding)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Patch("/branding", s.handleUpdateBranding)
+			r.With(s.requirePerm(rbac.PermOrgBranding)).Patch("/branding", s.handleUpdateBranding)
 
 			// Apps da organização: qualquer utilizador lê (o rail filtra); só admin/owner liga/desliga.
 			r.Get("/apps", s.handleGetApps)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Put("/apps", s.handleSetApps)
+			r.With(s.requirePerm(rbac.PermOrgBranding)).Put("/apps", s.handleSetApps)
 
 			// Avisos da organização (mural). Todos leem os publicados; admin/owner gerem.
 			r.Get("/announcements", s.handleListAnnouncements)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Post("/announcements", s.handleCreateAnnouncement)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Patch("/announcements/{id}", s.handleSetAnnouncementPublished)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Delete("/announcements/{id}", s.handleDeleteAnnouncement)
+			r.With(s.requirePerm(rbac.PermAnnouncements)).Post("/announcements", s.handleCreateAnnouncement)
+			r.With(s.requirePerm(rbac.PermAnnouncements)).Patch("/announcements/{id}", s.handleSetAnnouncementPublished)
+			r.With(s.requirePerm(rbac.PermAnnouncements)).Delete("/announcements/{id}", s.handleDeleteAnnouncement)
 
 			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/domains", s.handleListDomains)
 			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/domains/{id}", s.handleGetDomain)
 			r.With(s.requirePerm(rbac.PermDomainsManage)).Post("/domains", s.handleCreateDomain)
-			r.With(s.requirePerm(rbac.PermDomainsManage)).Delete("/domains/{id}", s.handleDeleteDomain)
+			r.With(s.requirePerm(rbac.PermDomainsDelete)).Delete("/domains/{id}", s.handleDeleteDomain)
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/domains/{id}/mailboxes", s.handleCreateMailbox)
 			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/mailboxes", s.handleListMailboxes)
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/mailboxes/{id}/password", s.handleResetMailboxPassword)
 
 			// Usuários = caixa + papel (unificado). Criar provisiona caixa + conta juntas.
-			r.With(s.requirePerm(rbac.PermMembersManage)).Post("/users", s.handleCreateUser)
+			r.With(s.requirePerm(rbac.PermMembersInvite)).Post("/users", s.handleCreateUser)
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/users/reset-password", s.handleResetUserPassword)
 
 			// Membros e convites (RBAC).
 			r.With(s.requirePerm(rbac.PermMembersView)).Get("/members", s.handleListMembers)
 			r.With(s.requirePerm(rbac.PermMembersManage)).Patch("/members/{id}/role", s.handleChangeRole)
+			// Exceções de permissão por membro (RBAC granular): ver e gravar.
+			r.With(s.requirePerm(rbac.PermMembersManage)).Get("/members/{id}/permissions", s.handleGetMemberPermissions)
+			r.With(s.requirePerm(rbac.PermMembersManage)).Put("/members/{id}/permissions", s.handleSetMemberPermissions)
 			r.With(s.requirePerm(rbac.PermMembersManage)).Delete("/members/{id}", s.handleRemoveMember)
 			// Grupos DO usuário (um usuário pode estar em vários).
 			r.With(s.requirePerm(rbac.PermMembersView)).Get("/members/{id}/groups", s.handleUserGroups)
-			r.With(s.requirePerm(rbac.PermMembersManage)).Put("/members/{id}/groups", s.handleSetUserGroups)
+			r.With(s.requirePerm(rbac.PermGroupsManage)).Put("/members/{id}/groups", s.handleSetUserGroups)
 			r.With(s.requirePerm(rbac.PermMembersManage)).Get("/invites", s.handleListInvites)
-			r.With(s.requirePerm(rbac.PermMembersManage)).Post("/invites", s.handleCreateInvite)
+			r.With(s.requirePerm(rbac.PermMembersInvite)).Post("/invites", s.handleCreateInvite)
 			r.With(s.requirePerm(rbac.PermMembersManage)).Delete("/invites/{id}", s.handleRevokeInvite)
 
 			// Grupos de utilizadores (criar grupo cria o canal privado no chat).
 			r.With(s.requirePerm(rbac.PermMembersView)).Get("/groups", s.handleListGroups)
-			r.With(s.requirePerm(rbac.PermMembersManage)).Post("/groups", s.handleCreateGroup)
-			r.With(s.requirePerm(rbac.PermMembersManage)).Patch("/groups/{id}", s.handleUpdateGroup)
-			r.With(s.requirePerm(rbac.PermMembersManage)).Delete("/groups/{id}", s.handleDeleteGroup)
+			r.With(s.requirePerm(rbac.PermGroupsManage)).Post("/groups", s.handleCreateGroup)
+			r.With(s.requirePerm(rbac.PermGroupsManage)).Patch("/groups/{id}", s.handleUpdateGroup)
+			r.With(s.requirePerm(rbac.PermGroupsManage)).Delete("/groups/{id}", s.handleDeleteGroup)
 			r.With(s.requirePerm(rbac.PermMembersView)).Get("/groups/{id}/members", s.handleListGroupMembers)
-			r.With(s.requirePerm(rbac.PermMembersManage)).Post("/groups/{id}/members", s.handleAddGroupMember)
-			r.With(s.requirePerm(rbac.PermMembersManage)).Delete("/groups/{id}/members/{userId}", s.handleRemoveGroupMember)
+			r.With(s.requirePerm(rbac.PermGroupsManage)).Post("/groups/{id}/members", s.handleAddGroupMember)
+			r.With(s.requirePerm(rbac.PermGroupsManage)).Delete("/groups/{id}/members/{userId}", s.handleRemoveGroupMember)
 
 			// Billing e uso/cotas.
 			r.With(s.requirePerm(rbac.PermUsageView)).Get("/usage", s.handleUsage)
-			r.With(s.requirePerm(rbac.PermUsageView)).Get("/billing", s.handleGetBilling)
+			r.With(s.requirePerm(rbac.PermBillingView)).Get("/billing", s.handleGetBilling)
 			r.With(s.requirePerm(rbac.PermBillingManage)).Post("/billing/checkout", s.handleCheckout)
 			r.With(s.requirePerm(rbac.PermBillingManage)).Post("/billing/cancel", s.handleBillingCancel)
 			r.With(s.requirePerm(rbac.PermBillingManage)).Post("/billing/resume", s.handleBillingResume)
@@ -335,10 +338,10 @@ func (s *Server) Router() http.Handler {
 			// Perfis de agente. Ler é para qualquer utilizador (o seletor do painel precisa da
 			// lista); criar, alterar e ligar/desligar é da administração da organização.
 			r.Get("/assistant/agents", s.handleAssistantAgents)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Post("/assistant/agents", s.handleAssistantAgentCreate)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Put("/assistant/agents/{id}", s.handleAssistantAgentUpdate)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Delete("/assistant/agents/{id}", s.handleAssistantAgentDelete)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Post("/assistant/agents/{key}/enabled", s.handleAssistantAgentToggle)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/agents", s.handleAssistantAgentCreate)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Put("/assistant/agents/{id}", s.handleAssistantAgentUpdate)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Delete("/assistant/agents/{id}", s.handleAssistantAgentDelete)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/agents/{key}/enabled", s.handleAssistantAgentToggle)
 
 			r.Post("/ai/summarize", s.handleAISummarize)
 			r.Post("/ai/draft", s.handleAIDraft)
@@ -438,7 +441,7 @@ func (s *Server) Router() http.Handler {
 			r.Delete("/crm-notes/{id}", s.handleDeleteCrmNote)
 			// Wiki / base de conhecimento (N wikis por tenant; acesso resolvido no serviço via SQL `vis`).
 			r.Get("/wiki/home", s.handleGetWikiHome)
-			r.With(s.requirePerm(rbac.PermOrgSettings)).Put("/wiki/home", s.handleSetWikiHome)
+			r.With(s.requirePerm(rbac.PermWikiManage)).Put("/wiki/home", s.handleSetWikiHome)
 			r.Get("/wiki/spaces", s.handleListWikiSpaces)
 			r.Post("/wiki/spaces", s.handleCreateWikiSpace)
 			r.Get("/wiki/spaces/{id}", s.handleGetWikiSpace)
@@ -873,7 +876,11 @@ func (s *Server) requirePerm(perm rbac.Permission) func(http.Handler) http.Handl
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			u := mailUserFrom(r.Context())
-			if !rbac.Has(rbac.Role(u.Role), perm) {
+			// Efetivas = papel ± exceções da pessoa. É uma leitura a mais por pedido, mas só nas
+			// rotas de administração (baixo tráfego) e é o que torna as exceções reais: sem isto
+			// seriam decoração na UI, com o backend a continuar a decidir só pelo papel.
+			allow, deny := s.memberOverrides(r.Context(), u.TenantID, u.ID)
+			if !rbac.HasEffective(rbac.Role(u.Role), allow, deny, perm) {
 				writeErr(w, http.StatusForbidden, "rbac.forbidden")
 				return
 			}

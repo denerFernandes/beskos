@@ -21,9 +21,9 @@ import (
 // VacationResponse com a credencial DELE (a mesma do brokering; nunca a de admin).
 
 type timeOffReq struct {
-	Kind         string `json:"kind"`  // dayoff | vacation
-	Start        string `json:"start"` // YYYY-MM-DD
-	End          string `json:"end"`   // YYYY-MM-DD (vacation; dayoff ignora)
+	Kind         string `json:"kind"`      // dayoff | vacation
+	Start        string `json:"start"`     // YYYY-MM-DD
+	End          string `json:"end"`       // YYYY-MM-DD (vacation; dayoff ignora)
 	StartMin     *int   `json:"start_min"` // dayoff parcial: minutos desde 00:00 (nil = dia inteiro)
 	EndMin       *int   `json:"end_min"`
 	AutoReply    bool   `json:"auto_reply"`

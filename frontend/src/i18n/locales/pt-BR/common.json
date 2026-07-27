@@ -822,7 +822,11 @@
     "notif.meet_knock.t": "{{name}} quer entrar",
     "notif.meet_knock.b": "{{name}} está à espera de aprovação para entrar em {{title}}",
     "chat.cannot_archive_general": "O canal por defeito não pode ser arquivado.",
-    "chat.channel_archived": "Este canal está arquivado — é só de leitura."
+    "chat.channel_archived": "Este canal está arquivado — é só de leitura.",
+    "rbac.cannot_grant": "Não podes conceder nem retirar uma permissão que não tens.",
+    "rbac.unknown_permission": "Permissão desconhecida.",
+    "rbac.not_found": "Membro não encontrado.",
+    "rbac.invalid_id": "Identificador inválido."
   },
   "members": {
     "title": "Membros",
@@ -2361,5 +2365,34 @@
     "keepAll": "Manter eventos",
     "cancelAll": "Cancelar eventos e marcar",
     "willDecline": "convite de outra pessoa — será recusado"
+  },
+  "perms": {
+    "title": "Permissões",
+    "of": "Permissões de {{who}}",
+    "saved": "Permissões guardadas.",
+    "hint": "O papel {{role}} já dá algumas destas. Aqui ajusta-se pessoa a pessoa; só aparece editável o que tu próprio tens.",
+    "fromRole": "do papel",
+    "granted": "concedida à parte",
+    "revoked": "retirada",
+    "notInRole": "—",
+    "p": {
+      "domains.view": "Ver domínios",
+      "domains.manage": "Adicionar e editar domínios",
+      "domains.delete": "Remover domínios",
+      "mailboxes.manage": "Gerir caixas de correio e senhas",
+      "members.view": "Ver membros",
+      "members.invite": "Convidar e criar contas",
+      "members.manage": "Mudar papel, remover e ajustar permissões",
+      "groups.manage": "Gerir grupos",
+      "billing.view": "Ver plano e faturas",
+      "billing.manage": "Mudar plano e faturação",
+      "usage.view": "Ver utilização",
+      "tenant.delete": "Apagar a organização",
+      "org.branding": "Marca, aparência e apps visíveis",
+      "org.security": "Política de segurança (MFA, sessões)",
+      "org.announcements": "Comunicados internos",
+      "assistant.manage": "Agentes e governança do assistente",
+      "wiki.manage": "Home da base de conhecimento"
+    }
   }
 }

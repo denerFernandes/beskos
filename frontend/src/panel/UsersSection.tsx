@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, hasPerm, type Me } from "../api";
 import { Modal, toast } from "./ui";
 import { GroupPicker } from "./GroupPicker";
-import { IcPlus, IcKey, IcTrash, IcColumns } from "./icons";
+import { IcPlus, IcKey, IcTrash, IcColumns, IcShield } from "./icons";
 
 const ROLES = ["owner", "admin", "member", "billing"];
 
@@ -40,6 +40,7 @@ export function UsersSection({ me }: { me: Me | undefined }) {
     mutationFn: ({ id, role }: { id: string; role: string }) => api.changeRole(id, role),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["members"] }), onError: (e) => toast((e as Error).message),
   });
+  const [permsOf, setPermsOf] = useState<{ id: string; label: string } | null>(null);
   const remove = useMutation({
     mutationFn: (id: string) => api.removeMember(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["members"] }); toast(t("members.removed")); }, onError: (e) => toast((e as Error).message),
@@ -66,6 +67,7 @@ export function UsersSection({ me }: { me: Me | undefined }) {
                   </select>
                 : <span className="pnl-pill muted">{t(`members.roles.${u.role}`, { defaultValue: u.role })}</span>}
               {canManage && u.panelId && <button className="pnl-icon-btn" title={t("groups.userGroups")} onClick={() => setGroupsOf({ id: u.panelId!, label: u.email })}><IcColumns size={16} /></button>}
+              {canManage && u.panelId && <button className="pnl-icon-btn" title={t("perms.title")} onClick={() => setPermsOf({ id: u.panelId!, label: u.email })}><IcShield size={16} /></button>}
               {canManage && u.mailboxId && <button className="pnl-icon-btn" title={t("mailboxes.changePassword")} onClick={() => setReset(u.email)}><IcKey size={16} /></button>}
               {canManage && u.panelId && <button className="pnl-icon-btn" title={t("members.remove")} onClick={() => remove.mutate(u.panelId!)}><IcTrash size={16} /></button>}
             </div>
@@ -77,6 +79,7 @@ export function UsersSection({ me }: { me: Me | undefined }) {
         onDone={() => { setAdding(false); qc.invalidateQueries({ queryKey: ["members"] }); qc.invalidateQueries({ queryKey: ["admin-mailboxes"] }); toast(t("usersSection.created")); }} />}
       {reset && <ResetModal email={reset} onClose={() => setReset(null)} />}
       {groupsOf && <UserGroupsModal userId={groupsOf.id} label={groupsOf.label} onClose={() => setGroupsOf(null)} />}
+      {permsOf && <UserPermissionsModal userId={permsOf.id} label={permsOf.label} onClose={() => setPermsOf(null)} />}
     </>
   );
 }
@@ -160,6 +163,72 @@ function UserGroupsModal({ userId, label, onClose }: { userId: string; label: st
         <button className="pnl-btn primary" disabled={save.isPending} onClick={() => save.mutate()}>{t("groups.save")}</button></>}>
       <p className="desc" style={{ marginTop: 0 }}>{t("groups.multiHint")}</p>
       <GroupPicker value={value} onChange={setSel} />
+    </Modal>
+  );
+}
+
+// Permissões de um membro: o papel dá um conjunto de partida e aqui ajusta-se pessoa a pessoa.
+// Três estados por capacidade — herdada do papel, concedida à mão, retirada à mão — porque sem os
+// distinguir não se percebe porque é que alguém tem (ou não) uma coisa. Só se mostra como editável
+// o que quem está a mexer também tem: o backend recusa o resto, e a UI não promete o que não pode.
+function UserPermissionsModal({ userId, label, onClose }: { userId: string; label: string; onClose: () => void }) {
+  const { t } = useTranslation();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["member-perms", userId], queryFn: () => api.memberPermissions(userId) });
+  const [draft, setDraft] = useState<Record<string, boolean> | null>(null);
+
+  const d = q.data;
+  const effective = useMemo(() => new Set(d?.effective ?? []), [d]);
+  const state = draft ?? Object.fromEntries((d?.all ?? []).map((p) => [p, effective.has(p)]));
+
+  const save = useMutation({
+    mutationFn: () => {
+      const fromRole = new Set(d!.from_role);
+      const allow: string[] = [], deny: string[] = [];
+      for (const p of d!.all) {
+        const on = !!state[p];
+        if (on && !fromRole.has(p)) allow.push(p);   // concedida além do papel
+        if (!on && fromRole.has(p)) deny.push(p);    // retirada ao papel
+      }
+      return api.setMemberPermissions(userId, allow, deny);
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["member-perms", userId] }); toast(t("perms.saved")); onClose(); },
+    onError: (e) => toast((e as Error).message),
+  });
+
+  return (
+    <Modal title={t("perms.of", { who: label })} onClose={onClose}
+      footer={<><button className="pnl-btn ghost" onClick={onClose}>{t("common.cancel")}</button>
+        <button className="pnl-btn primary" disabled={!d || save.isPending} onClick={() => save.mutate()}>{t("groups.save")}</button></>}>
+      {!d ? <div className="pnl-empty">…</div> : (
+        <>
+          <p className="desc" style={{ marginTop: 0 }}>
+            {t("perms.hint", { role: t(`members.roles.${d.role}`, { defaultValue: d.role }) })}
+          </p>
+          <div className="perm-list">
+            {d.all.map((p) => {
+              const fromRole = d.from_role.includes(p);
+              const on = !!state[p];
+              const editable = d.editable.includes(p);
+              return (
+                <label key={p} className={"perm-row" + (editable ? "" : " off")}>
+                  <input type="checkbox" checked={on} disabled={!editable}
+                    onChange={(e) => setDraft({ ...state, [p]: e.target.checked })} />
+                  <span className="perm-tx">
+                    <span className="perm-nm">{t(`perms.p.${p}`, { defaultValue: p })}</span>
+                    <span className="perm-sub">
+                      {fromRole && on && t("perms.fromRole")}
+                      {!fromRole && on && t("perms.granted")}
+                      {fromRole && !on && t("perms.revoked")}
+                      {!fromRole && !on && t("perms.notInRole")}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

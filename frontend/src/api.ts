@@ -19,6 +19,10 @@ export interface Me {
 }
 
 export interface Member { id: string; email: string; name?: string; role: string; created_at: string; has_mailbox?: boolean }
+export interface MemberPermissions {
+  role: string; all: string[]; from_role: string[]; effective: string[];
+  allow: string[]; deny: string[]; editable: string[];
+}
 export interface Group { id: string; name: string; channel_id: string; members: number }
 export interface GroupMember { id: string; email: string; name: string; role: string }
 export interface Invite { id: string; email: string; role: string; token: string; created_at: string }
@@ -144,6 +148,11 @@ export const api = {
   createInvite: (email: string, role: string) =>
     req<Invite>("/api/invites", { method: "POST", body: JSON.stringify({ email, role }) }),
   revokeInvite: (id: string) => req<unknown>(`/api/invites/${id}`, { method: "DELETE" }),
+  // Permissões efetivas de um membro: o que vem do papel, o que foi ajustado à mão e o que EU
+  // posso mexer (não se concede o que não se tem).
+  memberPermissions: (id: string) => req<MemberPermissions>(`/api/members/${id}/permissions`),
+  setMemberPermissions: (id: string, allow: string[], deny: string[]) =>
+    req<{ effective: string[]; allow: string[]; deny: string[] }>(`/api/members/${id}/permissions`, { method: "PUT", body: JSON.stringify({ allow, deny }) }),
   changeRole: (id: string, role: string) =>
     req<Member>(`/api/members/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
   removeMember: (id: string) => req<unknown>(`/api/members/${id}`, { method: "DELETE" }),

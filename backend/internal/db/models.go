@@ -721,6 +721,15 @@ type MeetingParticipant struct {
 	LeftAt     pgtype.Timestamptz `json:"left_at"`
 }
 
+type MemberPermission struct {
+	TenantID   uuid.UUID   `json:"tenant_id"`
+	UserID     uuid.UUID   `json:"user_id"`
+	Permission string      `json:"permission"`
+	Allow      bool        `json:"allow"`
+	CreatedBy  pgtype.UUID `json:"created_by"`
+	CreatedAt  time.Time   `json:"created_at"`
+}
+
 type Message struct {
 	ID        uuid.UUID          `json:"id"`
 	TenantID  uuid.UUID          `json:"tenant_id"`

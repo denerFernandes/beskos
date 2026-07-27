@@ -18,7 +18,7 @@ const announcePageSize = 10
 
 // isOrgAdmin diz se o utilizador pode gerir avisos (ver rascunhos, publicar/despublicar).
 func (s *Server) isOrgAdmin(mu db.MailUser) bool {
-	return rbac.Has(rbac.Role(mu.Role), rbac.PermOrgSettings)
+	return rbac.Has(rbac.Role(mu.Role), rbac.PermAnnouncements)
 }
 
 func (s *Server) handleListAnnouncements(w http.ResponseWriter, r *http.Request) {

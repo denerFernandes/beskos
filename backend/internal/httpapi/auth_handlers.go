@@ -170,8 +170,8 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"mfa_setup_required":  mfaSetupRequired,
 		"mfa_required_method": mfaMethod,
 		"org_mfa_required":    orgMFARequired,
-		"language":            u.Language,                          // "" = automático (browser); senão a preferência salva
-		"permissions":         rbac.Permissions(rbac.Role(u.Role)), // a UI usa para gatear botões
+		"language":            u.Language,                                              // "" = automático (browser); senão a preferência salva
+		"permissions":         s.effectivePerms(r.Context(), u.TenantID, u.ID, u.Role), // papel ± exceções; a UI gateia botões com isto
 		"mfa":                 map[string]bool{"totp": u.MfaTotpEnabled, "sms": u.MfaSmsEnabled},
 		"presence":            u.Presence,
 		"disabled_apps":       orEmpty(disabled), // o rail some com estas; a IA perde as ferramentas delas

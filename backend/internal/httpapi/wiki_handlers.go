@@ -422,7 +422,7 @@ func (s *Server) handleGetWikiHome(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, h)
 }
 
-// handleSetWikiHome grava a home (a rota exige PermOrgSettings via requirePerm).
+// handleSetWikiHome grava a home (a rota exige PermWikiManage via requirePerm).
 func (s *Server) handleSetWikiHome(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req struct {
