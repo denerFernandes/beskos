@@ -41,6 +41,10 @@ func (o *onlyoffice) applyBranding(customization map[string]any) {
 		"imageDark":  dark,
 		"url":        o.brandSiteURL(),
 	}
+	// O "Sobre" é onde vive o aviso legal, por isso é ligado EXPLICITAMENTE. Com o patch, o
+	// `canBrandingExt` fica true e o Document Server deixa de o forçar sozinho — sem esta linha,
+	// bastava alguém pôr `about: false` na customização para a atribuição desaparecer da UI.
+	customization["about"] = true
 	customization["customer"] = map[string]any{
 		"name":     "Beskos",
 		"logo":     light,

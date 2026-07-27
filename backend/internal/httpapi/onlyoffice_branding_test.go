@@ -41,6 +41,11 @@ func TestApplyBrandingSetsLogoAndAttribution(t *testing.T) {
 			t.Errorf("customer.info não menciona %q: %q", want, info)
 		}
 	}
+	// Sem o "Sobre" visível não há aviso legal na interface — e com o patch o DS já não o
+	// força sozinho. Tem de ir sempre ligado.
+	if c["about"] != true {
+		t.Error("customization.about tem de ir true: é onde a atribuição fica visível ao utilizador")
+	}
 	if c["uiTheme"] != "theme-light" {
 		t.Error("applyBranding não pode mexer nos outros parâmetros de customização")
 	}
