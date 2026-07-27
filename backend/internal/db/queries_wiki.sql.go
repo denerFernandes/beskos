@@ -1238,6 +1238,90 @@ func (q *Queries) SearchWikiChunks(ctx context.Context, arg SearchWikiChunksPara
 	return items, nil
 }
 
+const searchWikiPagesText = `-- name: SearchWikiPagesText :many
+SELECT p.id AS page_id, p.title, p.slug, p.space_id,
+       left(p.body_text, 1200) AS snippet,
+       (1.0 - ts_rank_cd(p.search_tsv, websearch_to_tsquery('simple', $1::text)))::float8 AS distance
+FROM wiki_pages p
+JOIN wiki_spaces s ON s.id = p.space_id
+WHERE p.tenant_id = $2 AND p.status = 'published' AND s.ai_indexed = true
+  AND p.search_tsv @@ websearch_to_tsquery('simple', $1::text)
+  AND (
+    s.owner_user_id = $3
+    OR s.visibility IN ('org', 'public')
+    OR EXISTS (
+        SELECT 1 FROM wiki_space_grants g
+        WHERE g.space_id = s.id AND (
+            g.subject_type = 'org'
+            OR (g.subject_type = 'user' AND g.subject_id = $3)
+            OR (g.subject_type = 'group' AND EXISTS (
+                SELECT 1 FROM user_group_members ugm
+                WHERE ugm.group_id = g.subject_id AND ugm.user_id = $3))))
+    OR EXISTS (
+        SELECT 1 FROM wiki_page_grants g
+        WHERE g.page_id = p.id AND (
+            g.subject_type = 'org'
+            OR (g.subject_type = 'user' AND g.subject_id = $3)
+            OR (g.subject_type = 'group' AND EXISTS (
+                SELECT 1 FROM user_group_members ugm
+                WHERE ugm.group_id = g.subject_id AND ugm.user_id = $3))))
+  )
+ORDER BY ts_rank_cd(p.search_tsv, websearch_to_tsquery('simple', $1::text)) DESC
+LIMIT $4
+`
+
+type SearchWikiPagesTextParams struct {
+	QueryText  string    `json:"query_text"`
+	TenantID   uuid.UUID `json:"tenant_id"`
+	UserID     uuid.UUID `json:"user_id"`
+	MaxResults int32     `json:"max_results"`
+}
+
+type SearchWikiPagesTextRow struct {
+	PageID   uuid.UUID `json:"page_id"`
+	Title    string    `json:"title"`
+	Slug     string    `json:"slug"`
+	SpaceID  uuid.UUID `json:"space_id"`
+	Snippet  string    `json:"snippet"`
+	Distance float64   `json:"distance"`
+}
+
+// Busca LEXICAL, direta às PÁGINAS, com a mesma superfície de visibilidade do kNN. É a rede para
+// quando não há EMBEDDINGS_API_KEY: aí não existem chunks nenhuns (só nascem no embedPage), por
+// isso procurar nos chunks daria sempre vazio. `search_tsv` é coluna GENERATED — existe sempre,
+// sem pipeline nenhum. `distance` mantém a semântica do kNN (menor = mais relevante).
+func (q *Queries) SearchWikiPagesText(ctx context.Context, arg SearchWikiPagesTextParams) ([]SearchWikiPagesTextRow, error) {
+	rows, err := q.db.Query(ctx, searchWikiPagesText,
+		arg.QueryText,
+		arg.TenantID,
+		arg.UserID,
+		arg.MaxResults,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchWikiPagesTextRow
+	for rows.Next() {
+		var i SearchWikiPagesTextRow
+		if err := rows.Scan(
+			&i.PageID,
+			&i.Title,
+			&i.Slug,
+			&i.SpaceID,
+			&i.Snippet,
+			&i.Distance,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setWikiPageTemplate = `-- name: SetWikiPageTemplate :one
 
 UPDATE wiki_pages SET is_template = $1, updated_at = now()
