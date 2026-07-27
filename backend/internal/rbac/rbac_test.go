@@ -2,8 +2,10 @@ package rbac
 
 import "testing"
 
-func TestOwnerAndInternalHaveEverything(t *testing.T) {
-	for _, role := range []Role{RoleOwner, RoleInternalAdmin} {
+// Owner, admin e internal_admin têm tudo: quem administra a organização não esbarra em permissões
+// (decisão do produto, 27/07/2026). O que os separa é o RANK, não o conjunto de permissões.
+func TestOwnerAdminAndInternalHaveEverything(t *testing.T) {
+	for _, role := range []Role{RoleOwner, RoleAdmin, RoleInternalAdmin} {
 		for _, p := range AllPermissions() {
 			if !Has(role, p) {
 				t.Errorf("%s deveria ter %s", role, p)
@@ -20,8 +22,8 @@ func TestPermissionMatrix(t *testing.T) {
 	}{
 		{RoleAdmin, PermDomainsManage, true},
 		{RoleAdmin, PermMembersManage, true},
-		{RoleAdmin, PermBillingManage, false}, // admin NÃO faz billing
-		{RoleAdmin, PermTenantDelete, false},  // admin NÃO exclui a org
+		{RoleAdmin, PermBillingManage, true}, // admin tem tudo
+		{RoleAdmin, PermTenantDelete, true},
 		{RoleMember, PermDomainsView, true},
 		{RoleMember, PermDomainsManage, false}, // member é leitura
 		{RoleMember, PermMembersManage, false},
@@ -45,11 +47,22 @@ func TestUnknownRoleFailsClosed(t *testing.T) {
 	}
 }
 
-func TestOnlyOwnerAndInternalCanDeleteTenant(t *testing.T) {
-	for _, r := range []Role{RoleAdmin, RoleMember, RoleBilling} {
+func TestOnlyAdminsCanDeleteTenant(t *testing.T) {
+	for _, r := range []Role{RoleMember, RoleBilling} {
 		if Has(r, PermTenantDelete) {
 			t.Errorf("%s não pode excluir tenant", r)
 		}
+	}
+}
+
+// O admin tem todas as permissões, mas continua abaixo do owner na hierarquia: a proteção de quem
+// pode agir SOBRE quem é o rank, e essa não mudou.
+func TestAdminStillCannotActOnOwner(t *testing.T) {
+	if CanManage(RoleAdmin, RoleOwner) {
+		t.Error("admin não pode gerir um owner")
+	}
+	if !CanManage(RoleAdmin, RoleMember) {
+		t.Error("admin tem de poder gerir um member")
 	}
 }
 
