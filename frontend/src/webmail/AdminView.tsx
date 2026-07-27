@@ -21,7 +21,9 @@ type Section = "overview" | "domains" | "users" | "groups" | "billing" | "brandi
 const SECTIONS: Section[] = ["overview", "domains", "users", "groups", "billing", "branding", "apps", "agents", "security"];
 
 // A seção ativa vem da URL (/mail/admin/<seção>) — link navegável e recarregável.
-export function AdminView({ section: param, onSection }: { section?: string; onSection: (s: string) => void }) {
+export function AdminView({ section: param, detail, onSection, onDetail }: {
+  section?: string; detail?: string; onSection: (s: string) => void; onDetail: (s: string, id: string) => void;
+}) {
   const { t } = useTranslation();
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false });
   // Estilo iOS no telemóvel: sem secção na URL = lista; com secção = detalhe + voltar. `sel` nulo é
@@ -61,7 +63,7 @@ export function AdminView({ section: param, onSection }: { section?: string; onS
           {/* Voltar à lista (só telemóvel; escondido por CSS no desktop). */}
           <button className="adm-back" onClick={() => onSection("")}>‹ {t("panel.adminConsole")}</button>
           {shown === "overview" && <OverviewSection me={d} onNavigate={(s) => onSection(s)} />}
-          {shown === "domains" && <DomainsSection me={d} />}
+          {shown === "domains" && <DomainsSection me={d} detail={detail} onOpen={(id) => onDetail("domains", id)} />}
           {shown === "users" && <UsersSection me={d} />}
           {shown === "groups" && <GroupsSection me={d} />}
           {shown === "billing" && <BillingSection me={d} />}

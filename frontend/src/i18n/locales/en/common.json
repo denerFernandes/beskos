@@ -81,6 +81,72 @@
       "ok": "published",
       "missing": "missing",
       "mismatch": "different"
+    },
+    "guideTitle": "How to publish at your provider",
+    "guideHint": "Pick where the domain's DNS lives. Where a zone file is accepted, importing settles everything at once.",
+    "guideImports": "imports the zone",
+    "guidePropagation": "After publishing it can take a few minutes to show up (DNS caches). Use \"Check now\" to confirm.",
+    "dnsExpected": "Should be",
+    "guide": {
+      "cloudflare": {
+        "name": "Cloudflare",
+        "steps": [
+          "Open the Cloudflare dashboard and pick the domain {{domain}}.",
+          "Go to DNS › Records and click Import and Export › Import DNS records.",
+          "Upload the file from \"Export zone\" here.",
+          "Important: set MX and SRV records to DNS only (grey cloud) — mail must not go through Cloudflare's proxy.",
+          "Come back here and hit \"Check now\"."
+        ]
+      },
+      "route53": {
+        "name": "Amazon Route 53",
+        "steps": [
+          "Open the Route 53 console and the hosted zone for {{domain}}.",
+          "With the AWS CLI: export the zone here and import it with cli53 import.",
+          "In the console, create each record with Create record (type, name and value are in the table below).",
+          "Leave the TTL at the default (300 s is fine).",
+          "Come back here and hit \"Check now\"."
+        ]
+      },
+      "godaddy": {
+        "name": "GoDaddy",
+        "steps": [
+          "Go to My Products › DNS for {{domain}}.",
+          "For each row in the table below, click Add and pick the type (MX, TXT, CNAME, SRV).",
+          "In Host, enter only the part before the domain — GoDaddy appends {{domain}} for you. Use @ for the root.",
+          "For MX, the number before the host is the priority; it goes in the Priority field.",
+          "Save and come back for \"Check now\"."
+        ]
+      },
+      "namecheap": {
+        "name": "Namecheap",
+        "steps": [
+          "Go to Domain List › Manage › Advanced DNS for {{domain}}.",
+          "Use Add New Record for each row in the table below.",
+          "In Host, use @ for the root; Namecheap appends the domain to the rest.",
+          "MX records live under Mail Settings, with the Custom MX option.",
+          "Save and come back for \"Check now\"."
+        ]
+      },
+      "google": {
+        "name": "Google Domains / Squarespace",
+        "steps": [
+          "Open the DNS settings for {{domain}}.",
+          "Under Custom records, create one entry per row in the table below.",
+          "Use @ for the root; the rest of the host goes without the trailing domain.",
+          "Save and come back for \"Check now\"."
+        ]
+      },
+      "other": {
+        "name": "Another provider",
+        "steps": [
+          "Find the DNS, Zone editor or Records section in the control panel.",
+          "Create one entry per row in the table below, with the same type, host and value.",
+          "If the panel appends the domain to the host itself, drop the trailing \".{{domain}}\"; use @ for the root.",
+          "If it accepts a zone file import, use \"Export zone\" — faster and no typos.",
+          "Come back here and hit \"Check now\"."
+        ]
+      }
     }
   },
   "webmail": {
@@ -974,7 +1040,8 @@
     "removeAttachment": "Remove attachment",
     "prevPage": "Previous page",
     "nextPage": "Next page",
-    "retry": "Try again"
+    "retry": "Try again",
+    "back": "Back"
   },
   "panel": {
     "overview": "Home",

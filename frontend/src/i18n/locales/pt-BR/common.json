@@ -81,6 +81,72 @@
       "ok": "publicado",
       "missing": "em falta",
       "mismatch": "diferente"
+    },
+    "guideTitle": "Como publicar no teu fornecedor",
+    "guideHint": "Escolhe onde está o DNS do domínio. Nos que aceitam ficheiro de zona, importar resolve tudo de uma vez.",
+    "guideImports": "importa a zona",
+    "guidePropagation": "Depois de publicar, pode demorar alguns minutos a aparecer (o DNS guarda em cache). Usa \"Verificar agora\" para confirmar.",
+    "dnsExpected": "Deve ser",
+    "guide": {
+      "cloudflare": {
+        "name": "Cloudflare",
+        "steps": [
+          "Entra no painel da Cloudflare e escolhe o domínio {{domain}}.",
+          "Abre DNS › Records e clica em Import and Export › Import DNS records.",
+          "Carrega o ficheiro que sais em \"Exportar zona\" aqui ao lado.",
+          "Importante: no MX e nos SRV, põe o Proxy status em DNS only (nuvem cinzenta) — o correio não passa pelo proxy da Cloudflare.",
+          "Volta aqui e carrega em \"Verificar agora\"."
+        ]
+      },
+      "route53": {
+        "name": "Amazon Route 53",
+        "steps": [
+          "Abre a consola do Route 53 e a hosted zone de {{domain}}.",
+          "Se usas a AWS CLI: exporta a zona aqui e importa com cli53 import ou converte os registos com a consola.",
+          "Na consola, cria cada registo com Create record (o tipo, o nome e o valor estão na tabela abaixo).",
+          "Deixa o TTL no valor por omissão (300 s serve).",
+          "Volta aqui e carrega em \"Verificar agora\"."
+        ]
+      },
+      "godaddy": {
+        "name": "GoDaddy",
+        "steps": [
+          "Entra em My Products › DNS no domínio {{domain}}.",
+          "Para cada linha da tabela abaixo, carrega em Add e escolhe o tipo (MX, TXT, CNAME, SRV).",
+          "No campo Host, usa só a parte antes do domínio — a GoDaddy acrescenta {{domain}} sozinha. Para o domínio raiz, usa @.",
+          "No MX, o número antes do host é a prioridade; vai no campo Priority.",
+          "Guarda e volta aqui para \"Verificar agora\"."
+        ]
+      },
+      "namecheap": {
+        "name": "Namecheap",
+        "steps": [
+          "Entra em Domain List › Manage › Advanced DNS em {{domain}}.",
+          "Usa Add New Record para cada linha da tabela abaixo.",
+          "No Host, usa @ para o domínio raiz; a Namecheap acrescenta o domínio ao resto.",
+          "Os MX ficam na secção Mail Settings, com a opção Custom MX.",
+          "Guarda e volta aqui para \"Verificar agora\"."
+        ]
+      },
+      "google": {
+        "name": "Google Domains / Squarespace",
+        "steps": [
+          "Abre as definições de DNS do domínio {{domain}}.",
+          "Em Registos personalizados, cria uma entrada por cada linha da tabela abaixo.",
+          "Usa @ para o domínio raiz; o resto do host vai sem o domínio no fim.",
+          "Guarda e volta aqui para \"Verificar agora\"."
+        ]
+      },
+      "other": {
+        "name": "Outro fornecedor",
+        "steps": [
+          "Procura no painel a secção de DNS, Zone editor ou Registos.",
+          "Cria uma entrada por cada linha da tabela abaixo, com o mesmo tipo, host e valor.",
+          "Se o painel acrescentar o domínio ao host sozinho, tira o \".{{domain}}\" do fim; para o raiz usa @.",
+          "Se aceitar importar um ficheiro de zona, usa o \"Exportar zona\" — é mais rápido e não erra.",
+          "Volta aqui e carrega em \"Verificar agora\"."
+        ]
+      }
     }
   },
   "webmail": {
@@ -974,7 +1040,8 @@
     "removeAttachment": "Remover anexo",
     "prevPage": "Página anterior",
     "nextPage": "Próxima página",
-    "retry": "Tentar de novo"
+    "retry": "Tentar de novo",
+    "back": "Voltar"
   },
   "panel": {
     "overview": "Início",

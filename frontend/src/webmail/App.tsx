@@ -286,7 +286,12 @@ export function App({ session }: { session: WebmailSession }) {
           {view === "meet" && <MeetView roomParam={sub} />}
           {view === "wiki" && <WikiView sub={sub} sub2={sub2} onNav={(s, p) => nav(p ? `/mail/wiki/${s}/${p}` : s ? `/mail/wiki/${s}` : "/mail/wiki")} />}
           {/* sec vazio = voltar à raiz (lista de secções no telemóvel); senão entra na secção. */}
-          {view === "admin" && canAdmin && <AdminView section={sub} onSection={(sec) => nav(sec ? `/mail/admin/${sec}` : "/mail/admin")} />}
+          {view === "admin" && canAdmin && (
+            <AdminView section={sub} detail={sub2}
+              onSection={(sec) => nav(sec ? `/mail/admin/${sec}` : "/mail/admin")}
+              /* O detalhe (ex.: um domínio) vive na URL: o link é partilhável e o refresh não perde o sítio. */
+              onDetail={(sec, id) => nav(id ? `/mail/admin/${sec}/${id}` : `/mail/admin/${sec}`)} />
+          )}
           {view === "profile" && <ProfileView section={sub} onSection={(sec) => nav(sec ? `/mail/profile/${sec}` : "/mail/profile")} />}
           {view === "settings" && <SettingsView section={sub} onSection={(sec) => nav(sec ? `/mail/settings/${sec}` : "/mail/settings")} />}
         </div>
