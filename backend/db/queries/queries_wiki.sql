@@ -301,6 +301,41 @@ WHERE c.tenant_id = @tenant_id AND p.status = 'published' AND s.ai_indexed = tru
 ORDER BY c.embedding <=> @query_embedding::vector
 LIMIT @max_results;
 
+-- name: SearchWikiPagesText :many
+-- Busca LEXICAL, direta às PÁGINAS, com a mesma superfície de visibilidade do kNN. É a rede para
+-- quando não há EMBEDDINGS_API_KEY: aí não existem chunks nenhuns (só nascem no embedPage), por
+-- isso procurar nos chunks daria sempre vazio. `search_tsv` é coluna GENERATED — existe sempre,
+-- sem pipeline nenhum. `distance` mantém a semântica do kNN (menor = mais relevante).
+SELECT p.id AS page_id, p.title, p.slug, p.space_id,
+       left(p.body_text, 1200) AS snippet,
+       (1.0 - ts_rank_cd(p.search_tsv, websearch_to_tsquery('simple', @query_text::text)))::float8 AS distance
+FROM wiki_pages p
+JOIN wiki_spaces s ON s.id = p.space_id
+WHERE p.tenant_id = @tenant_id AND p.status = 'published' AND s.ai_indexed = true
+  AND p.search_tsv @@ websearch_to_tsquery('simple', @query_text::text)
+  AND (
+    s.owner_user_id = @user_id
+    OR s.visibility IN ('org', 'public')
+    OR EXISTS (
+        SELECT 1 FROM wiki_space_grants g
+        WHERE g.space_id = s.id AND (
+            g.subject_type = 'org'
+            OR (g.subject_type = 'user' AND g.subject_id = @user_id)
+            OR (g.subject_type = 'group' AND EXISTS (
+                SELECT 1 FROM user_group_members ugm
+                WHERE ugm.group_id = g.subject_id AND ugm.user_id = @user_id))))
+    OR EXISTS (
+        SELECT 1 FROM wiki_page_grants g
+        WHERE g.page_id = p.id AND (
+            g.subject_type = 'org'
+            OR (g.subject_type = 'user' AND g.subject_id = @user_id)
+            OR (g.subject_type = 'group' AND EXISTS (
+                SELECT 1 FROM user_group_members ugm
+                WHERE ugm.group_id = g.subject_id AND ugm.user_id = @user_id))))
+  )
+ORDER BY ts_rank_cd(p.search_tsv, websearch_to_tsquery('simple', @query_text::text)) DESC
+LIMIT @max_results;
+
 -- ---------- Home da app Wiki (B5) ----------
 
 -- name: GetWikiHome :one

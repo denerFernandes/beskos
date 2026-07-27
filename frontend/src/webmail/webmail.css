@@ -2207,8 +2207,11 @@
 .wm .img-blocked button:hover{border-color:var(--accent);background:var(--accent-tint);}
 
 /* ---- Definições do utilizador (reusa a casca do Admin) ---- */
-.wm .set-page{padding:22px 26px;max-width:640px;}
+.wm .set-page{padding:22px 26px;max-width:640px;display:flex;flex-direction:column;gap:14px;}
 .wm .set-page h2{margin:0 0 16px;font-size:20px;font-weight:700;}
+/* Subtítulo dentro de uma página de definições (ex.: "Sincronização" dentro de Ficheiros): separa
+   grupos de cartões sem inventar outra página. */
+.wm .set-page .set-sub{margin:22px 0 10px;font-size:15px;font-weight:650;}
 .wm .set-card{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;}
 .wm .set-field{display:flex;align-items:center;justify-content:space-between;gap:14px;}
 .wm .set-field.col{flex-direction:column;align-items:stretch;}

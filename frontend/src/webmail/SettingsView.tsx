@@ -7,7 +7,7 @@ import { Spinner } from "./Spinner";
 import { Switch } from "./Switch";
 import { SignatureEditor } from "./SignatureEditor";
 import { toast } from "./toast";
-import { IcMail, IcGear, IcBell, IcKey, IcChat, IcCalendar, IcFolder, IcVideo, IcColumns, IcRefresh, IcSparkle } from "../panel/icons";
+import { IcMail, IcGear, IcBell, IcKey, IcChat, IcCalendar, IcFolder, IcVideo, IcColumns, IcSparkle } from "../panel/icons";
 import { MemorySection } from "./assistant/MemorySection";
 import { syncApi, syncSupported, type SyncStatus } from "./syncClient";
 import {
@@ -16,8 +16,8 @@ import {
 import { enableWebPush, disableWebPush, pushSupported } from "./webpush";
 import { isTauri } from "./tauriNotify";
 
-type Section = "general" | "email" | "chat" | "calendar" | "files" | "meet" | "kanban" | "sync" | "notifications" | "devices" | "assistant";
-const SECTIONS: Section[] = ["general", "email", "chat", "calendar", "files", "meet", "kanban", "sync", "notifications", "devices", "assistant"];
+type Section = "general" | "email" | "chat" | "calendar" | "files" | "meet" | "kanban" | "notifications" | "devices" | "assistant";
+const SECTIONS: Section[] = ["general", "email", "chat", "calendar", "files", "meet", "kanban", "notifications", "devices", "assistant"];
 
 // Definições do utilizador — preferências pessoais, separadas do Admin (que é gestão da
 // organização). Uma secção por app; por agora Geral e E-mail. A secção vem da URL.
@@ -26,7 +26,10 @@ export function SettingsView({ section, onSection }: { section?: string; onSecti
   // No telemóvel a navegação é estilo iOS: sem secção na URL = lista de secções; com secção = detalhe
   // + voltar. `current` nulo significa "na lista" (raiz). No desktop o rail lateral mostra sempre
   // tudo, e a secção mostrada por omissão é a Geral.
-  const current: Section | null = SECTIONS.includes(section as Section) ? (section as Section) : null;
+  // A sincronização deixou de ser secção própria (vive dentro de Files); a URL antiga continua a
+  // funcionar em vez de cair no vazio de quem tinha o link guardado.
+  const wanted = section === "sync" ? "files" : section;
+  const current: Section | null = SECTIONS.includes(wanted as Section) ? (wanted as Section) : null;
   const shown: Section = current ?? "general";
 
   const items: { id: Section; label: string; icon: JSX.Element }[] = [
@@ -37,7 +40,6 @@ export function SettingsView({ section, onSection }: { section?: string; onSecti
     { id: "files", label: t("settings.files"), icon: <IcFolder size={17} /> },
     { id: "meet", label: t("settings.meet"), icon: <IcVideo size={17} /> },
     { id: "kanban", label: t("settings.kanban"), icon: <IcColumns size={17} /> },
-    { id: "sync", label: t("settings.sync"), icon: <IcRefresh size={17} /> },
     { id: "notifications", label: t("settings.notifications"), icon: <IcBell size={17} /> },
     { id: "devices", label: t("settings.devices"), icon: <IcKey size={17} /> },
     { id: "assistant", label: t("memory.title"), icon: <IcSparkle size={17} /> },
@@ -63,7 +65,6 @@ export function SettingsView({ section, onSection }: { section?: string; onSecti
         {shown === "files" && <FilesSection />}
         {shown === "meet" && <MeetSection />}
         {shown === "kanban" && <KanbanSection />}
-        {shown === "sync" && <SyncSection />}
         {shown === "notifications" && <NotificationsSection />}
         {shown === "devices" && <DevicesSection />}
         {shown === "assistant" && <MemorySection />}
@@ -239,6 +240,11 @@ function FilesSection() {
           </select>
         </label>
       </div>
+
+      {/* Sincronização de pastas: é uma definição DO Drive, não uma app à parte — por isso vive
+          aqui em vez de numa secção própria. Fora do app de desktop, o próprio bloco explica que
+          só existe lá. */}
+      <SyncSection />
     </div>
   );
 }
@@ -418,10 +424,10 @@ function SyncSection() {
 
   if (!supported) {
     return (
-      <div className="set-page">
-        <h2>{t("settings.sync")}</h2>
+      <>
+        <h3 className="set-sub">{t("settings.sync")}</h3>
         <div className="set-card"><p className="desc">{t("settings.syncOnlyDesktop")}</p></div>
-      </div>
+      </>
     );
   }
 
@@ -447,8 +453,8 @@ function SyncSection() {
     : status.message || t("settings.syncUpToDate");
 
   return (
-    <div className="set-page">
-      <h2>{t("settings.sync")}</h2>
+    <>
+      <h3 className="set-sub">{t("settings.sync")}</h3>
 
       <div className="set-card">
         <p className="desc">{t("settings.syncIntro")}</p>
@@ -507,7 +513,7 @@ function SyncSection() {
           </select>
         </label>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -517,14 +523,6 @@ function DevicesSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["devices"], queryFn: () => devicesApi.list(), retry: false });
-  const [name, setName] = useState("");
-  const [fresh, setFresh] = useState<string | null>(null); // token cru recém-criado (mostrar 1x)
-
-  const create = useMutation({
-    mutationFn: () => devicesApi.create(name.trim()),
-    onSuccess: (d) => { setFresh(d.token); setName(""); qc.invalidateQueries({ queryKey: ["devices"] }); },
-    onError: (e) => toast((e as Error).message),
-  });
   const revoke = useMutation({
     mutationFn: (id: string) => devicesApi.revoke(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["devices"] }); toast(t("settings.deviceRevoked")); },
@@ -538,29 +536,11 @@ function DevicesSection() {
     <div className="set-page">
       <h2>{t("settings.devices")}</h2>
       <div className="set-card">
+        {/* Criar um token à mão saiu daqui: a app de desktop cria-o sozinha ao ligar a
+            sincronização (syncClient.connect), e não havia onde colar um token feito à mão — o
+            motor de sync é uma biblioteca da app, não um daemon separado. O endpoint continua a
+            existir, para automações e para quando voltar a fazer sentido na UI. */}
         <p className="desc">{t("settings.devicesHint")}</p>
-
-        {/* Token recém-criado: só desta vez. */}
-        {fresh && (
-          <div className="set-token-once">
-            <span className="ios-row-label">{t("settings.deviceTokenOnce")}</span>
-            <code className="set-token">{fresh}</code>
-            <div className="drawer-actions">
-              <button className="chipbtn" onClick={() => { navigator.clipboard?.writeText(fresh); toast(t("settings.deviceCopied")); }}>{t("settings.deviceCopy")}</button>
-              <button className="chipbtn" onClick={() => setFresh(null)}>{t("contacts.save")}</button>
-            </div>
-          </div>
-        )}
-
-        <div className="set-field col">
-          <span>{t("settings.deviceNew")}</span>
-          <div className="drawer-actions" style={{ gap: 8 }}>
-            <input value={name} maxLength={80} placeholder={t("settings.deviceNamePlaceholder")} onChange={(e) => setName(e.target.value)} />
-            <button className="send" disabled={!name.trim() || create.isPending} onClick={() => create.mutate()}>
-              {create.isPending ? <Spinner size={13} /> : t("settings.deviceCreate")}
-            </button>
-          </div>
-        </div>
 
         {q.isLoading ? <div className="loading">…</div> : devices.length === 0 ? (
           <p className="desc">{t("settings.deviceNone")}</p>

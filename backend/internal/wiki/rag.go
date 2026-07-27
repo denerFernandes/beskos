@@ -192,3 +192,19 @@ func (s *Service) SearchChunks(ctx context.Context, e Embedder, tenantID, userID
 	params.UseFts = false
 	return s.q.SearchWikiChunks(ctx, params)
 }
+
+// SearchPagesText é a busca LEXICAL, direta às páginas e sem embeddings. Serve a instalação sem
+// EMBEDDINGS_API_KEY: aí não existem chunks (só nascem no embedPage), por isso a alternativa não
+// pode ser procurar neles. Casa palavras em vez de significado — para termos exatos chega.
+func (s *Service) SearchPagesText(ctx context.Context, tenantID, userID uuid.UUID, query string, limit int32) ([]db.SearchWikiPagesTextRow, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, ErrInvalid
+	}
+	if limit <= 0 {
+		limit = searchLimit
+	}
+	return s.q.SearchWikiPagesText(ctx, db.SearchWikiPagesTextParams{
+		TenantID: tenantID, UserID: userID, QueryText: query, MaxResults: limit,
+	})
+}

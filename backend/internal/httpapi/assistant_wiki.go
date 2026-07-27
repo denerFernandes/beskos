@@ -17,25 +17,45 @@ import (
 // Identity da SESSÃO (§6.2) e chama o serviço internal/wiki — a MESMA superfície vis/canAccess da UI:
 // o modelo nunca lê o que o utilizador não veria, e a escrita revalida role>=editor no serviço.
 
-// assistantWikiSearch: busca semântica citável. Sem embeddings configurados devolve um erro claro —
-// as restantes ferramentas da wiki continuam a funcionar.
+// assistantWikiSearch: busca citável na wiki. Com embeddings configurados é semântica (kNN); sem
+// eles, recua para a busca LEXICAL em vez de falhar — era o que acontecia em produção
+// (EMBEDDINGS_API_KEY por definir): toda a pergunta sobre a base de conhecimento morria num
+// "The action failed", e o assistente ficava sem a ferramenta que as instruções mandam usar primeiro.
 func (s *Server) assistantWikiSearch(ctx context.Context, id assistant.Identity, query string, limit int) ([]assistant.WikiHit, error) {
-	if s.wikiEmb == nil {
-		return nil, fmt.Errorf("wiki semantic search is not configured (EMBEDDINGS_API_KEY missing)")
+	type hit struct {
+		pageID   uuid.UUID
+		title    string
+		slug     string
+		text     string
+		distance float64
 	}
-	rows, err := s.wiki.SearchChunks(ctx, s.wikiEmb, id.TenantID, id.UserID, query, int32(limit))
-	if err != nil {
-		return nil, fmt.Errorf("wiki search: %w", err)
+	var found []hit
+	if s.wikiEmb != nil {
+		rows, err := s.wiki.SearchChunks(ctx, s.wikiEmb, id.TenantID, id.UserID, query, int32(limit))
+		if err != nil {
+			return nil, fmt.Errorf("wiki search: %w", err)
+		}
+		for _, r := range rows {
+			found = append(found, hit{r.PageID, r.Title, r.Slug, r.ChunkText, r.Distance})
+		}
+	} else {
+		rows, err := s.wiki.SearchPagesText(ctx, id.TenantID, id.UserID, query, int32(limit))
+		if err != nil {
+			return nil, fmt.Errorf("wiki search: %w", err)
+		}
+		for _, r := range rows {
+			found = append(found, hit{r.PageID, r.Title, r.Slug, r.Snippet, r.Distance})
+		}
 	}
-	hits := make([]assistant.WikiHit, len(rows))
-	for i, r := range rows {
-		snippet := r.ChunkText
+	hits := make([]assistant.WikiHit, len(found))
+	for i, r := range found {
+		snippet := r.text
 		if len(snippet) > 700 {
 			snippet = snippet[:700] + "…"
 		}
 		hits[i] = assistant.WikiHit{
-			PageID: r.PageID.String(), Title: r.Title, Slug: r.Slug,
-			Snippet: snippet, Distance: r.Distance,
+			PageID: r.pageID.String(), Title: r.title, Slug: r.slug,
+			Snippet: snippet, Distance: r.distance,
 		}
 	}
 	return hits, nil
