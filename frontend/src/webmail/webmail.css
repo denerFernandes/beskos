@@ -1815,6 +1815,25 @@
 .wm .md-list{margin:2px 0;padding-left:20px;}
 .wm .md-quote{border-left:3px solid var(--border);padding-left:8px;color:var(--muted);margin:3px 0;}
 .wm .md-code{background:var(--surface-2);border:1px solid var(--border);border-radius:5px;padding:1px 5px;font-family:ui-monospace,monospace;font-size:12.5px;}
+/* Referência a uma tarefa dentro de uma mensagem (/task, ou partilhar do quadro): cartão com a
+   chave em destaque, para saltar à vista numa conversa cheia de texto. */
+.wm .task-ref{display:inline-flex;align-items:center;gap:7px;max-width:100%;vertical-align:middle;
+  padding:3px 9px 3px 7px;border:1px solid var(--border);border-left:3px solid var(--accent);
+  border-radius:8px;background:var(--surface-2);color:var(--ink);text-decoration:none;font-size:13px;}
+.wm .task-ref:hover{background:var(--hover);border-color:var(--accent);}
+.wm .task-ref .tr-ic{color:var(--accent-ink);flex:none;}
+.wm .task-ref .tr-key{font-family:ui-monospace,monospace;font-size:12px;color:var(--accent-ink);flex:none;}
+.wm .task-ref .tr-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Menu de comandos ("/"): mesma caixa das menções, com o "/" no lugar do avatar. */
+.wm .slash-pop .av.special{background:var(--surface-2);color:var(--accent-ink);font-weight:700;}
+/* Linha do seletor de tarefas (/task) */
+.wm .task-hit{display:flex;align-items:flex-start;gap:9px;width:100%;text-align:left;background:none;
+  border:0;color:var(--text);padding:8px 10px;border-radius:8px;cursor:pointer;}
+.wm .task-hit:hover{background:var(--hover);}
+.wm .task-hit .th-key{font-family:ui-monospace,monospace;font-size:12px;color:var(--accent-ink);flex:none;padding-top:1px;}
+.wm .task-hit .th-main{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.wm .task-hit .th-title{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wm .task-hit .th-meta{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 /* Editor de texto rico PARTILHADO (MdEditor): barra + textarea, usado em descrição/comentários/notas. */
 .wm .md-editor{display:flex;flex-direction:column;gap:4px;}
 .wm .md-editor .md-ta{border:1px solid var(--border);border-radius:9px;padding:9px 11px;background:var(--paper);color:var(--ink);font:inherit;font-size:13.5px;line-height:1.5;min-height:72px;resize:vertical;outline:none;width:100%;}

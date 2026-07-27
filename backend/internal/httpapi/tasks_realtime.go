@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mailin/backend/internal/chat"
 	"mailin/backend/internal/db"
@@ -86,6 +88,28 @@ func (s *Server) handleListArchivedCards(w http.ResponseWriter, r *http.Request)
 		cards = []db.Card{}
 	}
 	writeJSON(w, http.StatusOK, cards)
+}
+
+// handleSearchCards procura tarefas por chave (QUA-12), número ou título — só nas que a pessoa
+// pode ver. Serve o `/task` do chat: referenciar uma tarefa sem sair da conversa.
+func (s *Server) handleSearchCards(w http.ResponseWriter, r *http.Request) {
+	mu := mailUserFrom(r.Context())
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	if q == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"cards": []db.SearchCardsRow{}})
+		return
+	}
+	cards, err := s.q.SearchCards(r.Context(), db.SearchCardsParams{
+		TenantID: mu.TenantID, Q: q, UserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "cards.failed")
+		return
+	}
+	if cards == nil {
+		cards = []db.SearchCardsRow{}
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"cards": cards})
 }
 
 // handleArchiveBoard arquiva/restaura um quadro inteiro.

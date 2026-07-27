@@ -233,6 +233,40 @@ JOIN boards b ON b.id = c.board_id
 LEFT JOIN mail_users u ON u.id = c.assignee_id
 WHERE c.board_id = $1 AND c.archived_at IS NULL ORDER BY c.column_id, c.position;
 
+-- name: SearchCards :many
+-- Busca de tarefas para referenciar noutro sítio (o `/task` do chat). Casa pela chave (QUA-12),
+-- pelo número solto (12) ou por texto do título. A visibilidade é a MESMA do ListBoards — sem
+-- isso, o chat viraria uma janela para quadros a que a pessoa não tem acesso (lei §5.1/§5.2).
+SELECT c.id, c.board_id, c.title, c.label, c.due, c.priority,
+       b.prefix || '-' || c.number AS card_key, b.name AS board_name,
+       col.name AS column_name,
+       COALESCE(u.name, NULLIF(u.email, ''), c.assignee) AS assignee_name
+FROM cards c
+JOIN boards b ON b.id = c.board_id
+JOIN board_columns col ON col.id = c.column_id
+LEFT JOIN mail_users u ON u.id = c.assignee_id
+WHERE c.tenant_id = @tenant_id AND c.archived_at IS NULL AND b.archived_at IS NULL
+  AND (
+      upper(b.prefix || '-' || c.number) = upper(@q::text)
+      OR c.number::text = @q::text
+      OR c.title ILIKE '%' || @q::text || '%'
+  )
+  AND (
+      b.owner_user_id = @user_id
+      OR (b.owner_user_id IS NULL AND NOT EXISTS (SELECT 1 FROM board_grants g WHERE g.board_id = b.id))
+      OR EXISTS (
+          SELECT 1 FROM board_grants g WHERE g.board_id = b.id AND (
+              g.subject_type = 'org'
+              OR (g.subject_type = 'user' AND g.subject_id = @user_id)
+              OR (g.subject_type = 'group' AND EXISTS (
+                  SELECT 1 FROM user_group_members ugm
+                  WHERE ugm.group_id = g.subject_id AND ugm.user_id = @user_id))))
+      OR EXISTS (SELECT 1 FROM cards c2 WHERE c2.board_id = b.id AND c2.assignee_id = @user_id)
+  )
+-- Chave exata primeiro (quem escreve "QUA-12" quer aquela tarefa), depois as mais recentes.
+ORDER BY (upper(b.prefix || '-' || c.number) = upper(@q::text)) DESC, c.created_at DESC
+LIMIT 20;
+
 -- name: ListArchivedCards :many
 SELECT * FROM cards WHERE board_id = $1 AND tenant_id = $2 AND archived_at IS NOT NULL ORDER BY archived_at DESC;
 

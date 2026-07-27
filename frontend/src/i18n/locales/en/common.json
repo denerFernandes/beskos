@@ -1663,7 +1663,17 @@
     "notif_mentions": "Direct mentions only",
     "notif_none": "Mute channel",
     "message": "Message",
-    "attachDrive": "Attach from Drive"
+    "attachDrive": "Attach from Drive",
+    "cmdTaskDesc": "Reference a task in the conversation",
+    "cmdMeDesc": "Writes in italics, like an action",
+    "cmdMeArgs": "[text]",
+    "cmdShrugDesc": "Appends ¯\\_(ツ)_/¯",
+    "cmdTableflipDesc": "Appends (╯°□°)╯︵ ┻━┻",
+    "cmdUnflipDesc": "Appends ┬─┬ノ( º _ ºノ)",
+    "taskPickTitle": "Pick a task",
+    "taskPickPh": "Number (QUA-12 or 12) or title…",
+    "taskPickHint": "Search by task key, number or part of the title.",
+    "taskPickEmpty": "No tasks found."
   },
   "groups": {
     "title": "Teams",

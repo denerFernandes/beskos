@@ -1663,7 +1663,17 @@
     "notif_mentions": "Só menções diretas",
     "notif_none": "Silenciar canal",
     "message": "Mensagem",
-    "attachDrive": "Anexar do Drive"
+    "attachDrive": "Anexar do Drive",
+    "cmdTaskDesc": "Referenciar uma tarefa na conversa",
+    "cmdMeDesc": "Escreve em itálico, como uma ação",
+    "cmdMeArgs": "[texto]",
+    "cmdShrugDesc": "Acrescenta ¯\\_(ツ)_/¯",
+    "cmdTableflipDesc": "Acrescenta (╯°□°)╯︵ ┻━┻",
+    "cmdUnflipDesc": "Acrescenta ┬─┬ノ( º _ ºノ)",
+    "taskPickTitle": "Escolher tarefa",
+    "taskPickPh": "Número (QUA-12 ou 12) ou título…",
+    "taskPickHint": "Procura pela chave da tarefa, pelo número ou por parte do título.",
+    "taskPickEmpty": "Nenhuma tarefa encontrada."
   },
   "groups": {
     "title": "Equipas",

@@ -369,6 +369,7 @@ func (s *Server) Router() http.Handler {
 			r.Patch("/boards/{id}", s.handleUpdateBoard)
 			r.Delete("/boards/{id}", s.handleDeleteBoard)
 			r.Post("/boards/{id}/cards", s.handleCreateCard)
+			r.Get("/cards/search", s.handleSearchCards) // tarefas por chave/número/título (o /task do chat)
 			r.Patch("/cards/{id}", s.handleUpdateCard)
 			r.Patch("/cards/{id}/move", s.handleMoveCard)
 			r.Post("/cards/{id}/archive", s.handleArchiveCard)       // arquivar/restaurar card
