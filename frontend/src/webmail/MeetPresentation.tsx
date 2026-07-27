@@ -153,6 +153,13 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   // Identidade do apresentador atual (ref para o handler de saída ler o valor corrente).
   const presByRef = useRef<string | undefined>(undefined);
   presByRef.current = pres?.by;
+  // Se EU sou o apresentador e saio da sala (desconectar/desmontar), encerra a apresentação no
+  // servidor — não fica órfã "ativa" à espera do webhook. O webhook (participant_left) é o backstop.
+  const selfStopRef = useRef<() => void>(() => {});
+  selfStopRef.current = () => {
+    if (pres && pres.by === myId) backend.presentationStop(pres.id).catch(() => {});
+  };
+  useEffect(() => () => selfStopRef.current(), []);
   // resendState: o apresentador reemite o estado atual (usado ao entrar alguém novo).
   const resendRef = useRef<(to?: string[]) => void>(() => {});
   useEffect(() => {
@@ -183,9 +190,11 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     const onConnected = () => { const q = pending.current.splice(0); q.forEach(({ m, reliable }) => post(m, reliable)); };
     // Reconexão: volta a pedir o estado e, se somos o apresentador, reemite-o.
     const onReconnected = () => { post({ t: "hello" }); setTimeout(() => resendRef.current(), 600); };
+    const onSelfDisconnect = () => selfStopRef.current();
     roomCtx.on(RoomEvent.DataReceived, onData);
     roomCtx.on(RoomEvent.ParticipantConnected, onJoin);
     roomCtx.on(RoomEvent.ParticipantDisconnected, onLeft);
+    roomCtx.on(RoomEvent.Disconnected, onSelfDisconnect);
     roomCtx.on(RoomEvent.Connected, onConnected);
     roomCtx.on(RoomEvent.Reconnected, onReconnected);
     if (roomCtx.state === ConnectionState.Connected) onConnected(); // já conectada ao montar
@@ -193,6 +202,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
       roomCtx.off(RoomEvent.DataReceived, onData);
       roomCtx.off(RoomEvent.ParticipantConnected, onJoin);
       roomCtx.off(RoomEvent.ParticipantDisconnected, onLeft);
+      roomCtx.off(RoomEvent.Disconnected, onSelfDisconnect);
       roomCtx.off(RoomEvent.Connected, onConnected);
       roomCtx.off(RoomEvent.Reconnected, onReconnected);
     };
