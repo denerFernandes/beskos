@@ -184,7 +184,7 @@ Geridos como **CapRover/Swarm secrets** (cifrados no Raft) e injetados por env/f
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` (R2) | api, worker, egress |
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | api, livekit, egress |
 | `ONLYOFFICE_JWT_SECRET` | api, onlyoffice |
-| `ONLYOFFICE_SOURCE_URL` | api — **obrigatório**: sem ele o boot falha em produção (oferta de fonte, AGPL §13) |
+| `ONLYOFFICE_SOURCE_URL` | api — **obrigatório**: sem ele o boot falha em produção (oferta de fonte, AGPL §13). Valor: `https://github.com/denerFernandes/beskos-docs-server` |
 | `STRIPE_*` | manager-api |
 | `CLOUDFLARE_API_TOKEN` | CI (DNS-01) / provisioning |
 | `GHCR_TOKEN` (pull) | CapRover/Swarm registry auth |
