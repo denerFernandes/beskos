@@ -184,6 +184,7 @@ Geridos como **CapRover/Swarm secrets** (cifrados no Raft) e injetados por env/f
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` (R2) | api, worker, egress |
 | `LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` | api, livekit, egress |
 | `ONLYOFFICE_JWT_SECRET` | api, onlyoffice |
+| `ONLYOFFICE_SOURCE_URL` | api — **obrigatório**: sem ele o boot falha em produção (oferta de fonte, AGPL §13) |
 | `STRIPE_*` | manager-api |
 | `CLOUDFLARE_API_TOKEN` | CI (DNS-01) / provisioning |
 | `GHCR_TOKEN` (pull) | CapRover/Swarm registry auth |
@@ -234,10 +235,16 @@ O CI faz deploy por imagem; as apps criam-se uma vez no painel (com o domínio +
 | `manager-api` | beskos-api | `/usr/local/bin/manager-api` | interno | app |
 | `frontend` | beskos-frontend | — | `app.beskos.com` (+ `beskos.com`? não; landing à parte) | app |
 | `manager` | beskos-manager | — | `manager.beskos.com` | app |
-| `onlyoffice` | onlyoffice/documentserver | — | `docs.beskos.com` | media |
+| `onlyoffice` | **beskos-docs** (a nossa: oficial pinada + marca Beskos) | — | `docs.beskos.com` | media |
+
+> **O `onlyoffice` deixou de correr a imagem oficial pura.** Corre `beskos-docs`, construída em
+> `deploy/onlyoffice/Dockerfile` a partir da imagem oficial **pinada por digest** com o patch de
+> marca aplicado no build. É obrigatório: o CapRover faz deploy por imagem e não monta nada do
+> repositório, portanto sem esta imagem o editor em produção volta à marca do ONLYOFFICE.
+> O fonte modificado é público (AGPL v3 §13): https://github.com/denerFernandes/beskos-docs-server
 
 - **Registry ghcr:** Cluster → Docker Registries → adicionar `ghcr.io` com um PAT (read:packages) → o CapRover puxa as imagens privadas.
-- **Env/secrets por app:** `DATABASE_URL`, `SECRETBOX_KEY`, `MINIO_ENDPOINT=<acct>.r2.cloudflarestorage.com`, `MINIO_SSL=true`, `MINIO_REGION=auto`, `MINIO_BUCKET=beskos-files`, `MINIO_ACCESS_KEY/SECRET`, `LIVEKIT_*`, `ONLYOFFICE_JWT_SECRET`, `SES_*`, `STRIPE_*`, `MANAGER_API_URL=http://srv-captain--manager-api:8091`, `API_UPSTREAM=srv-captain--api:8000`.
+- **Env/secrets por app:** `DATABASE_URL`, `SECRETBOX_KEY`, `MINIO_ENDPOINT=<acct>.r2.cloudflarestorage.com`, `MINIO_SSL=true`, `MINIO_REGION=auto`, `MINIO_BUCKET=beskos-files`, `MINIO_ACCESS_KEY/SECRET`, `LIVEKIT_*`, `ONLYOFFICE_JWT_SECRET`, `ONLYOFFICE_SOURCE_URL`, `SES_*`, `STRIPE_*`, `MANAGER_API_URL=http://srv-captain--manager-api:8091`, `API_UPSTREAM=srv-captain--api:8000`.
 - **Placement:** apps em nós `app` (`beskos.role=app`) via *Node Selector*; `onlyoffice` no nó `media`.
 - **Segredos do CI (repo):** `CAPROVER_URL`, `CAPROVER_PASSWORD`.
 

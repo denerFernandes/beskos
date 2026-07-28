@@ -206,11 +206,14 @@ services:
       # provider (/v1/chat/completions). De dentro do container, é o nome de serviço na rede docker.
       AI_PROXY_URL: "${AI_PROXY_URL:-http://api:8000}"
     volumes:
-      - ./onlyoffice-ai-init.sh:/scripts/onlyoffice-ai-init.sh:ro
-      - ./onlyoffice-branding-patch.sh:/scripts/onlyoffice-branding-patch.sh:ro
-      # Logos da marca: o patch copia-os para dentro do webroot do DS e o backend referencia-os
-      # por URL (data: URI não serve — ver o comentário no script).
-      - ./onlyoffice-brand:/scripts/brand:ro
+      # Em dev montamos os scripts na imagem oficial; em produção eles são COPIADOS para dentro
+      # da imagem (deploy/onlyoffice/Dockerfile), porque o CapRover faz deploy por imagem e não
+      # monta nada do repositório. Mesmo script nos dois sítios.
+      # NOTA: mount de FICHEIRO único prende-se ao inode — depois de editar um destes scripts é
+      # preciso `docker compose up -d --force-recreate onlyoffice`, não `restart`.
+      - ./onlyoffice/onlyoffice-ai-init.sh:/scripts/onlyoffice-ai-init.sh:ro
+      - ./onlyoffice/onlyoffice-branding-patch.sh:/scripts/onlyoffice-branding-patch.sh:ro
+      - ./onlyoffice/brand:/scripts/brand:ro
     ports:
       - "127.0.0.1:8082:80"   # só no host (browser em dev via localhost; prod atrás de proxy HTTPS)
     healthcheck:
