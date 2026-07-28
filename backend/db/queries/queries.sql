@@ -2273,6 +2273,15 @@ ORDER BY a.address;
 -- Endereços extra de UMA pessoa: é o que o compositor mostra no "De:".
 SELECT address FROM email_aliases WHERE tenant_id = @tenant_id AND mail_user_id = @user_id ORDER BY address;
 
+-- name: ListAliasesForStalwart :many
+-- Aliases de uma pessoa no formato que o Stalwart quer: parte local + id do domínio LÁ (não o
+-- nosso). Ver DIVERGENCES §D4b — o alias é um objeto {name, domainId}, não um endereço em texto.
+SELECT split_part(a.address, '@', 1) AS local, COALESCE(d.stalwart_id, '') AS stalwart_domain_id
+FROM email_aliases a
+JOIN domains d ON d.id = a.domain_id
+WHERE a.tenant_id = @tenant_id AND a.mail_user_id = @user_id
+ORDER BY a.address;
+
 -- name: GetEmailAlias :one
 SELECT * FROM email_aliases WHERE id = @id AND tenant_id = @tenant_id;
 

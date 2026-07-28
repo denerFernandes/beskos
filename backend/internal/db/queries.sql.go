@@ -6266,6 +6266,46 @@ func (q *Queries) ListActiveRecoveryCodes(ctx context.Context, userID uuid.UUID)
 	return items, nil
 }
 
+const listAliasesForStalwart = `-- name: ListAliasesForStalwart :many
+SELECT split_part(a.address, '@', 1) AS local, COALESCE(d.stalwart_id, '') AS stalwart_domain_id
+FROM email_aliases a
+JOIN domains d ON d.id = a.domain_id
+WHERE a.tenant_id = $1 AND a.mail_user_id = $2
+ORDER BY a.address
+`
+
+type ListAliasesForStalwartParams struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	UserID   uuid.UUID `json:"user_id"`
+}
+
+type ListAliasesForStalwartRow struct {
+	Local            string `json:"local"`
+	StalwartDomainID string `json:"stalwart_domain_id"`
+}
+
+// Aliases de uma pessoa no formato que o Stalwart quer: parte local + id do domínio LÁ (não o
+// nosso). Ver DIVERGENCES §D4b — o alias é um objeto {name, domainId}, não um endereço em texto.
+func (q *Queries) ListAliasesForStalwart(ctx context.Context, arg ListAliasesForStalwartParams) ([]ListAliasesForStalwartRow, error) {
+	rows, err := q.db.Query(ctx, listAliasesForStalwart, arg.TenantID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAliasesForStalwartRow
+	for rows.Next() {
+		var i ListAliasesForStalwartRow
+		if err := rows.Scan(&i.Local, &i.StalwartDomainID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAliasesForUser = `-- name: ListAliasesForUser :many
 SELECT address FROM email_aliases WHERE tenant_id = $1 AND mail_user_id = $2 ORDER BY address
 `
