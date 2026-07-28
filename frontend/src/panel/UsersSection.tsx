@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, hasPerm, type Me } from "../api";
 import { Modal, toast } from "./ui";
+import { PasswordField } from "../webmail/PasswordField";
 import { GroupPicker } from "./GroupPicker";
 import { IcPlus, IcKey, IcTrash, IcColumns, IcShield } from "./icons";
 
@@ -91,6 +92,7 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
   const [domainId, setDomainId] = useState(domains[0]?.id ?? "");
   const [login, setLogin] = useState(""), [name, setName] = useState(""), [pwd, setPwd] = useState(""), [role, setRole] = useState("member"), [err, setErr] = useState("");
   const [groups, setGroups] = useState<string[]>([]); // pode entrar em vários grupos de uma vez
+  const pwOk = useRef(false); // o medidor decide se a senha passa (o Stalwart recusa as fracas)
   const roles = actorRole === "owner" ? ROLES : ROLES.filter((r) => r !== "owner");
   const m = useMutation({
     mutationFn: () => api.createUser(domainId, login, name, pwd, role, groups),
@@ -106,7 +108,7 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
   return (
     <Modal title={t("usersSection.add")} onClose={onClose}
       footer={<><button className="pnl-btn ghost" onClick={onClose}>{t("common.cancel")}</button>
-        <button className="pnl-btn primary" disabled={m.isPending} onClick={() => m.mutate()}>{t("usersSection.create")}</button></>}>
+        <button className="pnl-btn primary" disabled={m.isPending || !login || !pwOk.current} onClick={() => m.mutate()}>{t("usersSection.create")}</button></>}>
       <div className="pnl-field"><label>{t("panel.domains")}</label>
         <select className="pnl-select" value={domainId} onChange={(e) => setDomainId(e.target.value)}>{domains.map((d) => <option key={d.id} value={d.id}>{d.dominio}</option>)}</select></div>
       <div className="pnl-field"><label>{t("usersSection.login")}</label>
@@ -117,7 +119,8 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
         <GroupPicker value={groups} onChange={setGroups} /></div>
       <div className="pnl-field"><label>{t("membersSection.role")}</label>
         <select className="pnl-select" value={role} onChange={(e) => setRole(e.target.value)}>{roles.map((r) => <option key={r} value={r}>{t(`members.roles.${r}`)}</option>)}</select></div>
-      <div className="pnl-field"><label>{t("login.password")}</label><input className="pnl-input" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} /></div>
+      <PasswordField label={t("login.password")} value={pwd} userInputs={[login, dom]}
+        onChange={setPwd} onStrength={(s) => { pwOk.current = s.ok; }} />
       {paid && <div className="pnl-note">{t("usersSection.billingNote", { price: unit })}</div>}
       {err && <p className="pnl-err">{err}</p>}
     </Modal>
@@ -127,6 +130,7 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
 function ResetModal({ email, onClose }: { email: string; onClose: () => void }) {
   const { t } = useTranslation();
   const [pwd, setPwd] = useState(""), [err, setErr] = useState("");
+  const pwOk = useRef(false);
   const m = useMutation({
     mutationFn: () => api.resetUserPassword(email, pwd),
     onSuccess: () => { onClose(); toast(t("mailboxes.passwordChanged")); }, onError: (e) => setErr((e as Error).message),
@@ -134,9 +138,10 @@ function ResetModal({ email, onClose }: { email: string; onClose: () => void }) 
   return (
     <Modal title={t("mailboxes.changePassword")} onClose={onClose}
       footer={<><button className="pnl-btn ghost" onClick={onClose}>{t("common.cancel")}</button>
-        <button className="pnl-btn primary" disabled={m.isPending || !pwd} onClick={() => m.mutate()}>{t("mailboxes.changePassword")}</button></>}>
+        <button className="pnl-btn primary" disabled={m.isPending || !pwOk.current} onClick={() => m.mutate()}>{t("mailboxes.changePassword")}</button></>}>
       <p className="desc" style={{ marginTop: 0 }}>{email}</p>
-      <div className="pnl-field"><label>{t("usersSection.newPassword")}</label><input className="pnl-input" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} autoFocus /></div>
+      <PasswordField label={t("usersSection.newPassword")} value={pwd} autoFocus userInputs={[email]}
+        onChange={setPwd} onStrength={(s) => { pwOk.current = s.ok; }} />
       {err && <p className="pnl-err">{err}</p>}
     </Modal>
   );

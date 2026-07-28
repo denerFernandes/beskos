@@ -560,7 +560,20 @@
     "unreadElsewhere_other": "{{count}} mensagens por ler noutros endereços.",
     "showUnread": "Ver só as não lidas",
     "unreadOnly": "A mostrar só as mensagens por ler.",
-    "showAllMessages": "Ver todas"
+    "showAllMessages": "Ver todas",
+    "pwShow": "mostrar",
+    "pwHide": "esconder",
+    "pwWeak": "Fraca",
+    "pwFair": "Razoável",
+    "pwGood": "Boa",
+    "pwStrong": "Forte",
+    "pwHintEmpty": "Pelo menos 12 caracteres. Três ou quatro palavras pouco comuns funcionam bem.",
+    "pwHintShort": "Curta demais — pelo menos 12 caracteres.",
+    "pwHintPersonal": "Não use o seu nome, endereço ou domínio.",
+    "pwHintCommon": "Contém uma palavra muito usada em senhas.",
+    "pwHintRepeat": "Evite repetições (\"abcabcabc\" é quase tão fácil como \"abc\").",
+    "pwHintSequence": "Evite sequências do teclado ou do alfabeto.",
+    "pwHintWeak": "Junte outra palavra, ou misture maiúsculas, números e símbolos."
   },
   "settings": {
     "title": "Definições",
