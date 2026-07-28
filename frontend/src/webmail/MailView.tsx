@@ -457,7 +457,11 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
           // completos empilhados cortam-se todos ao meio ("dfernandes@beskos.c…") e não se lê nenhum.
           <div className="mail-accounts">
             <button className={"ma-cur" + (addrOpen ? " open" : "")} onClick={() => setAddrOpen((v) => !v)}>
-              <Avatar name={addrLabel(addrFilter)} email={addrFilter || addrQ.data?.primary} size={26} className="ma-av" />
+              {/* "Todas" tem o mesmo símbolo do menu; um avatar de conta aqui dizia que estava
+                  escolhida UMA caixa quando não está. */}
+              {addrFilter
+                ? <Avatar name={addrLabel(addrFilter)} email={addrFilter} size={26} className="ma-av" />
+                : <span className="ma-all">@</span>}
               <span className="ma-txt">
                 <b>{addrFilter ? addrLabel(addrFilter) : t("webmail.accountsAll")}</b>
                 <i>{addrFilter ? addrDomain(addrFilter) : t("webmail.accountsAllHint", { n: aliases.length + 1 })}</i>
