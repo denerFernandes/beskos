@@ -224,11 +224,36 @@ export const api = {
   // Billing / uso
   billing: () => req<BillingInfo>("/api/billing"),
   usage: () => req<Usage>("/api/usage"),
-  checkout: (plan: string) => req<{ url?: string; applied: boolean }>("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) }),
+  checkout: (plan: string, cycle: BillingCycle = "month") =>
+    req<{ url?: string; applied: boolean }>("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan, cycle }) }),
+  // Dados de faturação (quem assina, para onde vai a fatura) e simulação com IVA.
+  billingProfile: () => req<BillingProfile>("/api/billing/profile"),
+  saveBillingProfile: (p: BillingProfile) => req<{ status: string }>("/api/billing/profile", { method: "PUT", body: JSON.stringify(p) }),
+  billingQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string }) =>
+    req<BillingQuote>("/api/billing/quote", { method: "POST", body: JSON.stringify(q) }),
   billingCancel: () => req<{ status: string }>("/api/billing/cancel", { method: "POST", body: "{}" }),
   billingResume: () => req<{ status: string }>("/api/billing/resume", { method: "POST", body: "{}" }),
   billingPortal: () => req<{ url: string }>("/api/billing/portal", { method: "POST", body: "{}" }),
 };
+
+
+// --- Faturação: perfil do cliente e simulação com IVA (a regra vive no backend) ---
+export type BillingCycle = "month" | "year";
+export interface BillingProfile {
+  kind: "company" | "individual";
+  legal_name?: string; tax_id?: string; country?: string; city?: string; postal_code?: string;
+  address_line1?: string; address_line2?: string; invoice_email?: string; invoice_name?: string; phone?: string;
+  filled?: boolean;
+}
+export interface BillingQuote {
+  quote: {
+    currency: string; seats: number; unit_cents: number; subtotal_cents: number;
+    vat_rate_bps: number; vat_cents: number; total_cents: number;
+    reverse_charge: boolean; tax_id_valid: boolean; country: string;
+  };
+  cycle: BillingCycle; plan: string; plan_name: string;
+  monthly_cents: number; months_charged: number; seller_country: string; vat_rate_percent: number;
+}
 
 export function hasPerm(me: Me | undefined, perm: string): boolean {
   return !!me?.permissions?.includes(perm);

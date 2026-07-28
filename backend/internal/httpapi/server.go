@@ -323,6 +323,10 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requirePerm(rbac.PermBillingManage)).Post("/billing/cancel", s.handleBillingCancel)
 			r.With(s.requirePerm(rbac.PermBillingManage)).Post("/billing/resume", s.handleBillingResume)
 			r.With(s.requirePerm(rbac.PermBillingManage)).Post("/billing/portal", s.handleBillingPortal)
+			// Dados de faturação (quem assina, para onde vai a fatura) + simulação com IVA.
+			r.With(s.requirePerm(rbac.PermBillingView)).Get("/billing/profile", s.handleGetBillingProfile)
+			r.With(s.requirePerm(rbac.PermBillingManage)).Put("/billing/profile", s.handleSaveBillingProfile)
+			r.With(s.requirePerm(rbac.PermBillingView)).Post("/billing/quote", s.handleBillingQuote)
 
 			// IA sobre e-mail (conteúdo vem do frontend, que lê via JMAP direto).
 			// Assistente agêntico (ciclo com ferramentas). Distinto de /ai/*, que é de um só passo.

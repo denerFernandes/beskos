@@ -830,6 +830,27 @@ SELECT * FROM subscriptions WHERE tenant_id = $1;
 -- Sincroniza só o status (customer.subscription.updated) sem tocar no plano/faixa.
 UPDATE subscriptions SET status = @status WHERE tenant_id = @tenant_id;
 
+-- name: GetBillingProfile :one
+SELECT * FROM billing_profiles WHERE tenant_id = $1;
+
+-- name: UpsertBillingProfile :one
+-- O stripe_customer NÃO entra aqui: é escrito só pelo checkout (SetBillingStripeCustomer). Se
+-- viesse no upsert, guardar a morada apagava a ligação ao cliente da Stripe.
+INSERT INTO billing_profiles (
+    tenant_id, kind, legal_name, tax_id, country, city, postal_code,
+    address_line1, address_line2, invoice_email, invoice_name, phone, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+ON CONFLICT (tenant_id) DO UPDATE SET
+    kind = EXCLUDED.kind, legal_name = EXCLUDED.legal_name, tax_id = EXCLUDED.tax_id,
+    country = EXCLUDED.country, city = EXCLUDED.city, postal_code = EXCLUDED.postal_code,
+    address_line1 = EXCLUDED.address_line1, address_line2 = EXCLUDED.address_line2,
+    invoice_email = EXCLUDED.invoice_email, invoice_name = EXCLUDED.invoice_name,
+    phone = EXCLUDED.phone, updated_at = now()
+RETURNING *;
+
+-- name: SetBillingStripeCustomer :exec
+UPDATE billing_profiles SET stripe_customer = @stripe_customer, updated_at = now() WHERE tenant_id = @tenant_id;
+
 -- name: MarkWebhookProcessed :one
 INSERT INTO processed_webhooks (event_id) VALUES ($1) ON CONFLICT DO NOTHING RETURNING event_id;
 

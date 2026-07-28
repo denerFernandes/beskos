@@ -3,26 +3,28 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, hasPerm, type Me, type Plan } from "../api";
 import { Modal, toast } from "./ui";
+import { SubscribeWizard } from "./SubscribeWizard";
 
 // Billing por usuário: uso vs. limites, planos com preço por usuário (moeda configurável),
-// total estimado (preço × max(usuários, mínimo pago)), upgrade com modal de confirmação.
-export function BillingSection({ me }: { me: Me | undefined }) {
+// total estimado (preço × max(usuários, mínimo pago)). Escolher um plano abre o assistente de
+// subscrição (dados de faturação + IVA + pagamento).
+export function BillingSection({ me, detail, onDetail }: {
+  me: Me | undefined;
+  /** "subscribe" abre o assistente de subscrição (vive na URL: /mail/admin/billing/subscribe). */
+  detail?: string;
+  onDetail?: (id: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
   const canManage = hasPerm(me, "billing.manage");
   const usage = useQuery({ queryKey: ["usage"], queryFn: api.usage, retry: false });
   const billing = useQuery({ queryKey: ["billing"], queryFn: api.billing, retry: false });
-  const [confirm, setConfirm] = useState<Plan | null>(null);
+  // Plano escolhido na tabela → o assistente abre já nesse plano. O passo fica na URL para o
+  // refresh (e o botão "voltar" do browser) não perderem o que se estava a fazer.
+  const [wizardPlan, setWizardPlan] = useState("");
+  const openSubscribe = (id: string) => { setWizardPlan(id); onDetail?.("subscribe"); };
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ["usage"] }); qc.invalidateQueries({ queryKey: ["billing"] }); };
-  const checkout = useMutation({
-    mutationFn: (plan: string) => api.checkout(plan),
-    onSuccess: (r) => {
-      if (r.url) { location.href = r.url; return; }
-      refresh(); setConfirm(null); toast(t("billing.planChanged"));
-    },
-    onError: (e) => toast((e as Error).message),
-  });
   // Gestão da assinatura (Stripe): cancelar no fim do período, retomar, portal de pagamento.
   const [cancelAsk, setCancelAsk] = useState(false);
   const cancelSub = useMutation({ mutationFn: () => api.billingCancel(), onSuccess: () => { refresh(); setCancelAsk(false); toast(t("billing.cancelDone")); }, onError: (e) => toast((e as Error).message) });
@@ -42,6 +44,16 @@ export function BillingSection({ me }: { me: Me | undefined }) {
         <td className="pt-feat">{label}</td>
         {(b?.plans ?? []).map((p) => <td key={p.id} className={p.id === b?.current_plan.id ? "cur" : ""}>{val(p)}</td>)}
       </tr>
+    );
+  }
+
+  if (detail === "subscribe" && b) {
+    return (
+      <SubscribeWizard
+        plans={b.plans} currentPlanId={b.current_plan.id} initialPlan={wizardPlan}
+        seats={b.seats} minPaidUsers={b.min_paid_users}
+        onDone={() => { refresh(); onDetail?.(""); toast(t("billing.planChanged")); }}
+        onClose={() => onDetail?.("")} />
     );
   }
 
@@ -109,7 +121,7 @@ export function BillingSection({ me }: { me: Me | undefined }) {
                       return (
                         <td key={p.id} className={current ? "cur" : ""}>
                           {current ? <span className="pnl-pill ok">{t("billing.current")}</span>
-                            : canManage ? <button className="pnl-btn primary" onClick={() => setConfirm(p)}>{t("billing.choose")}</button>
+                            : canManage ? <button className="pnl-btn primary" onClick={() => openSubscribe(p.id)}>{t("billing.choose")}</button>
                             : <span className="desc">—</span>}
                         </td>
                       );
@@ -130,29 +142,6 @@ export function BillingSection({ me }: { me: Me | undefined }) {
         </Modal>
       )}
 
-      {confirm && (() => {
-        // Seats FATURADOS no plano escolhido: nunca menos que o mínimo do plano; acima do máximo,
-        // o plano não comporta a organização (o backend recusaria — avisa antes).
-        const users = b?.seats ?? 1;
-        const billed = Math.max(users, b?.min_paid_users ?? 1, confirm.min_users || 1);
-        const tooSmall = confirm.max_mailboxes > 0 && users > confirm.max_mailboxes;
-        return (
-          <Modal title={t("billing.confirmTitle")} onClose={() => setConfirm(null)}
-            footer={<><button className="pnl-btn ghost" onClick={() => setConfirm(null)}>{t("common.cancel")}</button>
-              <button className="pnl-btn primary" disabled={checkout.isPending || tooSmall} onClick={() => checkout.mutate(confirm.id)}>{t("billing.confirm")}</button></>}>
-            {tooSmall ? (
-              <p className="pnl-err">{t("billing.planTooSmall", { plan: confirm.name, max: confirm.max_mailboxes, users })}</p>
-            ) : (
-              <>
-                <p>{billed > users
-                  ? t("billing.confirmBodyMin", { plan: confirm.name, price: money(confirm.price_cents_per_user, confirm.currency), users, min: billed })
-                  : t("billing.confirmBody", { plan: confirm.name, price: money(confirm.price_cents_per_user, confirm.currency), seats: billed })}</p>
-                {confirm.price_cents_per_user > 0 && <p style={{ fontWeight: 600 }}>≈ {money(confirm.price_cents_per_user * billed, confirm.currency)}{t("billing.perMonth")}</p>}
-              </>
-            )}
-          </Modal>
-        );
-      })()}
     </>
   );
 }

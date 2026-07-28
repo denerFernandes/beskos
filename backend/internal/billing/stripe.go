@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -40,10 +41,11 @@ func (p *StripeProvider) planCurrency(plan Plan) string {
 	return strings.ToLower(p.cfg.Settings().Currency)
 }
 
-func (p *StripeProvider) Checkout(ctx context.Context, tenantID string, plan Plan, seats int) (CheckoutResult, error) {
+func (p *StripeProvider) Checkout(ctx context.Context, tenantID string, plan Plan, seats int, opts CheckoutOpts) (CheckoutResult, error) {
 	if seats < 1 {
 		seats = 1
 	}
+	cycle := opts.Cycle.Normalize()
 	form := url.Values{}
 	form.Set("mode", "subscription")
 	form.Set("success_url", p.cfg.SuccessURL)
@@ -51,16 +53,31 @@ func (p *StripeProvider) Checkout(ctx context.Context, tenantID string, plan Pla
 	form.Set("client_reference_id", tenantID)
 	form.Set("metadata[plan]", plan.ID)
 	form.Set("metadata[tenant_id]", tenantID)
+	form.Set("metadata[cycle]", string(cycle))
+	form.Set("subscription_data[metadata][plan]", plan.ID)
+	form.Set("subscription_data[metadata][tenant_id]", tenantID)
 	form.Set("line_items[0][quantity]", strconv.Itoa(seats)) // preço por usuário × seats
-	if plan.StripePriceID != "" {
+	// Cliente já criado por nós (razão social, morada, NIF, e-mail do financeiro): o checkout só
+	// pede o cartão e a fatura sai completa. Sem ele, ao menos o e-mail vai pré-preenchido.
+	if opts.CustomerID != "" {
+		form.Set("customer", opts.CustomerID)
+		// A morada pode mudar no checkout (o cartão manda); guardá-la no cliente mantém a fatura certa.
+		form.Set("customer_update[address]", "auto")
+		form.Set("customer_update[name]", "auto")
+	} else if opts.InvoiceEmail != "" {
+		form.Set("customer_email", opts.InvoiceEmail)
+	}
+	// O Price espelhado é MENSAL; o anual é montado aqui (price_data com interval=year), senão
+	// escolher "anual" cobrava na mesma todos os meses.
+	if plan.StripePriceID != "" && cycle == CycleMonth {
 		// Catálogo espelhado na Stripe: usa o Price real — faturas/relatórios agrupam por produto.
 		// currency seleciona a currency_option do price (moeda por país, 24/07/2026).
 		form.Set("line_items[0][price]", plan.StripePriceID)
 		form.Set("currency", p.planCurrency(plan))
 	} else {
 		form.Set("line_items[0][price_data][currency]", p.planCurrency(plan))
-		form.Set("line_items[0][price_data][recurring][interval]", "month")
-		form.Set("line_items[0][price_data][unit_amount]", strconv.Itoa(plan.PriceCentsPerUser))
+		form.Set("line_items[0][price_data][recurring][interval]", string(cycle))
+		form.Set("line_items[0][price_data][unit_amount]", strconv.Itoa(plan.UnitCents(cycle)))
 		form.Set("line_items[0][price_data][product_data][name]", "Beskos "+plan.Name)
 	}
 
@@ -228,7 +245,7 @@ func (p *StripeProvider) Subscription(ctx context.Context, subID string) (Subscr
 
 // UpdatePlan troca o preço (price_data inline, como no checkout) e a quantidade da assinatura
 // ativa, com rateio — upgrade/downgrade sem novo checkout.
-func (p *StripeProvider) UpdatePlan(ctx context.Context, subID string, plan Plan, seats int) error {
+func (p *StripeProvider) UpdatePlan(ctx context.Context, subID string, plan Plan, seats int, cycle Cycle) error {
 	info, err := p.Subscription(ctx, subID)
 	if err != nil {
 		return err
@@ -242,12 +259,13 @@ func (p *StripeProvider) UpdatePlan(ctx context.Context, subID string, plan Plan
 	form := url.Values{}
 	form.Set("items[0][id]", info.ItemID)
 	form.Set("items[0][quantity]", strconv.Itoa(seats))
-	if plan.StripePriceID != "" {
+	cycle = cycle.Normalize()
+	if plan.StripePriceID != "" && cycle == CycleMonth {
 		form.Set("items[0][price]", plan.StripePriceID)
 	} else {
 		form.Set("items[0][price_data][currency]", p.planCurrency(plan))
-		form.Set("items[0][price_data][recurring][interval]", "month")
-		form.Set("items[0][price_data][unit_amount]", strconv.Itoa(plan.PriceCentsPerUser))
+		form.Set("items[0][price_data][recurring][interval]", string(cycle))
+		form.Set("items[0][price_data][unit_amount]", strconv.Itoa(plan.UnitCents(cycle)))
 		form.Set("items[0][price_data][product_data][name]", "Beskos "+plan.Name)
 	}
 	form.Set("metadata[plan]", plan.ID)
@@ -366,4 +384,101 @@ func (p *StripeProvider) UpdateQuantity(ctx context.Context, subID string, seats
 	form.Set("proration_behavior", "create_prorations")
 	_, err = p.doForm(ctx, http.MethodPost, "https://api.stripe.com/v1/subscriptions/"+url.PathEscape(subID), form)
 	return err
+}
+
+// EnsureCustomer cria (ou atualiza) o cliente na Stripe com os dados de faturação. É o que faz a
+// fatura sair com razão social, morada e NIF em vez de só um e-mail — o que uma empresa precisa
+// para deduzir o IVA. O NIF vai como tax_id à parte (a Stripe guarda-o numa lista própria).
+func (p *StripeProvider) EnsureCustomer(ctx context.Context, customerID string, c Customer) (string, error) {
+	form := url.Values{}
+	if c.Name != "" {
+		form.Set("name", c.Name)
+	}
+	if c.Email != "" {
+		// É o e-mail do RESPONSÁVEL FINANCEIRO — é para aqui que a Stripe manda faturas e recibos,
+		// e não para quem calhou de estar a assinar.
+		form.Set("email", c.Email)
+	}
+	if c.Phone != "" {
+		form.Set("phone", c.Phone)
+	}
+	if c.Country != "" {
+		form.Set("address[country]", strings.ToUpper(c.Country))
+	}
+	if c.City != "" {
+		form.Set("address[city]", c.City)
+	}
+	if c.PostalCode != "" {
+		form.Set("address[postal_code]", c.PostalCode)
+	}
+	if c.AddressLine1 != "" {
+		form.Set("address[line1]", c.AddressLine1)
+	}
+	if c.AddressLine2 != "" {
+		form.Set("address[line2]", c.AddressLine2)
+	}
+	form.Set("metadata[tenant_id]", c.TenantID)
+	form.Set("metadata[kind]", c.Kind)
+	if c.TaxID != "" {
+		form.Set("metadata[tax_id]", c.TaxID)
+	}
+
+	endpoint := "https://api.stripe.com/v1/customers"
+	if customerID != "" {
+		endpoint += "/" + url.PathEscape(customerID)
+	}
+	raw, err := p.doForm(ctx, http.MethodPost, endpoint, form)
+	if err != nil {
+		// Cliente apagado na Stripe (ou id de outra conta): recomeça em vez de ficar preso.
+		if customerID != "" {
+			return p.EnsureCustomer(ctx, "", c)
+		}
+		return "", err
+	}
+	var out struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return "", err
+	}
+	if c.TaxID != "" {
+		p.syncTaxID(ctx, out.ID, c)
+	}
+	return out.ID, nil
+}
+
+// syncTaxID põe o NIF do cliente na Stripe (eu_vat para a UE). Best-effort: um número recusado não
+// pode travar a assinatura — o valor a pagar é decidido por nós, não pela Stripe.
+func (p *StripeProvider) syncTaxID(ctx context.Context, customerID string, c Customer) {
+	kind := "eu_vat"
+	if !IsEU(c.Country) {
+		return // fora da UE cada país tem o seu tipo; não arriscamos adivinhar
+	}
+	base := "https://api.stripe.com/v1/customers/" + url.PathEscape(customerID) + "/tax_ids"
+	// Já lá está o mesmo número? Não repete (a Stripe recusa duplicados).
+	if raw, err := p.doForm(ctx, http.MethodGet, base, nil); err == nil {
+		var list struct {
+			Data []struct {
+				ID    string `json:"id"`
+				Type  string `json:"type"`
+				Value string `json:"value"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(raw, &list) == nil {
+			for _, it := range list.Data {
+				if strings.EqualFold(it.Value, c.TaxID) {
+					return
+				}
+				if it.Type == kind { // número mudou: fora o antigo
+					_, _ = p.doForm(ctx, http.MethodDelete, base+"/"+url.PathEscape(it.ID), nil)
+				}
+			}
+		}
+	}
+	form := url.Values{}
+	form.Set("type", kind)
+	form.Set("value", c.TaxID)
+	if _, err := p.doForm(ctx, http.MethodPost, base, form); err != nil {
+		log.Printf("stripe: tax_id %q recusado para %s: %v", c.TaxID, customerID, err)
+	}
 }

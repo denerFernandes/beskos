@@ -4295,6 +4295,32 @@ func (q *Queries) GetAssistantTaskEffect(ctx context.Context, arg GetAssistantTa
 	return summary, err
 }
 
+const getBillingProfile = `-- name: GetBillingProfile :one
+SELECT tenant_id, kind, legal_name, tax_id, country, city, postal_code, address_line1, address_line2, invoice_email, invoice_name, phone, stripe_customer, updated_at FROM billing_profiles WHERE tenant_id = $1
+`
+
+func (q *Queries) GetBillingProfile(ctx context.Context, tenantID uuid.UUID) (BillingProfile, error) {
+	row := q.db.QueryRow(ctx, getBillingProfile, tenantID)
+	var i BillingProfile
+	err := row.Scan(
+		&i.TenantID,
+		&i.Kind,
+		&i.LegalName,
+		&i.TaxID,
+		&i.Country,
+		&i.City,
+		&i.PostalCode,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.InvoiceEmail,
+		&i.InvoiceName,
+		&i.Phone,
+		&i.StripeCustomer,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getBoard = `-- name: GetBoard :one
 SELECT id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id FROM boards WHERE id = $1 AND tenant_id = $2
 `
@@ -11896,6 +11922,20 @@ func (q *Queries) SetAssistantToolEnabled(ctx context.Context, arg SetAssistantT
 	return err
 }
 
+const setBillingStripeCustomer = `-- name: SetBillingStripeCustomer :exec
+UPDATE billing_profiles SET stripe_customer = $1, updated_at = now() WHERE tenant_id = $2
+`
+
+type SetBillingStripeCustomerParams struct {
+	StripeCustomer string    `json:"stripe_customer"`
+	TenantID       uuid.UUID `json:"tenant_id"`
+}
+
+func (q *Queries) SetBillingStripeCustomer(ctx context.Context, arg SetBillingStripeCustomerParams) error {
+	_, err := q.db.Exec(ctx, setBillingStripeCustomer, arg.StripeCustomer, arg.TenantID)
+	return err
+}
+
 const setBoardArchived = `-- name: SetBoardArchived :one
 UPDATE boards SET archived_at = CASE WHEN $3::boolean THEN now() ELSE NULL END WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id
 `
@@ -13976,6 +14016,72 @@ type UpdateUserSettingsParams struct {
 func (q *Queries) UpdateUserSettings(ctx context.Context, arg UpdateUserSettingsParams) error {
 	_, err := q.db.Exec(ctx, updateUserSettings, arg.ID, arg.Settings)
 	return err
+}
+
+const upsertBillingProfile = `-- name: UpsertBillingProfile :one
+INSERT INTO billing_profiles (
+    tenant_id, kind, legal_name, tax_id, country, city, postal_code,
+    address_line1, address_line2, invoice_email, invoice_name, phone, updated_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, now())
+ON CONFLICT (tenant_id) DO UPDATE SET
+    kind = EXCLUDED.kind, legal_name = EXCLUDED.legal_name, tax_id = EXCLUDED.tax_id,
+    country = EXCLUDED.country, city = EXCLUDED.city, postal_code = EXCLUDED.postal_code,
+    address_line1 = EXCLUDED.address_line1, address_line2 = EXCLUDED.address_line2,
+    invoice_email = EXCLUDED.invoice_email, invoice_name = EXCLUDED.invoice_name,
+    phone = EXCLUDED.phone, updated_at = now()
+RETURNING tenant_id, kind, legal_name, tax_id, country, city, postal_code, address_line1, address_line2, invoice_email, invoice_name, phone, stripe_customer, updated_at
+`
+
+type UpsertBillingProfileParams struct {
+	TenantID     uuid.UUID `json:"tenant_id"`
+	Kind         string    `json:"kind"`
+	LegalName    string    `json:"legal_name"`
+	TaxID        string    `json:"tax_id"`
+	Country      string    `json:"country"`
+	City         string    `json:"city"`
+	PostalCode   string    `json:"postal_code"`
+	AddressLine1 string    `json:"address_line1"`
+	AddressLine2 string    `json:"address_line2"`
+	InvoiceEmail string    `json:"invoice_email"`
+	InvoiceName  string    `json:"invoice_name"`
+	Phone        string    `json:"phone"`
+}
+
+// O stripe_customer NÃO entra aqui: é escrito só pelo checkout (SetBillingStripeCustomer). Se
+// viesse no upsert, guardar a morada apagava a ligação ao cliente da Stripe.
+func (q *Queries) UpsertBillingProfile(ctx context.Context, arg UpsertBillingProfileParams) (BillingProfile, error) {
+	row := q.db.QueryRow(ctx, upsertBillingProfile,
+		arg.TenantID,
+		arg.Kind,
+		arg.LegalName,
+		arg.TaxID,
+		arg.Country,
+		arg.City,
+		arg.PostalCode,
+		arg.AddressLine1,
+		arg.AddressLine2,
+		arg.InvoiceEmail,
+		arg.InvoiceName,
+		arg.Phone,
+	)
+	var i BillingProfile
+	err := row.Scan(
+		&i.TenantID,
+		&i.Kind,
+		&i.LegalName,
+		&i.TaxID,
+		&i.Country,
+		&i.City,
+		&i.PostalCode,
+		&i.AddressLine1,
+		&i.AddressLine2,
+		&i.InvoiceEmail,
+		&i.InvoiceName,
+		&i.Phone,
+		&i.StripeCustomer,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const upsertBookingPage = `-- name: UpsertBookingPage :one

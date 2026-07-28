@@ -13,6 +13,33 @@ type CheckoutResult struct {
 	Applied bool   `json:"applied"`
 }
 
+// Cycle é a periodicidade da assinatura. Mensal é o padrão; anual cobra AnnualMonthsCharged meses
+// de uma vez (os restantes são o desconto de quem paga adiantado).
+type Cycle string
+
+const (
+	CycleMonth Cycle = "month"
+	CycleYear  Cycle = "year"
+	// AnnualMonthsCharged: 10 meses pelo ano = 2 meses grátis (~17% de desconto).
+	AnnualMonthsCharged = 10
+)
+
+// Normalize devolve um ciclo válido (qualquer coisa que não seja "year" é mensal).
+func (c Cycle) Normalize() Cycle {
+	if c == CycleYear {
+		return CycleYear
+	}
+	return CycleMonth
+}
+
+// CheckoutOpts são os extras do checkout: periodicidade e o cliente já criado no provedor (com
+// morada/NIF/e-mail de faturação), para a fatura sair completa.
+type CheckoutOpts struct {
+	Cycle        Cycle
+	CustomerID   string // cus_… (Stripe). Vazio = o provedor cria um no checkout.
+	InvoiceEmail string // usado só quando não há CustomerID
+}
+
 // WebhookEvent é o evento normalizado (independente de provedor) que o control plane aplica.
 type WebhookEvent struct {
 	EventID        string // id do provedor — usado para idempotência (brief §10)
@@ -38,13 +65,13 @@ type Provider interface {
 	// Checkout inicia/atualiza a assinatura do tenant. seats = nº de usuários cobrados.
 	// Checkout recebe o Plan JÁ resolvido pelo chamador (catálogo da BD desde a M2 do manager) —
 	// o provedor nunca consulta o catálogo em código, senão o preço divergiria do editado no painel.
-	Checkout(ctx context.Context, tenantID string, plan Plan, seats int) (CheckoutResult, error)
+	Checkout(ctx context.Context, tenantID string, plan Plan, seats int, opts CheckoutOpts) (CheckoutResult, error)
 	// ParseWebhook valida a assinatura e normaliza o evento. (nil, nil) = ignorar/sem efeito.
 	ParseWebhook(payload []byte, sigHeader string) (*WebhookEvent, error)
 	// Subscription lê a assinatura no provedor (status, fim do período, item para trocar preço).
 	Subscription(ctx context.Context, subID string) (SubscriptionInfo, error)
 	// UpdatePlan troca o preço/quantidade da assinatura ATIVA (upgrade/downgrade com rateio).
-	UpdatePlan(ctx context.Context, subID string, plan Plan, seats int) error
+	UpdatePlan(ctx context.Context, subID string, plan Plan, seats int, cycle Cycle) error
 	// SetCancelAtPeriodEnd cancela no fim do período (true) ou retoma (false).
 	SetCancelAtPeriodEnd(ctx context.Context, subID string, cancel bool) error
 	// PortalURL abre o portal do cliente (trocar forma de pagamento, faturas). "" = não suportado.
@@ -55,6 +82,25 @@ type Provider interface {
 	// SyncPlan espelha o plano no provedor (Product + Price). Preço mudou → Price novo (imutáveis)
 	// e o antigo é desativado. Devolve os ids atuais ("" no provedor manual).
 	SyncPlan(ctx context.Context, plan Plan, productID, priceID string, priceChanged bool) (newProductID, newPriceID string, err error)
+	// EnsureCustomer cria/atualiza o cliente no provedor com os dados de faturação (razão social,
+	// morada, NIF, e-mail do responsável financeiro). Devolve o id do cliente ("" = não suportado),
+	// que o checkout reutiliza — assim a fatura sai completa e não se pede tudo outra vez no cartão.
+	EnsureCustomer(ctx context.Context, customerID string, c Customer) (string, error)
+}
+
+// Customer são os dados de faturação enviados ao provedor. Espelha o que a fatura tem de mostrar.
+type Customer struct {
+	TenantID     string
+	Kind         string // company | individual
+	Name         string // razão social ou nome
+	Email        string // responsável financeiro (para onde vai a fatura)
+	TaxID        string // NIF/VAT já normalizado ("" = sem número)
+	Country      string // ISO alfa-2
+	City         string
+	PostalCode   string
+	AddressLine1 string
+	AddressLine2 string
+	Phone        string
 }
 
 // ManualProvider: sem gateway externo. O plano é aplicado direto (dev, self-serve interno,
@@ -63,7 +109,7 @@ type ManualProvider struct{}
 
 func (ManualProvider) Name() string { return "manual" }
 
-func (ManualProvider) Checkout(_ context.Context, _ string, _ Plan, _ int) (CheckoutResult, error) {
+func (ManualProvider) Checkout(_ context.Context, _ string, _ Plan, _ int, _ CheckoutOpts) (CheckoutResult, error) {
 	return CheckoutResult{Applied: true}, nil
 }
 
@@ -72,10 +118,13 @@ func (ManualProvider) ParseWebhook([]byte, string) (*WebhookEvent, error) { retu
 func (ManualProvider) Subscription(context.Context, string) (SubscriptionInfo, error) {
 	return SubscriptionInfo{}, nil
 }
-func (ManualProvider) UpdatePlan(context.Context, string, Plan, int) error       { return nil }
-func (ManualProvider) SetCancelAtPeriodEnd(context.Context, string, bool) error  { return nil }
-func (ManualProvider) PortalURL(context.Context, string, string) (string, error) { return "", nil }
-func (ManualProvider) UpdateQuantity(context.Context, string, int) error { return nil }
+func (ManualProvider) UpdatePlan(context.Context, string, Plan, int, Cycle) error { return nil }
+func (ManualProvider) SetCancelAtPeriodEnd(context.Context, string, bool) error   { return nil }
+func (ManualProvider) PortalURL(context.Context, string, string) (string, error)  { return "", nil }
+func (ManualProvider) UpdateQuantity(context.Context, string, int) error          { return nil }
+func (ManualProvider) EnsureCustomer(context.Context, string, Customer) (string, error) {
+	return "", nil
+}
 func (ManualProvider) SyncPlan(_ context.Context, _ Plan, productID, priceID string, _ bool) (string, string, error) {
 	return productID, priceID, nil
 }
