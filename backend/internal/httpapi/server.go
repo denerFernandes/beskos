@@ -718,6 +718,10 @@ func (s *Server) Router() http.Handler {
 		r.With(s.publicRateLimit).Post("/public/chat/hook/{token}", s.handleInboundWebhook) // webhook de entrada (bot)
 		// Eventos do SES via SNS (assinatura verificada dentro do handler).
 		r.With(s.publicRateLimit).Post("/webhooks/ses", s.handleSESWebhook)
+		// Registo self-service (/signup): catálogo, simulação com IVA e a criação da organização.
+		r.With(s.publicRateLimit).Get("/public/plans", s.handlePublicPlans)
+		r.With(s.publicRateLimit).Post("/public/quote", s.handlePublicQuote)
+		r.With(s.publicRateLimit).Post("/public/signup", s.handlePublicSignup)
 		r.With(s.publicRateLimit).Get("/public/booking/{org}/{user}", s.handlePublicBookingInfo)
 		r.With(s.publicRateLimit).Get("/public/booking/{org}/{user}/slots", s.handlePublicBookingSlots)
 		r.With(s.publicRateLimit).Post("/public/booking/{org}/{user}/book", s.handlePublicBookingCreate)

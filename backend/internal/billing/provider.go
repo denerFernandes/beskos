@@ -38,6 +38,8 @@ type CheckoutOpts struct {
 	Cycle        Cycle
 	CustomerID   string // cus_… (Stripe). Vazio = o provedor cria um no checkout.
 	InvoiceEmail string // usado só quando não há CustomerID
+	// TrialDays > 0 pede o cartão mas só cobra no fim do período de teste (registo self-service).
+	TrialDays int
 }
 
 // WebhookEvent é o evento normalizado (independente de provedor) que o control plane aplica.

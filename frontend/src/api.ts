@@ -231,6 +231,15 @@ export const api = {
   saveBillingProfile: (p: BillingProfile) => req<{ status: string }>("/api/billing/profile", { method: "PUT", body: JSON.stringify(p) }),
   billingQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string }) =>
     req<BillingQuote>("/api/billing/quote", { method: "POST", body: JSON.stringify(q) }),
+  // Registo self-service: catálogo e simulação SEM sessão (a organização ainda não existe).
+  publicPlans: () => req<{ plans: Plan[]; currency: string; trial_days: number; months_charged: number; seller_country: string }>("/api/public/plans"),
+  publicQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string; seats: number }) =>
+    req<BillingQuote>("/api/public/quote", { method: "POST", body: JSON.stringify(q) }),
+  publicSignup: (b: {
+    org_name: string; domain: string; login: string; name: string; password: string;
+    plan: string; cycle: BillingCycle; billing: BillingProfile;
+  }) => req<{ tenant_id: string; email: string; token: string; trial_days: number; checkout_url?: string }>(
+    "/api/public/signup", { method: "POST", body: JSON.stringify(b) }),
   billingCancel: () => req<{ status: string }>("/api/billing/cancel", { method: "POST", body: "{}" }),
   billingResume: () => req<{ status: string }>("/api/billing/resume", { method: "POST", body: "{}" }),
   billingPortal: () => req<{ url: string }>("/api/billing/portal", { method: "POST", body: "{}" }),

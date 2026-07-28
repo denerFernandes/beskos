@@ -68,6 +68,15 @@ UPDATE mail_users SET password_hash = @password_hash WHERE id = @id;
 -- Troca de senha: derruba as OUTRAS sessões do utilizador (a atual continua).
 DELETE FROM webmail_sessions WHERE mail_user_id = @mail_user_id AND token <> @keep_token;
 
+-- name: GetDomainByName :one
+-- Um domínio só pode existir uma vez na plataforma (é a caixa de correio de alguém).
+SELECT * FROM domains WHERE dominio = $1;
+
+-- name: DeleteTenant :exec
+-- Só o registo self-service usa isto, para desfazer um signup que falhou a meio (o resto cai em
+-- cascata). Nunca é exposto numa rota: apagar uma organização viva é operação do manager.
+DELETE FROM tenants WHERE id = $1;
+
 -- name: GetDomainByID :one
 SELECT * FROM domains WHERE id = $1;
 
