@@ -873,7 +873,7 @@ func (s *Server) fanoutMessage(ctx context.Context, channelID, tenantID, authorI
 		if merr != nil || m.NotifPref == "none" {
 			continue
 		}
-		s.notifyUser(ctx, tenantID, tid, "chat_mention", author+" mentioned you", preview, "/mail/chat", uuid.Nil,
+		s.notifyUser(ctx, tenantID, tid, "chat_mention", author+" mentioned you", preview, chatLink(channelID), uuid.Nil,
 			map[string]string{"actor": author})
 		notified[tid] = true
 	}
@@ -903,7 +903,7 @@ func (s *Server) fanoutMessage(ctx context.Context, channelID, tenantID, authorI
 			if !atChannel && !online[p.UserID.String()] {
 				continue // @here isolado: só quem está online
 			}
-			s.notifyUser(ctx, tenantID, p.UserID, "chat_mention", author+" called "+label+" in #"+meta.Name, preview, "/mail/chat", uuid.Nil,
+			s.notifyUser(ctx, tenantID, p.UserID, "chat_mention", author+" called "+label+" in #"+meta.Name, preview, chatLink(channelID), uuid.Nil,
 				map[string]string{"actor": author, "at": label, "channel": meta.Name})
 			notified[p.UserID] = true
 		}
@@ -924,7 +924,7 @@ func (s *Server) fanoutMessage(ctx context.Context, channelID, tenantID, authorI
 			title = author + " in #" + meta.Name
 			nkind = "chat_message"
 		}
-		s.notifyPushOnly(ctx, p.UserID, nkind, title, preview, "/mail/chat")
+		s.notifyPushOnly(ctx, p.UserID, nkind, title, preview, chatLink(channelID))
 	}
 }
 

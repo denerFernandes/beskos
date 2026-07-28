@@ -11,7 +11,11 @@ import { IcVideo, IcPlus, IcCalendar, IcCheck, IcX, IcUsers, IcList, IcDownload,
 
 // Meet: home com reuniões próximas (agendadas/convidadas) e anteriores (duração/data), RSVP e
 // agendamento. A chamada usa o componente pronto do LiveKit (grade/mudo/câmera/tela/sair).
-export function MeetView({ roomParam }: { roomParam?: string }) {
+export function MeetView({ roomParam, meetingParam }: {
+  roomParam?: string;
+  /** Reunião a abrir (/mail/meet/m/<id>) — destino do convite. Mostra a ficha; entrar é escolha de quem clica. */
+  meetingParam?: string;
+}) {
   const { t, i18n } = useTranslation();
   const nav = useNavigate();
   const qc = useQueryClient();
@@ -29,7 +33,7 @@ export function MeetView({ roomParam }: { roomParam?: string }) {
   const [upPage, setUpPage] = useState(1);
   const [pastPage, setPastPage] = useState(1);
   const [recPage, setRecPage] = useState(1);
-  const list = useQuery({ queryKey: ["meetings"], queryFn: () => backend.meetList(), retry: false, enabled: ag.view !== "list" });
+  const list = useQuery({ queryKey: ["meetings"], queryFn: () => backend.meetList(), retry: false, enabled: ag.view !== "list" || !!meetingParam });
   const upQ = useQuery({ queryKey: ["meetings", "upcoming", upPage], queryFn: () => backend.meetListPage("upcoming", upPage, PER), retry: false });
   const pastQ = useQuery({ queryKey: ["meetings", "past", pastPage], queryFn: () => backend.meetListPage("past", pastPage, PER), retry: false });
   const recs = useQuery({ queryKey: ["recordings", recPage], queryFn: () => backend.meetRecordings(recPage, PER), retry: false });
@@ -49,6 +53,16 @@ export function MeetView({ roomParam }: { roomParam?: string }) {
       nav("/mail/meet", { replace: true });
     }
   }, [roomParam, nav]);
+
+  // /mail/meet/m/<id>: destino do convite de reunião. Abre a ficha assim que a lista chegar.
+  const opened = useRef<string | null>(null);
+  useEffect(() => {
+    if (!meetingParam || opened.current === meetingParam) return;
+    const m = (list.data?.meetings ?? []).find((x) => x.id === meetingParam);
+    if (!m) return; // ainda a carregar (ou reunião cancelada): não faz nada
+    opened.current = meetingParam;
+    setDetail(m);
+  }, [meetingParam, list.data]);
 
   const meetings = list.data?.meetings ?? []; // agenda
   const upcoming = upQ.data?.meetings ?? [];

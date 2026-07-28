@@ -513,7 +513,7 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 	if target, terr := s.q.GetMailUserByEmail(r.Context(), req.Principal); terr == nil && target.TenantID == f.TenantID {
 		mu := mailUserFrom(r.Context())
 		s.notifyUser(r.Context(), f.TenantID, target.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", "/mail/files", uuid.Nil,
+			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
 			map[string]string{"actor": mu.Email, "file": f.Nome})
 	}
 	writeJSON(w, http.StatusCreated, sh)

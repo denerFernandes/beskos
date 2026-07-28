@@ -5,10 +5,10 @@
 // Regra de ruído: só notifica quando a aba NÃO está visível (document.hidden). Se a pessoa está a
 // olhar para o Beskos, já vê o que chega — uma notificação do SO seria redundante.
 
-import { isTauri, tauriPermission, tauriRequestPermission, tauriShow } from "./tauriNotify";
+import { isTauri, onNotifOpen, tauriPermission, tauriRequestPermission, tauriShow } from "./tauriNotify";
 
-export type NotifDomain = "email" | "chat" | "meet" | "files" | "tasks";
-const DOMAINS: NotifDomain[] = ["email", "chat", "meet", "files", "tasks"];
+export type NotifDomain = "email" | "chat" | "meet" | "cal" | "files" | "tasks";
+const DOMAINS: NotifDomain[] = ["email", "chat", "meet", "cal", "files", "tasks"];
 const LS_PREFS = "mailin.notif.prefs";
 
 export function notifSupported(): boolean {
@@ -30,7 +30,7 @@ export async function requestNotifPermission(): Promise<NotificationPermission> 
 }
 
 export function notifPrefs(): Record<NotifDomain, boolean> {
-  const def = { email: true, chat: true, meet: true, files: true, tasks: true };
+  const def = { email: true, chat: true, meet: true, cal: true, files: true, tasks: true };
   try {
     const raw = localStorage.getItem(LS_PREFS);
     if (!raw) return def;
@@ -50,10 +50,12 @@ export function isDomain(v: string): v is NotifDomain {
 // Mostra uma notificação preferindo o SERVICE WORKER (registration.showNotification), que é o
 // caminho fiável em Chrome/Edge/Firefox desktop — o construtor `new Notification()` é obsoleto e
 // não aparece em vários browsers. Cai para o construtor só se não houver SW.
-async function show(title: string, body?: string, tag?: string): Promise<boolean> {
+async function show(title: string, body?: string, tag?: string, link?: string): Promise<boolean> {
   if (notifPermission() !== "granted") return false;
-  if (isTauri()) return tauriShow(title, body); // notificação nativa do SO (desktop/mobile)
-  const opts: NotificationOptions = { body, tag, icon: "/beskos-mark.svg", badge: "/beskos-mark.svg" };
+  if (isTauri()) return tauriShow(title, body, link); // notificação nativa do SO (desktop/mobile)
+  // `data.link`: é daqui que o service worker tira para onde navegar no clique (mesmo contrato do
+  // push). Sem isto o clique caía sempre na caixa de entrada, fosse qual fosse o aviso.
+  const opts: NotificationOptions = { body, tag, icon: "/beskos-mark.svg", badge: "/beskos-mark.svg", data: { link: link || "/mail" } };
   // Caminho preferido: service worker ATIVO. Logo após register() o SW ainda está a instalar e
   // reg.showNotification() falha em silêncio — por isso esperamos serviceWorker.ready (com timeout
   // curto para não pendurar) antes de usar o registration.
@@ -67,10 +69,24 @@ async function show(title: string, body?: string, tag?: string): Promise<boolean
       if (reg?.showNotification) { await reg.showNotification(title, opts); return true; }
     } catch { /* cai para o construtor abaixo */ }
   }
-  // Fallback: construtor Notification (menos fiável, mas suficiente em vários browsers).
-  try { const n = new Notification(title, opts); n.onclick = () => { window.focus(); n.close(); }; return true; }
-  catch { return false; }
+  // Fallback: construtor Notification (menos fiável, mas suficiente em vários browsers). Aqui o
+  // clique chega a esta aba (não ao service worker), por isso navegamos nós.
+  try {
+    const n = new Notification(title, opts);
+    n.onclick = () => { window.focus(); n.close(); if (link) navigateTo?.(link); };
+    return true;
+  } catch { return false; }
 }
+
+// Como navegar quando o clique é tratado NESTA aba (fallback do construtor Notification). O App
+// regista o `navigate` do router — sem isto teríamos de recarregar a página inteira.
+let navigateTo: ((link: string) => void) | null = null;
+export function setNotifNavigate(fn: ((link: string) => void) | null): void {
+  navigateTo = fn;
+}
+
+// onDesktopNotifClick liga o clique numa notificação NATIVA (app de desktop) à navegação da app.
+export { onNotifOpen as onDesktopNotifClick };
 
 // Notificação de TESTE — ignora a regra de visibilidade e as preferências por app. Se ainda não há
 // permissão, pede-a primeiro (o clique no botão é o gesto exigido pelo browser).
@@ -85,13 +101,16 @@ export async function testNotification(title: string, body: string): Promise<boo
 
 // Mostra uma notificação do SO se: browser suporta, permissão concedida, o domínio está ligado e a
 // aba não está visível. `tag` deduplica (uma notificação por conversa/evento em vez de empilhar).
+// `link` é a rota do ELEMENTO que originou o aviso — clicar na notificação abre-o.
 export function showDesktopNotification(domain: NotifDomain, opts: {
-  title: string; body?: string; tag?: string; onClick?: () => void;
+  title: string; body?: string; tag?: string; link?: string;
 }): void {
   if (notifPermission() !== "granted") return;
   if (!notifPrefs()[domain]) return;
   // No app nativo a janela pode estar minimizada mas "visível"; document.hidden é pouco fiável no
   // WKWebView. Na web mantemos a regra de só notificar com a aba escondida (evita ruído redundante).
   if (!isTauri() && !document.hidden) return;
-  void show(opts.title, opts.body, opts.tag); // o clique é tratado no service worker (notificationclick)
+  // Web: o clique é tratado no service worker (notificationclick), que lê o link de `data`.
+  // Desktop: o Rust espera pelo clique e emite `notif-open` com o mesmo link.
+  void show(opts.title, opts.body, opts.tag, opts.link);
 }

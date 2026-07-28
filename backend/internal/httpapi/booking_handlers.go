@@ -426,7 +426,7 @@ func (s *Server) handlePublicBookingCreate(w http.ResponseWriter, r *http.Reques
 	// Notificação in-app + push ao colaborador (o frontend traduz por kind+args).
 	s.notifyUser(ctx, page.TenantID, owner.ID, "booking_new",
 		"New booking: "+req.Name, req.Name+" ("+req.Email+") booked "+starts.Format("02/01/2006 15:04"),
-		"/mail/cal", uuid.Nil, map[string]string{"name": req.Name, "email": req.Email, "when": starts.Format(time.RFC3339)})
+		eventLink(ev.ID, starts), uuid.Nil, map[string]string{"name": req.Name, "email": req.Email, "when": starts.Format(time.RFC3339)})
 
 	out := map[string]any{"status": "ok", "starts_at": starts.Format(time.RFC3339), "duration_min": page.DurationMin}
 	if room != "" && s.publicURL != "" {

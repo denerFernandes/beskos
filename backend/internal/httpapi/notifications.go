@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -15,6 +17,25 @@ import (
 
 // Notificações in-app (sino) + disparo de e-mail. O envio real de e-mail é opcional (só se
 // NOTIFY_* estiver configurado); as notificações in-app funcionam sempre.
+
+// Rotas dos ELEMENTOS que originam notificações. O `link` é o que abre ao clicar — no sino, na
+// notificação do sistema (app de desktop) e no web push. Aponta sempre para o item concreto, não
+// para a área: clicar num aviso de ficheiro partilhado abre o ficheiro, não o Drive.
+
+// chatLink abre a conversa (canal ou DM).
+func chatLink(channelID uuid.UUID) string { return "/mail/chat/" + channelID.String() }
+
+// fileLink abre o ficheiro (visualizador ou editor Office, conforme o tipo).
+func fileLink(fileID uuid.UUID) string { return "/mail/files/file/" + fileID.String() }
+
+// meetingLink abre a ficha da reunião (não entra na sala — a decisão de entrar é de quem clica).
+func meetingLink(meetingID uuid.UUID) string { return "/mail/meet/m/" + meetingID.String() }
+
+// eventLink abre o evento no calendário. A data vai junto (`?d=`) porque a agenda carrega por
+// intervalo: sem ela abriria na semana de hoje e o evento nem estaria carregado.
+func eventLink(eventID uuid.UUID, when time.Time) string {
+	return "/mail/cal/" + eventID.String() + "?d=" + url.QueryEscape(when.UTC().Format(time.RFC3339))
+}
 
 // notifyUser cria uma notificação in-app para um usuário do tenant.
 //

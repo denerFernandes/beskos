@@ -2072,7 +2072,9 @@ dependencies = [
 name = "mailin"
 version = "0.1.0"
 dependencies = [
+ "mac-notification-sys",
  "mailin-sync",
+ "notify-rust",
  "serde",
  "serde_json",
  "tauri",

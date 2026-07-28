@@ -71,3 +71,19 @@ export const IcImage = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="3" wid
 export const IcPin = ({ size }: P) => (<svg {...S(size)}><path d="M12 17v5" /><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" /></svg>);
 export const IcPencilBox = ({ size }: P) => (<svg {...S(size)}><path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" /><path d="M17.5 3.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>);
 export const IcVideo = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="6" width="13" height="12" rx="2.5" /><path d="m16 10 5-3v10l-5-3z" /></svg>);
+
+// --- Formatação de texto (barra do editor do chat, estilo Slack) ---
+// Traço em vez de tipografia: as letras (B/I/S) de antes mudavam de peso com a fonte do sistema e
+// não casavam com o resto dos ícones. Aqui é tudo o mesmo desenho de contorno, herdando a cor.
+export const IcBold = ({ size }: P) => (<svg {...S(size)}><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7Z" /><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7Z" /></svg>);
+export const IcItalic = ({ size }: P) => (<svg {...S(size)}><path d="M15 5h-5M14 19H9M13.5 5 10.5 19" /></svg>);
+export const IcUnderline = ({ size }: P) => (<svg {...S(size)}><path d="M7 4v6a5 5 0 0 0 10 0V4" /><path d="M6 20h12" /></svg>);
+export const IcStrike = ({ size }: P) => (<svg {...S(size)}><path d="M4 12h16" /><path d="M16.5 7a4 4 0 0 0-4-2.5c-2.5 0-4 1.3-4 3.2 0 1.4.9 2.4 2.5 3" /><path d="M8 16.5A4.2 4.2 0 0 0 12 19c2.6 0 4.2-1.3 4.2-3.2 0-1-.4-1.8-1.2-2.4" /></svg>);
+export const IcListOrdered = ({ size }: P) => (<svg {...S(size)}><path d="M10 6h11M10 12h11M10 18h11" /><path d="M4 5.5 5.2 5v4M3.6 15.2c0-.7.6-1.2 1.3-1.2s1.3.5 1.3 1.2c0 1.2-2.6 1.6-2.6 3.3h2.7" /></svg>);
+export const IcQuote = ({ size }: P) => (<svg {...S(size)}><path d="M4 5v14" /><path d="M9 8h11M9 12h11M9 16h7" /></svg>);
+export const IcCode = ({ size }: P) => (<svg {...S(size)}><path d="m9 8-5 4 5 4M15 8l5 4-5 4" /></svg>);
+export const IcCodeBlock = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4.5" width="18" height="15" rx="2" /><path d="m9.5 10-2 2 2 2M14.5 10l2 2-2 2" /></svg>);
+export const IcAt = ({ size }: P) => (<svg {...S(size)}><circle cx="12" cy="12" r="4" /><path d="M16 8v5a2.6 2.6 0 0 0 5 0v-1a9 9 0 1 0-3.5 7.1" /></svg>);
+export const IcSlash = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4" width="18" height="16" rx="3" /><path d="m14 8.5-4 7" /></svg>);
+// "Aa": mostra/esconde a barra de formatação (mesmo botão do Slack).
+export const IcTextSize = ({ size }: P) => (<svg {...S(size)}><path d="M2.5 18 7 7l4.5 11M4 14.5h6" /><circle cx="16.6" cy="15.4" r="3.1" /><path d="M19.7 12.3v6.3" /></svg>);

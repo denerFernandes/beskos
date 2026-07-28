@@ -296,7 +296,7 @@ function KanbanSection() {
 
 // Notificações desktop: permissão do browser + escolha por app. Preferências por-dispositivo
 // (localStorage) — a permissão é do browser, então activar aqui não afeta outros aparelhos.
-const NOTIF_DOMAINS: NotifDomain[] = ["email", "chat", "meet", "files", "tasks"];
+const NOTIF_DOMAINS: NotifDomain[] = ["email", "chat", "meet", "cal", "files", "tasks"];
 const WEBPUSH_FLAG = "mailin.webpush.on";
 function NotificationsSection() {
   const { t } = useTranslation();

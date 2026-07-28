@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { backend, colleaguesApi, type CalEvent, type Tag, type Calendar } from "./backend";
@@ -27,8 +28,13 @@ const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0);
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const weekStart = (d: Date, startsOn = 1) => { const x = startOfDay(d); x.setDate(x.getDate() - ((x.getDay() - startsOn + 7) % 7)); return x; };
 
-export function CalendarView({ search }: { search: string }) {
+export function CalendarView({ search, eventParam }: {
+  search: string;
+  /** Evento a abrir (/mail/cal/<id>?d=<data>) — destino dos avisos de convite/RSVP/reserva. */
+  eventParam?: string;
+}) {
   const { t, i18n } = useTranslation();
+  const [urlParams] = useSearchParams();
   const qc = useQueryClient();
   const [view, setView] = useState<View>("week");
   const [cursor, setCursor] = useState(new Date());
@@ -60,6 +66,24 @@ export function CalendarView({ search }: { search: string }) {
     const s = weekStart(first, weekStartsOn); return [s, addDays(s, 42)];
   })();
   const evQ = useQuery({ queryKey: ["events", range[0].toISOString(), view], queryFn: () => backend.events(range[0].toISOString(), range[1].toISOString()), retry: false });
+
+  // Deep link /mail/cal/<id>?d=<data>: veio de uma notificação. Primeiro leva a grade para a data do
+  // evento (a agenda só carrega o intervalo visível); quando esse intervalo chega, abre a ficha.
+  const day = urlParams.get("d");
+  useEffect(() => {
+    if (!eventParam || !day) return;
+    const d = new Date(day);
+    if (!isNaN(d.getTime())) setCursor(d);
+  }, [eventParam, day]);
+  const openedEvent = useRef<string | null>(null);
+  useEffect(() => {
+    if (!eventParam || openedEvent.current === eventParam) return;
+    // Procura na resposta CRUA: um calendário escondido não deve engolir um link direto.
+    const ev = (evQ.data ?? []).find((e) => e.id === eventParam);
+    if (!ev) return; // ainda a carregar (ou evento apagado): não faz nada
+    openedEvent.current = eventParam;
+    setModal({ event: ev });
+  }, [eventParam, evQ.data]);
   const calsQ = useQuery({ queryKey: ["calendars"], queryFn: () => backend.calendars(), retry: false });
   const cals = calsQ.data ?? [];
   const [hidden, setHidden] = useState<Set<string>>(new Set());

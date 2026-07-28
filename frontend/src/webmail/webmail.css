@@ -1327,15 +1327,33 @@
 .wm .composer-wrap{position:relative;padding:10px 20px 16px;border-top:1px solid var(--border);}
 .wm .rich-box{border:1px solid var(--border-strong);border-radius:12px;background:var(--paper);overflow:hidden;}
 .wm .rich-box:focus-within{border-color:var(--accent);}
-.wm .rich-toolbar{display:flex;align-items:center;gap:1px;padding:5px 8px;border-bottom:1px solid var(--border);}
-.wm .rich-toolbar button{min-width:28px;height:26px;border:none;background:none;color:var(--muted);border-radius:6px;font-size:13px;cursor:pointer;}
-.wm .rich-toolbar button:hover{background:var(--surface-2);color:var(--ink);}
-.wm .rich-toolbar .sep{width:1px;height:16px;background:var(--border);margin:0 5px;}
+/* Editor estilo Slack: formatação em cima, escrita ao meio, ações em baixo. Os botões das duas
+   barras partilham o mesmo desenho (quadrado, ícone de traço, fundo só no hover) — é o que faz a
+   caixa parecer uma peça só em vez de duas filas de coisas diferentes. */
+.wm .rich-toolbar,
+.wm .rich-foot{display:flex;align-items:center;gap:2px;}
+.wm .rich-toolbar{padding:6px 8px;border-bottom:1px solid var(--border);}
+.wm .rich-foot{padding:6px 8px 7px;}
+.wm .rich-toolbar button,
+.wm .rich-foot button{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 6px;border:none;background:none;color:var(--muted);border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;}
+.wm .rich-toolbar button:hover,
+.wm .rich-foot button:hover{background:var(--surface-2);color:var(--ink);}
+.wm .rich-foot button.on{background:var(--surface-2);color:var(--ink);}
+.wm .rich-toolbar .sep,
+.wm .rich-foot .sep{width:1px;height:18px;background:var(--border);margin:0 5px;flex:none;}
+.wm .rich-foot .grow{flex:1;}
+/* O wrapper do emoji/GIF é a âncora do popup; na barra tem de se comportar como o próprio botão. */
+.wm .rich-foot .react-wrap{display:inline-flex;}
 .wm .rich-box textarea{display:block;width:100%;border:none;background:none;outline:none;color:var(--ink);font:inherit;font-size:14.5px;line-height:1.5;padding:10px 14px;resize:none;max-height:180px;}
-.wm .rich-foot{display:flex;align-items:center;gap:12px;padding:6px 10px 8px;}
-.wm .rich-foot .hint{font-size:11.5px;color:var(--faint);}
-.wm .rich-foot .send{margin-left:auto;background:var(--accent-solid);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-weight:600;cursor:pointer;}
-.wm .rich-foot .send:disabled{opacity:.5;}
+.wm .rich-foot .hint{font-size:11.5px;color:var(--faint);margin-right:2px;}
+/* Enviar: o único botão cheio da barra — é a ação principal e tem de se ver de relance. */
+.wm .rich-foot .send{background:var(--accent-solid);color:#fff;min-width:34px;height:30px;border-radius:8px;}
+.wm .rich-foot .send:hover{background:var(--accent-solid);color:#fff;filter:brightness(1.08);}
+.wm .rich-foot .send:disabled{opacity:.45;filter:none;}
+@media (max-width:640px){
+  /* No telemóvel a dica de teclado não serve de nada e roubava a linha toda aos botões. */
+  .wm .rich-foot .hint{display:none;}
+}
 /* O seletor do compositor abre PARA CIMA e fica FORA da .rich-box: ela tem overflow:hidden (é o
    que arredonda os cantos) e recortava o popup por inteiro — parecia que o botão não abria.
    position:fixed tira-o do fluxo da caixa; a posição vem do JS, que sabe onde está o botão. */
@@ -1346,6 +1364,9 @@
 .wm .msg-txt .md-block{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-family:ui-monospace,monospace;font-size:13px;white-space:pre-wrap;margin:5px 0;overflow-x:auto;}
 .wm .msg-txt .md-quote{border-left:3px solid var(--border-strong);padding-left:10px;color:var(--muted);margin:2px 0;}
 .wm .msg-txt .md-list{margin:2px 0;padding-left:20px;}
+/* ol/ul partilham o recuo; só a marca muda (a numerada precisa do contador do browser). */
+.wm .md-list{list-style:disc;}
+.wm .md-olist{list-style:decimal;}
 .wm .msg-txt .md-mention{background:var(--accent-tint);color:var(--accent-ink);border-radius:4px;padding:0 3px;font-weight:600;}
 .wm .msg-txt a{color:var(--accent-ink);}
 /* Cartão de chamada */

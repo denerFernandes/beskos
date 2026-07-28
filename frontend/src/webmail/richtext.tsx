@@ -3,9 +3,12 @@ import { customEmojiUrl } from "./customEmoji";
 
 // Renderizador de markdown leve (subconjunto estilo Slack), sem dependência externa. Constrói
 // nós React (o React já escapa texto → sem risco de XSS). Suporta: **negrito**, _itálico_,
-// ~~tachado~~, `código`, ```bloco```, links [t](u) e URLs soltas, @menções, :emoji_custom:, > citação e listas.
+// __sublinhado__, ~~tachado~~, `código`, ```bloco```, links [t](u) e URLs soltas, @menções,
+// :emoji_custom:, > citação e listas (com marca e numeradas).
 
-const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(_[^_]+_)|(\[[^\]]+\]\([^)]+\))|(https?:\/\/[^\s]+)|(@[\w.\-]+)|(:[a-z0-9_]{2,32}:)/g;
+// `__sublinhado__` vem ANTES de `_itálico_`: em alternância a primeira que casa ganha, e com a
+// ordem trocada o sublinhado seria lido como itálico com underscores a mais.
+const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(__[^_]+__)|(_[^_]+_)|(\[[^\]]+\]\([^)]+\))|(https?:\/\/[^\s]+)|(@[\w.\-]+)|(:[a-z0-9_]{2,32}:)/g;
 
 
 // Link para uma tarefa (/mail/kanban/<quadro>/<tarefa>): em vez de um link azul no meio da frase,
@@ -48,6 +51,7 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
     if (tok.startsWith("`")) out.push(<code key={key} className="md-code">{tok.slice(1, -1)}</code>);
     else if (tok.startsWith("**")) out.push(<strong key={key}>{tok.slice(2, -2)}</strong>);
     else if (tok.startsWith("~~")) out.push(<s key={key}>{tok.slice(2, -2)}</s>);
+    else if (tok.startsWith("__")) out.push(<u key={key}>{tok.slice(2, -2)}</u>);
     else if (tok.startsWith("_")) out.push(<em key={key}>{tok.slice(1, -1)}</em>);
     else if (tok.startsWith("[")) {
       const mm = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(tok);
@@ -77,12 +81,29 @@ export function renderRich(text: string): ReactNode {
       return;
     }
     const lines = part.split("\n");
+    // Uma lista de cada vez: `ordered` diz se o que está a ser acumulado é numerado (<ol>) ou de
+    // marcas (<ul>). Trocar de tipo fecha a anterior — senão "1." e "-" caíam na mesma lista.
     let list: ReactNode[] | null = null;
-    const flush = () => { if (list) { blocks.push(<ul key={`u${pi}-${blocks.length}`} className="md-list">{list}</ul>); list = null; } };
+    let ordered = false;
+    const flush = () => {
+      if (!list) return;
+      const key = `u${pi}-${blocks.length}`;
+      blocks.push(ordered
+        ? <ol key={key} className="md-list md-olist">{list}</ol>
+        : <ul key={key} className="md-list">{list}</ul>);
+      list = null;
+    };
     lines.forEach((line, li) => {
       const key = `l${pi}-${li}`;
       const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
-      if (bullet) { (list ??= []).push(<li key={key}>{renderInline(bullet[1], key)}</li>); return; }
+      const numbered = /^\s*\d+[.)]\s+(.*)$/.exec(line);
+      if (bullet || numbered) {
+        const isOrdered = !bullet;
+        if (list && ordered !== isOrdered) flush();
+        ordered = isOrdered;
+        (list ??= []).push(<li key={key}>{renderInline((bullet ?? numbered)![1], key)}</li>);
+        return;
+      }
       flush();
       if (/^\s*>\s?/.test(line)) { blocks.push(<blockquote key={key} className="md-quote">{renderInline(line.replace(/^\s*>\s?/, ""), key)}</blockquote>); return; }
       if (line.trim() === "") { if (li > 0 && li < lines.length - 1) blocks.push(<br key={key} />); return; }

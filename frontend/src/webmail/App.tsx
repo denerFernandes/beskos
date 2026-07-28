@@ -10,6 +10,7 @@ import { backend, settingsApi } from "./backend";
 import { useJmapPush } from "./useJmapPush";
 import { useDesktopNotifier } from "./useDesktopNotifier";
 import { onNotificationClick } from "./webpush";
+import { onDesktopNotifClick, setNotifNavigate } from "./desktopNotify";
 import { applyBrandColor, cacheBrand, BESKOS_MARK } from "./branding";
 import { initials } from "./util";
 import { isTauri } from "./tauriNotify";
@@ -112,8 +113,15 @@ export function App({ session }: { session: WebmailSession }) {
   // a pessoa veria uma lista vazia sem perceber porquê.
   useEffect(() => { setSearch(""); }, [view]);
 
-  // Clicar numa notificação desktop (do service worker) navega para o item.
+  // Clicar numa notificação desktop navega para o ITEM que a originou. Três origens, o mesmo
+  // destino: service worker (web push), app nativo (evento do Rust) e o construtor Notification
+  // (fallback web, cujo clique cai nesta aba).
   useEffect(() => onNotificationClick((link) => nav(link)), [nav]);
+  useEffect(() => onDesktopNotifClick((link) => nav(link)), [nav]);
+  useEffect(() => {
+    setNotifNavigate((link) => nav(link));
+    return () => setNotifNavigate(null);
+  }, [nav]);
   const qc = useQueryClient();
   // Desktop: abrir um .vcf com o Beskos importa o contacto para a agenda. Só liga com sessão (esta
   // shell só monta autenticada), por isso o import nunca corre deslogado.
@@ -166,8 +174,6 @@ export function App({ session }: { session: WebmailSession }) {
   const inboxId = boxesQ.data?.find((b) => b.role === "inbox")?.id ?? null;
   const notifyEmail = useDesktopNotifier({
     service: session.service, inboxId, notifItems: notifQ.data?.items,
-    onOpenMail: () => nav("/mail/mail"),
-    onOpenNotif: (n) => { if (n.link) nav(n.link); },
   });
 
   // Push JMAP global (fica ativo em qualquer aba): mantém a badge de e-mail viva mesmo fora do Mail
@@ -280,10 +286,13 @@ export function App({ session }: { session: WebmailSession }) {
           {view === "mail" && <MailView session={session} search={search} sub={sub} sub2={sub2} advOpen={advOpen} onAdvClose={() => setAdvOpen(false)} />}
           {view === "chat" && <ChatView search={search} onSearch={fillSearch} session={session} channelParam={sub} onChannel={(id) => nav(`/mail/chat/${id}`)} />}
           {view === "kanban" && <KanbanView search={search} boardParam={sub} cardParam={sub2} onBoard={(id) => nav(`/mail/kanban/${id}`)} onCard={(bid, cid) => nav(cid ? `/mail/kanban/${bid}/${cid}` : `/mail/kanban/${bid}`)} />}
-          {view === "cal" && <CalendarView search={search} />}
-          {view === "files" && <FilesView search={search} folderParam={sub} onFolder={(id) => nav(id ? `/mail/files/${id}` : "/mail/files")} />}
+          {view === "cal" && <CalendarView search={search} eventParam={sub} />}
+          {/* "file" e "m" são segmentos reservados: /mail/files/file/<id> abre o ficheiro e
+              /mail/meet/m/<id> a ficha da reunião (destinos das notificações). Os ids são UUID,
+              nunca colidem com estes nomes. */}
+          {view === "files" && <FilesView search={search} folderParam={sub === "file" ? undefined : sub} fileParam={sub === "file" ? sub2 : undefined} onFolder={(id) => nav(id ? `/mail/files/${id}` : "/mail/files")} />}
           {view === "contacts" && <ContactsView search={search} sub={sub} sub2={sub2} />}
-          {view === "meet" && <MeetView roomParam={sub} />}
+          {view === "meet" && <MeetView roomParam={sub === "m" ? undefined : sub} meetingParam={sub === "m" ? sub2 : undefined} />}
           {view === "wiki" && <WikiView sub={sub} sub2={sub2} onNav={(s, p) => nav(p ? `/mail/wiki/${s}/${p}` : s ? `/mail/wiki/${s}` : "/mail/wiki")} />}
           {/* sec vazio = voltar à raiz (lista de secções no telemóvel); senão entra na secção. */}
           {view === "admin" && canAdmin && (
