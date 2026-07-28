@@ -87,3 +87,4 @@ export const IcAt = ({ size }: P) => (<svg {...S(size)}><circle cx="12" cy="12" 
 export const IcSlash = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4" width="18" height="16" rx="3" /><path d="m14 8.5-4 7" /></svg>);
 // "Aa": mostra/esconde a barra de formatação (mesmo botão do Slack).
 export const IcTextSize = ({ size }: P) => (<svg {...S(size)}><path d="M2.5 18 7 7l4.5 11M4 14.5h6" /><circle cx="16.6" cy="15.4" r="3.1" /><path d="M19.7 12.3v6.3" /></svg>);
+export const IcTable = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4.5" width="18" height="15" rx="2" /><path d="M3 9.5h18M9 9.5V19.5M15 9.5V19.5" /></svg>);

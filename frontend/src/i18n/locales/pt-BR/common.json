@@ -1801,7 +1801,21 @@
     "archivedDone": "Canal arquivado.",
     "archivedSection": "Arquivados",
     "restore": "Restaurar",
-    "restored": "Canal restaurado."
+    "restored": "Canal restaurado.",
+    "linkText": "Texto",
+    "linkUrl": "Link",
+    "addUpload": "Carregar do computador",
+    "addDrive": "Anexar do Drive",
+    "addSnippet": "Bloco de código",
+    "addTask": "Referir uma tarefa",
+    "previewOpen": "Abrir em tela cheia",
+    "previewPartial": "Pré-visualização do início do ficheiro",
+    "csvMoreRows_one": "+{{count}} linha",
+    "csvMoreRows_other": "+{{count}} linhas",
+    "csvMoreCols_one": "+{{count}} coluna",
+    "csvMoreCols_other": "+{{count}} colunas",
+    "textMoreLines_one": "+{{count}} linha",
+    "textMoreLines_other": "+{{count}} linhas"
   },
   "groups": {
     "title": "Equipas",
