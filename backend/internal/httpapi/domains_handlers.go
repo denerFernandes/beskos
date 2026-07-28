@@ -103,6 +103,7 @@ func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 		Password: req.Password, QuotaBytes: quota << 30,
 	})
 	if err != nil {
+		log.Printf("criar caixa no Stalwart falhou: %v", err)
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}

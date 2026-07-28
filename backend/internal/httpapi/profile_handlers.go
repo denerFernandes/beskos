@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/base64"
+	"log"
 	"net/http"
 	"strings"
 
@@ -82,6 +83,7 @@ func (s *Server) handleChangeMyPassword(w http.ResponseWriter, r *http.Request) 
 	}
 	if fresh.StalwartAccountID != nil {
 		if err := s.sw.SetAccountPassword(r.Context(), *fresh.StalwartAccountID, req.New); err != nil {
+			log.Printf("perfil: Stalwart recusou: %v", err)
 			writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 			return
 		}

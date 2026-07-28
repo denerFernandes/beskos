@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/base64"
+	"log"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -73,6 +74,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		Login: req.Login, DomainID: strval(d.StalwartID), DisplayName: req.Name, Password: req.Password, QuotaBytes: quota << 30,
 	})
 	if err != nil {
+		log.Printf("operação de caixa no Stalwart falhou: %v", err)
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}
@@ -126,6 +128,7 @@ func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := s.sw.SetAccountPassword(r.Context(), *mu.StalwartAccountID, req.Password); err != nil {
+		log.Printf("operação de caixa no Stalwart falhou: %v", err)
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}
