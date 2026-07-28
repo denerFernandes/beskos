@@ -656,7 +656,9 @@ export const gifsApi = {
 export interface EmailSettings { signature?: string; signatureOn?: boolean; aiSummary?: boolean }
 // Preferências gerais que seguem o utilizador entre aparelhos (web, desktop, mobile). O localStorage
 // continua a ser o cache instantâneo pré-login; ao carregar, o servidor ganha.
-export interface GeneralSettings { theme?: "light" | "dark"; language?: string; startView?: string }
+export interface GeneralSettings { theme?: "light" | "dark"; language?: string; startView?: string;
+  /** Primeiro acesso concluído (senha, marca, equipa). Ausente = ainda por fazer. */
+  onboarded?: boolean }
 export interface ChatSettings { enterSends?: boolean; sounds?: boolean }
 export interface CalendarSettings {
   weekStart?: "monday" | "sunday";

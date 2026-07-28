@@ -509,8 +509,13 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "storage.share_failed")
 		return
 	}
-	// Notifica o destinatário (se for um usuário do mesmo tenant): alimenta a badge de Arquivos.
-	if target, terr := s.q.GetMailUserByEmail(r.Context(), req.Principal); terr == nil && target.TenantID == f.TenantID {
+	// Dentro da organização: notificação na app (alimenta a badge de Arquivos). Fora: e-mail com o
+	// link público, que é a única porta de entrada de quem não tem conta.
+	if target, terr := s.q.GetMailUserByEmail(r.Context(), req.Principal); terr != nil || target.TenantID != f.TenantID {
+		if strings.Contains(req.Principal, "@") {
+			s.shareWithOutsider(r, f, mailUserFrom(r.Context()), req.Principal)
+		}
+	} else {
 		mu := mailUserFrom(r.Context())
 		s.notifyUser(r.Context(), f.TenantID, target.ID, "file_share",
 			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,

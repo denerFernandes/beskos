@@ -128,6 +128,14 @@ func (p *StripeProvider) ParseWebhook(payload []byte, sigHeader string) (*Webhoo
 				Subscription      string            `json:"subscription"`
 				Status            string            `json:"status"`
 				Metadata          map[string]string `json:"metadata"`
+				AmountPaid        int64             `json:"amount_paid"` // invoice.paid
+				Currency          string            `json:"currency"`    // invoice.paid
+				HostedInvoiceURL  string            `json:"hosted_invoice_url"`
+				Lines             struct {
+					Data []struct {
+						Metadata map[string]string `json:"metadata"`
+					} `json:"data"`
+				} `json:"lines"`
 			} `json:"object"`
 		} `json:"data"`
 	}
@@ -141,7 +149,24 @@ func (p *StripeProvider) ParseWebhook(payload []byte, sigHeader string) (*Webhoo
 	}
 	switch ev.Type {
 	case "checkout.session.completed":
-		return &WebhookEvent{EventID: ev.ID, Type: "activated", TenantID: tenant, Plan: o.Metadata["plan"], Status: "active", SubscriptionID: o.Subscription}, nil
+		return &WebhookEvent{EventID: ev.ID, Type: "activated", TenantID: tenant, Plan: o.Metadata["plan"],
+			Status: "active", SubscriptionID: o.Subscription, Cycle: o.Metadata["cycle"]}, nil
+	case "invoice.paid":
+		// Dinheiro cobrado de facto (fim do teste ou renovação). O tenant vem da linha da fatura,
+		// que herda os metadados da assinatura — a fatura em si não tem client_reference_id.
+		if tenant == "" && len(o.Lines.Data) > 0 {
+			tenant = o.Lines.Data[0].Metadata["tenant_id"]
+		}
+		if o.AmountPaid <= 0 {
+			return nil, nil // fatura de 0 (início do teste): não é cobrança, não se avisa
+		}
+		plan := o.Metadata["plan"]
+		if plan == "" && len(o.Lines.Data) > 0 {
+			plan = o.Lines.Data[0].Metadata["plan"]
+		}
+		return &WebhookEvent{EventID: ev.ID, Type: "charged", TenantID: tenant, Plan: "", Status: "",
+			SubscriptionID: o.Subscription, AmountCents: int(o.AmountPaid), Currency: strings.ToUpper(o.Currency),
+			InvoiceURL: o.HostedInvoiceURL, PlanKey: plan}, nil
 	case "customer.subscription.deleted":
 		return &WebhookEvent{EventID: ev.ID, Type: "canceled", TenantID: tenant, Plan: DefaultPlanID, Status: "canceled", SubscriptionID: o.ID}, nil
 	case "customer.subscription.updated":

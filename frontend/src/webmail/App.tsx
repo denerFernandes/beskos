@@ -17,6 +17,7 @@ import { isTauri } from "./tauriNotify";
 import { initVcardOpen } from "./desktopVcard";
 import { setTrayAccount } from "./nativeWindow";
 import { ToastHost, toast } from "./toast";
+import { Onboarding } from "./Onboarding";
 import { MailView } from "./MailView";
 import { KanbanView } from "./KanbanView";
 import { CalendarView } from "./CalendarView";
@@ -137,6 +138,10 @@ export function App({ session }: { session: WebmailSession }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const canAdmin = useAdminEnabled();
+  // Primeiro acesso de quem se registou: define a senha da caixa, veste a casa (logo e cor) e chama
+  // a equipa. Só aparece a quem pode fazê-lo (o dono) e enquanto a flag não estiver nas definições.
+  const [obDone, setObDone] = useState(false);
+  const needsOnboarding = !obDone && settingsQ.isSuccess && settingsQ.data?.general?.onboarded !== true && canAdmin;
   // A IA escreveu na wiki (evento wiki_page do hub): se NÃO estás na wiki, oferece "Abrir" num toast;
   // dentro da wiki o WikiView trata (navega para a página criada / refresca a aberta).
   useChatSocket((ev) => {
@@ -236,6 +241,8 @@ export function App({ session }: { session: WebmailSession }) {
   if (meGateQ.data?.mfa_setup_required === true) {
     return <MFAGate method={meGateQ.data.mfa_required_method} email={session.email} onLogout={session.logout} />;
   }
+
+  if (needsOnboarding) return <Onboarding email={session.email} onDone={() => setObDone(true)} />;
 
   return (
     <div className="wm">

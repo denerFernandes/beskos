@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -257,11 +259,22 @@ func (s *Server) handleBillingWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if tid, err := uuid.Parse(ev.TenantID); err == nil {
-		if ev.Plan == "" {
+		switch {
+		case ev.Type == "charged":
+			// Dinheiro cobrado: avisa quem paga, com o valor e o link da fatura.
+			s.alertCharge(r.Context(), tid, s.planLabel(r.Context(), ev.PlanKey), money(ev.AmountCents, ev.Currency), ev.InvoiceURL)
+		case ev.Plan == "":
 			// Evento só de STATUS (ex.: customer.subscription.updated → past_due): não mexe no plano.
 			_ = s.q.UpdateSubscriptionStatus(r.Context(), db.UpdateSubscriptionStatusParams{TenantID: tid, Status: ev.Status})
-		} else {
+		default:
 			s.applyPlan(r, tid, ev.Plan, ev.SubscriptionID, ev.Status)
+			if ev.Type == "activated" {
+				plan := s.planByKey(r.Context(), ev.Plan)
+				lp := s.localPlan(plan, s.tenantCurrency(r.Context(), tid))
+				cycle := billing.Cycle(ev.Cycle).Normalize()
+				s.alertSubscription(r.Context(), tid, plan.Name, cycleLabel(cycle),
+					money(lp.UnitCents(cycle), lp.Currency)+perLabel(cycle))
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "applied"})
@@ -345,4 +358,37 @@ func (s *Server) applyPlan(r *http.Request, tid uuid.UUID, plan, stripeID, statu
 	_ = s.q.UpsertSubscription(r.Context(), db.UpsertSubscriptionParams{
 		TenantID: tid, StripeID: &stripeID, FaixaDeCaixas: p.MailboxRange, Status: status,
 	})
+}
+
+// money formata um valor em cêntimos para os avisos por e-mail ("12.00 EUR").
+func money(cents int, currency string) string {
+	if currency == "" {
+		currency = "EUR"
+	}
+	return fmt.Sprintf("%.2f %s", float64(cents)/100, strings.ToUpper(currency))
+}
+
+func cycleLabel(c billing.Cycle) string {
+	if c == billing.CycleYear {
+		return "anual"
+	}
+	return "mensal"
+}
+
+func perLabel(c billing.Cycle) string {
+	if c == billing.CycleYear {
+		return "/ano por utilizador"
+	}
+	return "/mês por utilizador"
+}
+
+// planLabel devolve o nome do plano a partir da chave (para o texto do aviso).
+func (s *Server) planLabel(ctx context.Context, key string) string {
+	if key == "" {
+		return "Beskos"
+	}
+	if p, ok := s.catalogPlanByKey(ctx, key); ok {
+		return p.Name
+	}
+	return key
 }

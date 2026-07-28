@@ -8,9 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"fmt"
-	"log"
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/notify"
 	"strings"
 )
 
@@ -161,25 +160,19 @@ func (s *Server) syncExternals(ctx context.Context, ev db.Event, actor db.MailUs
 		}); err != nil {
 			continue
 		}
-		if !prev[email] && s.email != nil {
-			// Convite por e-mail para os novos: quem convida, o quê e quando (+ sala do Meet se houver).
+		if !prev[email] {
+			// Gente de FORA da organização não tem app onde receber a notificação: para essas vai
+			// e-mail. Quem é de dentro é convidado por `syncInvites` e recebe notificação in-app.
 			who := actor.Name
 			if who == "" {
 				who = actor.Email
 			}
-			when := ev.StartsAt.Format("02/01/2006 15:04")
-			body := fmt.Sprintf("%s convidou-o para: %s\r\nQuando: %s\r\n", who, ev.Title, when)
-			if ev.Location != "" {
-				body += "Onde: " + ev.Location + "\r\n"
-			}
+			meetURL := ""
 			if ev.MeetingRoom != "" && s.publicURL != "" {
-				body += "Videochamada: " + s.publicURL + "/j/" + ev.MeetingRoom + "\r\n"
+				meetURL = s.publicURL + "/j/" + ev.MeetingRoom
 			}
-			go func(to, subject, body string) {
-				if err := s.email.Send(to, subject, body); err != nil {
-					log.Printf("event external invite to %s: %v", to, err)
-				}
-			}(email, "Convite: "+ev.Title, body)
+			s.sendMsg(email, notify.EventInvite(actor.Language, who, ev.Title,
+				ev.StartsAt.Format("02/01/2006 15:04"), ev.Location, meetURL))
 		}
 	}
 }

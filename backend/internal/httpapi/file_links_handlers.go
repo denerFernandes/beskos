@@ -183,7 +183,11 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 		}
 		target, terr := s.q.GetMailUserByEmail(r.Context(), email)
 		if terr != nil || target.TenantID != f.TenantID {
-			continue // externo ou inexistente: fica só com o link público
+			// De fora da organização: não tem app onde receber notificação — vai o link por e-mail.
+			if s.shareWithOutsider(r, f, mu, email) {
+				shared++
+			}
+			continue
 		}
 		if _, err := s.q.CreateShare(r.Context(), db.CreateShareParams{
 			FileID: f.ID, TenantID: f.TenantID, Principal: email, Nivel: "leitor",

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -101,9 +102,19 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	case !loginRe.MatchString(req.Login):
 		writeErr(w, http.StatusBadRequest, "signup.login_invalid")
 		return
-	case len(req.Password) < 10:
+	case req.Password != "" && len(req.Password) < 10:
 		writeErr(w, http.StatusBadRequest, "signup.password_weak")
 		return
+	}
+	// Sem senha no registo (o caminho normal): geramos uma aleatória e quem entra define a sua no
+	// primeiro acesso. É menos um campo antes do cartão, e a senha nunca viaja de graça no formulário.
+	if req.Password == "" {
+		pw, err := auth.NewSessionToken() // 32 bytes aleatórios em base64url
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "auth.password_hash_failed")
+			return
+		}
+		req.Password = pw
 	}
 	if code := validateProfile(&req.Billing); code != "" {
 		writeErr(w, http.StatusBadRequest, code)
@@ -209,6 +220,11 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	basic := base64.StdEncoding.EncodeToString([]byte(email + ":" + req.Password))
 	_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: owner.ID, JmapCred: s.encTOTP(basic)})
 
+	// Avisos: a conta existe (com o endereço e o que falta no DNS) e o teste está a correr. Vão para
+	// o endereço criado; o de faturação recebe os avisos de dinheiro.
+	s.alertAccountCreated(owner.Language, email, req.Domain)
+	s.alertTrialStarted(owner.Language, email, plan.Name, trialDays(), planAmount(s.localPlan(plan, s.tenantCurrency(r.Context(), tenant.ID)), req.Cycle))
+
 	out := map[string]any{"tenant_id": tenant.ID, "email": email, "token": token, "trial_days": trialDays()}
 	if url := s.signupCheckoutURL(r, tenant.ID, plan, req.Cycle); url != "" {
 		out["checkout_url"] = url
@@ -291,4 +307,15 @@ func (s *Server) handlePublicQuote(w http.ResponseWriter, r *http.Request) {
 		"seller_country": billing.SellerCountry, "vat_rate_percent": float64(q.VATRateBps) / 100,
 		"trial_days": trialDays(),
 	})
+}
+
+// planAmount formata "12,00 EUR/mês" para os avisos — o valor por utilizador, como no checkout.
+func planAmount(plan billing.Plan, cycle string) string {
+	c := billing.Cycle(cycle).Normalize()
+	unit := float64(plan.UnitCents(c)) / 100
+	per := "/mês"
+	if c == billing.CycleYear {
+		per = "/ano"
+	}
+	return fmt.Sprintf("%.2f %s%s", unit, plan.Currency, per)
 }

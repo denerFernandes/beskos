@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/base64"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -133,6 +134,12 @@ func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request)
 		_ = s.q.UpdateUserPasswordByEmail(r.Context(), db.UpdateUserPasswordByEmailParams{
 			Email: req.Email, TenantID: actor.TenantID, PasswordHash: hash,
 		})
+	}
+	// Senha PRÓPRIA: a credencial JMAP guardada (Basic com a senha antiga) deixaria de servir e o
+	// webmail passava a dar 401 até ao próximo login. Regrava-se com a nova.
+	if mu.ID == actor.ID {
+		basic := base64.StdEncoding.EncodeToString([]byte(req.Email + ":" + req.Password))
+		_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: mu.ID, JmapCred: s.encTOTP(basic)})
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: actor.TenantID, Valid: true}, Actor: actor.Email, Acao: "user.password_reset", Alvo: req.Email})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
