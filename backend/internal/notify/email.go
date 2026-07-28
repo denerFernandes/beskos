@@ -23,8 +23,13 @@ import (
 // implicit=true dials TLS straight away (no STARTTLS handshake).
 type Email struct {
 	host, port, from, user, pass string
-	insecure                     bool
-	implicit                     bool
+	// fromAddr é o endereço NU do remetente ("noreply@beskos.com"). O envelope SMTP (MAIL FROM) só
+	// aceita o endereço; com o nome incluído o servidor responde
+	// `501 5.1.8 Bad sender's system address` e nada é entregue (apanhado em produção, 28/07/2026).
+	// O cabeçalho From: continua a levar o nome, que é o que quem recebe vê.
+	fromAddr string
+	insecure bool
+	implicit bool
 }
 
 // NewEmail builds the sender, or returns nil (disabled) when host/from are missing.
@@ -36,8 +41,12 @@ func NewEmail(host, port, from, user, pass string, insecure bool) *Email {
 	if port == "" {
 		port = "465"
 	}
+	fromAddr := from
+	if a, err := mail.ParseAddress(from); err == nil {
+		fromAddr = a.Address
+	}
 	return &Email{
-		host: host, port: port, from: from, user: user, pass: pass,
+		host: host, port: port, from: from, fromAddr: fromAddr, user: user, pass: pass,
 		insecure: insecure, implicit: port == "465",
 	}
 }
@@ -103,7 +112,7 @@ func (e *Email) send(to, subject, contentType, body string) error {
 			return err
 		}
 	}
-	if err := c.Mail(e.from); err != nil {
+	if err := c.Mail(e.fromAddr); err != nil {
 		return err
 	}
 	if err := c.Rcpt(to); err != nil {
