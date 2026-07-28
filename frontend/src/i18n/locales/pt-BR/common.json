@@ -1324,7 +1324,9 @@
     "linkSavedShort": "Guardado",
     "linkUnsaved": "Alterações por guardar — clique em Aplicar",
     "linkPasswordLabel": "Senha",
-    "addPeopleHint": "Escreva um nome para procurar colaboradores/contactos, ou um e-mail. Enter adiciona."
+    "addPeopleHint": "Escreva um nome para procurar colaboradores/contactos, ou um e-mail. Enter adiciona.",
+    "sharedExternal": "Partilhado. Enviámos o link por e-mail (é alguém de fora da organização).",
+    "sharedExternalNoEmail": "Link criado, mas o envio de e-mail está desligado no servidor — copie o link e envie-o."
   },
   "editor": {
     "title": "Editor",

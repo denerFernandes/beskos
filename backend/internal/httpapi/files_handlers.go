@@ -513,7 +513,9 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 	// link público, que é a única porta de entrada de quem não tem conta.
 	if target, terr := s.q.GetMailUserByEmail(r.Context(), req.Principal); terr != nil || target.TenantID != f.TenantID {
 		if strings.Contains(req.Principal, "@") {
-			s.shareWithOutsider(r, f, mailUserFrom(r.Context()), req.Principal)
+			link, sent := s.shareWithOutsider(r, f, mailUserFrom(r.Context()), req.Principal)
+			writeJSON(w, http.StatusCreated, map[string]any{"id": sh.ID, "external": true, "link": link, "emailed": sent})
+			return
 		}
 	} else {
 		mu := mailUserFrom(r.Context())
