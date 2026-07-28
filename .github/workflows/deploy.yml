@@ -65,8 +65,8 @@ jobs:
           # web (a app do webmail chama-se "app" → app.beskos.com no CapRover)
           - { app: app,         image: beskos-frontend }
           - { app: manager,     image: beskos-manager }
-          # editor de office (nó `media`)
-          - { app: onlyoffice,  image: beskos-docs }
+          # editor de office (nó `media`). A app no CapRover chama-se `docs`, não `onlyoffice`.
+          - { app: docs,        image: beskos-docs }
     steps:
       - name: deploy ${{ matrix.app }}
         run: |

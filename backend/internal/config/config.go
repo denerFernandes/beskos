@@ -27,8 +27,8 @@ type Config struct {
 	// (download/callback). OnlyOfficeJWTSecret é compartilhado com o DS (assina o config);
 	// DocTokenSecret assina, internamente, as URLs de download/callback. Segredos via env.
 	// OnlyOfficeSourceURL = endereço público do fonte modificado do Document Server. Corremos a
-	// imagem oficial com um patch de branding (deploy/onlyoffice-branding-patch.sh), e a AGPL v3
-	// §13 obriga a oferecer esse fonte a quem usa o editor pela rede. Aparece no "Sobre".
+	// imagem oficial com um patch de branding (deploy/onlyoffice/), e a AGPL v3 §13 obriga a
+	// oferecer esse fonte a quem usa o editor pela rede. Aparece no "Sobre".
 	OnlyOfficeURL         string
 	OnlyOfficeInternalURL string
 	FilesHostURL          string
@@ -95,6 +95,13 @@ var knownDevSecrets = map[string]bool{
 	"changeme":                               true,
 }
 
+// defaultOfficeSourceURL é onde publicamos o fonte do Document Server modificado que servimos —
+// a oferta que a AGPL v3 §13 exige. Não é segredo nem varia por ambiente, e esquecê-lo derrubava o
+// arranque em produção, por isso vem por omissão em vez de ser um passo manual no painel.
+// ATENÇÃO: quem alterar o patch de branding TEM de apontar isto (ou a env) para o seu próprio
+// repositório — senão o editor promete aos utilizadores um fonte que não corresponde ao que corre.
+const defaultOfficeSourceURL = "https://github.com/denerFernandes/beskos-docs-server"
+
 func Load() (*Config, error) {
 	c := &Config{
 		HTTPAddr:              getenv("HTTP_ADDR", ":8000"),
@@ -109,7 +116,7 @@ func Load() (*Config, error) {
 		OnlyOfficeInternalURL: getenv("ONLYOFFICE_INTERNAL_URL", ""),
 		FilesHostURL:          getenv("FILES_HOST_URL", ""),
 		OnlyOfficeJWTSecret:   os.Getenv("ONLYOFFICE_JWT_SECRET"),
-		OnlyOfficeSourceURL:   strings.TrimRight(getenv("ONLYOFFICE_SOURCE_URL", ""), "/"),
+		OnlyOfficeSourceURL:   strings.TrimRight(getenv("ONLYOFFICE_SOURCE_URL", defaultOfficeSourceURL), "/"),
 		DocTokenSecret:        os.Getenv("DOC_TOKEN_SECRET"),
 		LiveKitURL:            getenv("LIVEKIT_URL", ""),
 		LiveKitHTTPURL:        getenv("LIVEKIT_HTTP_URL", ""),
