@@ -16,7 +16,7 @@ import { toast } from "./toast";
 import { backend, contactsApi, labelKeyword } from "./backend";
 import { displayName, shortTime } from "./util";
 import { Avatar } from "./Avatar";
-import { IcPencil, IcFolderPlus, IcSparkle, IcStar, IcRefresh, IcTrash, IcFolder, IcMail, IcChevron, IcX, IcClock, IcPaperclip } from "../panel/icons";
+import { IcPencil, IcFolderPlus, IcSparkle, IcStar, IcRefresh, IcTrash, IcFolder, IcMail, IcChevron, IcX, IcClock, IcPaperclip, IcCheck } from "../panel/icons";
 import { MailAdvancedSearch } from "./MailAdvancedSearch";
 import { LabelChips } from "./MailLabels";
 
@@ -159,6 +159,7 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
   const addrQ = useQuery({ queryKey: ["my-addresses"], queryFn: () => backend.myAddresses(), retry: false, staleTime: 300000 });
   const aliases = addrQ.data?.aliases ?? [];
   const [addrFilter, setAddrFilter] = useState(""); // "" = tudo o que chega à caixa
+  const [addrOpen, setAddrOpen] = useState(false);   // menu de caixas aberto
   // O filtro por endereço vira uma busca avançada limitada à pasta atual: para/cc com o endereço.
   const addrJmapFilter = useMemo(() => {
     if (!addrFilter || !activeFolder) return null;
@@ -196,6 +197,22 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
       return dir * (a.receivedAt || "").localeCompare(b.receivedAt || "");
     });
   }, [rawEmails, sortBy, sortDir]);
+
+  // Não-lidas que o filtro por endereço esconde: o contador da pasta conta a CAIXA toda, por isso
+  // com um endereço escolhido pode dizer "1" sem que a lista mostre nenhuma por ler. Só se calcula
+  // na 1.ª página — nas seguintes o que se vê não representa a pasta e o aviso seria enganador.
+  const hiddenUnread = useMemo(() => {
+    if (!addrFilter || page > 1 || search || starred || labelId) return 0;
+    const folderUnread = folders.find((f) => f.id === activeFolder)?.unreadEmails ?? 0;
+    if (folderUnread === 0) return 0;
+    const visible = emails.filter((m) => !m.keywords?.$seen).length;
+    return Math.max(0, folderUnread - visible);
+  }, [addrFilter, page, search, starred, labelId, folders, activeFolder, emails]);
+
+  // Endereço a mostrar no seletor: a parte local em destaque e o domínio em surdina — é o que
+  // distingue caixas do MESMO domínio sem cortar o texto a meio.
+  const addrLabel = (a: string) => (a.includes("@") ? a.slice(0, a.indexOf("@")) : a);
+  const addrDomain = (a: string) => (a.includes("@") ? a.slice(a.indexOf("@")) : "");
 
   // Trocar de pasta/página/busca zera a seleção: um lote marcado numa lista já não visível
   // aplicaria ações a mensagens fora da vista.
@@ -435,17 +452,37 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
       <aside className={"mrail" + (folderMenu ? " open" : "")} onClick={() => setFolderMenu(false)}>
         <button className="compose" onClick={() => { if (rules) nav("/mail/mail"); openComposer({}); }}><IcPencil size={16} /> <span>{t("webmail.compose.new")}</span></button>
         {aliases.length > 0 && (
-          // Só aparece quando há aliases: sem eles, uma lista de "caixas" com uma entrada só seria ruído.
+          // Só aparece quando há aliases: sem eles, um seletor de caixas com uma entrada só seria ruído.
+          // Um BOTÃO que abre a lista, e não a lista sempre aberta: numa barra estreita, endereços
+          // completos empilhados cortam-se todos ao meio ("dfernandes@beskos.c…") e não se lê nenhum.
           <div className="mail-accounts">
-            <div className="ma-title">{t("webmail.accounts")}</div>
-            <button className={"ma-btn" + (addrFilter === "" ? " on" : "")} onClick={() => setAddrFilter("")}>
-              {t("webmail.accountsAll")}
+            <button className={"ma-cur" + (addrOpen ? " open" : "")} onClick={() => setAddrOpen((v) => !v)}>
+              <Avatar name={addrLabel(addrFilter)} email={addrFilter || addrQ.data?.primary} size={26} className="ma-av" />
+              <span className="ma-txt">
+                <b>{addrFilter ? addrLabel(addrFilter) : t("webmail.accountsAll")}</b>
+                <i>{addrFilter ? addrDomain(addrFilter) : t("webmail.accountsAllHint", { n: aliases.length + 1 })}</i>
+              </span>
+              <IcChevron size={15} className={"ma-chev" + (addrOpen ? " up" : "")} />
             </button>
-            {[addrQ.data?.primary ?? "", ...aliases].filter(Boolean).map((a) => (
-              <button key={a} className={"ma-btn" + (addrFilter === a ? " on" : "")} onClick={() => setAddrFilter(a)} title={a}>
-                {a}
-              </button>
-            ))}
+            {addrOpen && (
+              <>
+                <div className="menu-backdrop" onClick={() => setAddrOpen(false)} />
+                <div className="ma-menu">
+                  <button className={addrFilter === "" ? "on" : ""} onClick={() => { setAddrFilter(""); setAddrOpen(false); }}>
+                    <span className="ma-all">@</span>
+                    <span className="ma-txt"><b>{t("webmail.accountsAll")}</b><i>{t("webmail.accountsAllHint", { n: aliases.length + 1 })}</i></span>
+                    {addrFilter === "" && <IcCheck size={15} />}
+                  </button>
+                  {[addrQ.data?.primary ?? "", ...aliases].filter(Boolean).map((a) => (
+                    <button key={a} className={addrFilter === a ? "on" : ""} onClick={() => { setAddrFilter(a); setAddrOpen(false); }}>
+                      <Avatar name={addrLabel(a)} email={a} size={26} className="ma-av" />
+                      <span className="ma-txt"><b>{addrLabel(a)}</b><i>{addrDomain(a)}</i></span>
+                      {addrFilter === a && <IcCheck size={15} />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
         <div className="nav">
@@ -601,6 +638,15 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
           <div className="selall-banner on">
             {t("webmail.wholeSelected", { n: sel.size })}{" "}
             <button onClick={() => setSel(new Set())}>{t("webmail.clearSelection")}</button>
+          </div>
+        )}
+
+        {/* O contador da pasta é da CAIXA inteira; com um endereço escolhido, uma não-lida dirigida a
+            outro endereço fica de fora da lista e o número parecia mentir. Diz-se o que se passa. */}
+        {hiddenUnread > 0 && (
+          <div className="mlist-note">
+            {t("webmail.unreadElsewhere", { count: hiddenUnread })}{" "}
+            <button onClick={() => setAddrFilter("")}>{t("webmail.accountsAll")}</button>
           </div>
         )}
 

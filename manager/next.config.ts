@@ -1,15 +1,11 @@
 import type { NextConfig } from "next";
 
-// Proxy da API do Manager: o browser fala sempre com a própria origem (/api/manager/*) e o Next
-// reencaminha para o manager-api. Assim o cookie de sessão (HttpOnly) fica first-party.
-const apiURL = process.env.MANAGER_API_URL ?? "http://localhost:8091";
-
+// O proxy da API do Manager vive em src/app/api/manager/[...path]/route.ts, e não aqui: os
+// `rewrites()` são resolvidos em tempo de BUILD e a imagem é construída no CI, sem o
+// MANAGER_API_URL do ambiente — ficava lá o localhost e o login rebentava em produção.
 const nextConfig: NextConfig = {
   // Imagem Docker enxuta: o Next empacota só o necessário para correr (node server standalone).
   output: "standalone",
-  async rewrites() {
-    return [{ source: "/api/manager/:path*", destination: `${apiURL}/api/manager/:path*` }];
-  },
 };
 
 export default nextConfig;

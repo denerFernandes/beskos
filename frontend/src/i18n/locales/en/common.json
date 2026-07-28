@@ -554,7 +554,10 @@
     "nextPage": "Next page",
     "more": "More",
     "accounts": "Mailboxes",
-    "accountsAll": "All"
+    "accountsAll": "All",
+    "accountsAllHint": "{{n}} addresses",
+    "unreadElsewhere_one": "{{count}} unread message on another address.",
+    "unreadElsewhere_other": "{{count}} unread messages on other addresses."
   },
   "settings": {
     "title": "Settings",
