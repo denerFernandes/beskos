@@ -87,6 +87,13 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   const [role, setRole] = useState("leitor");
   const [groupId, setGroupId] = useState("");
   const refresh = () => qc.invalidateQueries({ queryKey: ["shares", file.id] });
+  // Trocar a permissão de quem já tem acesso: é o mesmo pedido de partilhar (o servidor faz upsert
+  // por ficheiro+pessoa), por isso não duplica nem dispara e-mail a quem já foi avisado.
+  const setPerm = useMutation({
+    mutationFn: (v: { principal: string; nivel: string }) => backend.shareFile(file.id, v.principal, v.nivel),
+    onSuccess: () => { refresh(); toast(t("files.permChanged")); },
+    onError: (e) => toast((e as Error).message),
+  });
 
   // Equipas do utilizador: partilhar com o grupo inteiro (expande em e-mails no backend).
   const myGroupsQ = useQuery({ queryKey: ["my-groups"], queryFn: () => backend.myGroups(), retry: false });
@@ -193,7 +200,14 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
             <div className="share-row" key={s.id}>
               <Avatar email={s.principal} name={s.principal} size={30} />
               <div className="grow"><div className="who">{s.principal}</div></div>
-              <span className="tx" style={{ color: "var(--faint)", fontSize: 12 }}>{s.nivel === "editor" ? t("files.roleEditor") : t("files.roleViewer")}</span>
+              {/* A permissão é EDITÁVEL: mudar de leitor para editor obrigava a remover e voltar a
+                  partilhar, e quem o fizesse com alguém de fora mandava-lhe um segundo e-mail. */}
+              <select className="share-perm" value={s.nivel === "editor" ? "editor" : "leitor"}
+                disabled={setPerm.isPending}
+                onChange={(e) => setPerm.mutate({ principal: s.principal, nivel: e.target.value })}>
+                <option value="leitor">{t("files.roleViewer")}</option>
+                <option value="editor">{t("files.roleEditor")}</option>
+              </select>
               <button className="ib" title={t("files.removeShare")} onClick={() => remove.mutate(s)}><IcTrash size={15} /></button>
             </div>
           ))}

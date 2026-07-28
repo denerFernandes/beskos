@@ -611,7 +611,11 @@ SELECT DISTINCT blob_key FROM file_versions WHERE file_id = $1 AND tenant_id = $
 SELECT COALESCE(max(versao), 0)::int FROM storage_files WHERE tenant_id = $1 AND nome = $2;
 
 -- name: CreateShare :one
-INSERT INTO storage_shares (file_id, tenant_id, principal, nivel) VALUES ($1, $2, $3, $4) RETURNING *;
+-- Upsert: voltar a partilhar com a mesma pessoa MUDA a permissão em vez de criar outra linha — é
+-- assim que se troca "leitor" por "editor" sem apagar e refazer a partilha.
+INSERT INTO storage_shares (file_id, tenant_id, principal, nivel) VALUES ($1, $2, $3, $4)
+ON CONFLICT (file_id, principal) DO UPDATE SET nivel = EXCLUDED.nivel
+RETURNING *;
 
 -- name: ListSharesByFile :many
 SELECT * FROM storage_shares WHERE file_id = $1 AND tenant_id = $2;
