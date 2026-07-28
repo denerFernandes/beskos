@@ -289,6 +289,14 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/mailboxes", s.handleListMailboxes)
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/mailboxes/{id}/password", s.handleResetMailboxPassword)
 
+			// Aliases de e-mail (contacto@empresa.com → caixa de alguém). Gerir é operação de caixas;
+			// ver a lista basta a quem já vê os domínios. Os endereços PRÓPRIOS (o "De:" do compositor)
+			// não são administração — qualquer utilizador autenticado lê os seus.
+			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/aliases", s.handleListAliases)
+			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/aliases", s.handleCreateAlias)
+			r.With(s.requirePerm(rbac.PermMailboxManage)).Delete("/aliases/{id}", s.handleDeleteAlias)
+			r.Get("/me/addresses", s.handleMyAddresses)
+
 			// Usuários = caixa + papel (unificado). Criar provisiona caixa + conta juntas.
 			r.With(s.requirePerm(rbac.PermMembersInvite)).Post("/users", s.handleCreateUser)
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/users/reset-password", s.handleResetUserPassword)
