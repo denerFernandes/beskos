@@ -28,6 +28,10 @@ jobs:
           - { name: beskos-api,      context: backend }
           - { name: beskos-frontend, context: frontend }
           - { name: beskos-manager,  context: manager }
+          # Document Server com a nossa marca: imagem oficial pinada + patch aplicado no build.
+          # Em produção o CapRover faz deploy por imagem e não monta nada do repositório, por
+          # isso a modificação TEM de estar dentro da imagem. Ver deploy/onlyoffice/Dockerfile.
+          - { name: beskos-docs,     context: deploy/onlyoffice }
     steps:
       - uses: actions/checkout@v4
         with: { submodules: false }
@@ -61,6 +65,8 @@ jobs:
           # web (a app do webmail chama-se "app" → app.beskos.com no CapRover)
           - { app: app,         image: beskos-frontend }
           - { app: manager,     image: beskos-manager }
+          # editor de office (nó `media`)
+          - { app: onlyoffice,  image: beskos-docs }
     steps:
       - name: deploy ${{ matrix.app }}
         run: |
