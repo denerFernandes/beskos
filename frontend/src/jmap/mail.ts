@@ -234,6 +234,18 @@ export class MailService {
     ]);
   }
 
+  // markThreadRead marca a CONVERSA inteira como lida. Abrir uma conversa mostra-a toda, por isso
+  // deixar irmãs por ler faria a caixa continuar a contar mensagens que a pessoa já viu — era o
+  // "1 por ler" que não se encontrava. Uma ida só: descobrir os ids da conversa e marcá-los.
+  async markThreadRead(threadId: string): Promise<void> {
+    if (!threadId) return;
+    const [th] = await this.c.request(USING_MAIL, [
+      ["Thread/get", { accountId: this.accountId, ids: [threadId] }, "t"],
+    ]);
+    const ids = ((th.list as { emailIds: string[] }[]) ?? []).flatMap((x) => x.emailIds ?? []);
+    await this.markReadMany(ids, true);
+  }
+
   // Estrela/tira a estrela. É só uma marca ($flagged, o mesmo que o IMAP e o Sieve usam), então
   // não mexe na pasta: a mensagem fica onde está e passa a aparecer também em Importantes.
   async setStarred(id: string, starred: boolean): Promise<void> {

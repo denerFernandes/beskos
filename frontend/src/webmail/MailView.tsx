@@ -457,7 +457,13 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
     if (activeRole === "drafts" && !search) { void openDraft(id); return; }
     openEmail(id);
     // Ao abrir uma não lida: marca lida e atualiza a lista E os contadores das pastas.
-    if (unread) void svc.markRead(id, true).then(() => { void listQ.refetch(); void boxesQ.refetch(); });
+    // A linha é uma conversa e abri-la mostra-a toda: marcar só a representante deixava as irmãs
+    // por ler e a caixa a contá-las. Sem threadId (lista não colapsada) marca-se só esta.
+    if (unread) {
+      const m = emails.find((e) => e.id === id);
+      const done = () => { void listQ.refetch(); void boxesQ.refetch(); };
+      void (m?.threadId ? svc.markThreadRead(m.threadId) : svc.markRead(id, true)).then(done);
+    }
   }
 
   return (
