@@ -86,6 +86,9 @@ export function SignupPage() {
   };
 
   if (done) return <SignupDone email={done.email} domain={done.domain} />;
+  // Registo fechado (SIGNUPS_OPEN=false): mostra "em breve" em vez do formulário. A API recusa de
+  // qualquer forma — isto é para quem chega pelo site não bater num erro.
+  if (cat.data && cat.data.signups_open === false) return <ComingSoon />;
 
   return (
     <div className="sg">
@@ -212,6 +215,26 @@ export function SignupPage() {
         </div>
 
         {step === 0 && <p className="sg-fine center">{t("signup.trialFine", { days: trialDays })}</p>}
+      </main>
+    </div>
+  );
+}
+
+// Registo fechado: uma página só, com a marca e para onde ir a seguir.
+function ComingSoon() {
+  const { t } = useTranslation();
+  return (
+    <div className="sg">
+      <header className="sg-top">
+        <a className="sg-logo" href="https://beskos.com"><img src={BESKOS_MARK} alt="" /> Beskos</a>
+        <a className="sg-login" href="/mail">{t("signup.haveAccount")}</a>
+      </header>
+      <main className="sg-main center">
+        <span className="sg-badge">{t("signup.soonBadge")}</span>
+        <h1>{t("signup.soonTitle")}</h1>
+        <p className="sg-sub">{t("signup.soonBody")}</p>
+        <a className="sg-cta" href="https://beskos.com">{t("signup.soonCta")}</a>
+        <p className="sg-fine">{t("signup.soonContact")}</p>
       </main>
     </div>
   );

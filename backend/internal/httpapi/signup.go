@@ -83,6 +83,10 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusTooManyRequests, "auth.rate_limited")
 		return
 	}
+	if !s.signupsOpen {
+		writeErr(w, http.StatusForbidden, "signup.closed")
+		return
+	}
 	var req publicSignupReq
 	if !decode(w, r, &req) {
 		return
@@ -270,7 +274,7 @@ func (s *Server) handlePublicPlans(w http.ResponseWriter, r *http.Request) {
 		plans = append(plans, s.localPlan(p, cur))
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"plans": plans, "currency": cur, "trial_days": trialDays(),
+		"plans": plans, "currency": cur, "trial_days": trialDays(), "signups_open": s.signupsOpen,
 		"months_charged": billing.AnnualMonthsCharged, "seller_country": billing.SellerCountry,
 	})
 }

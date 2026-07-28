@@ -967,7 +967,8 @@
     "signup.login_invalid": "Invalid address.",
     "signup.password_weak": "The password needs at least 10 characters.",
     "signup.provision_failed": "Could not set up the domain and mailbox. Try again in a few minutes.",
-    "mailbox.password_weak": "That password is too weak. Avoid repeats and sequences — add another word, preferably an uncommon one."
+    "mailbox.password_weak": "That password is too weak. Avoid repeats and sequences — add another word, preferably an uncommon one.",
+    "signup.closed": "Sign-ups are closed at the moment."
   },
   "members": {
     "title": "Members",
@@ -2663,7 +2664,12 @@
     "p3": "Review, then on to the card.",
     "perUserMonthShort": "per user/month",
     "perUserYearShort": "per user/year",
-    "invoiceHintShort": "Invoices go here (usually the finance contact)."
+    "invoiceHintShort": "Invoices go here (usually the finance contact).",
+    "soonBadge": "Coming soon",
+    "soonTitle": "We're opening by invitation.",
+    "soonBody": "Beskos isn't taking open sign-ups yet. We're onboarding the first organisations a few at a time, so each one gets proper attention.",
+    "soonCta": "Learn about Beskos",
+    "soonContact": "Want to join the list? Write to ola@beskos.com."
   },
   "onboarding": {
     "h0": "Set your password",

@@ -967,7 +967,8 @@
     "signup.login_invalid": "Endereço inválido.",
     "signup.password_weak": "A palavra-passe precisa de pelo menos 10 caracteres.",
     "signup.provision_failed": "Não foi possível preparar o domínio e a caixa. Tente de novo dentro de minutos.",
-    "mailbox.password_weak": "A palavra-passe é demasiado fraca. Evite repetições e sequências — junte outra palavra, de preferência pouco comum."
+    "mailbox.password_weak": "A palavra-passe é demasiado fraca. Evite repetições e sequências — junte outra palavra, de preferência pouco comum.",
+    "signup.closed": "As inscrições estão fechadas de momento."
   },
   "members": {
     "title": "Membros",
@@ -2663,7 +2664,12 @@
     "p3": "Revê e segue para o cartão.",
     "perUserMonthShort": "por utilizador/mês",
     "perUserYearShort": "por utilizador/ano",
-    "invoiceHintShort": "Para aqui vão as faturas (normalmente o financeiro)."
+    "invoiceHintShort": "Para aqui vão as faturas (normalmente o financeiro).",
+    "soonBadge": "Em breve",
+    "soonTitle": "Estamos a abrir por convite.",
+    "soonBody": "O Beskos ainda não aceita inscrições abertas. Estamos a receber as primeiras organizações a conta-gotas, para tratar bem de cada uma.",
+    "soonCta": "Conhecer o Beskos",
+    "soonContact": "Quer entrar na lista? Escreva para ola@beskos.com."
   },
   "onboarding": {
     "h0": "Defina a sua palavra-passe",

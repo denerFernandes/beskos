@@ -232,7 +232,7 @@ export const api = {
   billingQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string }) =>
     req<BillingQuote>("/api/billing/quote", { method: "POST", body: JSON.stringify(q) }),
   // Registo self-service: catálogo e simulação SEM sessão (a organização ainda não existe).
-  publicPlans: () => req<{ plans: Plan[]; currency: string; trial_days: number; months_charged: number; seller_country: string }>("/api/public/plans"),
+  publicPlans: () => req<{ plans: Plan[]; currency: string; trial_days: number; months_charged: number; seller_country: string; signups_open: boolean }>("/api/public/plans"),
   publicQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string; seats: number }) =>
     req<BillingQuote>("/api/public/quote", { method: "POST", body: JSON.stringify(q) }),
   publicSignup: (b: {
