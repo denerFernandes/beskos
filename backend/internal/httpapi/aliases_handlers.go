@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/stalwart"
 )
 
 // Aliases de e-mail: um endereço extra que entrega na caixa de outra pessoa (contacto@empresa.com →
@@ -27,11 +28,18 @@ func (s *Server) syncAliasesToStalwart(ctx context.Context, tenant uuid.UUID, mu
 	if s.sw == nil || mu.StalwartAccountID == nil {
 		return nil // sem servidor de correio ligado (dev) ou caixa por provisionar
 	}
-	rows, err := s.q.ListAliasesForUser(ctx, db.ListAliasesForUserParams{TenantID: tenant, UserID: mu.ID})
+	rows, err := s.q.ListAliasesForStalwart(ctx, db.ListAliasesForStalwartParams{TenantID: tenant, UserID: mu.ID})
 	if err != nil {
 		return err
 	}
-	return s.sw.SetAccountAliases(ctx, *mu.StalwartAccountID, rows)
+	aliases := make([]stalwart.Alias, 0, len(rows))
+	for _, a := range rows {
+		if a.StalwartDomainID == "" {
+			continue // domínio ainda por provisionar lá: não há a que prender o alias
+		}
+		aliases = append(aliases, stalwart.Alias{Local: a.Local, DomainID: a.StalwartDomainID})
+	}
+	return s.sw.SetAccountAliases(ctx, *mu.StalwartAccountID, aliases)
 }
 
 // handleListAliases lista os aliases do tenant (painel).

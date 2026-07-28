@@ -72,10 +72,23 @@ Guardamos o `id` retornado em `domains.stalwart_id`.
 ### Criar mailbox individual — `x:Account/set`
 Endereço = `name` + `domainId` (NÃO existe campo `email`). `credentials`/`aliases`/`quotas` são **mapas** (`{"0":…}`), não arrays.
 
-> **Na criação mapa, no update array** (medido 28/07/2026). O mesmo campo `aliases` que se cria
-> como `{"0":"a@b"}` tem de ser actualizado como `["a@b"]`; com o mapa o servidor responde
-> `invalidPatch: "Invalid value type for object", properties:["aliases"]`. Ver
-> `SetAccountAliases` em `internal/stalwart/provisioning.go`.
+#### D4b — `aliases` é um mapa de OBJETOS, não de endereços
+
+Confirmado na fonte (`crates/registry/src/schema/structs.rs`): `UserAccount.aliases` é
+`List<EmailAlias>`, e `EmailAlias` é `{enabled, name, domainId, description}`. Em JSON, `List<T>`
+serializa como mapa indexado — logo o valor certo é:
+
+```json
+["x:Account/set",{"update":{"<accountId>":{"aliases":{
+  "0":{"name":"noreply","domainId":"<id do domínio no Stalwart>","enabled":true}}}}},"0"]
+```
+
+Um alias é descrito **como uma caixa** (parte local + `domainId`, sem campo `email`), tal como a
+conta. Mandar strings — `{"0":"noreply@dominio.com"}` ou `["noreply@dominio.com"]` — dá
+`invalidPatch: "Invalid value type for object", properties:["aliases"]` (apanhado em produção,
+28/07/2026). E `enabled` não pode faltar: por omissão é `false` e o alias existiria sem entregar.
+
+Ver `SetAccountAliases` em `internal/stalwart/provisioning.go`.
 ```json
 ["x:Account/set",{"create":{"u1":{
   "@type":"User","name":"joao","domainId":"c","description":"João",

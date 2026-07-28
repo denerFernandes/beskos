@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -124,20 +125,31 @@ func (c *Client) CreateAccount(ctx context.Context, in AccountInput) (string, er
 	return firstCreatedID(&r)
 }
 
-// SetAccountAliases substitui a lista de aliases de uma conta. Manda a lista INTEIRA em vez de mexer
-// em índices: a nossa base é a fonte de verdade, e assim a operação é idempotente — repetir não
-// duplica nem deixa buracos.
+// Alias é um endereço extra que entrega numa caixa: parte local + id do domínio NO STALWART.
+type Alias struct {
+	Local    string // "noreply"
+	DomainID string // id do domínio no Stalwart (domains.stalwart_id)
+}
+
+// SetAccountAliases substitui a lista de aliases de uma conta. Manda a lista INTEIRA: a nossa base
+// é a fonte de verdade, e assim a operação é idempotente — repetir não duplica nem deixa buracos.
 //
-// ATENÇÃO ao formato (DIVERGENCES §D4b): na CRIAÇÃO estes campos são mapas ("0","1",…), mas no
-// UPDATE o Stalwart 0.16 exige um ARRAY. Com o mapa responde
-// `invalidPatch: "Invalid value type for object" properties:["aliases"]` (medido em produção,
-// 28/07/2026) — o mesmo campo, duas formas, conforme a operação.
-func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliases []string) error {
-	if aliases == nil {
-		aliases = []string{} // nil serializa como null e apagaria o campo em vez de o esvaziar
+// FORMATO (DIVERGENCES §D4b, confirmado na fonte do Stalwart, crates/registry/src/schema/structs.rs):
+// `UserAccount.aliases` é `List<EmailAlias>`, o que em JSON significa um MAPA indexado
+// (`{"0":…,"1":…}`) cujos VALORES são OBJETOS `{name, domainId, enabled}` — não endereços em texto.
+// Um alias é descrito como uma caixa: parte local + domínio, sem campo `email`. Mandar strings dá
+// `invalidPatch: "Invalid value type for object"`, que foi o que apanhámos em produção (28/07/2026).
+func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliases []Alias) error {
+	m := make(map[string]any, len(aliases))
+	for i, a := range aliases {
+		m[strconv.Itoa(i)] = map[string]any{
+			"name":     a.Local,
+			"domainId": a.DomainID,
+			"enabled":  true, // por omissão seria false: o alias existiria mas não entregaria
+		}
 	}
 	args := map[string]any{
-		"update": map[string]any{accountID: map[string]any{"aliases": aliases}},
+		"update": map[string]any{accountID: map[string]any{"aliases": m}},
 	}
 	raw, err := c.call(ctx, "x:Account/set", args)
 	if err != nil {
@@ -149,7 +161,7 @@ func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliase
 	}
 	if len(r.NotUpdated) > 0 {
 		b, _ := json.Marshal(r.NotUpdated)
-		sent, _ := json.Marshal(aliases)
+		sent, _ := json.Marshal(m)
 		return fmt.Errorf("stalwart notUpdated: %s (enviámos aliases=%s)", string(b), string(sent))
 	}
 	return nil
