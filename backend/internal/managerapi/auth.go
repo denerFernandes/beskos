@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -188,13 +189,39 @@ func publicUser(u db.ManagerUser) map[string]any {
 
 // EnsureBootstrap cria o PRIMEIRO operador a partir do ambiente quando a tabela está vazia
 // (MANAGER_BOOTSTRAP_EMAIL/PASSWORD). Idempotente: com qualquer operador existente, não faz nada.
+//
+// Recuperação de acesso: com MANAGER_BOOTSTRAP_RESET=1, repõe a senha do e-mail indicado (e limpa o
+// 2.º fator, para se voltar a inscrever) mesmo que já existam operadores — e cria-o se não existir.
+// Sem isto, mudar a senha no ambiente depois do primeiro arranque não tinha efeito nenhum e ficava-se
+// de fora da consola sem forma de entrar. A variável tem de ser RETIRADA a seguir: enquanto lá
+// estiver, cada arranque repõe a senha.
 func EnsureBootstrap(ctx context.Context, q *db.Queries, email, password string) error {
+	if os.Getenv("MANAGER_BOOTSTRAP_RESET") == "1" && email != "" && password != "" {
+		hash, err := auth.HashPassword(password)
+		if err != nil {
+			return err
+		}
+		if err := q.ResetManagerUserCredentials(ctx, db.ResetManagerUserCredentialsParams{
+			PasswordHash: hash, Email: strings.ToLower(email),
+		}); err != nil {
+			return err
+		}
+		log.Printf("manager bootstrap: RESET applied to %s (2nd factor cleared; remove MANAGER_BOOTSTRAP_RESET now)", email)
+		// Segue para o caminho normal: se o e-mail não existia, o create abaixo trata dele.
+	}
 	n, err := q.CountManagerUsers(ctx)
 	if err != nil {
 		return err
 	}
 	if n > 0 {
-		return nil
+		// Com reset pedido e o e-mail ainda inexistente, cria-o na mesma — senão o reset não
+		// resolvia o caso "o operador antigo tem outro endereço".
+		if os.Getenv("MANAGER_BOOTSTRAP_RESET") != "1" || email == "" || password == "" {
+			return nil
+		}
+		if _, err := q.GetManagerUserByEmail(ctx, email); err == nil {
+			return nil // já existe e acabou de ser reposto
+		}
 	}
 	if email == "" || password == "" {
 		log.Printf("WARNING: no manager users exist; set MANAGER_BOOTSTRAP_EMAIL and MANAGER_BOOTSTRAP_PASSWORD to create the first operator")

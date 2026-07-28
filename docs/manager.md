@@ -4,6 +4,19 @@
 > [CLAUDE.md](../CLAUDE.md). Prosa em PT-BR; código, logs e `error_code` em inglês (lei 4.6).
 > Uma fase de cada vez (§9): não começar a M(n+1) antes da M(n) testada.
 
+### Perder o acesso à consola (recuperação)
+
+`MANAGER_BOOTSTRAP_EMAIL`/`PASSWORD` só criam o primeiro operador **quando a tabela está vazia** —
+mudar a senha no ambiente depois disso não tem efeito nenhum. Para voltar a entrar:
+
+1. Na app `manager-api`, confirme `MANAGER_BOOTSTRAP_EMAIL`/`MANAGER_BOOTSTRAP_PASSWORD` e
+   acrescente `MANAGER_BOOTSTRAP_RESET=1`.
+2. A app reinicia: a senha é reposta e o 2.º fator é limpo (volta a inscrever-se no 1.º login). O
+   arranque regista `manager bootstrap: RESET applied to …`.
+3. **Retire o `MANAGER_BOOTSTRAP_RESET`** — enquanto lá estiver, cada arranque repõe a senha.
+
+Se o e-mail indicado não existir como operador, é criado como `admin`.
+
 ## 1. O que é
 
 Aplicação **interna de operação do SaaS** — quem a usa somos NÓS (operador da plataforma), nunca os
