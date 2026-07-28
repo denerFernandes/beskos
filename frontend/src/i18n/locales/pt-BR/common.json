@@ -557,7 +557,10 @@
     "accountsAll": "Todas",
     "accountsAllHint": "{{n}} endereços",
     "unreadElsewhere_one": "{{count}} mensagem por ler noutro endereço.",
-    "unreadElsewhere_other": "{{count}} mensagens por ler noutros endereços."
+    "unreadElsewhere_other": "{{count}} mensagens por ler noutros endereços.",
+    "showUnread": "Ver só as não lidas",
+    "unreadOnly": "A mostrar só as mensagens por ler.",
+    "showAllMessages": "Ver todas"
   },
   "settings": {
     "title": "Definições",

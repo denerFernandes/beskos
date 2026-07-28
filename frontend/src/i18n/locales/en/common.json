@@ -557,7 +557,10 @@
     "accountsAll": "All",
     "accountsAllHint": "{{n}} addresses",
     "unreadElsewhere_one": "{{count}} unread message on another address.",
-    "unreadElsewhere_other": "{{count}} unread messages on other addresses."
+    "unreadElsewhere_other": "{{count}} unread messages on other addresses.",
+    "showUnread": "Show unread only",
+    "unreadOnly": "Showing unread messages only.",
+    "showAllMessages": "Show all"
   },
   "settings": {
     "title": "Settings",

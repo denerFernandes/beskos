@@ -84,7 +84,11 @@
 .wm .nav button{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:9px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:left;}
 .wm .nav button:hover{background:var(--surface-2);color:var(--ink);}
 .wm .nav button.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600;}
-.wm .nav button .c{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;}
+/* O número de não lidas é clicável (mostra só essas): tem de se ver que é um alvo, sem virar botão
+   dentro de botão — daí o realce só no hover e quando o modo está ligado. */
+.wm .nav button .c{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;padding:1px 6px;border-radius:20px;cursor:pointer;}
+.wm .nav button .c:hover{background:var(--surface-2);color:var(--ink);}
+.wm .nav button .c.on{background:var(--accent-solid);color:#fff;}
 .wm .rlabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:0 11px;margin:20px 0 7px;}
 .wm .tag{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:9px;color:var(--muted);font-weight:500;font-size:13px;}
 .wm .dot{width:9px;height:9px;border-radius:50%;}

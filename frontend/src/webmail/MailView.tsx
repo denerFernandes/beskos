@@ -160,20 +160,20 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
   const aliases = addrQ.data?.aliases ?? [];
   const [addrFilter, setAddrFilter] = useState(""); // "" = tudo o que chega à caixa
   const [addrOpen, setAddrOpen] = useState(false);   // menu de caixas aberto
+  // "Só por ler": o contador da pasta conta o que está na CAIXA, não o que cabe na 1.ª página — uma
+  // não-lida antiga fica lá em baixo e o número parece inventado. Isto mostra-as, e só elas.
+  const [unreadOnly, setUnreadOnly] = useState(false);
   // O filtro por endereço vira uma busca avançada limitada à pasta atual: para/cc com o endereço.
   const addrJmapFilter = useMemo(() => {
-    if (!addrFilter || !activeFolder) return null;
-    return {
-      operator: "AND",
-      conditions: [
-        { inMailbox: activeFolder },
-        { operator: "OR", conditions: [{ to: addrFilter }, { cc: addrFilter }] },
-      ],
-    } as Record<string, unknown>;
-  }, [addrFilter, activeFolder]);
+    if ((!addrFilter && !unreadOnly) || !activeFolder) return null;
+    const conditions: Record<string, unknown>[] = [{ inMailbox: activeFolder }];
+    if (addrFilter) conditions.push({ operator: "OR", conditions: [{ to: addrFilter }, { cc: addrFilter }] });
+    if (unreadOnly) conditions.push({ notKeyword: "$seen" });
+    return { operator: "AND", conditions } as Record<string, unknown>;
+  }, [addrFilter, unreadOnly, activeFolder]);
 
   const listQ = useQuery({
-    queryKey: ["emails", advFilter ? `adv:${JSON.stringify(advFilter)}` : search ? `s:${search}` : starred ? "starred" : labelId ? `label:${labelId}` : activeFolder, addrFilter, page],
+    queryKey: ["emails", advFilter ? `adv:${JSON.stringify(advFilter)}` : search ? `s:${search}` : starred ? "starred" : labelId ? `label:${labelId}` : activeFolder, addrFilter, unreadOnly, page],
     queryFn: () => (advFilter ? svc.searchAdvanced(advFilter, position)
       : search ? svc.search(search, position)
       : starred ? svc.listStarred(position)
@@ -217,6 +217,7 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
   // Trocar de pasta/página/busca zera a seleção: um lote marcado numa lista já não visível
   // aplicaria ações a mensagens fora da vista.
   useEffect(() => { setSel(new Set()); }, [activeFolder, page, search, starred, labelId]);
+  useEffect(() => { if (search || starred || labelId) setUnreadOnly(false); }, [search, starred, labelId]);
 
   // Navegação por teclado (estilo Gmail): j/k move o foco, o/Enter abre, e arquiva, r responde,
   // # move p/ lixeira, x (des)marca. Ignora quando se está a escrever num campo ou com o compositor.
@@ -504,7 +505,13 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
                   onDragLeave={() => setDropOn((v) => (v === f.id ? null : v))}
                   onDrop={(e) => { e.preventDefault(); void dropInto(f.id); }}>
                   <span>{folderLabel(t, f)}</span>
-                  {f.unreadEmails > 0 && <span className="c">{f.unreadEmails}</span>}
+                  {f.unreadEmails > 0 && (
+                    // Clicar no número mostra as não lidas — é a pergunta que o número levanta.
+                    <span className={"c" + (unreadOnly && f.id === activeFolder ? " on" : "")} title={t("webmail.showUnread")}
+                      onClick={(e) => { e.stopPropagation(); openFolder(f); setUnreadOnly((v) => !(v && f.id === activeFolder)); }}>
+                      {f.unreadEmails}
+                    </span>
+                  )}
                 </button>
               )}
               {/* Só pastas do utilizador (sem role de sistema) podem ser renomeadas/apagadas/aninhadas. */}
@@ -647,7 +654,13 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
 
         {/* O contador da pasta é da CAIXA inteira; com um endereço escolhido, uma não-lida dirigida a
             outro endereço fica de fora da lista e o número parecia mentir. Diz-se o que se passa. */}
-        {hiddenUnread > 0 && (
+        {unreadOnly && (
+          <div className="mlist-note">
+            {t("webmail.unreadOnly")}{" "}
+            <button onClick={() => setUnreadOnly(false)}>{t("webmail.showAllMessages")}</button>
+          </div>
+        )}
+        {!unreadOnly && hiddenUnread > 0 && (
           <div className="mlist-note">
             {t("webmail.unreadElsewhere", { count: hiddenUnread })}{" "}
             <button onClick={() => setAddrFilter("")}>{t("webmail.accountsAll")}</button>
