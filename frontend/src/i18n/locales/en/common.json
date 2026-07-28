@@ -1346,7 +1346,8 @@
     "linkPasswordLabel": "Password",
     "addPeopleHint": "Type a name to search colleagues/contacts, or an email. Enter adds.",
     "sharedExternal": "Shared. We emailed the link (this person is outside your organisation).",
-    "sharedExternalNoEmail": "Link created, but email sending is off on the server — copy the link and send it yourself."
+    "sharedExternalNoEmail": "Link created, but email sending is off on the server — copy the link and send it yourself.",
+    "permChanged": "Permission changed."
   },
   "editor": {
     "title": "Editor",

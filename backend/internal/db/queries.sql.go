@@ -2544,7 +2544,9 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 }
 
 const createShare = `-- name: CreateShare :one
-INSERT INTO storage_shares (file_id, tenant_id, principal, nivel) VALUES ($1, $2, $3, $4) RETURNING id, file_id, tenant_id, principal, nivel
+INSERT INTO storage_shares (file_id, tenant_id, principal, nivel) VALUES ($1, $2, $3, $4)
+ON CONFLICT (file_id, principal) DO UPDATE SET nivel = EXCLUDED.nivel
+RETURNING id, file_id, tenant_id, principal, nivel
 `
 
 type CreateShareParams struct {
@@ -2554,6 +2556,8 @@ type CreateShareParams struct {
 	Nivel     string    `json:"nivel"`
 }
 
+// Upsert: voltar a partilhar com a mesma pessoa MUDA a permissão em vez de criar outra linha — é
+// assim que se troca "leitor" por "editor" sem apagar e refazer a partilha.
 func (q *Queries) CreateShare(ctx context.Context, arg CreateShareParams) (StorageShare, error) {
 	row := q.db.QueryRow(ctx, createShare,
 		arg.FileID,

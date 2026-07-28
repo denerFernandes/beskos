@@ -502,6 +502,17 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "storage.invalid_share")
 		return
 	}
+	// O CreateShare é upsert; para saber se é partilha NOVA (e portanto se há alguém a avisar),
+	// olha-se antes.
+	existed := false
+	if cur, lerr := s.q.ListSharesByFile(r.Context(), db.ListSharesByFileParams{FileID: f.ID, TenantID: f.TenantID}); lerr == nil {
+		for _, c := range cur {
+			if strings.EqualFold(c.Principal, req.Principal) {
+				existed = true
+				break
+			}
+		}
+	}
 	sh, err := s.q.CreateShare(r.Context(), db.CreateShareParams{
 		FileID: f.ID, TenantID: f.TenantID, Principal: req.Principal, Nivel: req.Nivel,
 	})
@@ -512,7 +523,9 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 	// Dentro da organização: notificação na app (alimenta a badge de Arquivos). Fora: e-mail com o
 	// link público, que é a única porta de entrada de quem não tem conta.
 	if target, terr := s.q.GetMailUserByEmail(r.Context(), req.Principal); terr != nil || target.TenantID != f.TenantID {
-		if strings.Contains(req.Principal, "@") {
+		// Só avisa quem AINDA não tinha acesso: mudar a permissão de quem já foi avisado não
+		// justifica um segundo "partilharam um ficheiro consigo".
+		if strings.Contains(req.Principal, "@") && !existed {
 			link, sent := s.shareWithOutsider(r, f, mailUserFrom(r.Context()), req.Principal)
 			writeJSON(w, http.StatusCreated, map[string]any{"id": sh.ID, "external": true, "link": link, "emailed": sent})
 			return
