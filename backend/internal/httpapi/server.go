@@ -37,6 +37,7 @@ type Server struct {
 	sms          sms.Sender
 	storage      *storage.Service // pode ser nil se o MinIO não estiver configurado
 	billing      billing.Provider
+	signupsOpen  bool
 	billingCfg   billing.Settings
 	office       *onlyoffice   // edição de office (OnlyOffice Document Server); nil = desligado
 	meet         *meet         // videochamada (LiveKit); nil = desligado
@@ -178,6 +179,10 @@ func (s *Server) originAllowed(origin string) bool {
 	return false
 }
 
+// SetSignupsOpen abre/fecha o registo self-service (SIGNUPS_OPEN). Fechado, a página mostra
+// "em breve" e a API recusa — o resto do produto continua igual para quem já é cliente.
+func (s *Server) SetSignupsOpen(open bool) { s.signupsOpen = open }
+
 // EnableEmail liga o envio de e-mail para notificações (opcional).
 func (s *Server) EnableEmail(e *notify.Email) { s.email = e }
 
@@ -187,6 +192,7 @@ func (s *Server) EnableChat(h *chat.Hub) { s.hub = h }
 func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSender sms.Sender, st *storage.Service, bp billing.Provider, bset billing.Settings) *Server {
 	srv := &Server{
 		q: q, sw: sw, ai: aiProvider, sms: smsSender, storage: st, billing: bp, billingCfg: bset,
+		signupsOpen: true, // por omissão aberto; o main aplica a configuração
 		snsVerifier: ses.NewSNSVerifier(),
 		loginIP:     newRateLimiter(30, 5*time.Minute),
 		loginUser:   newRateLimiter(8, 5*time.Minute),

@@ -1,12 +1,12 @@
 package managerapi
 
 import (
-	"strings"
-	"encoding/json"
 	"bytes"
+	"encoding/json"
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -60,20 +60,20 @@ func (s *Server) handleListPlans(w http.ResponseWriter, r *http.Request) {
 }
 
 type planReq struct {
-	Key                    string   `json:"key"`
-	Name                   string   `json:"name"`
-	Description            string   `json:"description"`
-	PriceCentsPerUser      int32    `json:"price_cents_per_user"`
-	MinUsers               int32    `json:"min_users"`
-	MaxUsers               int32    `json:"max_users"`
-	AppsEnabled            []string `json:"apps_enabled"`
-	MaxStorageGb           int32    `json:"max_storage_gb"`
-	AiTokensPerWindow      int32    `json:"ai_tokens_per_window"`
-	MeetMaxParticipants    int32    `json:"meet_max_participants"`
-	MeetMaxMinutes         int32    `json:"meet_max_minutes"`
-	Recording              string   `json:"recording"`
-	RecordingRetentionDays int32    `json:"recording_retention_days"`
-	MaxDailySend           int32    `json:"max_daily_send"`
+	Key                    string         `json:"key"`
+	Name                   string         `json:"name"`
+	Description            string         `json:"description"`
+	PriceCentsPerUser      int32          `json:"price_cents_per_user"`
+	MinUsers               int32          `json:"min_users"`
+	MaxUsers               int32          `json:"max_users"`
+	AppsEnabled            []string       `json:"apps_enabled"`
+	MaxStorageGb           int32          `json:"max_storage_gb"`
+	AiTokensPerWindow      int32          `json:"ai_tokens_per_window"`
+	MeetMaxParticipants    int32          `json:"meet_max_participants"`
+	MeetMaxMinutes         int32          `json:"meet_max_minutes"`
+	Recording              string         `json:"recording"`
+	RecordingRetentionDays int32          `json:"recording_retention_days"`
+	MaxDailySend           int32          `json:"max_daily_send"`
 	OnlyofficeEdit         bool           `json:"onlyoffice_edit"`
 	WikiPublicLinks        bool           `json:"wiki_public_links"`
 	Sort                   int32          `json:"sort"`
@@ -231,8 +231,7 @@ func (s *Server) handleSetTenantPlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"tenant_id": id, "plan": plan.Key})
 }
 
-
-// handleSetTenantCurrency define a moeda de cobrança do tenant ('' = global). A assinatura Stripe
+// handleSetTenantCurrency define a moeda de cobrança do tenant (” = global). A assinatura Stripe
 // existente mantém a moeda original até à próxima troca de plano/checkout.
 func (s *Server) handleSetTenantCurrency(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {

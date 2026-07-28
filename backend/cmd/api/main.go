@@ -146,6 +146,11 @@ func main() {
 			"account, trial, billing, login alerts and external shares will not be delivered")
 	}
 
+	srv.SetSignupsOpen(cfg.SignupsOpen)
+	if !cfg.SignupsOpen {
+		log.Printf("self-service signups CLOSED (SIGNUPS_OPEN=false) — /signup shows the coming-soon page")
+	}
+
 	// Teto por ficheiro no Files (configurável; default 100 GiB).
 	srv.SetFileUploadLimit(cfg.FilesMaxUploadBytes)
 

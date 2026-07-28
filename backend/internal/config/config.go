@@ -71,6 +71,9 @@ type Config struct {
 	// absolutos que saem para fora — como o link de uma sala de reunião num e-mail. Vazio → os
 	// links ficam relativos (útil em dev; num e-mail seriam inúteis).
 	PublicURL string
+	// SignupsOpen: registo self-service aberto. Fechado, /signup mostra "em breve" e a API
+	// recusa — para abrir ao público quando se quiser, sem novo deploy.
+	SignupsOpen bool
 
 	// Environment: "development" (default) ou "production". Em produção a config falha fechado —
 	// recusa segredos vazios, fracos ou defaults de dev conhecidos (auditoria H8/H10).
@@ -137,6 +140,7 @@ func Load() (*Config, error) {
 		AppOrigins:          splitList(getenv("APP_ORIGINS", "")),
 		CookieSecure:        getenv("COOKIE_SECURE", "false") == "true",
 		PublicURL:           strings.TrimRight(getenv("PUBLIC_URL", ""), "/"),
+		SignupsOpen:         getenv("SIGNUPS_OPEN", "true") != "false",
 		Environment:         getenv("APP_ENV", "development"),
 		MFAEncKey:           os.Getenv("MFA_ENC_KEY"),
 	}

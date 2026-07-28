@@ -111,3 +111,9 @@
   .sg-main h1 { font-size: 23px; }
   .sg-row { grid-template-columns: 1fr; }
 }
+
+/* Página "em breve": a mesma marca, uma mensagem e uma saída. As variáveis são as deste ficheiro
+   (--accent-tint, não --sg-accent-tint) — com o nome errado o crachá ficava sem fundo. */
+.sg-badge { display: inline-block; padding: 5px 12px; border-radius: 20px; background: var(--accent-tint); color: var(--accent-ink); font-size: 12.5px; font-weight: 700; letter-spacing: .01em; }
+.sg-main.center h1 { max-width: 18ch; }
+.sg-main.center .sg-sub { max-width: 46ch; }
