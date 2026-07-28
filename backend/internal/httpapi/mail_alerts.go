@@ -137,21 +137,24 @@ func (s *Server) billingContact(ctx context.Context, tid [16]byte) (email, lang 
 // ficheiro e manda-o por e-mail. Sem isto, partilhar com um cliente ou fornecedor não fazia nada —
 // a pessoa não tem conta para receber a notificação nem "Partilhado comigo" onde procurar.
 //
-// Devolve false quando não havia nada a fazer (sem SMTP configurado ou sem conseguir o link).
-func (s *Server) shareWithOutsider(r *http.Request, f db.StorageFile, actor db.MailUser, email string) bool {
-	if s.email == nil {
-		return false
-	}
+// Devolve o link público e se o e-mail chegou a ser enviado. O LINK é criado mesmo sem SMTP: é o
+// que a pessoa copia e manda à mão — sem ele, partilhar com alguém de fora não produzia nada.
+func (s *Server) shareWithOutsider(r *http.Request, f db.StorageFile, actor db.MailUser, email string) (link string, emailed bool) {
 	token := s.ensureFileLink(r, f, actor)
 	if token == "" {
-		return false
+		return "", false
+	}
+	link = s.appURL("/p/" + token)
+	if s.email == nil {
+		log.Printf("partilha de %q com %s: link criado, mas o envio de e-mail está desligado", f.Nome, email)
+		return link, false
 	}
 	who := actor.Name
 	if who == "" {
 		who = actor.Email
 	}
-	s.sendMsg(email, notify.FileShared(actor.Language, who, f.Nome, s.appURL("/p/"+token), ""))
-	return true
+	s.sendMsg(email, notify.FileShared(actor.Language, who, f.Nome, link, ""))
+	return link, true
 }
 
 // ensureFileLink devolve o token do link público do ficheiro, criando um se ainda não existe. O

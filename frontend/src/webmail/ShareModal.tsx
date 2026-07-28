@@ -102,7 +102,18 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   const orgShare = shares.find((s) => s.principal === ORG);
   const people = shares.filter((s) => s.principal !== ORG && s.nivel !== "link");
 
-  const add = useMutation({ mutationFn: (email: string) => backend.shareFile(file.id, email, role), onSuccess: () => { refresh(); toast(t("files.shared")); }, onError: (e) => toast((e as Error).message) });
+  // Partilha com alguém de FORA: não há conta para notificar, por isso vai um link por e-mail. Se o
+  // envio estiver desligado no servidor, dizemo-lo — dar por concluído o que não saiu é mentir.
+  const add = useMutation({
+    mutationFn: (email: string) => backend.shareFile(file.id, email, role),
+    onSuccess: (r) => {
+      refresh();
+      if (r.external && !r.emailed) toast(t("files.sharedExternalNoEmail"));
+      else if (r.external) toast(t("files.sharedExternal"));
+      else toast(t("files.shared"));
+    },
+    onError: (e) => toast((e as Error).message),
+  });
   const remove = useMutation({ mutationFn: (s: Share) => backend.removeShare(file.id, s.id), onSuccess: refresh });
 
   // Estado do link PÚBLICO (sem login): abre no OnlyOffice, com permissão + senha + expiração + descarga.

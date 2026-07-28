@@ -176,7 +176,7 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	mu := mailUserFrom(r.Context())
-	shared := 0
+	shared, external, notEmailed := 0, 0, 0
 	for _, email := range req.Emails {
 		if email == "" || email == mu.Email {
 			continue
@@ -184,8 +184,12 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 		target, terr := s.q.GetMailUserByEmail(r.Context(), email)
 		if terr != nil || target.TenantID != f.TenantID {
 			// De fora da organização: não tem app onde receber notificação — vai o link por e-mail.
-			if s.shareWithOutsider(r, f, mu, email) {
+			if link, sent := s.shareWithOutsider(r, f, mu, email); link != "" {
 				shared++
+				external++
+				if !sent {
+					notEmailed++
+				}
 			}
 			continue
 		}
@@ -199,7 +203,9 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 			map[string]string{"actor": mu.Email, "file": f.Nome})
 		shared++
 	}
-	writeJSON(w, http.StatusOK, map[string]int{"shared": shared})
+	// `external`/`not_emailed`: a UI tem de poder dizer "o link foi criado mas o e-mail não saiu"
+	// em vez de dar a partilha por concluída.
+	writeJSON(w, http.StatusOK, map[string]int{"shared": shared, "external": external, "not_emailed": notEmailed})
 }
 
 // handleShareWithGroup partilha o ficheiro com TODOS os membros de um grupo/equipa da organização —

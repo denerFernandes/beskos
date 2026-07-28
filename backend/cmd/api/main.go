@@ -135,10 +135,15 @@ func main() {
 		log.Printf("meet recording enabled (Egress → MinIO)")
 	}
 
-	// E-mail de notificação (opcional).
+	// E-mail de notificação (opcional). Desligado, tudo o que é aviso ao cliente — conta criada,
+	// teste, cobrança, novo login, convites e partilhas a gente de fora — deixa de sair, e sem este
+	// aviso no arranque ninguém percebe porquê.
 	if em := notify.NewEmail(cfg.NotifySMTPHost, cfg.NotifySMTPPort, cfg.NotifyFrom, cfg.NotifySMTPUser, cfg.NotifySMTPPassword, cfg.NotifySMTPInsecure); em != nil {
 		srv.EnableEmail(em)
 		log.Printf("email notifications enabled (from %s via %s)", cfg.NotifyFrom, cfg.NotifySMTPHost)
+	} else {
+		log.Printf("WARNING: email notifications DISABLED (missing NOTIFY_SMTP_HOST/NOTIFY_FROM) — " +
+			"account, trial, billing, login alerts and external shares will not be delivered")
 	}
 
 	// Teto por ficheiro no Files (configurável; default 100 GiB).

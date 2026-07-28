@@ -283,7 +283,8 @@ export const backend = {
   moveFolder: (id: string, parentId: string | null) => req<Folder>(`/api/folders/${id}/move`, { method: "POST", body: JSON.stringify({ parent_id: parentId ?? "" }) }),
   deleteFolder: (id: string) => req<{ status: string }>(`/api/folders/${id}`, { method: "DELETE" }),
   shares: (id: string) => req<Share[]>(`/api/files/${id}/shares`),
-  shareFile: (id: string, principal: string, nivel: string) => req<Share>(`/api/files/${id}/share`, { method: "POST", body: JSON.stringify({ principal, nivel }) }),
+  shareFile: (id: string, principal: string, nivel: string) =>
+    req<Share & { external?: boolean; link?: string; emailed?: boolean }>(`/api/files/${id}/share`, { method: "POST", body: JSON.stringify({ principal, nivel }) }),
   removeShare: (fileId: string, shareId: string) => req<{ status: string }>(`/api/files/${fileId}/shares/${shareId}`, { method: "DELETE" }),
   // Link público de download (anexos grandes). Devolve o token; a URL absoluta monta-se no cliente.
   fileLink: (id: string, opts?: { expires_days?: number; password?: string; permission?: "view" | "edit"; allow_download?: boolean }) =>
