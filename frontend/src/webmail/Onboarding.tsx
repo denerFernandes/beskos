@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { backend, settingsApi } from "./backend";
 import { BESKOS_MARK } from "./branding";
+import { PasswordField } from "./PasswordField";
 import { BRAND_COLORS } from "./branding";
-import { IcCheck, IcUsers, IcLock, IcStar, IcPlus, IcX } from "../panel/icons";
+import { IcCheck, IcUsers, IcStar, IcPlus, IcX } from "../panel/icons";
 import "./onboarding.css";
 
 // Primeiro acesso do dono: definir a senha, vestir a casa (logótipo e cor) e chamar a equipa.
@@ -25,6 +26,7 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
   // Passo 1 — senha
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  const strength = useRef(false); // senha aceitável? (o medidor decide)
   // Passo 2 — marca
   const [color, setColor] = useState(BRAND_COLORS[0].hex);
   const [logo, setLogo] = useState("");
@@ -87,16 +89,17 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
           <>
             <h1>{t("onboarding.h0")}</h1>
             <p className="ob-sub">{t("onboarding.p0", { email })}</p>
-            <label className="ob-fld"><span><IcLock size={14} /> {t("onboarding.password")}</span>
-              <input type="password" autoFocus value={pw} onChange={(e) => { setErr(""); setPw(e.target.value); }} />
-            </label>
+            <PasswordField label={t("onboarding.password")} value={pw} autoFocus userInputs={[email]}
+              onChange={(v) => { setErr(""); setPw(v); }} onStrength={(s) => { strength.current = s.ok; }} />
             <label className="ob-fld"><span>{t("onboarding.password2")}</span>
               <input type="password" value={pw2} onChange={(e) => { setErr(""); setPw2(e.target.value); }} />
             </label>
             {err && <p className="ob-err">{err}</p>}
-            <button className="ob-cta" disabled={savePassword.isPending}
+            {/* Bloqueado enquanto a senha não passa: o servidor de correio recusa-a de qualquer
+                forma, e é melhor dizê-lo aqui do que depois de submeter. */}
+            <button className="ob-cta" disabled={savePassword.isPending || !strength.current || pw !== pw2}
               onClick={() => {
-                if (pw.length < 10) { setErr(t("onboarding.errPwShort")); return; }
+                if (!strength.current) { setErr(t("webmail.pwHintWeak")); return; }
                 if (pw !== pw2) { setErr(t("onboarding.errPwMatch")); return; }
                 savePassword.mutate();
               }}>{t("onboarding.continue")}</button>

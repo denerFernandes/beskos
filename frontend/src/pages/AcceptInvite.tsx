@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { PasswordField } from "../webmail/PasswordField";
 import { useQuery } from "@tanstack/react-query";
 
 // Página pública de aceite de convite: valida o token e cria a conta do painel.
@@ -12,6 +13,7 @@ export function AcceptInvitePage() {
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const pwOk = useRef(false); // senha aceitável? (o servidor de correio recusa as fracas)
 
   const invite = useQuery({
     queryKey: ["invite", token],
@@ -47,9 +49,10 @@ export function AcceptInvitePage() {
             <>
               <p className="text-sm text-gray-500">{t("invite.joining", { email: invite.data!.email })}</p>
               <input className="w-full border rounded px-3 py-2" placeholder={t("invite.name")} value={name} onChange={(e) => setName(e.target.value)} />
-              <input className="w-full border rounded px-3 py-2" type="password" placeholder={t("login.password")} value={pwd} onChange={(e) => setPwd(e.target.value)} required />
+              <PasswordField label={t("login.password")} value={pwd} userInputs={[invite.data?.email ?? ""]}
+                onChange={setPwd} onStrength={(s) => { pwOk.current = s.ok; }} />
               {err && <p className="text-sm text-red-600">{err}</p>}
-              <button disabled={busy} className="w-full bg-black text-white rounded py-2 disabled:opacity-50">
+              <button disabled={busy || !pwOk.current} className="w-full bg-black text-white rounded py-2 disabled:opacity-50">
                 {busy ? "…" : t("invite.accept")}
               </button>
             </>

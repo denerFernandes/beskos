@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { PasswordField } from "./PasswordField";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { backend } from "./backend";
@@ -136,6 +137,11 @@ function PasswordSection() {
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [pwErr, setPwErr] = useState("");
+  // O medidor decide se a senha passa: o servidor de correio recusa as fracas, e é preferível
+  // dizê-lo com o campo à frente do que depois de submeter.
+  const pwOk = useRef(false);
+  const meQ = useQuery({ queryKey: ["me-profile"], queryFn: () => backend.me(), retry: false });
+  const email = meQ.data?.email ?? "";
   const changePw = useMutation({
     mutationFn: () => backend.changeMyPassword(curPw, newPw),
     onSuccess: () => { setCurPw(""); setNewPw(""); setPwErr(""); toast(t("profile.passwordChanged")); },
@@ -152,12 +158,12 @@ function PasswordSection() {
           <div className="profile-grid">
             <div className="pnl-field"><label>{t("profile.currentPassword")}</label>
               <input className="pnl-input" type="password" autoComplete="current-password" value={curPw} onChange={(e) => setCurPw(e.target.value)} /></div>
-            <div className="pnl-field"><label>{t("profile.newPassword")}</label>
-              <input className="pnl-input" type="password" autoComplete="new-password" value={newPw} onChange={(e) => setNewPw(e.target.value)} /></div>
+            <PasswordField label={t("profile.newPassword")} value={newPw} userInputs={[email]}
+              onChange={setNewPw} onStrength={(s) => { pwOk.current = s.ok; }} />
           </div>
           {pwErr && <p className="pnl-err">{pwErr}</p>}
           <div className="profile-actions">
-            <button className="pnl-btn primary" disabled={!curPw || newPw.length < 10 || changePw.isPending}
+            <button className="pnl-btn primary" disabled={!curPw || !pwOk.current || changePw.isPending}
               onClick={() => changePw.mutate()}>{t("profile.changePassword")}</button>
           </div>
         </div></div>

@@ -560,7 +560,20 @@
     "unreadElsewhere_other": "{{count}} unread messages on other addresses.",
     "showUnread": "Show unread only",
     "unreadOnly": "Showing unread messages only.",
-    "showAllMessages": "Show all"
+    "showAllMessages": "Show all",
+    "pwShow": "show",
+    "pwHide": "hide",
+    "pwWeak": "Weak",
+    "pwFair": "Fair",
+    "pwGood": "Good",
+    "pwStrong": "Strong",
+    "pwHintEmpty": "At least 12 characters. Three or four uncommon words work well.",
+    "pwHintShort": "Too short — at least 12 characters.",
+    "pwHintPersonal": "Don't use your name, address or domain.",
+    "pwHintCommon": "Contains a word that's very common in passwords.",
+    "pwHintRepeat": "Avoid repeats (\"abcabcabc\" is barely harder than \"abc\").",
+    "pwHintSequence": "Avoid keyboard or alphabet sequences.",
+    "pwHintWeak": "Add another word, or mix in capitals, numbers and symbols."
   },
   "settings": {
     "title": "Settings",
