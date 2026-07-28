@@ -766,11 +766,9 @@
 .wm .login .send{width:100%;}
 /* Editor de office (Collabora) em tela cheia */
 .wm .editor-full{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--paper);z-index:50;}
-/* Barra do editor: mesmo padrão do ViewerBar — título ao centro (absoluto), ações à direita. */
+/* Barra usada pelo Meet (o editor de office já não tem barra nossa: fechar/renomear vivem
+   no cabeçalho do próprio Document Server). */
 .wm .editor-bar{position:relative;display:flex;align-items:center;padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface);min-height:48px;}
-.wm .editor-bar .eb-center{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;max-width:52%;}
-.wm .editor-bar .eb-actions{display:flex;align-items:center;gap:10px;margin-left:auto;z-index:1;}
-.wm .editor-bar .eb-actions a.chipbtn{text-decoration:none;}
 /* Popover de configuração da IA do editor (URL/chave/modelo para colar no plugin). */
 .wm .ai-setup{position:relative;}
 .wm .ai-pop{position:absolute;top:32px;left:0;z-index:40;width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;gap:8px;}
@@ -814,10 +812,6 @@
 .wm .new-menu .ic{color:var(--muted);display:inline-flex;}
 /* Título editável no editor */
 .wm .editor-mode{font-size:13px;color:var(--muted);font-weight:600;}
-.wm .editor-title.editable{border:none;background:none;color:var(--ink);font:inherit;font-size:14px;font-weight:600;display:inline-flex;align-items:center;gap:7px;padding:4px 9px;border-radius:8px;}
-.wm .editor-title.editable:hover{background:var(--surface-2);}
-.wm .editor-title.editable svg{color:var(--faint);}
-.wm .editor-title-input{border:1px solid var(--accent);border-radius:8px;padding:5px 9px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px;font-weight:600;min-width:260px;outline:none;}
 /* Visualizador (imagem/pdf/áudio/vídeo) */
 .wm .viewer-full{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--paper);z-index:50;}
 .wm .viewer-stage{flex:1;position:relative;display:grid;place-items:center;background:#0d0d0d;overflow:auto;}
