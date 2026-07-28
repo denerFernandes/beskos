@@ -57,6 +57,41 @@ func (s *Server) EnableOnlyOffice(publicURL, internalURL, filesHostURL, jwtSecre
 	}
 }
 
+// officeChrome monta os parâmetros de apresentação do editor — iguais no editor autenticado e no
+// visualizador público, para o produto ter uma cara só.
+//
+// As abas vão para a barra CLARA com sublinhado no separador ativo. O default do Document Server
+// (`tabStyle: fill` + `tabBackground: header`) prende-as à faixa escura com o ativo preenchido, que
+// é o que fazia o editor parecer mais pesado do que o das imagens oficiais deles. São parâmetros
+// grátis (standard branding), não dependem do patch.
+// A paleta é nossa: o patch de arranque acrescenta as cores Beskos ao CSS do editor, por isso o
+// tema pedido aqui continua a ser o claro/escuro padrão — é o CSS que troca o azul do ONLYOFFICE
+// pelo petróleo. Se o patch falhar, o editor fica azul mas funciona.
+func officeChrome(dark bool, plugins bool) map[string]any {
+	uiTheme := "theme-light"
+	if dark {
+		uiTheme = "theme-dark"
+	}
+	return map[string]any{
+		"uiTheme": uiTheme,
+		// Cabeçalho de dois níveis: logo + acesso rápido (guardar/imprimir/desfazer) e título em
+		// cima, abas por baixo. `compactToolbar: false` mantém a fita expandida ao abrir — senão o
+		// editor arranca só com as abas e parece "não editável" até se clicar numa.
+		"compactHeader":  false,
+		"compactToolbar": false,
+		"toolbarNoTabs":  false,
+		"hideRightMenu":  true,
+		"feedback":       false,
+		"help":           false,
+		"chat":           false,
+		"plugins":        plugins,
+		"features": map[string]any{
+			"tabStyle":      "line",
+			"tabBackground": "toolbar",
+		},
+	}
+}
+
 // reachable reescreve uma URL vinda do DS (host do browser) para o host interno alcançável
 // pela API, quando diferem.
 func (o *onlyoffice) reachable(u string) string {

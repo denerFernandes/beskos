@@ -82,25 +82,12 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 	if lang == "" {
 		lang = "pt-BR"
 	}
-	uiTheme := "theme-light"
-	if r.URL.Query().Get("theme") == "dark" {
-		uiTheme = "theme-dark"
-	}
+	darkTheme := r.URL.Query().Get("theme") == "dark"
 
 	// Mesma marca do editor autenticado — quem abre um link público vê o Beskos, não o ONLYOFFICE.
 	// A atribuição à Ascensio System SIA acompanha, no "Sobre" (ver onlyoffice_branding.go).
-	customization := map[string]any{
-		"uiTheme": uiTheme,
-		// Fita de formatação expandida ao abrir (como no editor autenticado).
-		"compactHeader":  true,
-		"compactToolbar": false,
-		"toolbarNoTabs":  false,
-		"hideRightMenu":  true,
-		"feedback":       false,
-		"help":           false,
-		"chat":           false,
-		"plugins":        false,
-	}
+	// Sem plugins: quem abre um link público é anónimo e de fora.
+	customization := officeChrome(darkTheme, false)
 	s.office.applyBranding(customization)
 
 	config := map[string]any{
