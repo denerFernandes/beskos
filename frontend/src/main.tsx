@@ -12,6 +12,7 @@ import { GuestPage } from "./pages/Guest";
 import { RoomPage } from "./pages/Room";
 import { AcceptInvitePage } from "./pages/AcceptInvite";
 import { BookingPage } from "./pages/Booking";
+import { SignupPage } from "./pages/Signup";
 import { isTauri, initTauriNotify } from "./webmail/tauriNotify";
 import { GlobalTooltip } from "./webmail/GlobalTooltip";
 
@@ -51,6 +52,8 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           {/* Wiki pública só-leitura (sem login): árvore de páginas published + leitor. */}
           <Route path="/w/:slug" element={<PublicWikiPage />} />
           <Route path="/w/:slug/:pageSlug" element={<PublicWikiPage />} />
+          {/* Registo self-service (é para aqui que aponta o "Get started" do site). */}
+          <Route path="/signup" element={<SignupPage />} />
           <Route path="/invite/:token" element={<AcceptInvitePage />} />
           {/* Agendamento público (estilo Calendly): externos marcam reunião com um colaborador. */}
           <Route path="/b/:org/:user" element={<BookingPage />} />

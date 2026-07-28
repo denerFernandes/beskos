@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { api, type BillingCycle, type BillingProfile, type Plan } from "../api";
@@ -32,11 +32,23 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
   const [form, setForm] = useState<BillingProfile>({ kind: "company" });
   const [err, setErr] = useState("");
 
-  // Perfil já guardado: quem volta para trocar de plano não reescreve a morada toda.
+  // Perfil já guardado (no registo ou numa subscrição anterior): entra preenchido e, se estiver
+  // COMPLETO, salta direto para o resumo — quem já deu a morada e o NIF não os escreve outra vez.
+  // Os passos ficam clicáveis, por isso corrigir um dado continua a ser um clique.
   const saved = useQuery({ queryKey: ["billing-profile"], queryFn: api.billingProfile, retry: false });
+  const jumped = useRef(false);
   useEffect(() => {
-    if (saved.data) setForm((f) => ({ ...f, ...saved.data }));
-  }, [saved.data]);
+    if (!saved.data) return;
+    setForm((f) => ({ ...f, ...saved.data }));
+    if (saved.data.filled && !jumped.current) {
+      jumped.current = true;
+      setSkipped(true);
+      // Sem plano escolhido ainda (entrou pelo menu, não pela tabela) fica no passo do plano.
+      setStep((s) => (planId ? 4 : s));
+    }
+  }, [saved.data, planId]);
+  // `skipped`: mostra no resumo que os dados vieram do registo, com atalho para os rever.
+  const [skipped, setSkipped] = useState(false);
 
   const plan = useMemo(() => plans.find((p) => p.id === planId), [plans, planId]);
   const money = (cents: number, cur?: string) =>
@@ -229,7 +241,8 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
                 <div><dt>{t("subscribe.rAddress")}</dt><dd>{[form.address_line1, form.address_line2, `${form.postal_code ?? ""} ${form.city ?? ""}`.trim(), countryName(form.country ?? "", i18n.language)].filter(Boolean).join(", ")}</dd></div>
                 <div><dt>{t("subscribe.rInvoice")}</dt><dd>{form.invoice_email}{form.invoice_name ? ` (${form.invoice_name})` : ""}</dd></div>
               </dl>
-              <button className="pnl-btn ghost sm" onClick={() => setStep(2)}>{t("subscribe.edit")}</button>
+              {skipped && <p className="sub-note">{t("subscribe.reused")}</p>}
+              <button className="pnl-btn ghost sm" onClick={() => setStep(1)}>{t("subscribe.edit")}</button>
             </section>
           )}
 

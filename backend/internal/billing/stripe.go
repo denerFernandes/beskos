@@ -57,6 +57,12 @@ func (p *StripeProvider) Checkout(ctx context.Context, tenantID string, plan Pla
 	form.Set("subscription_data[metadata][plan]", plan.ID)
 	form.Set("subscription_data[metadata][tenant_id]", tenantID)
 	form.Set("line_items[0][quantity]", strconv.Itoa(seats)) // preço por usuário × seats
+	if opts.TrialDays > 0 {
+		// Cartão pedido à partida, cobrança só no fim do teste. `cancel` no fim do período sem
+		// método de pagamento: sem isto, um teste abandonado ficaria a tentar cobrar para sempre.
+		form.Set("subscription_data[trial_period_days]", strconv.Itoa(opts.TrialDays))
+		form.Set("subscription_data[trial_settings][end_behavior][missing_payment_method]", "cancel")
+	}
 	// Cliente já criado por nós (razão social, morada, NIF, e-mail do financeiro): o checkout só
 	// pede o cartão e a fatura sai completa. Sem ele, ao menos o e-mail vai pré-preenchido.
 	if opts.CustomerID != "" {

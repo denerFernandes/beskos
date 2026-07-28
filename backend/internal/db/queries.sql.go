@@ -3451,6 +3451,17 @@ func (q *Queries) DeleteTemplate(ctx context.Context, arg DeleteTemplateParams) 
 	return result.RowsAffected(), nil
 }
 
+const deleteTenant = `-- name: DeleteTenant :exec
+DELETE FROM tenants WHERE id = $1
+`
+
+// Só o registo self-service usa isto, para desfazer um signup que falhou a meio (o resto cai em
+// cascata). Nunca é exposto numa rota: apagar uma organização viva é operação do manager.
+func (q *Queries) DeleteTenant(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTenant, id)
+	return err
+}
+
 const deleteTenantWebmailSessions = `-- name: DeleteTenantWebmailSessions :exec
 DELETE FROM webmail_sessions s USING mail_users u
 WHERE s.mail_user_id = u.id AND u.tenant_id = $1 AND s.token <> $2
@@ -4907,6 +4918,28 @@ SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_s
 
 func (q *Queries) GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, error) {
 	row := q.db.QueryRow(ctx, getDomainByID, id)
+	var i Domain
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Dominio,
+		&i.StalwartID,
+		&i.DkimStatus,
+		&i.DnsStatus,
+		&i.ProvisionState,
+		&i.DnsZone,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getDomainByName = `-- name: GetDomainByName :one
+SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE dominio = $1
+`
+
+// Um domínio só pode existir uma vez na plataforma (é a caixa de correio de alguém).
+func (q *Queries) GetDomainByName(ctx context.Context, dominio string) (Domain, error) {
+	row := q.db.QueryRow(ctx, getDomainByName, dominio)
 	var i Domain
 	err := row.Scan(
 		&i.ID,
