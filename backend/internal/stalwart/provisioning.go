@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -125,16 +124,20 @@ func (c *Client) CreateAccount(ctx context.Context, in AccountInput) (string, er
 	return firstCreatedID(&r)
 }
 
-// SetAccountAliases substitui a lista de aliases de uma conta. Substitui o MAPA inteiro em vez de
-// mexer em índices: a nossa base é a fonte de verdade da lista, e assim a operação é idempotente —
-// repetir não duplica nem deixa buracos (DIVERGENCES §D4: aliases é um mapa "0","1",…).
+// SetAccountAliases substitui a lista de aliases de uma conta. Manda a lista INTEIRA em vez de mexer
+// em índices: a nossa base é a fonte de verdade, e assim a operação é idempotente — repetir não
+// duplica nem deixa buracos.
+//
+// ATENÇÃO ao formato (DIVERGENCES §D4b): na CRIAÇÃO estes campos são mapas ("0","1",…), mas no
+// UPDATE o Stalwart 0.16 exige um ARRAY. Com o mapa responde
+// `invalidPatch: "Invalid value type for object" properties:["aliases"]` (medido em produção,
+// 28/07/2026) — o mesmo campo, duas formas, conforme a operação.
 func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliases []string) error {
-	m := make(map[string]any, len(aliases))
-	for i, a := range aliases {
-		m[strconv.Itoa(i)] = a
+	if aliases == nil {
+		aliases = []string{} // nil serializa como null e apagaria o campo em vez de o esvaziar
 	}
 	args := map[string]any{
-		"update": map[string]any{accountID: map[string]any{"aliases": m}},
+		"update": map[string]any{accountID: map[string]any{"aliases": aliases}},
 	}
 	raw, err := c.call(ctx, "x:Account/set", args)
 	if err != nil {
@@ -146,7 +149,8 @@ func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliase
 	}
 	if len(r.NotUpdated) > 0 {
 		b, _ := json.Marshal(r.NotUpdated)
-		return fmt.Errorf("stalwart notUpdated: %s", string(b))
+		sent, _ := json.Marshal(aliases)
+		return fmt.Errorf("stalwart notUpdated: %s (enviámos aliases=%s)", string(b), string(sent))
 	}
 	return nil
 }
