@@ -235,13 +235,17 @@ O CI faz deploy por imagem; as apps criam-se uma vez no painel (com o domínio +
 | `manager-api` | beskos-api | `/usr/local/bin/manager-api` | interno | app |
 | `frontend` | beskos-frontend | — | `app.beskos.com` (+ `beskos.com`? não; landing à parte) | app |
 | `manager` | beskos-manager | — | `manager.beskos.com` | app |
-| `onlyoffice` | **beskos-docs** (a nossa: oficial pinada + marca Beskos) | — | `docs.beskos.com` | media |
+| `docs` | **beskos-docs** (a nossa: oficial pinada + marca Beskos) | — | `docs.beskos.com` | media |
 
 > **O `onlyoffice` deixou de correr a imagem oficial pura.** Corre `beskos-docs`, construída em
 > `deploy/onlyoffice/Dockerfile` a partir da imagem oficial **pinada por digest** com o patch de
 > marca aplicado no build. É obrigatório: o CapRover faz deploy por imagem e não monta nada do
 > repositório, portanto sem esta imagem o editor em produção volta à marca do ONLYOFFICE.
 > O fonte modificado é público (AGPL v3 §13): https://github.com/denerFernandes/beskos-docs-server
+>
+> A app chama-se **`docs`** (não `onlyoffice`) e precisa de `AI_PROXY_URL=http://srv-captain--api:8000`
+> além do JWT: a nossa imagem injeta a config do plugin de IA no arranque e, sem essa variável,
+> escreve o default de dev (`localhost:5173`) e a IA do editor fica apontada ao sítio errado.
 
 - **Registry ghcr:** Cluster → Docker Registries → adicionar `ghcr.io` com um PAT (read:packages) → o CapRover puxa as imagens privadas.
 - **Env/secrets por app:** `DATABASE_URL`, `SECRETBOX_KEY`, `MINIO_ENDPOINT=<acct>.r2.cloudflarestorage.com`, `MINIO_SSL=true`, `MINIO_REGION=auto`, `MINIO_BUCKET=beskos-files`, `MINIO_ACCESS_KEY/SECRET`, `LIVEKIT_*`, `ONLYOFFICE_JWT_SECRET`, `ONLYOFFICE_SOURCE_URL`, `SES_*`, `STRIPE_*`, `MANAGER_API_URL=http://srv-captain--manager-api:8091`, `API_UPSTREAM=srv-captain--api:8000`.
