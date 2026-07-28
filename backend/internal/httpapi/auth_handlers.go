@@ -143,6 +143,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Aviso de novo início de sessão (quando, de onde, com que aparelho): é o que permite a alguém
+	// perceber que lhe roubaram a senha. Best-effort, fora do caminho do login.
+	s.alertNewLogin(r, u)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": u.ID, "email": u.Email, "name": u.Name, "role": u.Role,
 		"has_mailbox": u.StalwartAccountID != nil, "token": token,

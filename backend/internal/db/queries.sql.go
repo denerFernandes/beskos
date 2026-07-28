@@ -5851,6 +5851,43 @@ func (q *Queries) GetTenantDisabledApps(ctx context.Context, id uuid.UUID) ([]st
 	return disabled_apps, err
 }
 
+const getTenantOwner = `-- name: GetTenantOwner :one
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar FROM mail_users WHERE tenant_id = $1 AND role = 'owner' ORDER BY created_at ASC LIMIT 1
+`
+
+// Dono da organização: quem recebe os avisos quando não há contacto de faturação definido.
+func (q *Queries) GetTenantOwner(ctx context.Context, tenantID uuid.UUID) (MailUser, error) {
+	row := q.db.QueryRow(ctx, getTenantOwner, tenantID)
+	var i MailUser
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.StalwartAccountID,
+		&i.QuotaBytes,
+		&i.CreatedAt,
+		&i.PasswordHash,
+		&i.Language,
+		&i.TotpSecret,
+		&i.MfaTotpEnabled,
+		&i.Phone,
+		&i.MfaSmsEnabled,
+		&i.NotifyEmail,
+		&i.Settings,
+		&i.StatusEmoji,
+		&i.StatusText,
+		&i.LastTotpStep,
+		&i.JmapCred,
+		&i.Presence,
+		&i.MailSeenAt,
+		&i.JobTitle,
+		&i.Avatar,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar FROM mail_users WHERE id = $1
 `

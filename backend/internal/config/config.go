@@ -124,19 +124,21 @@ func Load() (*Config, error) {
 		LiveKitAPISecret:      os.Getenv("LIVEKIT_API_SECRET"),
 		NotifySMTPHost:        getenv("NOTIFY_SMTP_HOST", ""),
 		NotifySMTPPort:        getenv("NOTIFY_SMTP_PORT", "587"),
-		NotifyFrom:            getenv("NOTIFY_FROM", ""),
-		NotifySMTPUser:        getenv("NOTIFY_SMTP_USER", ""),
-		NotifySMTPPassword:    os.Getenv("NOTIFY_SMTP_PASSWORD"),
-		NotifySMTPInsecure:    getenv("NOTIFY_SMTP_INSECURE", "false") == "true",
-		VAPIDPublicKey:        getenv("VAPID_PUBLIC_KEY", ""),
-		VAPIDPrivateKey:       os.Getenv("VAPID_PRIVATE_KEY"),
-		VAPIDSubject:          getenv("VAPID_SUBJECT", "mailto:admin@localhost"),
-		FilesMaxUploadBytes:   getenvInt64("FILES_MAX_UPLOAD_BYTES", 100<<30), // 100 GiB
-		AppOrigins:            splitList(getenv("APP_ORIGINS", "")),
-		CookieSecure:          getenv("COOKIE_SECURE", "false") == "true",
-		PublicURL:             strings.TrimRight(getenv("PUBLIC_URL", ""), "/"),
-		Environment:           getenv("APP_ENV", "development"),
-		MFAEncKey:             os.Getenv("MFA_ENC_KEY"),
+		// Remetente dos avisos ao cliente. O endereço tem de existir como caixa no Stalwart (ou ser
+		// aceite pelo SMTP configurado) — senão o servidor recusa o envio.
+		NotifyFrom:          getenv("NOTIFY_FROM", "Beskos <noreply@beskos.com>"),
+		NotifySMTPUser:      getenv("NOTIFY_SMTP_USER", ""),
+		NotifySMTPPassword:  os.Getenv("NOTIFY_SMTP_PASSWORD"),
+		NotifySMTPInsecure:  getenv("NOTIFY_SMTP_INSECURE", "false") == "true",
+		VAPIDPublicKey:      getenv("VAPID_PUBLIC_KEY", ""),
+		VAPIDPrivateKey:     os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:        getenv("VAPID_SUBJECT", "mailto:admin@localhost"),
+		FilesMaxUploadBytes: getenvInt64("FILES_MAX_UPLOAD_BYTES", 100<<30), // 100 GiB
+		AppOrigins:          splitList(getenv("APP_ORIGINS", "")),
+		CookieSecure:        getenv("COOKIE_SECURE", "false") == "true",
+		PublicURL:           strings.TrimRight(getenv("PUBLIC_URL", ""), "/"),
+		Environment:         getenv("APP_ENV", "development"),
+		MFAEncKey:           os.Getenv("MFA_ENC_KEY"),
 	}
 	if c.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")

@@ -156,6 +156,23 @@ A app cria identidade SES por domínio automaticamente (ver memória do projeto)
 
 **Credenciais SES** (SMTP user/pass ou chaves IAM) → **secrets**.
 
+### Avisos transacionais (noreply@beskos.com)
+
+Conta criada, teste iniciado, subscrição, cobrança, novo início de sessão, convites de evento a
+externos e ficheiros partilhados com externos saem por SMTP autenticado. **Sem estas variáveis o
+envio fica desligado em silêncio** (a app continua a funcionar; só ninguém recebe nada):
+
+```
+NOTIFY_SMTP_HOST=mail.beskos.com     # o Stalwart
+NOTIFY_SMTP_PORT=465                 # 465 = TLS implícito (o 587 do Stalwart larga a ligação)
+NOTIFY_SMTP_USER=noreply@beskos.com
+NOTIFY_SMTP_PASSWORD=<senha da caixa>
+NOTIFY_FROM=Beskos <noreply@beskos.com>   # já é o valor por omissão
+```
+
+A caixa `noreply@beskos.com` tem de **existir no Stalwart** (criar como qualquer utilizador) e o
+domínio `beskos.com` tem de estar ativo lá, senão o servidor recusa o envio.
+
 ---
 
 ## 8. Vídeo — LiveKit

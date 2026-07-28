@@ -96,6 +96,8 @@ func (s *Server) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Também aqui: com 2º fator a sessão só nasce depois do código, e é este o momento do login.
+	s.alertNewLogin(r, u)
 	writeJSON(w, http.StatusOK, map[string]any{"user_id": u.ID, "token": token})
 }
 

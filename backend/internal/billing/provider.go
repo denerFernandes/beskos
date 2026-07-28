@@ -45,11 +45,17 @@ type CheckoutOpts struct {
 // WebhookEvent é o evento normalizado (independente de provedor) que o control plane aplica.
 type WebhookEvent struct {
 	EventID        string // id do provedor — usado para idempotência (brief §10)
-	Type           string // "activated" | "canceled"
+	Type           string // "activated" | "canceled" | "status" | "charged"
 	TenantID       string
-	Plan           string
+	Plan           string // plano a aplicar ("" = não mexer no plano)
 	Status         string
 	SubscriptionID string
+	// Cobrança (Type="charged"): o que a fatura levou, para o aviso ao cliente.
+	Cycle       string
+	AmountCents int
+	Currency    string
+	InvoiceURL  string
+	PlanKey     string // plano da fatura, só para o texto do aviso
 }
 
 // SubscriptionInfo é o retrato da assinatura no provedor — o painel gere sem sair da app.

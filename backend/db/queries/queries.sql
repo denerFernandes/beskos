@@ -839,6 +839,10 @@ SELECT * FROM subscriptions WHERE tenant_id = $1;
 -- Sincroniza só o status (customer.subscription.updated) sem tocar no plano/faixa.
 UPDATE subscriptions SET status = @status WHERE tenant_id = @tenant_id;
 
+-- name: GetTenantOwner :one
+-- Dono da organização: quem recebe os avisos quando não há contacto de faturação definido.
+SELECT * FROM mail_users WHERE tenant_id = $1 AND role = 'owner' ORDER BY created_at ASC LIMIT 1;
+
 -- name: GetBillingProfile :one
 SELECT * FROM billing_profiles WHERE tenant_id = $1;
 
