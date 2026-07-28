@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -178,6 +179,10 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		rollback("criar a caixa no Stalwart", err)
+		if errors.Is(err, stalwart.ErrWeakPassword) {
+			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
+			return
+		}
 		writeErr(w, http.StatusBadGateway, "signup.provision_failed")
 		return
 	}

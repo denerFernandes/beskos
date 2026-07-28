@@ -953,7 +953,8 @@
     "signup.domain_taken": "That domain is already registered with Beskos.",
     "signup.login_invalid": "Invalid address.",
     "signup.password_weak": "The password needs at least 10 characters.",
-    "signup.provision_failed": "Could not set up the domain and mailbox. Try again in a few minutes."
+    "signup.provision_failed": "Could not set up the domain and mailbox. Try again in a few minutes.",
+    "mailbox.password_weak": "That password is too weak. Avoid repeats and sequences — add another word, preferably an uncommon one."
   },
   "members": {
     "title": "Members",

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/base64"
+	"errors"
 	"log"
 	"net/http"
 
@@ -75,6 +76,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("operação de caixa no Stalwart falhou: %v", err)
+		if errors.Is(err, stalwart.ErrWeakPassword) {
+			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
+			return
+		}
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}
