@@ -1344,6 +1344,38 @@
 .wm .rich-foot .grow{flex:1;}
 /* O wrapper do emoji/GIF é a âncora do popup; na barra tem de se comportar como o próprio botão. */
 .wm .rich-foot .react-wrap{display:inline-flex;}
+/* Menu do "+": abre PARA CIMA (a barra está no fundo do ecrã), alinhado pela esquerda do botão.
+   `fixed` e não `absolute` — a .rich-box tem overflow:hidden (é o que arredonda os cantos) e
+   recortava o menu pelo meio. A posição vem do JS, que sabe onde está o botão. */
+.wm .add-menu{position:fixed;z-index:60;min-width:250px;padding:6px;background:var(--paper);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:1px;}
+.wm .add-menu button{display:flex;align-items:center;gap:10px;width:100%;height:36px;padding:0 10px;border:none;background:none;color:var(--ink);border-radius:8px;font:inherit;font-size:14px;font-weight:500;text-align:left;cursor:pointer;}
+.wm .add-menu button:hover{background:var(--surface-2);}
+.wm .add-menu .nm{flex:1;}
+.wm .add-menu .ks{color:var(--faint);font-size:12px;}
+/* "Adicionar link": dois campos empilhados e as ações à direita, como no Slack. */
+.wm .link-modal{display:flex;flex-direction:column;gap:14px;}
+.wm .link-modal .fld{display:flex;flex-direction:column;gap:6px;}
+.wm .link-modal .fld span{font-size:13px;font-weight:600;color:var(--ink);}
+.wm .link-modal .fld input{height:38px;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px;outline:none;}
+.wm .link-modal .fld input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint);}
+.wm .link-modal .link-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:2px;}
+.wm .link-modal .link-acts .send{background:var(--accent-solid);color:#fff;border:none;border-radius:9px;padding:9px 20px;font-weight:600;cursor:pointer;}
+.wm .link-modal .link-acts .send:disabled{opacity:.5;}
+/* Pré-visualização de anexo de texto/CSV dentro da mensagem. Largura contida: a tabela rola dentro
+   da própria caixa em vez de esticar a conversa. */
+.wm .att-preview{max-width:min(560px,100%);border:1px solid var(--border);border-radius:10px;background:var(--paper);overflow:hidden;}
+.wm .att-preview .ap-head{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 10px;border-bottom:1px solid var(--border);background:var(--surface-2);}
+.wm .att-preview .ap-ic{display:inline-flex;color:var(--muted);}
+.wm .att-preview .ap-name{flex:1;font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wm .att-preview .ap-msg{padding:10px 12px;font-size:12.5px;color:var(--muted);}
+.wm .att-preview .ap-table-wrap{max-height:280px;overflow:auto;}
+.wm .att-preview .ap-table{border-collapse:collapse;font-size:12.5px;width:100%;}
+.wm .att-preview .ap-table th,.wm .att-preview .ap-table td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:5px 9px;text-align:left;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;}
+.wm .att-preview .ap-table th{position:sticky;top:0;background:var(--paper);font-weight:600;color:var(--ink);}
+.wm .att-preview .ap-table td{color:var(--muted);}
+.wm .att-preview .ap-table tr>*:last-child{border-right:none;}
+.wm .att-preview .ap-text{margin:0;padding:10px 12px;max-height:240px;overflow:auto;font-family:ui-monospace,monospace;font-size:12.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word;color:var(--ink);}
+.wm .att-preview .ap-more{padding:6px 10px;border-top:1px solid var(--border);font-size:11.5px;color:var(--faint);}
 .wm .rich-box textarea{display:block;width:100%;border:none;background:none;outline:none;color:var(--ink);font:inherit;font-size:14.5px;line-height:1.5;padding:10px 14px;resize:none;max-height:180px;}
 .wm .rich-foot .hint{font-size:11.5px;color:var(--faint);margin-right:2px;}
 /* Enviar: o único botão cheio da barra — é a ação principal e tem de se ver de relance. */

@@ -1801,7 +1801,21 @@
     "archivedDone": "Channel archived.",
     "archivedSection": "Archived",
     "restore": "Restore",
-    "restored": "Channel restored."
+    "restored": "Channel restored.",
+    "linkText": "Text",
+    "linkUrl": "Link",
+    "addUpload": "Upload from your computer",
+    "addDrive": "Attach from Drive",
+    "addSnippet": "Code block",
+    "addTask": "Reference a task",
+    "previewOpen": "Open full screen",
+    "previewPartial": "Preview of the start of the file",
+    "csvMoreRows_one": "+{{count}} row",
+    "csvMoreRows_other": "+{{count}} rows",
+    "csvMoreCols_one": "+{{count}} column",
+    "csvMoreCols_other": "+{{count}} columns",
+    "textMoreLines_one": "+{{count}} line",
+    "textMoreLines_other": "+{{count}} lines"
   },
   "groups": {
     "title": "Teams",

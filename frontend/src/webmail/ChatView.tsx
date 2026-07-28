@@ -8,6 +8,8 @@ import { renderRich } from "./richtext";
 import { setCustomEmoji } from "./customEmoji";
 import { sanitizeRich } from "./mailHtml";
 import { ChatAttachmentViewer } from "./ChatAttachmentViewer";
+import { ChatAttachmentPreview, previewKind } from "./ChatAttachmentPreview";
+import { LinkModal } from "./LinkModal";
 import { openRoom } from "./MeetRoom";
 import { useUserSettings } from "./useSettings";
 import { toast } from "./toast";
@@ -18,7 +20,7 @@ import { SHORTCODES } from "./emoji";
 import { initials, shortTime } from "./util";
 import { Avatar } from "./Avatar";
 import { IcPlus, IcUsers, IcTrash, IcPencil, IcReply, IcForward, IcX, IcVideo, IcPhone, IcPaperclip, IcChevron, IcLink, IcPin, IcBell, IcSearch, IcMail, IcList, IcClock, IcFolder, IcColumns, IcArchive,
-  IcBold, IcItalic, IcUnderline, IcStrike, IcListOrdered, IcQuote, IcCode, IcCodeBlock, IcAt, IcSlash, IcTextSize, IcEmoji, IcSend } from "../panel/icons";
+  IcBold, IcItalic, IcUnderline, IcStrike, IcListOrdered, IcQuote, IcCode, IcCodeBlock, IcAt, IcSlash, IcTextSize, IcEmoji, IcSend, IcUpload } from "../panel/icons";
 import { ExtractTasksModal } from "./ExtractTasksModal";
 import { TaskPickerModal } from "./TaskPickerModal";
 import { DrivePickerDrawer } from "./DrivePickerDrawer";
@@ -648,10 +650,14 @@ function MessageRow({ m, prev, locale, mine, canManage, highlighted, onReact, on
           <div className="msg-atts">
             {m.attachments.map((a) => {
               const kind = viewerKind(a.name);
+              const prev = previewKind(a.name);
               return kind === "image" ? (
                 <button key={a.file_id} className="att-thumb" onClick={() => setViewAtt(a)}>
                   <img src={backend.chatAttachmentUrl(a.file_id, true)} alt={a.name} loading="lazy" />
                 </button>
+              ) : prev ? (
+                // Dados à vista: um CSV vira tabela e um txt/json mostra o princípio, sem sair da conversa.
+                <ChatAttachmentPreview key={a.file_id} att={a} kind={prev} onOpen={() => setViewAtt(a)} />
               ) : (
                 <button key={a.file_id} className="att-file" onClick={() => (kind ? setViewAtt(a) : window.open(backend.chatAttachmentUrl(a.file_id), "_blank"))}>
                   <span className="att-ic"><IcPaperclip size={15} /></span>
@@ -810,6 +816,11 @@ const Composer = forwardRef<ComposerHandle, {
   const [atts, setAtts] = useState<ChatAttachment[]>([]);
   const [uploading, setUploading] = useState(0);
   const [sched, setSched] = useState(false);
+  // Menu do "+": guarda o retângulo do botão (null = fechado). A posição vem do JS porque o menu
+  // é `fixed` — dentro da .rich-box (overflow:hidden) ficaria recortado, como o seletor de emojis.
+  const [addMenu, setAddMenu] = useState<DOMRect | null>(null);
+  // Seleção guardada enquanto o modal do link está aberto (null = modal fechado).
+  const [linkSel, setLinkSel] = useState<{ start: number; end: number; text: string } | null>(null);
   // Barra de formatação visível? É preferência de quem escreve (o "Aa" do Slack) e vive no
   // aparelho: quem escreve markdown de cor deixa-a escondida e ganha altura para a mensagem.
   const [showFmt, setShowFmt] = useState(() => { try { return localStorage.getItem(LS_FMT) !== "0"; } catch { return true; } });
@@ -840,6 +851,23 @@ const Composer = forwardRef<ComposerHandle, {
     const next = val.slice(0, s) + before + sel + after + val.slice(e);
     setText(next);
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + before.length, s + before.length + sel.length); });
+  };
+  // "Adicionar link": guarda a seleção ANTES de abrir o modal — ao focar o campo de texto a caixa
+  // perde a seleção, e sem ela não saberíamos onde inserir nem o que a pessoa tinha marcado.
+  const openLink = () => {
+    const el = ta.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
+    setLinkSel({ start, end, text: text.slice(start, end) });
+  };
+  const insertLink = (label: string, url: string) => {
+    const sel = linkSel;
+    setLinkSel(null);
+    if (!sel) return;
+    const md = `[${label}](${url})`;
+    setText(text.slice(0, sel.start) + md + text.slice(sel.end));
+    const caret = sel.start + md.length;
+    requestAnimationFrame(() => { const el = ta.current; el?.focus(); el?.setSelectionRange(caret, caret); });
   };
   // Insere "@" ou "/" na posição do cursor e devolve o foco: escrever o carácter é o que ABRE o
   // menu (menções/comandos), então o botão faz exatamente o que a pessoa faria pelo teclado.
@@ -938,6 +966,7 @@ const Composer = forwardRef<ComposerHandle, {
         </div>
       )}
       {taskPick && <TaskPickerModal onPick={insertTask} onClose={() => setTaskPick(false)} />}
+      {linkSel && <LinkModal initialText={linkSel.text} onSave={insertLink} onClose={() => setLinkSel(null)} />}
       {(suggestions.length > 0 || specials.length > 0) && (
         <div className="mention-pop">
           {specials.map((o) => (
@@ -964,7 +993,7 @@ const Composer = forwardRef<ComposerHandle, {
             <button title={t("chat.underline")} onMouseDown={(e) => { e.preventDefault(); wrap("__"); }}><IcUnderline size={16} /></button>
             <button title={t("chat.strike")} onMouseDown={(e) => { e.preventDefault(); wrap("~~"); }}><IcStrike size={16} /></button>
             <span className="sep" />
-            <button title={t("chat.link")} onMouseDown={(e) => { e.preventDefault(); wrap("[", "](url)"); }}><IcLink size={16} /></button>
+            <button title={t("chat.link")} onMouseDown={(e) => { e.preventDefault(); openLink(); }}><IcLink size={16} /></button>
             <span className="sep" />
             <button title={t("chat.listOrdered")} onMouseDown={(e) => { e.preventDefault(); wrap("\n1. ", ""); }}><IcListOrdered size={16} /></button>
             <button title={t("chat.list")} onMouseDown={(e) => { e.preventDefault(); wrap("\n- ", ""); }}><IcList size={16} /></button>
@@ -1014,7 +1043,34 @@ const Composer = forwardRef<ComposerHandle, {
           </div>
         )}
         <div className="rich-foot">
-          <button title={t("chat.attach")} onMouseDown={(e) => { e.preventDefault(); fileIn.current?.click(); }}><IcPlus size={17} /></button>
+          {/* "+" abre um menu (como o Slack) em vez de saltar direto para o seletor de ficheiros:
+              anexar do computador e anexar do Drive são caminhos diferentes e ambos cabem aqui. */}
+          <span className="react-wrap">
+            <button className={addMenu ? "on" : ""} title={t("chat.attach")}
+              onMouseDown={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setAddMenu((v) => (v ? null : r)); }}>
+              {addMenu ? <IcX size={17} /> : <IcPlus size={17} />}
+            </button>
+            {addMenu && (
+              <>
+                {/* Fundo invisível: clicar fora fecha, como em qualquer menu da app. */}
+                <div className="menu-backdrop" onMouseDown={() => setAddMenu(null)} />
+                <div className="add-menu" style={{ left: addMenu.left, bottom: window.innerHeight - addMenu.top + 8 }}>
+                  <button onMouseDown={(e) => { e.preventDefault(); setAddMenu(null); fileIn.current?.click(); }}>
+                    <IcUpload size={16} /><span className="nm">{t("chat.addUpload")}</span>
+                  </button>
+                  <button onMouseDown={(e) => { e.preventDefault(); setAddMenu(null); setDrivePick(true); }}>
+                    <IcFolder size={16} /><span className="nm">{t("chat.addDrive")}</span>
+                  </button>
+                  <button onMouseDown={(e) => { e.preventDefault(); setAddMenu(null); wrap("\n```\n", "\n```\n"); }}>
+                    <IcCodeBlock size={16} /><span className="nm">{t("chat.addSnippet")}</span>
+                  </button>
+                  <button onMouseDown={(e) => { e.preventDefault(); setAddMenu(null); setTaskPick(true); }}>
+                    <IcColumns size={16} /><span className="nm">{t("chat.addTask")}</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </span>
           <button className={showFmt ? "on" : ""} title={t("chat.formatting")}
             onMouseDown={(e) => { e.preventDefault(); toggleFmt(); }}><IcTextSize size={17} /></button>
           <span className="react-wrap">
@@ -1024,7 +1080,6 @@ const Composer = forwardRef<ComposerHandle, {
           </span>
           <button title={t("chat.mention")} onMouseDown={(e) => { e.preventDefault(); insertAt("@"); }}><IcAt size={17} /></button>
           <span className="sep" />
-          <button title={t("chat.attachDrive")} onMouseDown={(e) => { e.preventDefault(); setDrivePick(true); }}><IcFolder size={17} /></button>
           <span className="react-wrap">
             <button className="gif-btn" title={t("chat.gif")}
               onMouseDown={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setGif((v) => (v ? null : r)); }}>GIF</button>
