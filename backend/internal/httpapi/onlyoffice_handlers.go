@@ -83,6 +83,10 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 		"help":           false,
 		"chat":           false,
 		"plugins":        true,
+		// Botão de fechar NO cabeçalho do editor (dispensa a nossa barra por cima). Só aparece se
+		// o cliente registar o evento onRequestClose — é ele que decide para onde voltar. Sem
+		// `text`: o Document Server usa a sua própria string, já traduzida pelo `lang` (lei §4.6).
+		"close": map[string]any{"visible": true},
 	}
 	s.office.applyBranding(customization)
 
