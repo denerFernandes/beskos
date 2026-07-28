@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -64,6 +65,7 @@ func (s *Server) handleResetMailboxPassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err := s.sw.SetAccountPassword(r.Context(), *mu.StalwartAccountID, req.Password); err != nil {
+		log.Printf("criar caixa no Stalwart falhou: %v", err)
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}

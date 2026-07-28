@@ -198,16 +198,28 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
     });
   }, [rawEmails, sortBy, sortDir]);
 
+  // O contador do servidor pode divergir do conteúdo: apanhámos uma pasta a dizer "1 por ler" sem
+  // nenhuma por ler (28/07/2026). Quando o modo "só por ler" corre, o total da consulta é a
+  // contagem REAL — guardamo-la e é ela que manda no crachá dessa pasta a partir daí.
+  const [realUnread, setRealUnread] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!unreadOnly || !activeFolder || listQ.data === undefined || addrFilter) return;
+    setRealUnread((v) => (v[activeFolder] === listQ.data!.total ? v : { ...v, [activeFolder]: listQ.data!.total }));
+  }, [unreadOnly, activeFolder, addrFilter, listQ.data]);
+  // unreadOf devolve o número a mostrar: a contagem real quando a temos, senão a do servidor.
+  const unreadOf = (f: Mailbox) => realUnread[f.id] ?? f.unreadEmails;
+
   // Não-lidas que o filtro por endereço esconde: o contador da pasta conta a CAIXA toda, por isso
   // com um endereço escolhido pode dizer "1" sem que a lista mostre nenhuma por ler. Só se calcula
   // na 1.ª página — nas seguintes o que se vê não representa a pasta e o aviso seria enganador.
   const hiddenUnread = useMemo(() => {
     if (!addrFilter || page > 1 || search || starred || labelId) return 0;
-    const folderUnread = folders.find((f) => f.id === activeFolder)?.unreadEmails ?? 0;
+    const fo = folders.find((f) => f.id === activeFolder);
+    const folderUnread = fo ? (realUnread[fo.id] ?? fo.unreadEmails) : 0;
     if (folderUnread === 0) return 0;
     const visible = emails.filter((m) => !m.keywords?.$seen).length;
     return Math.max(0, folderUnread - visible);
-  }, [addrFilter, page, search, starred, labelId, folders, activeFolder, emails]);
+  }, [addrFilter, page, search, starred, labelId, folders, activeFolder, emails, realUnread]);
 
   // Endereço a mostrar no seletor: a parte local em destaque e o domínio em surdina — é o que
   // distingue caixas do MESMO domínio sem cortar o texto a meio.
@@ -505,11 +517,11 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
                   onDragLeave={() => setDropOn((v) => (v === f.id ? null : v))}
                   onDrop={(e) => { e.preventDefault(); void dropInto(f.id); }}>
                   <span>{folderLabel(t, f)}</span>
-                  {f.unreadEmails > 0 && (
+                  {unreadOf(f) > 0 && (
                     // Clicar no número mostra as não lidas — é a pergunta que o número levanta.
                     <span className={"c" + (unreadOnly && f.id === activeFolder ? " on" : "")} title={t("webmail.showUnread")}
                       onClick={(e) => { e.stopPropagation(); openFolder(f); setUnreadOnly((v) => !(v && f.id === activeFolder)); }}>
-                      {f.unreadEmails}
+                      {unreadOf(f)}
                     </span>
                   )}
                 </button>
