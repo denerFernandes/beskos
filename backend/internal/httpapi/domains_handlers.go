@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strings"
@@ -104,6 +105,10 @@ func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		log.Printf("criar caixa no Stalwart falhou: %v", err)
+		if errors.Is(err, stalwart.ErrWeakPassword) {
+			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
+			return
+		}
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}

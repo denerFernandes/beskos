@@ -953,7 +953,8 @@
     "signup.domain_taken": "Esse domínio já está registado no Beskos.",
     "signup.login_invalid": "Endereço inválido.",
     "signup.password_weak": "A palavra-passe precisa de pelo menos 10 caracteres.",
-    "signup.provision_failed": "Não foi possível preparar o domínio e a caixa. Tente de novo dentro de minutos."
+    "signup.provision_failed": "Não foi possível preparar o domínio e a caixa. Tente de novo dentro de minutos.",
+    "mailbox.password_weak": "A palavra-passe é demasiado fraca. Evite repetições e sequências — junte outra palavra, de preferência pouco comum."
   },
   "members": {
     "title": "Membros",

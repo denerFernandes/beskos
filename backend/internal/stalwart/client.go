@@ -12,9 +12,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -162,7 +164,40 @@ func firstCreatedID(r *setResult) (string, error) {
 	}
 	if len(r.NotCreated) > 0 {
 		b, _ := json.Marshal(r.NotCreated)
-		return "", fmt.Errorf("stalwart notCreated: %s", string(b))
+		err := fmt.Errorf("stalwart notCreated: %s", string(b))
+		if isWeakSecret(r.NotCreated) {
+			return "", fmt.Errorf("%w: %v", ErrWeakPassword, err)
+		}
+		return "", err
 	}
 	return "", fmt.Errorf("stalwart: nenhum objeto criado na resposta")
+}
+
+// ErrWeakPassword: o Stalwart tem um medidor de força (zxcvbn) e recusa a senha antes de criar a
+// caixa. É erro de QUEM PEDE, não do servidor de correio — quem chama deve responder 400 com um
+// texto que explique, em vez do 502 genérico que só dizia "Bad gateway".
+var ErrWeakPassword = errors.New("stalwart: password too weak")
+
+// isWeakSecret reconhece a recusa da senha na resposta do set (invalidProperties sobre `secret`).
+func isWeakSecret(m map[string]json.RawMessage) bool {
+	for _, raw := range m {
+		var e struct {
+			Type        string   `json:"type"`
+			Description string   `json:"description"`
+			Properties  []string `json:"properties"`
+		}
+		if json.Unmarshal(raw, &e) != nil {
+			continue
+		}
+		if e.Type != "invalidProperties" {
+			continue
+		}
+		for _, p := range e.Properties {
+			// "secret" na criação, "credentials/0/secret" na troca de senha.
+			if p == "secret" || strings.HasSuffix(p, "/secret") {
+				return true
+			}
+		}
+	}
+	return false
 }

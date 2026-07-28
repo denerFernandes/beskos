@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"encoding/base64"
+	"errors"
 	"log"
+	"mailin/backend/internal/stalwart"
 	"net/http"
 	"strings"
 
@@ -84,6 +86,10 @@ func (s *Server) handleChangeMyPassword(w http.ResponseWriter, r *http.Request) 
 	if fresh.StalwartAccountID != nil {
 		if err := s.sw.SetAccountPassword(r.Context(), *fresh.StalwartAccountID, req.New); err != nil {
 			log.Printf("perfil: Stalwart recusou: %v", err)
+			if errors.Is(err, stalwart.ErrWeakPassword) {
+				writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
+				return
+			}
 			writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 			return
 		}

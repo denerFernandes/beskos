@@ -185,7 +185,11 @@ func (c *Client) SetAccountPassword(ctx context.Context, accountID, newPassword 
 	}
 	if len(r.NotUpdated) > 0 {
 		b, _ := json.Marshal(r.NotUpdated)
-		return fmt.Errorf("stalwart notUpdated: %s", string(b))
+		err := fmt.Errorf("stalwart notUpdated: %s", string(b))
+		if isWeakSecret(r.NotUpdated) {
+			return fmt.Errorf("%w: %v", ErrWeakPassword, err)
+		}
+		return err
 	}
 	return nil
 }
