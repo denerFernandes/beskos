@@ -3,7 +3,7 @@
 .ob {
   position: fixed; inset: 0; z-index: 200;
   display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: var(--bg, #FBFAF8);
+  background: var(--paper, #FBFAF8);
   overflow-y: auto;
 }
 .ob-card {
@@ -47,7 +47,7 @@
 .ob-list li { display: flex; align-items: center; gap: 8px; padding: 9px 12px; background: var(--surface-2); border-radius: 10px; font-size: 13.5px; }
 .ob-list li button { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; display: inline-flex; }
 
-.ob-err { margin: 0; color: var(--danger); font-size: 13.5px; }
+.ob-err { margin: 0; color: var(--danger, #B4342B); font-size: 13.5px; }
 .ob-cta { display: inline-flex; align-items: center; justify-content: center; height: 46px; margin-top: 4px; background: var(--accent-solid); color: #fff; border: none; border-radius: 12px; font: inherit; font-weight: 650; font-size: 15px; cursor: pointer; }
 .ob-cta:hover { filter: brightness(1.07); }
 .ob-cta:disabled { opacity: .55; cursor: default; filter: none; }
