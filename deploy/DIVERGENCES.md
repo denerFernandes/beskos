@@ -71,6 +71,11 @@ Guardamos o `id` retornado em `domains.stalwart_id`.
 
 ### Criar mailbox individual — `x:Account/set`
 Endereço = `name` + `domainId` (NÃO existe campo `email`). `credentials`/`aliases`/`quotas` são **mapas** (`{"0":…}`), não arrays.
+
+> **Na criação mapa, no update array** (medido 28/07/2026). O mesmo campo `aliases` que se cria
+> como `{"0":"a@b"}` tem de ser actualizado como `["a@b"]`; com o mapa o servidor responde
+> `invalidPatch: "Invalid value type for object", properties:["aliases"]`. Ver
+> `SetAccountAliases` em `internal/stalwart/provisioning.go`.
 ```json
 ["x:Account/set",{"create":{"u1":{
   "@type":"User","name":"joao","domainId":"c","description":"João",
