@@ -178,7 +178,9 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
       : search ? svc.search(search, position)
       : starred ? svc.listStarred(position)
       : labelId ? svc.listByLabel(labelKeyword(labelId), position)
-      : addrJmapFilter ? svc.searchAdvanced(addrJmapFilter, position)
+      // Sem colapso quando se pedem as não lidas: colapsada, a conversa mostra a mensagem mais
+      // recente e o filtro deixava de encontrar a resposta antiga por ler.
+      : addrJmapFilter ? svc.searchAdvanced(addrJmapFilter, position, 50, !unreadOnly)
       : svc.listEmails(activeFolder!, position)),
     enabled: advFilter ? true : search ? search.length > 1 : starred || !!labelId || !!activeFolder,
     refetchInterval: (search || advFilter) ? false : 20000, refetchOnWindowFocus: true,
@@ -690,7 +692,9 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
                 : rcpts.length === 1 ? t("webmail.list.to", { who: primary?.name || primary?.email })
                 : t("webmail.list.toMany", { who: primary?.name || primary?.email, n: rcpts.length - 1 }))
               : displayName(m.from);
-            const unread = m.keywords ? !m.keywords.$seen : false;
+            // A linha é de uma CONVERSA: fica em destaque se a representante ou qualquer irmã
+            // estiver por ler — senão uma resposta antiga por ler passava despercebida.
+            const unread = m.threadUnread || (m.keywords ? !m.keywords.$seen : false);
             const picked = sel.has(m.id);
             return (
               <article key={m.id} draggable

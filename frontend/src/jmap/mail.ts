@@ -32,6 +32,52 @@ export class MailService {
     return (r.list as Mailbox[]) ?? [];
   }
 
+  // Contagem REAL de não lidas por pasta. O `unreadEmails` do Mailbox/get é mantido pelo servidor
+  // à parte das mensagens e pode ficar preso num valor antigo — apanhámos uma caixa a dizer "1 por
+  // ler" com tudo lido (28/07/2026). Aqui conta-se o que existe mesmo, num só pedido com um
+  // Email/query por pasta (o JMAP aceita vários métodos por chamada).
+  async unreadCounts(mailboxIds: string[]): Promise<Record<string, number>> {
+    if (mailboxIds.length === 0) return {};
+    const calls = mailboxIds.map((id, i) => [
+      "Email/query",
+      {
+        accountId: this.accountId,
+        filter: { operator: "AND", conditions: [{ inMailbox: id }, { notKeyword: "$seen" }] },
+        limit: 0, calculateTotal: true,
+      },
+      `u${i}`,
+    ] as [string, Record<string, unknown>, string]);
+    const res = await this.c.request(USING_MAIL, calls);
+    const out: Record<string, number> = {};
+    res.forEach((r, i) => {
+      const total = (r as { total?: number }).total;
+      if (typeof total === "number") out[mailboxIds[i]] = total;
+    });
+    return out;
+  }
+
+
+  // unreadThreads devolve os threads com ALGUMA mensagem por ler. Uma ida só: pede as keywords dos
+  // irmãos das conversas com mais de uma mensagem (as de uma só já se sabem pela própria linha).
+  private async unreadThreads(threadList: { id: string; emailIds: string[] }[], shown: string[]): Promise<Set<string>> {
+    const shownSet = new Set(shown);
+    const siblings: string[] = [];
+    for (const th of threadList) {
+      for (const id of th.emailIds) if (!shownSet.has(id)) siblings.push(id);
+    }
+    if (siblings.length === 0) return new Set();
+    // Teto de segurança: uma página de conversas longas não pode virar um pedido gigante.
+    const ids = siblings.slice(0, 300);
+    const [get] = await this.c.request(USING_MAIL, [
+      ["Email/get", { accountId: this.accountId, ids, properties: ["id", "threadId", "keywords"] }, "s"],
+    ]);
+    const out = new Set<string>();
+    for (const e of (get.list as EmailSummary[]) ?? []) {
+      if (!e.keywords?.$seen && e.threadId) out.add(e.threadId);
+    }
+    return out;
+  }
+
   // Lista emails de uma pasta: colapsa por conversa (uma linha por thread, como o Gmail).
   async listEmails(mailboxId: string, position = 0, limit = 50): Promise<EmailPage> {
     return this.queryAndGet({ inMailbox: mailboxId }, position, limit, true);
@@ -73,8 +119,8 @@ export class MailService {
 
   // Busca avançada (estilo Gmail): recebe um filtro JMAP já montado (from/to/subject/text/
   // hasAttachment/after/before/minSize/maxSize/inMailbox + NOT). Colapsa por conversa.
-  async searchAdvanced(filter: Record<string, unknown>, position = 0, limit = 50): Promise<EmailPage> {
-    return this.queryAndGet(filter, position, limit, true);
+  async searchAdvanced(filter: Record<string, unknown>, position = 0, limit = 50, collapse = true): Promise<EmailPage> {
+    return this.queryAndGet(filter, position, limit, collapse);
   }
 
   // Importantes: uma VISTA, não uma pasta. Filtra pela marca $flagged em toda a conta — a
@@ -107,13 +153,21 @@ export class MailService {
       }, "t"],
     ]);
     // nº de mensagens por conversa, para o badge "(3)". Só interessa quando colapsado e >1.
-    const sizeByThread = new Map(((threads.list as { id: string; emailIds: string[] }[]) ?? [])
-      .map((th) => [th.id, th.emailIds.length]));
+    const threadList = (threads.list as { id: string; emailIds: string[] }[]) ?? [];
+    const sizeByThread = new Map(threadList.map((th) => [th.id, th.emailIds.length]));
     const byId = new Map((get.list as EmailSummary[] ?? []).map((e) => [e.id, e]));
     const ids = (query.ids as string[]) ?? [];
+    // Por ler ao nível da CONVERSA: colapsada, a linha mostrava o estado da mensagem mais recente,
+    // por isso uma resposta antiga por ler ficava invisível — a caixa dizia "1 por ler" com tudo a
+    // parecer lido (28/07/2026). Aqui vemos os irmãos de cada conversa e marcamos a linha.
+    const unreadThreads = collapse ? await this.unreadThreads(threadList, ids) : new Set<string>();
     const items = ids.map((id) => byId.get(id)).filter(Boolean).map((e) => {
       const n = collapse ? sizeByThread.get(e!.threadId ?? "") ?? 1 : 1;
-      return { ...e!, threadCount: n > 1 ? n : undefined };
+      return {
+        ...e!,
+        threadCount: n > 1 ? n : undefined,
+        threadUnread: unreadThreads.has(e!.threadId ?? "") || undefined,
+      };
     });
     return {
       items,

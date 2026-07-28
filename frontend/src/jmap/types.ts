@@ -36,6 +36,8 @@ export interface EmailSummary {
   mailboxIds?: Record<string, boolean>; // pastas onde a mensagem está — p/ o chip de pasta (Importantes/busca)
   threadId?: string;
   threadCount?: number; // nº de mensagens na conversa (só quando a lista está colapsada e >1)
+  /** Alguma mensagem da conversa está por ler (a linha colapsada mostra só a mais recente). */
+  threadUnread?: boolean;
 }
 
 export interface EmailAttachment {
