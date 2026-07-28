@@ -28,6 +28,7 @@
 
 WEBAPPS=/var/www/onlyoffice/documentserver/web-apps/apps
 BRANDDIR="$WEBAPPS/common/main/resources/img/beskos"
+
 MARKER=beskos-branding-patch
 PATCHED=0
 SKIPPED=0
@@ -40,6 +41,7 @@ if [ -d /scripts/brand ]; then
 	mkdir -p "$BRANDDIR" && cp /scripts/brand/*.svg "$BRANDDIR/" 2>/dev/null &&
 		echo "branding patch: logos copiados para $BRANDDIR" ||
 		echo "branding patch: falhou a copiar os logos — o cabeçalho fica sem imagem"
+
 fi
 
 for app in documenteditor spreadsheeteditor presentationeditor pdfeditor visioeditor; do
@@ -69,5 +71,24 @@ for app in documenteditor spreadsheeteditor presentationeditor pdfeditor visioed
 	fi
 	PATCHED=$((PATCHED + 1))
 done
+
+# Paleta Beskos: acrescenta as nossas variáveis ao FIM do app.css de cada editor (ganha por ordem,
+# em igualdade de especificidade). Ver o cabeçalho do beskos-theme.css para porque não é um tema
+# do themes.json. Idempotente pelo mesmo marcador.
+if [ -f /scripts/brand/beskos-theme.css ]; then
+	THEMED=0
+	for app in documenteditor spreadsheeteditor presentationeditor pdfeditor visioeditor; do
+		c="$WEBAPPS/$app/main/resources/css/app.css"
+		[ -f "$c" ] || continue
+		grep -q "$MARKER" "$c" 2>/dev/null && continue
+		{
+			printf '\n/* %s */\n' "$MARKER"
+			cat /scripts/brand/beskos-theme.css
+		} >> "$c" 2>/dev/null || continue
+		[ -f "$c.gz" ] && gzip -9 -c "$c" > "$c.gz" 2>/dev/null
+		THEMED=$((THEMED + 1))
+	done
+	echo "branding patch: paleta aplicada a $THEMED editor(es)"
+fi
 
 echo "branding patch: $PATCHED editor(es) modificado(s), $SKIPPED já estava(m)"

@@ -236,6 +236,23 @@ mudar numa versão futura do DS, o script avisa e o editor arranca na mesma, só
   contradiz os termos do LICENSE. O que vincula é a licença; o risco residual é de disputa, não de
   incumprimento claro. Decisão tomada com esse risco à vista.
 
+**Paleta (27/07/2026):** o layout de abas é genérico, mas a cor é identidade — a política de marcas
+proíbe imitar a identidade visual deles, e um editor idêntico ao das imagens oficiais é exatamente
+o que não queremos. Trocamos o azul (`#446995`) pelo petróleo Beskos. Duas armadilhas medidas:
+
+- **Tema personalizado via `themes.json` NÃO funciona no arranque.** Quem serve os temas é o
+  DocService (não o nginx): lê os ficheiros de `services.CoAuthoring.themes.uri` e publica-os em
+  `GET /themes.json`, **embrulhando cada ficheiro num array `themes`** — logo cada ficheiro tem de
+  conter UM tema, não uma lista, senão fica aninhado a mais e é ignorado em silêncio. Mesmo depois
+  disso: o editor aplica a classe (`body class="theme-beskos"`) mas **nunca escreve as variáveis
+  CSS**, porque `write_theme_css()` está comentado em `parse_themes_object` e só corre em
+  `apply_theme()` — ou seja, apenas quando o utilizador TROCA de tema no menu. Medido:
+  `--toolbar-header-document` continuava `#446995` com o tema Beskos ativo.
+- **Solução:** o patch acrescenta `beskos-theme.css` ao fim do `app.css` de cada editor, sobre
+  `:root`/`.theme-type-light` e `.theme-dark`/`.theme-type-dark` — ganha por ordem em igualdade de
+  especificidade, vale para qualquer tema que o utilizador escolha, e não depende do mecanismo de
+  temas deles. `uiTheme` volta a ser o `theme-light`/`theme-dark` padrão.
+
 **Verificação:** `docker compose logs onlyoffice | grep branding` → `5 editor(es) modificado(s)`; e
 `curl -sL -H 'Accept-Encoding: gzip' --compressed http://127.0.0.1:8082/web-apps/apps/documenteditor/main/app/controller/Main.js | grep beskos-branding-patch`
 tem de encontrar o marcador (é o teste que apanha o `.gz` desatualizado).

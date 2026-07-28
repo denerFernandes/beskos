@@ -56,10 +56,7 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 		lang = "pt-BR"
 	}
 	// Tema da UI do editor combinando com o Beskos (claro/escuro). Params grátis (standard branding).
-	uiTheme := "theme-light"
-	if r.URL.Query().Get("theme") == "dark" {
-		uiTheme = "theme-dark"
-	}
+	darkTheme := r.URL.Query().Get("theme") == "dark"
 	token := s.office.mintToken(docClaims{
 		FileID: f.ID, UserID: mu.ID, TenantID: mu.TenantID, CanWrite: canWrite,
 		Exp: time.Now().Add(docTokenTTL),
@@ -71,23 +68,11 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	// Enxuga o cromo para integrar ao Beskos. A marca do cabeçalho é nossa (applyBranding), o que
 	// exige o patch de branding no Document Server; a atribuição à Ascensio System SIA fica no
 	// "Sobre". Ver onlyoffice_branding.go e deploy/DIVERGENCES.md.
-	customization := map[string]any{
-		"uiTheme": uiTheme,
-		// Cabeçalho compacto (uma linha), MAS a fita de formatação expandida ao abrir — senão o
-		// editor arranca com só as abas e parece "não editável" até se clicar numa.
-		"compactHeader":  true,
-		"compactToolbar": false,
-		"toolbarNoTabs":  false,
-		"hideRightMenu":  true,
-		"feedback":       false,
-		"help":           false,
-		"chat":           false,
-		"plugins":        true,
-		// Botão de fechar NO cabeçalho do editor (dispensa a nossa barra por cima). Só aparece se
-		// o cliente registar o evento onRequestClose — é ele que decide para onde voltar. Sem
-		// `text`: o Document Server usa a sua própria string, já traduzida pelo `lang` (lei §4.6).
-		"close": map[string]any{"visible": true},
-	}
+	customization := officeChrome(darkTheme, true)
+	// Botão de fechar NO cabeçalho do editor (dispensa uma barra nossa por cima). Só aparece se
+	// o cliente registar o evento onRequestClose — é ele que decide para onde voltar. Sem `text`:
+	// o Document Server usa a sua própria string, já traduzida pelo `lang` (lei §4.6).
+	customization["close"] = map[string]any{"visible": true}
 	s.office.applyBranding(customization)
 
 	config := map[string]any{
