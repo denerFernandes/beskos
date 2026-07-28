@@ -58,11 +58,38 @@ export function onTauriEvent(name: string, fn: () => void): () => void {
   return () => { cancelled = true; off?.(); };
 }
 
-export async function tauriShow(title: string, body?: string): Promise<boolean> {
+// Mostra a notificação nativa. `link` é a rota a abrir quando a pessoa clica no aviso.
+//
+// O caminho normal é o comando `notify_show` (Rust): é o único que sabe esperar pelo clique e
+// devolvê-lo à app — o plugin de notificações entrega o aviso e esquece-o no desktop. Se o comando
+// não existir (versão antiga do app, ou mobile, onde o módulo é só desktop), cai no plugin: a
+// notificação aparece na mesma, só não abre nada ao ser clicada.
+export async function tauriShow(title: string, body?: string, link?: string): Promise<boolean> {
   try {
     const p = await plugin();
     if (!(await p.isPermissionGranted())) return false;
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("notify_show", { title, body: body ?? "", link: link ?? "" });
+      return true;
+    } catch { /* sem o comando nativo: segue para o plugin */ }
     p.sendNotification({ title, body });
     return true;
   } catch { return false; }
+}
+
+// onNotifOpen escuta o clique numa notificação nativa (evento `notif-open`, emitido pelo Rust com
+// o link) e entrega o link a quem navega. Na web é um no-op — lá o clique chega pelo service worker.
+export function onNotifOpen(fn: (link: string) => void): () => void {
+  if (!isTauri()) return () => {};
+  let off: (() => void) | null = null;
+  let cancelled = false;
+  void (async () => {
+    try {
+      const { listen } = await import("@tauri-apps/api/event");
+      const un = await listen<string>("notif-open", (e) => { if (e.payload) fn(e.payload); });
+      if (cancelled) un(); else off = un;
+    } catch { /* API indisponível: ignora */ }
+  })();
+  return () => { cancelled = true; off?.(); };
 }

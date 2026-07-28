@@ -191,7 +191,7 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 			continue
 		}
 		s.notifyUser(r.Context(), f.TenantID, target.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", "/mail/files", uuid.Nil,
+			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
 			map[string]string{"actor": mu.Email, "file": f.Nome})
 		shared++
 	}
@@ -247,7 +247,7 @@ func (s *Server) handleShareWithGroup(w http.ResponseWriter, r *http.Request) {
 		}
 		existing[m.Email] = true
 		s.notifyUser(r.Context(), f.TenantID, m.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", "/mail/files", uuid.Nil,
+			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
 			map[string]string{"actor": mu.Email, "file": f.Nome})
 		shared++
 	}

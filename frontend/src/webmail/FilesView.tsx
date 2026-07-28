@@ -23,10 +23,12 @@ type ModF = "" | "today" | "7d" | "30d" | "year";
 
 // Drive: pastas/subpastas, ícones por tipo, grade/lista, arrastar para mover, compartilhar,
 // filtros (tipo/pessoas/modificado), coluna de proprietário e indicador de armazenamento.
-export function FilesView({ search, folderParam, onFolder }: {
+export function FilesView({ search, folderParam, fileParam, onFolder }: {
   search: string;
   /** Pasta aberta, vinda da URL (/mail/files/<id>) — não há estado local a duplicá-la. */
   folderParam?: string;
+  /** Ficheiro a abrir de imediato (/mail/files/file/<id>): é o destino do aviso de partilha. */
+  fileParam?: string;
   onFolder: (id: string | null) => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -206,6 +208,20 @@ export function FilesView({ search, folderParam, onFolder }: {
     else if (viewerKind(f.nome)) setViewing(f);
     else triggerDownload(backend.downloadFileUrl(f.id), f.nome);
   }
+
+  // /mail/files/file/<id>: destino do aviso "partilharam um ficheiro contigo". Procura-o entre os
+  // partilhados comigo e os da raiz e abre-o como se tivesse sido clicado. Uma vez por id — abrir
+  // o editor troca de janela e reabrir a cada render seria um pesadelo.
+  const openedFile = useRef<string | null>(null);
+  useEffect(() => {
+    if (!fileParam || openedFile.current === fileParam) return;
+    const f = (sharedWithMe.data?.files ?? []).find((x) => x.id === fileParam)
+      ?? (listing.data?.files ?? []).find((x) => x.id === fileParam);
+    if (!f) return; // ainda a carregar (ou já sem acesso): não faz nada
+    openedFile.current = fileParam;
+    openFile(f);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileParam, sharedWithMe.data, listing.data]);
 
   const ownerCell = (id: string) => (
     (withMe || sharedWithMeIds.has(id)) ? (

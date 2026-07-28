@@ -472,7 +472,7 @@ func (s *Server) assistantDocsShare(ctx context.Context, id assistant.Identity, 
 			continue
 		}
 		s.notifyUser(ctx, f.TenantID, target.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", "/mail/files", uuid.Nil,
+			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
 			map[string]string{"actor": mu.Email, "file": f.Nome})
 		shared = append(shared, email)
 	}

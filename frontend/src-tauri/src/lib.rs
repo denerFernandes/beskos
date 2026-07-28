@@ -1,6 +1,9 @@
 // Ponto de entrada partilhado (desktop + mobile). O mobile_entry_point é usado pelo Android/iOS.
 #[cfg(desktop)]
 mod desktop;
+// Notificações com clique: só no desktop (no mobile o plugin já entrega o clique via `onAction`).
+#[cfg(desktop)]
+mod notify;
 mod sync_cmds;
 // Ícone na barra de menu: só no desktop (no mobile não há barra de menu).
 #[cfg(desktop)]
@@ -130,6 +133,8 @@ pub fn run() {
             take_pending_vcards,
             #[cfg(desktop)]
             desktop::set_account,
+            #[cfg(desktop)]
+            notify::notify_show,
         ])
         .on_window_event(|window, event| {
             // Fechar a janela NÃO fecha a app: ela fica no tray a sincronizar (padrão dos clientes

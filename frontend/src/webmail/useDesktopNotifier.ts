@@ -5,10 +5,13 @@ import { showDesktopNotification, isDomain, type NotifDomain } from "./desktopNo
 import { notifText } from "./notifText";
 import i18n from "../i18n";
 
-// Mapeia o `kind` de uma notificação in-app para o domínio de notificação desktop.
+// Mapeia o `kind` de uma notificação in-app para o domínio de notificação desktop. Sem domínio não
+// há aviso do SO — por isso o calendário (convites, RSVP, reservas) e o "estão à porta" do Meet
+// também entram aqui.
 function domainOfKind(kind: string): NotifDomain | null {
   if (kind.startsWith("chat")) return "chat";
-  if (kind.startsWith("meeting")) return "meet";
+  if (kind.startsWith("meet")) return "meet"; // meeting_invite e meet_knock
+  if (kind.startsWith("event") || kind === "booking_new") return "cal";
   if (kind.startsWith("file")) return "files";
   if (kind.startsWith("task")) return "tasks";
   return null;
@@ -24,10 +27,8 @@ export function useDesktopNotifier(opts: {
   service: MailService;
   inboxId: string | null;
   notifItems: Notif[] | undefined;
-  onOpenMail: () => void;
-  onOpenNotif: (n: Notif) => void;
 }): (() => void) {
-  const { service, inboxId, notifItems, onOpenMail, onOpenNotif } = opts;
+  const { service, inboxId, notifItems } = opts;
 
   // --- E-mail ---
   const lastEmailId = useRef<string | null>(null);
@@ -49,7 +50,8 @@ export function useDesktopNotifier(opts: {
             title: from || top.subject || "Novo e-mail",
             body: from ? (top.subject || "") : top.preview,
             tag: `mail-${top.id}`,
-            onClick: onOpenMail,
+            // Abre a MENSAGEM, não só a caixa: /mail/mail/<pasta>/<id> é a rota do leitor.
+            link: `/mail/mail/inbox/${top.id}`,
           });
         }
       }
@@ -73,12 +75,13 @@ export function useDesktopNotifier(opts: {
       const dom = domainOfKind(n.kind);
       if (!dom || !isDomain(dom)) continue;
       const txt = notifText(n, i18n.t.bind(i18n), i18n.language);
+      // `n.link` aponta para o elemento (a conversa, o ficheiro, o evento) — o mesmo destino que o
+      // sino usa. Clicar na notificação do SO abre exatamente o que abre clicar no sino.
       showDesktopNotification(dom, {
-        title: txt.title, body: txt.body, tag: `notif-${n.id}`,
-        onClick: () => onOpenNotif(n),
+        title: txt.title, body: txt.body, tag: `notif-${n.id}`, link: n.link,
       });
     }
-  }, [notifItems, onOpenNotif]);
+  }, [notifItems]);
 
   // Devolve o gatilho de e-mail para o App chamar dentro do callback do push JMAP.
   return () => checkEmail.current();

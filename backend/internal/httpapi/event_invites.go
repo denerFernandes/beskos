@@ -53,7 +53,7 @@ func (s *Server) syncInvites(ctx context.Context, ev db.Event, actor db.MailUser
 		}
 		if !prev[uid] { // avisa só quem é novo (não re-notifica a cada edição)
 			s.notifyUser(ctx, actor.TenantID, uid, "event_invite",
-				"Invitation: "+ev.Title, actor.Name+" invited you — "+ev.StartsAt.UTC().Format(time.RFC3339), "/mail/calendar", uuid.Nil,
+				"Invitation: "+ev.Title, actor.Name+" invited you — "+ev.StartsAt.UTC().Format(time.RFC3339), eventLink(ev.ID, ev.StartsAt), uuid.Nil,
 				map[string]string{"actor": actor.Name, "title": ev.Title, "when": ev.StartsAt.UTC().Format(time.RFC3339)})
 		}
 	}
@@ -88,7 +88,7 @@ func (s *Server) handleEventRSVP(w http.ResponseWriter, r *http.Request) {
 	// Avisa o dono da resposta.
 	if ev, err := s.q.GetEventInTenant(r.Context(), db.GetEventInTenantParams{ID: id, TenantID: mu.TenantID}); err == nil && ev.OwnerUserID.Valid {
 		s.notifyUser(r.Context(), mu.TenantID, uuid.UUID(ev.OwnerUserID.Bytes), "event_rsvp",
-			"RSVP: "+ev.Title, mu.Name+" replied: "+req.Status, "/mail/calendar", uuid.Nil,
+			"RSVP: "+ev.Title, mu.Name+" replied: "+req.Status, eventLink(ev.ID, ev.StartsAt), uuid.Nil,
 			map[string]string{"actor": mu.Name, "title": ev.Title, "status": req.Status})
 	}
 	_ = inv

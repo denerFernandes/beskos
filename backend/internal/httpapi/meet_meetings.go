@@ -278,7 +278,7 @@ func (s *Server) notifyMeetingInvitees(r *http.Request, m db.Meeting, mu db.Mail
 		}
 		delivered := false
 		if p.UserID.Valid { // usuário do tenant → notificação in-app
-			s.notifyUser(r.Context(), m.TenantID, p.UserID.Bytes, "meeting_invite", title, body, "/mail/meet", m.ID, args)
+			s.notifyUser(r.Context(), m.TenantID, p.UserID.Bytes, "meeting_invite", title, body, meetingLink(m.ID), m.ID, args)
 			delivered = true
 		}
 		if s.sendEmail(p.Email, title, body) {

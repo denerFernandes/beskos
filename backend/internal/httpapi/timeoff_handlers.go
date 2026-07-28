@@ -132,7 +132,7 @@ func (s *Server) cancelForTimeOff(r *http.Request, mu db.MailUser, conflicts []d
 			_ = s.q.SetInviteStatus(ctx, db.SetInviteStatusParams{EventID: c.ID, UserID: mu.ID, Status: "declined"})
 			if ev, err := s.q.GetEventInTenant(ctx, db.GetEventInTenantParams{ID: c.ID, TenantID: mu.TenantID}); err == nil && ev.OwnerUserID.Valid {
 				s.notifyUser(ctx, mu.TenantID, uuid.UUID(ev.OwnerUserID.Bytes), "event_rsvp",
-					actor+" declined: "+c.Title, actor+" declined — "+when, "/mail/cal", uuid.Nil,
+					actor+" declined: "+c.Title, actor+" declined — "+when, eventLink(ev.ID, ev.StartsAt), uuid.Nil,
 					map[string]string{"actor": actor, "title": c.Title, "status": "declined", "when": when})
 			}
 			continue
