@@ -158,6 +158,23 @@ type AuditLog struct {
 	Timestamp time.Time   `json:"timestamp"`
 }
 
+type BillingProfile struct {
+	TenantID       uuid.UUID `json:"tenant_id"`
+	Kind           string    `json:"kind"`
+	LegalName      string    `json:"legal_name"`
+	TaxID          string    `json:"tax_id"`
+	Country        string    `json:"country"`
+	City           string    `json:"city"`
+	PostalCode     string    `json:"postal_code"`
+	AddressLine1   string    `json:"address_line1"`
+	AddressLine2   string    `json:"address_line2"`
+	InvoiceEmail   string    `json:"invoice_email"`
+	InvoiceName    string    `json:"invoice_name"`
+	Phone          string    `json:"phone"`
+	StripeCustomer string    `json:"stripe_customer"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 type Board struct {
 	ID          uuid.UUID          `json:"id"`
 	TenantID    uuid.UUID          `json:"tenant_id"`

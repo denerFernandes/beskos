@@ -66,7 +66,7 @@ export function AdminView({ section: param, detail, onSection, onDetail }: {
           {shown === "domains" && <DomainsSection me={d} detail={detail} onOpen={(id) => onDetail("domains", id)} />}
           {shown === "users" && <UsersSection me={d} />}
           {shown === "groups" && <GroupsSection me={d} />}
-          {shown === "billing" && <BillingSection me={d} />}
+          {shown === "billing" && <BillingSection me={d} detail={detail} onDetail={(id) => onDetail("billing", id)} />}
           {shown === "branding" && <BrandingSection />}
           {shown === "apps" && <AppsSection />}
           {shown === "agents" && <AssistantAgentsSection />}

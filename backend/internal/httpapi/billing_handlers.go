@@ -101,7 +101,27 @@ func (s *Server) billableSeats(r *http.Request, tid [16]byte) int {
 }
 
 type checkoutReq struct {
-	Plan string `json:"plan"`
+	Plan  string `json:"plan"`
+	Cycle string `json:"cycle"` // month (default) | year
+}
+
+// checkoutCustomer garante o cliente no provedor (razão social, morada, NIF, e-mail do financeiro)
+// e devolve o id + o e-mail de faturação. Sem perfil preenchido devolve vazios — o checkout segue
+// e o provedor pede o que precisar.
+func (s *Server) checkoutCustomer(r *http.Request, tid uuid.UUID) (customerID, invoiceEmail string) {
+	p, err := s.q.GetBillingProfile(r.Context(), tid)
+	if err != nil || p.LegalName == "" {
+		return "", ""
+	}
+	id, err := s.billing.EnsureCustomer(r.Context(), p.StripeCustomer, billingCustomer(uuid.UUID(tid).String(), p))
+	if err != nil {
+		log.Printf("billing: ensure customer for tenant %s: %v", tid, err)
+		return "", p.InvoiceEmail // ao menos a fatura vai para o financeiro
+	}
+	if id != "" && id != p.StripeCustomer {
+		_ = s.q.SetBillingStripeCustomer(r.Context(), db.SetBillingStripeCustomerParams{TenantID: tid, StripeCustomer: id})
+	}
+	return id, p.InvoiceEmail
 }
 
 // handleCheckout inicia a mudança de plano. No provedor Manual aplica na hora; no Stripe
@@ -127,12 +147,13 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if seats < plan.MinUsers {
 		seats = plan.MinUsers
 	}
+	cycle := billing.Cycle(req.Cycle).Normalize()
 	// Moeda por país: o preço/checkout usa a moeda do tenant (fallback: base).
 	plan = s.localPlan(plan, s.tenantCurrency(r.Context(), u.TenantID))
 	// Assinatura Stripe já ativa → UPGRADE/DOWNGRADE na própria assinatura (com rateio), sem
 	// novo checkout (que criaria uma segunda assinatura).
 	if subID := s.stripeSubID(r, u.TenantID); subID != "" {
-		if err := s.billing.UpdatePlan(r.Context(), subID, plan, seats); err != nil {
+		if err := s.billing.UpdatePlan(r.Context(), subID, plan, seats, cycle); err != nil {
 			writeErr(w, http.StatusBadGateway, "billing.checkout_failed")
 			return
 		}
@@ -141,7 +162,11 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, billing.CheckoutResult{Applied: true})
 		return
 	}
-	res, err := s.billing.Checkout(r.Context(), uuid.UUID(u.TenantID).String(), plan, seats)
+	// Cliente no provedor com os dados de faturação: o checkout fica só com o cartão e a fatura
+	// sai com razão social, morada e NIF.
+	cus, invEmail := s.checkoutCustomer(r, u.TenantID)
+	res, err := s.billing.Checkout(r.Context(), uuid.UUID(u.TenantID).String(), plan, seats,
+		billing.CheckoutOpts{Cycle: cycle, CustomerID: cus, InvoiceEmail: invEmail})
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "billing.checkout_failed")
 		return

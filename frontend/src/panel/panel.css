@@ -273,3 +273,76 @@
   .dns-diff-row{flex-direction:column;gap:2px;}
   .dns-lbl{min-width:0;}
 }
+
+/* ===== Assistente de subscrição (plano → cliente → morada → financeiro → resumo) ===== */
+.sub-wrap{display:flex;flex-direction:column;gap:18px;padding:22px 26px 32px;max-width:1120px;}
+.sub-head{display:flex;flex-direction:column;gap:12px;align-items:flex-start;}
+.sub-head .sub-title h1{margin:0;font-size:24px;letter-spacing:-.02em;}
+.sub-head .sub-title p{margin:4px 0 0;}
+/* Passos: numerados, o feito com visto, o atual em destaque. A linha liga-os como um percurso. */
+.sub-steps{display:flex;list-style:none;margin:0;padding:0;gap:0;flex-wrap:wrap;}
+.sub-steps li{flex:1;min-width:120px;position:relative;}
+.sub-steps li+li::before{content:"";position:absolute;left:0;top:19px;width:100%;height:2px;background:var(--border);z-index:0;}
+.sub-steps li.done+li::before,.sub-steps li.on::before{background:var(--accent-solid);}
+.sub-steps button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:7px;width:100%;background:none;border:none;padding:8px 4px;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;}
+.sub-steps button:disabled{cursor:default;}
+.sub-steps .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid var(--border);background:var(--surface);font-weight:700;font-size:12.5px;}
+.sub-steps li.on .n{border-color:var(--accent-solid);color:var(--accent-solid);}
+.sub-steps li.done .n{border-color:var(--accent-solid);background:var(--accent-solid);color:#fff;}
+.sub-steps li.on .lb{color:var(--ink);font-weight:600;}
+.sub-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start;}
+.sub-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
+.sub-card h2{display:flex;align-items:center;gap:9px;margin:0;font-size:16px;}
+/* Mensal/anual: dois botões num só bloco, o escolhido preenchido. */
+.sub-cycle{display:inline-flex;align-self:flex-start;padding:3px;background:var(--surface-2);border-radius:11px;gap:3px;}
+.sub-cycle button{display:inline-flex;align-items:center;gap:7px;border:none;background:none;color:var(--muted);border-radius:9px;padding:8px 16px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;}
+.sub-cycle button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.sub-cycle em{font-style:normal;font-size:11px;font-weight:700;color:#fff;background:var(--accent-solid);border-radius:20px;padding:2px 7px;}
+.sub-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+.sub-plan{display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font:inherit;}
+.sub-plan:hover{border-color:var(--border-strong);}
+.sub-plan.on{border-color:var(--accent-solid);box-shadow:0 0 0 3px var(--accent-tint);}
+.sub-plan.off{opacity:.5;cursor:not-allowed;}
+.sub-plan .pn{font-weight:700;font-size:14.5px;color:var(--ink);display:flex;align-items:center;gap:6px;}
+.sub-plan .pn .cur{font-style:normal;font-size:10.5px;font-weight:700;color:var(--accent-ink);background:var(--accent-tint);border-radius:20px;padding:2px 7px;}
+.sub-plan .pp{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:-.02em;}
+.sub-plan .pu,.sub-plan .pd{font-size:11.5px;color:var(--muted);}
+.sub-plan .pd.err{color:var(--danger);}
+/* Empresa vs particular: dois cartões, um deles marcado. */
+.sub-kind{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.sub-kind button{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;font:inherit;cursor:pointer;}
+.sub-kind button.on{border-color:var(--accent-solid);box-shadow:0 0 0 3px var(--accent-tint);}
+.sub-kind b{font-size:14.5px;color:var(--ink);}
+.sub-kind span{font-size:12px;color:var(--muted);}
+.sub-fld{display:flex;flex-direction:column;gap:6px;}
+.sub-fld>span{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink);}
+.sub-fld .opt{font-style:normal;font-weight:500;font-size:11.5px;color:var(--faint);}
+.sub-fld .hint{font-style:normal;font-size:11.5px;color:var(--muted);}
+.sub-fld input,.sub-fld select{height:40px;padding:0 12px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;outline:none;}
+.sub-fld input:focus,.sub-fld select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint);}
+.sub-row{display:grid;grid-template-columns:1fr 2fr;gap:12px;}
+.sub-note{margin:0;padding:10px 12px;background:var(--accent-tint);color:var(--accent-ink);border-radius:10px;font-size:12.5px;}
+.sub-review{display:flex;flex-direction:column;gap:10px;margin:0;}
+.sub-review div{display:flex;gap:12px;align-items:baseline;}
+.sub-review dt{min-width:120px;font-size:12.5px;color:var(--muted);}
+.sub-review dd{margin:0;font-size:13.5px;color:var(--ink);}
+.sub-err{margin:0;}
+.sub-nav{display:flex;align-items:center;gap:10px;}
+.sub-nav .grow{flex:1;}
+/* Resumo: fica colado ao topo enquanto se percorre o formulário. */
+.sub-sum{position:sticky;top:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:9px;}
+.sub-sum h3{margin:0 0 4px;font-size:14px;}
+.sub-sum .sub-line{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink);}
+.sub-sum .sub-line.sm{font-size:11.5px;color:var(--muted);margin-top:-6px;}
+.sub-sum .sub-line.total{border-top:1px solid var(--border);padding-top:9px;margin-top:3px;font-size:16px;}
+.sub-sum .sub-line.total b{font-size:18px;letter-spacing:-.02em;}
+.sub-fine{margin:0;font-size:11.5px;color:var(--faint);line-height:1.45;}
+.sub-fine.ok{color:var(--accent-ink);}
+.sub-fine.warn{color:var(--danger);}
+@media (max-width:900px){
+  .sub-body{grid-template-columns:1fr;}
+  .sub-sum{position:static;}
+  .sub-kind,.sub-row{grid-template-columns:1fr;}
+  .sub-steps .lb{display:none;}
+  .sub-steps li{min-width:0;}
+}
