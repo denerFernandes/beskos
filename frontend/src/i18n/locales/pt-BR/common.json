@@ -554,7 +554,10 @@
     "nextPage": "Próxima página",
     "more": "Mais",
     "accounts": "Caixas",
-    "accountsAll": "Todas"
+    "accountsAll": "Todas",
+    "accountsAllHint": "{{n}} endereços",
+    "unreadElsewhere_one": "{{count}} mensagem por ler noutro endereço.",
+    "unreadElsewhere_other": "{{count}} mensagens por ler noutros endereços."
   },
   "settings": {
     "title": "Definições",

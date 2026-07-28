@@ -2272,12 +2272,27 @@
    grupos de cartões sem inventar outra página. */
 /* Caixas por endereço na barra do e-mail (só existe quando há aliases): o alias entrega na mesma
    caixa, por isso escolher um filtra a lista por destinatário em vez de abrir outra conta. */
-.wm .mail-accounts{display:flex;flex-direction:column;gap:1px;padding:0 8px 8px;margin-bottom:4px;border-bottom:1px solid var(--border);}
-.wm .ma-title{font-size:11px;font-weight:600;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;padding:6px 8px 4px;}
-.wm .ma-btn{display:block;width:100%;text-align:left;border:0;background:none;color:var(--muted);cursor:pointer;
-  padding:6px 8px;border-radius:8px;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.wm .ma-btn:hover{background:var(--surface-2);color:var(--ink);}
-.wm .ma-btn.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600;}
+/* Seletor de caixas: um botão com a caixa atual que abre a lista. A barra é estreita e endereços
+   completos empilhados cortavam-se todos ("dfernandes@beskos.c…"); aqui a parte local vai em
+   destaque e o domínio em surdina, que é o que distingue caixas do mesmo domínio. */
+.wm .mail-accounts{position:relative;padding:0 8px 8px;margin-bottom:4px;border-bottom:1px solid var(--border);}
+.wm .ma-cur{display:flex;align-items:center;gap:9px;width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:11px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;}
+.wm .ma-cur:hover,.wm .ma-cur.open{background:var(--surface-2);border-color:var(--border-strong);}
+.wm .ma-txt{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25;}
+.wm .ma-txt b{font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wm .ma-txt i{font-style:normal;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wm .ma-chev{flex:none;color:var(--faint);transition:transform .15s;}
+.wm .ma-chev.up{transform:rotate(180deg);}
+.wm .ma-av{flex:none;}
+.wm .ma-all{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:none;border-radius:50%;background:var(--surface-2);color:var(--muted);font-weight:700;font-size:13px;}
+.wm .ma-menu{position:absolute;z-index:50;left:8px;right:8px;top:calc(100% - 4px);padding:5px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop,0 12px 32px rgba(0,0,0,.16));display:flex;flex-direction:column;gap:1px;}
+.wm .ma-menu button{display:flex;align-items:center;gap:9px;width:100%;padding:7px 8px;border:0;border-radius:9px;background:none;color:var(--ink);cursor:pointer;text-align:left;}
+.wm .ma-menu button:hover{background:var(--surface-2);}
+.wm .ma-menu button.on{background:var(--accent-tint);color:var(--accent-ink);}
+.wm .ma-menu button.on .ma-txt i{color:var(--accent-ink);opacity:.75;}
+/* Aviso de não-lidas que o filtro por endereço esconde (o contador da pasta é da caixa toda). */
+.wm .mlist-note{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:9px 14px;font-size:12.5px;color:var(--muted);background:var(--surface-2);border-bottom:1px solid var(--border);}
+.wm .mlist-note button{border:0;background:none;color:var(--accent-ink);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;}
 .wm .ios-row-sub.mono{font-family:ui-monospace,monospace;font-size:12.5px;word-break:break-all;}
 .wm .set-page .set-sub{margin:22px 0 10px;font-size:15px;font-weight:650;}
 .wm .set-card{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:14px;}
