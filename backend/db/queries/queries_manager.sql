@@ -14,6 +14,13 @@ SELECT * FROM manager_users WHERE lower(email) = lower(@email) AND active;
 -- name: GetManagerUserByID :one
 SELECT * FROM manager_users WHERE id = @id AND active;
 
+-- name: ResetManagerUserCredentials :exec
+-- Recuperação do acesso ao manager (MANAGER_BOOTSTRAP_RESET=1): repõe a senha e obriga a inscrever
+-- o 2.º fator outra vez. Não é uma rota — só corre no arranque, com a variável explícita.
+UPDATE manager_users
+SET password_hash = @password_hash, totp_secret = '', totp_confirmed = false, active = true
+WHERE lower(email) = lower(@email);
+
 -- name: CountManagerUsers :one
 SELECT count(*) FROM manager_users;
 

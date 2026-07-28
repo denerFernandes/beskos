@@ -623,6 +623,24 @@ func (q *Queries) ManagerOverview(ctx context.Context) (ManagerOverviewRow, erro
 	return i, err
 }
 
+const resetManagerUserCredentials = `-- name: ResetManagerUserCredentials :exec
+UPDATE manager_users
+SET password_hash = $1, totp_secret = '', totp_confirmed = false, active = true
+WHERE lower(email) = lower($2)
+`
+
+type ResetManagerUserCredentialsParams struct {
+	PasswordHash string `json:"password_hash"`
+	Email        string `json:"email"`
+}
+
+// Recuperação do acesso ao manager (MANAGER_BOOTSTRAP_RESET=1): repõe a senha e obriga a inscrever
+// o 2.º fator outra vez. Não é uma rota — só corre no arranque, com a variável explícita.
+func (q *Queries) ResetManagerUserCredentials(ctx context.Context, arg ResetManagerUserCredentialsParams) error {
+	_, err := q.db.Exec(ctx, resetManagerUserCredentials, arg.PasswordHash, arg.Email)
+	return err
+}
+
 const setManagerServerActive = `-- name: SetManagerServerActive :exec
 UPDATE manager_servers SET active = $1 WHERE id = $2
 `
