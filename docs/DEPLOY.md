@@ -170,6 +170,9 @@ NOTIFY_SMTP_PASSWORD=<senha da caixa>
 NOTIFY_FROM=Beskos <noreply@beskos.com>   # já é o valor por omissão
 ```
 
+Estas variáveis já estão postas na app `api` em produção (28/07/2026); a senha da caixa vive no
+`deploy/secrets.env` como `NO_REPLAY_PASSWORD`.
+
 A caixa `noreply@beskos.com` tem de **existir no Stalwart** (criar como qualquer utilizador) e o
 domínio `beskos.com` tem de estar ativo lá, senão o servidor recusa o envio.
 
