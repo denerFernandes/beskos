@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"strings"
 
@@ -106,6 +107,9 @@ func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.syncAliasesToStalwart(r.Context(), actor.TenantID, owner); err != nil {
+		// O motivo TEM de ficar no log: sem ele, "provision_failed" é um beco sem saída em produção
+		// — não se sabe se o Stalwart recusou o formato, o endereço ou a conta.
+		log.Printf("alias %s para %s: provisionamento no Stalwart falhou: %v", address, owner.Email, err)
 		// Não deixa lixo: se o servidor de correio recusou, o alias não fica a existir só para nós.
 		_ = s.q.DeleteEmailAlias(r.Context(), db.DeleteEmailAliasParams{ID: alias.ID, TenantID: actor.TenantID})
 		writeErr(w, http.StatusBadGateway, "aliases.provision_failed")

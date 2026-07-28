@@ -242,7 +242,11 @@ export function App({ session }: { session: WebmailSession }) {
     return <MFAGate method={meGateQ.data.mfa_required_method} email={session.email} onLogout={session.logout} />;
   }
 
-  if (needsOnboarding) return <Onboarding email={session.email} onDone={() => setObDone(true)} />;
+  // Dentro do .wm de propósito: as variáveis do design system (cores, bordas, tema) estão
+  // definidas nesse escopo. Fora dele, o cartão saía sem fundo nem contraste.
+  if (needsOnboarding) {
+    return <div className="wm"><Onboarding email={session.email} onDone={() => setObDone(true)} /></div>;
+  }
 
   return (
     <div className="wm">
