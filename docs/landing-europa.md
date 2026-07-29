@@ -14,6 +14,11 @@
 | Idiomas | Os oito propostos, **`pt-BR` fora** por agora |
 | Âmbito dos idiomas | Landing **e app** — não só o site |
 | Páginas legais | As oito do desenho: Privacy, Cookies, Terms, Security, DPA, Acceptable Use, SLA, Sub-processors |
+| IA | **TensorX corre 100% na UE** — a IA entra na frase "processado na UE", sem nota de rodapé |
+| SLA | **99,5%/mês** |
+| Aviso de novo subprocessador | **14 dias** |
+| Entidade | **Open Solutions** (nome comercial de *Dener Santos Fernandes*, empresário individual — JDG, não sp. z o.o.) · NIP **PL7773457857** · REGON 543340675 · Poznań |
+| Certificações | **Nenhuma ainda** — a página de segurança descreve práticas, não invoca normas |
 
 ## 1. O que muda
 
@@ -50,8 +55,8 @@ com a pilha de hoje é falso, e é o tipo de afirmação que um comprador públi
 | Ficheiros (Drive) | **Cloudflare R2**, jurisdição a mudar para **UE** | Dados ficam na UE; a Cloudflare continua americana (CLOUD Act aplica-se à empresa, não ao sítio dos bytes) | Decidido: manter com jurisdição UE. A página tem de o dizer assim, sem prometer "fora do alcance dos EUA" |
 | Envio de e-mail | **Amazon SES** (eu-west-1) | Dados na Irlanda, mas fornecedor **americano** | Relay europeu, ou enviar do próprio Stalwart |
 | DNS/CDN/TLS | **Cloudflare** | Todo o tráfego passa por um edge americano | Bunny (SI), ou Cloudflare só como DNS e TLS na origem |
-| Assistente de IA | DeepSeek **via TensorX** | Resolve-se **se** a TensorX servir o modelo na UE. O nome do modelo é chinês; o que conta é onde corre e quem o opera | **[decidir]** confirmar região e operador para o podermos escrever |
-| Embeddings da wiki | **`qwen/qwen3-embedding-8b`** via TensorX | Idem — modelo de pesos abertos, o que ajuda: pode correr em infraestrutura nossa ou europeia | **[decidir]** mesma confirmação |
+| Assistente de IA | DeepSeek **via TensorX (100% UE)** | Resolvido: o conteúdo deixa de sair da UE | Escrever na página: modelo servido na UE, não pelo criador do modelo |
+| Embeddings da wiki | **`qwen/qwen3-embedding-8b`** via TensorX (UE) | Resolvido | Idem |
 
 **Com as decisões tomadas, sobra isto:** o envio (SES) e o CDN (Cloudflare) continuam americanos, e
 o R2 fica americano com dados na UE. Ou seja, a frase que a página pode sustentar é **"os seus dados
@@ -64,6 +69,37 @@ quem a esconde perde-a assim que alguém pergunta.
 
 **[decidir]** trocar o SES por um relay europeu e a CDN por Bunny fica para depois do lançamento?
 Recomendo que sim, mas com data marcada — e a lista de subprocessadores mostra o progresso sozinha.
+
+---
+
+## 2b. A entidade legal (e o que ela obriga)
+
+Verifiquei o NIP na VIES: **PL7773457857 está válido para operações intracomunitárias**, o que
+confirma que a autoliquidação que já implementámos funciona connosco como vendedor. Duas coisas
+saltaram à vista:
+
+1. **A morada na VIES não é a que me deu.** Lá consta `SKRZYNKI, ŁAGODNA 7 M1, 62-060`; você
+   indicou `Wawrzyńca Engeströma 10, 60-571 Poznań`. As faturas e as páginas legais devem bater
+   certo com o registo — **[decidir]** qual é a morada de registo e qual é a de correspondência.
+2. **O sujeito legal é a pessoa, não a marca.** Em JDG, quem contrata é *Dener Santos Fernandes*;
+   "Open Solutions" é nome comercial. As páginas legais devem identificar assim:
+   *"Open Solutions — Dener Santos Fernandes, Poznań, NIP PL7773457857, REGON 543340675"*. Esconder
+   o nome não é opção: a identificação do prestador é obrigatória (art. 5 da Diretiva 2000/31/CE e
+   a lei polaca dos serviços eletrónicos), e num mercado que compra confiança, ser claro joga a
+   favor.
+
+**O que isto custa, dito sem rodeios:** como empresário individual, responde com o património
+pessoal. Um SLA com créditos e um DPA com indemnizações são obrigações reais. E há concursos
+públicos e empresas grandes que exigem sociedade — a JDG chega para PME, trava em contratos
+grandes. Não é impeditivo hoje; é um marcador para quando aparecer o primeiro cliente sério.
+
+**Recomendo, por esta ordem:** (a) identificação legal correta nas páginas, (b) **seguro de
+responsabilidade civil profissional** antes de prometer créditos de SLA, (c) abrir a sp. z o.o.
+quando o primeiro contrato o exigir — e não antes.
+
+**Falta uma página** nas oito: `/imprint` (identificação legal). É esperada na Alemanha e na
+Áustria, e resolve a obrigação nos restantes. Barata de fazer: nome, morada, NIP, contacto,
+responsável.
 
 ---
 
@@ -119,7 +155,7 @@ não é dizer "soberania", é ter isto escrito e público.
 | `/security` | Como se protege: cifra em trânsito e em repouso, acesso, backups, réplica, resposta a incidentes, divulgação responsável |
 | `/dpa` | Acordo de subcontratação, **texto completo na página** (o modelo da TensorX é bom): definições, papéis, violação de dados, subprocessadores, transferências, auditoria + Anexo I (detalhes do tratamento) e Anexo II (medidas técnicas e SCCs) |
 | `/acceptable-use` | O que não se pode fazer com a plataforma — é o que permite suspender abuso sem discussão |
-| `/sla` | Disponibilidade prometida, como se mede, exclusões, créditos por escalão, como se reclama, tempos de resposta do suporte |
+| `/sla` | **99,5%/mês** (≈3h39 de indisponibilidade máxima), como se mede, exclusões, créditos por escalão, como se reclama, tempos de resposta do suporte |
 | `/sub-processors` | A lista completa: **Subprocessador · Finalidade · Localização · Mecanismo de transferência**, com data da última atualização, compromisso de **aviso prévio** antes de acrescentar um novo, direito de objeção do cliente e subscrição de avisos |
 
 A página de subprocessadores é a mais importante das oito. É lá que se vê que a Cloudflare e a AWS
@@ -127,8 +163,9 @@ existem na pilha — e é precisamente por o dizermos que a conversa se ganha. C
 a lista fica com: Netcup (servidores, DE), Cloudflare R2 (ficheiros, jurisdição UE), Cloudflare
 (DNS/CDN), Amazon SES (envio, IE), TensorX (IA), Stripe (pagamentos), e o que mais entrar.
 
-**[decidir]** três coisas que a lista obriga a fixar: quantos dias de aviso prévio damos (14 é o
-costume), para onde vai o pedido de objeção, e se há página de estado pública para o SLA se apoiar.
+Aviso prévio fixado em **14 dias**. **[decidir]** para onde vai o pedido de objeção
+(`privacy@beskos.com`?) e se criamos página de estado pública — sem ela, o SLA mede-se pelos nossos
+registos, e o cliente tem de acreditar.
 
 **Mudam:** início (novo herói e nova ordem — soberania, âmbito, provas, preço), `/compare` (juntar
 a coluna "jurisdição"), `/pricing` (manter a calculadora, boa, mas mais abaixo).
@@ -214,6 +251,45 @@ depois traduzir tudo de uma vez.
 
 ---
 
+## 6b. Tradução: como fazer, e quanto custa
+
+Contei o que existe hoje (em inglês): **app ~8 400 palavras** (2 413 textos) e **landing ~3 200
+palavras** (~500 textos) — cerca de **11 600 palavras por idioma**. Com as páginas novas (soberania,
+migração, produto, e as nove legais) conto **2 a 2,5×**: à volta de **25 000 palavras por idioma**.
+São seis idiomas novos, mais a passagem do português para pt-PT.
+
+Há três caminhos, e o certo é **misturá-los conforme o texto**:
+
+| Caminho | Como | Custo típico | Onde usar |
+|---|---|---|---|
+| **Agência (LSP)** | Empresa de tradução, com revisor e glossário | €0,10–0,18/palavra → ~€2 500–4 500 por idioma | Não recomendo para tudo: são ~€20 000 nos seis |
+| **Nativo freelance** | Um tradutor por idioma (ProZ, Upwork), com glossário nosso | €0,06–0,12/palavra → ~€1 500–3 000 por idioma | Textos de marketing do site, onde o tom vende |
+| **IA + revisão nativa** | Traduzimos com IA e um nativo revê o resultado | 3–6 h de revisão por idioma → ~€150–400 | **Interface da app** (frases curtas, repetitivas, contexto fechado) |
+
+**A minha recomendação:**
+- **App (8 400 palavras, 2 413 textos):** IA + revisão nativa. É onde a IA acerta mais — "Guardar",
+  "Anexar ficheiro", "3 mensagens por ler" — e onde a agência custaria mais por menos valor.
+- **Landing (marketing):** nativo freelance por idioma, pelo menos nos três que compram soberania
+  (alemão, francês, polaco). Um título mal traduzido custa conversão; um botão, não.
+- **Legal (DPA, Termos, Privacidade, SLA, Uso aceitável):** aqui muda o método. Não se traduz para
+  ter oito contratos — **fixa-se um idioma que prevalece**.
+
+**A regra que poupa dinheiro e risco no legal:** o **inglês é a versão que governa**, e as outras
+são cortesia. Todas as páginas traduzidas levam uma linha do género *"Esta tradução é fornecida por
+conveniência. Em caso de divergência, prevalece a versão em inglês."* É o que fazem Stripe, Proton
+e companhia — evita pagar revisão jurídica em oito jurisdições e evita o pesadelo de dois contratos
+com sentidos diferentes. **Uma** revisão jurídica em inglês (advogado polaco com prática de GDPR e
+SaaS), e as traduções seguem o método da app.
+
+**Glossário primeiro.** Antes de traduzir uma palavra: fixar como se diz *mailbox, drive, board,
+meet, workspace, sub-processor, tenant, seat* em cada idioma. Sem isso, dois tradutores dão dois
+nomes à mesma coisa e a app fica incoerente.
+
+**Ordem prática:** congelar o inglês → glossário → app por IA + revisão → landing por nativos →
+legal só em inglês, com a nota de prevalência.
+
+---
+
 ## 7. Fases
 
 | Fase | O quê | Depende de |
@@ -231,16 +307,13 @@ os idiomas vêm depois das páginas, e não ao mesmo tempo.
 
 ---
 
-## 8. O que preciso de si
+## 8. O que falta decidir
 
-1. **TensorX**: em que região correm os modelos, e quem é a entidade legal? É o que decide se a IA
-   entra na frase "processado na UE" ou se fica com uma nota à parte.
-2. **Factos legais**: entidade e morada fiscal, DPO nomeado (ou não), certificações em curso, e se
-   podemos nomear os data centers da Netcup.
-3. **SLA**: que disponibilidade queremos prometer (99,5%? 99,9%?), com que créditos e que tempos de
-   resposta do suporte. Prometer a mais é dívida.
-4. **Subprocessadores**: dias de aviso prévio (sugiro 14) e endereço para objeções.
-5. **Tom por idioma**: um só tom, ou mais formal em alemão e no setor público?
-6. **Tradução**: agência, nativos, ou IA com revisão nativa? (o legal — DPA, termos, privacidade —
-   deve levar revisão jurídica, não tradução automática)
-7. **Quando começo.** Nada disto está implementado; fico à espera da sua palavra.
+1. **Morada legal**: a da VIES (`Skrzynki, Łagodna 7 m1`) ou a de Poznań? As faturas e as páginas
+   legais têm de bater certo com o registo.
+2. **Endereço para objeções a subprocessadores** e para assuntos de privacidade (`privacy@`?).
+3. **Página de estado pública** para o SLA se apoiar — fazemos, ou o SLA mede-se pelos nossos
+   registos?
+4. **Seguro de responsabilidade civil** antes de prometer créditos de SLA: tratamos disso?
+5. **Tom por idioma**: um só, ou mais formal em alemão e no setor público?
+6. **Quando começo.** Continua tudo por implementar, à espera da sua palavra.
