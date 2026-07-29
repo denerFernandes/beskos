@@ -1,11 +1,21 @@
 name: build & deploy
 
-# Push no master → constrói imagens (ghcr) e faz deploy no CapRover (rolling update).
+# Push no master → constrói APENAS o que mudou e faz deploy no CapRover (rolling update).
+#
+# Antes, qualquer commit reconstruía as seis imagens e reiniciava tudo — mudar uma palavra num
+# texto reiniciava o correio, a API e o editor de documentos. Além de gastar minutos à toa (foi o
+# que esgotou o limite da conta), cada reinício é uma janela de risco que ninguém pediu.
+#
+# Agora um passo `plano` olha para os ficheiros alterados e monta a matriz. Se nada mexeu num
+# contexto, não corre build nenhum.
+#
 # Segredos necessários (repo → Settings → Secrets):
 #   CAPROVER_URL       ex.: https://captain.beskos.com
 #   CAPROVER_PASSWORD  password do painel CapRover
 # O push para o ghcr usa o GITHUB_TOKEN (packages: write). O CapRover puxa do ghcr — configurar
 # uma vez o registry privado ghcr no painel (Cluster → Docker Registries).
+#
+# Via alternativa, sem GitHub: `python3 deploy/deploy.py <app>` constrói no próprio CapRover.
 
 on:
   push:
@@ -17,26 +27,94 @@ env:
   OWNER: denerfernandes          # namespace ghcr (minúsculas)
 
 jobs:
+  plano:
+    runs-on: ubuntu-latest
+    outputs:
+      builds: ${{ steps.decidir.outputs.builds }}
+      deploys: ${{ steps.decidir.outputs.deploys }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { submodules: false, fetch-depth: 0 }
+
+      - name: o que mudou
+        id: decidir
+        env:
+          ANTES: ${{ github.event.before }}
+          AGORA: ${{ github.sha }}
+          MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          set -euo pipefail
+
+          # Push forçado, primeiro commit ou arranque manual: constrói tudo. Mais vale gastar uma
+          # vez do que deixar produção com uma imagem que não corresponde ao código.
+          if [ "$MANUAL" = "true" ] || [ -z "$ANTES" ] \
+             || [ "$ANTES" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$ANTES^{commit}" 2>/dev/null; then
+            MUDOU="TUDO"
+          else
+            MUDOU="$(git diff --name-only "$ANTES" "$AGORA")"
+          fi
+          echo "ficheiros alterados:"; echo "$MUDOU" | head -40
+
+          tocou() {
+            [ "$MUDOU" = "TUDO" ] && return 0
+            # Mexer no próprio workflow reconstrói tudo: a receita mudou.
+            echo "$MUDOU" | grep -qE '^\.github/workflows/' && return 0
+            echo "$MUDOU" | grep -qE "^$1" && return 0
+            return 1
+          }
+
+          builds='[]'; deploys='[]'
+          juntar() {
+            python3 -c "import json,sys; a=json.loads(sys.argv[1]); a.append(json.loads(sys.argv[2])); print(json.dumps(a))" "$1" "$2"
+          }
+
+          if tocou 'backend/'; then
+            builds=$(juntar "$builds" '{"name":"beskos-api","context":"backend"}')
+            for app in api worker manager-api; do
+              deploys=$(juntar "$deploys" "{\"app\":\"$app\",\"image\":\"beskos-api\"}")
+            done
+          fi
+          if tocou 'frontend/'; then
+            builds=$(juntar "$builds" '{"name":"beskos-frontend","context":"frontend"}')
+            deploys=$(juntar "$deploys" '{"app":"app","image":"beskos-frontend"}')
+          fi
+          if tocou 'manager/'; then
+            builds=$(juntar "$builds" '{"name":"beskos-manager","context":"manager"}')
+            deploys=$(juntar "$deploys" '{"app":"manager","image":"beskos-manager"}')
+          fi
+          # Document Server com a nossa marca: imagem oficial pinada + patch aplicado no build.
+          if tocou 'deploy/onlyoffice/'; then
+            builds=$(juntar "$builds" '{"name":"beskos-docs","context":"deploy/onlyoffice"}')
+            deploys=$(juntar "$deploys" '{"app":"docs","image":"beskos-docs"}')
+          fi
+          if tocou 'deploy/mailweb/'; then
+            builds=$(juntar "$builds" '{"name":"beskos-mailweb","context":"deploy/mailweb"}')
+            deploys=$(juntar "$deploys" '{"app":"mail","image":"beskos-mailweb"}')
+          fi
+          if tocou 'deploy/backup/'; then
+            builds=$(juntar "$builds" '{"name":"beskos-backup","context":"deploy/backup"}')
+            deploys=$(juntar "$deploys" '{"app":"backup","image":"beskos-backup"}')
+          fi
+
+          echo "builds=$builds" >> "$GITHUB_OUTPUT"
+          echo "deploys=$deploys" >> "$GITHUB_OUTPUT"
+          echo "→ constrói: $builds"
+          echo "→ publica:  $deploys"
+
   build:
+    needs: plano
+    if: needs.plano.outputs.builds != '[]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     strategy:
+      # Sem fail-fast: uma imagem que falha não cancela as outras. Foi assim que um único job
+      # recusado por faturação levou os outros cinco atrás.
+      fail-fast: false
       matrix:
-        include:
-          - { name: beskos-api,      context: backend }
-          - { name: beskos-frontend, context: frontend }
-          - { name: beskos-manager,  context: manager }
-          # Document Server com a nossa marca: imagem oficial pinada + patch aplicado no build.
-          # Em produção o CapRover faz deploy por imagem e não monta nada do repositório, por
-          # isso a modificação TEM de estar dentro da imagem. Ver deploy/onlyoffice/Dockerfile.
-          - { name: beskos-docs,     context: deploy/onlyoffice }
-          # Só para o nome mail.beskos.com ter certificado válido e responder à descoberta dos
-          # clientes de correio (o 443 desta máquina é do CapRover). Ver deploy/mailweb/nginx.conf.
-          - { name: beskos-mailweb,  context: deploy/mailweb }
-          # pg_dump + rclone, três vezes por dia. Ver deploy/backup/README.md.
-          - { name: beskos-backup,   context: deploy/backup }
+        include: ${{ fromJson(needs.plano.outputs.builds) }}
     steps:
       - uses: actions/checkout@v4
         with: { submodules: false }
@@ -57,23 +135,14 @@ jobs:
           cache-to: type=gha,mode=max
 
   deploy:
-    needs: build
+    needs: [plano, build]
+    if: needs.plano.outputs.deploys != '[]'
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 1            # um de cada vez (rolling, sem sobrecarregar o cluster)
+      fail-fast: false
       matrix:
-        include:
-          # backend (mesma imagem, comandos diferentes já definidos em cada app do CapRover)
-          - { app: api,         image: beskos-api }
-          - { app: worker,      image: beskos-api }
-          - { app: manager-api, image: beskos-api }
-          # web (a app do webmail chama-se "app" → app.beskos.com no CapRover)
-          - { app: app,         image: beskos-frontend }
-          - { app: manager,     image: beskos-manager }
-          # editor de office (nó `media`). A app no CapRover chama-se `docs`, não `onlyoffice`.
-          - { app: docs,        image: beskos-docs }
-          - { app: mail,        image: beskos-mailweb }
-          - { app: backup,      image: beskos-backup }
+        include: ${{ fromJson(needs.plano.outputs.deploys) }}
     steps:
       - name: deploy ${{ matrix.app }}
         run: |
