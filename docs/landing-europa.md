@@ -1,8 +1,8 @@
 # Plano — reposicionar a landing na soberania de dados europeia
 
-> Estado: **Fases 0 a 3 implementadas e no ar** (ver §7b, §7c, §7d). Escrito a 29/07/2026.
-> Faltam as traduções para os seis idiomas novos (Fases 4 e 5) e a `/public-sector` (Fase 6).
-> Decisões pendentes marcadas com **[decidir]**.
+> Estado: **Fases 0 a 5 implementadas e no ar** (ver §7b a §7e). Escrito a 29/07/2026.
+> Falta a `/public-sector` e o nível 2 de idiomas (Fase 6), ambos dependentes de tração.
+> A app (`frontend/`) continua em dois idiomas — a tradução feita foi só a da landing.
 
 ## 0. Decisões já tomadas
 
@@ -426,8 +426,8 @@ propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e itali
 | **1** | **Página de estado** (na infraestrutura atual) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores e pelo DPA | Fase 0, para a lista já refletir a realidade · `/sub-processors` ✅ |
 | **2** ✅ | Nova mensagem: início, `/sovereignty`, `/security` | **Feita** a 29/07/2026 — ver §7c |
 | **3** | `/migration`, páginas por app · comparações com Proton/openDesk/Infomaniak ✅ | Fase 2 |
-| **4** | **Congelar o conteúdo** e traduzir: alemão, francês, polaco — site e app | Conteúdo estável |
-| **5** | Espanhol, italiano, neerlandês; `pt-BR` → `pt-PT` em tudo | Fase 4 |
+| **4** ✅ | Alemão, francês, polaco — **landing feita**, app por fazer | Conteúdo estável |
+| **5** ✅ | Italiano, neerlandês; `pt-BR` → `pt-PT` na landing | Fase 4 |
 | **6** | `/public-sector` + nível 2 (sueco, dinamarquês, checo, romeno) | Tração |
 
 A ordem tem uma razão: traduzir antes de o conteúdo assentar é pagar a tradução duas vezes. Por isso
@@ -560,3 +560,42 @@ se corrige. A afirmação "Alemanha" está verificada; a cidade depende do que c
 **Nota de propriedade:** a netcup GmbH pertence ao grupo Anexia (Áustria) — o bloco de rede aparece
 como *powered by ANX*. Ambos os países são da União Europeia, pelo que a mensagem não muda; fica
 registado por ser o tipo de detalhe que um comprador atento verifica.
+
+
+---
+
+## 7e. Fases 4 e 5 — os oito idiomas da landing (29/07/2026)
+
+`en, de, fr, pl, es, it, nl, pt` no ar. O inglês é a fonte de verdade e o idioma por omissão; o
+português é agora de Portugal. **A app não foi traduzida** — continua em `pt-BR` e `en`, e é o
+trabalho grande que fica (2 413 textos, §5).
+
+**Traduzido por script, não à mão** (`landing/scripts/translate.py`), como o §6b previa. São ~1600
+linhas de texto por idioma e a copy ainda vai mudar: à mão, a primeira alteração ao inglês punha o
+sítio a divergir de si próprio. O script é retomável — uma corrida de 35 chamadas interrompida a
+meio é o caso normal.
+
+**Quatro validações, e a ordem por que apareceram diz alguma coisa:**
+
+| # | Valida | Porquê existe |
+|---|---|---|
+| 1 | Forma | `Messages = typeof en` — uma chave em falta em neerlandês não chega a compilar |
+| 2 | Marcadores | um `{price}` traduzido aparece cru ao cliente |
+| 3 | Caminhos | um `href: "/dpa"` que vire `/vertrag` dá 404, e continua a ser uma string válida |
+| 4 | **Idioma** | o `nl/home.ts` saiu inteiro **em alemão** e passou pelas três anteriores |
+
+A quarta foi escrita depois de o erro acontecer. O ficheiro tinha estrutura certa, marcadores certos
+e caminhos certos, e só se viu porque o `<title>` de `/nl` apareceu em alemão numa verificação de
+rotina. É a lição que vale registar: **estrutura certa e língua errada passa por tudo o que valida
+estrutura.**
+
+**Metadados por idioma.** As URLs são em inglês por decisão (§4); o que compensa isso é o `<title>` e
+o conteúdo estarem na língua de quem lê. Vêm do dicionário da rota, reaproveitando o herói e os
+cabeçalhos já traduzidos.
+
+**Prevalência do inglês.** Cada página legal traduzida abre com o aviso de que prevalece a versão
+inglesa. Com tradução por máquina deixa de ser cortesia e passa a ser a fronteira contratual: uma
+revisão jurídica em inglês cobre as oito páginas, e as traduções seguem sem risco.
+
+**Sem revisor nativo:** alemão, francês, italiano e neerlandês. Cada ficheiro gerado diz isso no
+cabeçalho, e não numa nota que ninguém lê.
