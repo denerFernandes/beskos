@@ -15,13 +15,13 @@
 | Âmbito dos idiomas | Landing **e app** — não só o site |
 | Páginas legais | As oito do desenho: Privacy, Cookies, Terms, Security, DPA, Acceptable Use, SLA, Sub-processors |
 | IA | **TensorX corre 100% na UE** — a IA entra na frase "processado na UE", sem nota de rodapé |
-| SLA | **99,5%/mês** |
 | Aviso de novo subprocessador | **14 dias** |
 | Entidade | **Open Solutions** (nome comercial de *Dener Santos Fernandes*, empresário individual — JDG, não sp. z o.o.) · NIP **PL7773457857** · REGON 543340675 · Poznań |
 | Certificações | **Nenhuma ainda** — a página de segurança descreve práticas, não invoca normas |
 | Morada legal e objeções | **Wawrzyńca Engeströma 10, 60-571 Poznań, Polónia** · NIP PL7773457857 · REGON 543340675 |
-| Página de estado | **Sim**, pública, a cobrir todas as APIs |
+| Página de estado | **Sim**, mas na mesma infraestrutura por agora (VPS separado depois) |
 | Seguro | **Não por agora** — o que obriga a limitar a responsabilidade nos Termos (ver §2b) |
+| SLA | **Fora por agora.** Em vez dele, uma página de *compromissos de serviço* sem créditos (ver §4c) |
 
 ## 1. O que muda
 
@@ -81,10 +81,14 @@ Verifiquei o NIP na VIES: **PL7773457857 está válido para operações intracom
 confirma que a autoliquidação que já implementámos funciona connosco como vendedor. Duas coisas
 saltaram à vista:
 
-1. **Morada:** publica-se `Wawrzyńca Engeströma 10, 60-571 Poznań` (decidido). Fica a nota: a VIES
-   devolve `SKRZYNKI, ŁAGODNA 7 M1, 62-060`, por isso ou o registo (CEIDG) é atualizado para
-   Poznań, ou um auditor mais atento vai reparar que a fatura e o registo não coincidem. Não trava
-   nada hoje; convém resolver antes do primeiro cliente grande.
+1. **Morada:** publica-se `Wawrzyńca Engeströma 10, 60-571 Poznań` — escritório virtual. A VIES
+   devolve a **residência** (`Skrzynki, Łagodna 7 m1`), que é o que está no registo. Publicar a
+   morada virtual está certo (não se põe a casa de ninguém numa página pública), mas há um passo a
+   dar: **registar Poznań no CEIDG como morada para entrega de correspondência** (*adres do
+   doręczeń*) e confirmar que o contrato do escritório virtual aceita receber citações. Assim o que
+   está publicado, o que está no registo e o que sai nas faturas passam a bater certo — sem isso,
+   uma carta oficial vai para a sua casa e o cliente que confia na página fica a olhar para outra
+   morada.
 2. **O sujeito legal é a pessoa, não a marca.** Em JDG, quem contrata é *Dener Santos Fernandes*;
    "Open Solutions" é nome comercial. As páginas legais devem identificar assim:
    *"Open Solutions — Dener Santos Fernandes, Poznań, NIP PL7773457857, REGON 543340675"*. Esconder
@@ -166,7 +170,7 @@ não é dizer "soberania", é ter isto escrito e público.
 | `/security` | Como se protege: cifra em trânsito e em repouso, acesso, backups, réplica, resposta a incidentes, divulgação responsável |
 | `/dpa` | Acordo de subcontratação, **texto completo na página** (o modelo da TensorX é bom): definições, papéis, violação de dados, subprocessadores, transferências, auditoria + Anexo I (detalhes do tratamento) e Anexo II (medidas técnicas e SCCs) |
 | `/acceptable-use` | O que não se pode fazer com a plataforma — é o que permite suspender abuso sem discussão |
-| `/sla` | **99,5%/mês** (≈3h39 de indisponibilidade máxima), como se mede, exclusões, créditos por escalão, como se reclama, tempos de resposta do suporte |
+| `/sla` | **Compromissos de serviço**, não SLA contratual (§4c): objetivo de 99,5%/mês, janelas de manutenção, objetivos de resposta do suporte, e a frase que diz que não é garantia |
 | `/sub-processors` | A lista completa: **Subprocessador · Finalidade · Localização · Mecanismo de transferência**, com data da última atualização, compromisso de **aviso prévio** antes de acrescentar um novo, direito de objeção do cliente e subscrição de avisos |
 
 A página de subprocessadores é a mais importante das oito. É lá que se vê que a Cloudflare e a AWS
@@ -180,6 +184,34 @@ prático. A página de estado passa a existir (§4b) e é a fonte de medição d
 
 **Mudam:** início (novo herói e nova ordem — soberania, âmbito, provas, preço), `/compare` (juntar
 a coluna "jurisdição"), `/pricing` (manter a calculadora, boa, mas mais abaixo).
+
+---
+
+## 4c. Sem SLA (por agora)
+
+Decidido: **não há SLA**. É a decisão certa para uma pessoa só — um SLA com créditos é uma dívida
+que se paga sozinho às três da manhã, e sem seguro nem sociedade aponta ao património pessoal.
+
+Mas não publicar nada sobre disponibilidade também custa: é a segunda pergunta de qualquer
+comprador. A saída é uma página de **compromissos de serviço** — mesma URL `/sla`, outro conteúdo:
+
+| Em vez de… | Escrevemos |
+|---|---|
+| "99,5% garantidos, com créditos" | "Trabalhamos para **99,5%** ao mês. Não é uma garantia contratual" |
+| Créditos automáticos | "Se falharmos de forma prolongada, falamos consigo" |
+| Compensação por indisponibilidade | Janelas de manutenção anunciadas, histórico público na página de estado |
+| — | Tempos de resposta do suporte como **objetivo**, não promessa |
+
+Isto dá ao comprador o que ele precisa (saber o que esperar) sem criar uma obrigação que hoje não
+consegue honrar. E é coerente com o resto da mensagem: quem publica a lista de subprocessadores é
+quem também admite não ter SLA.
+
+**Quando voltar a fazer sentido:** com sociedade (sp. z o.o.), seguro e alguém de piquete. Aí o SLA
+passa a argumento de venda em vez de risco.
+
+**Nos Termos, isto tem de ficar explícito:** serviço prestado em regime de *melhores esforços*,
+teto de responsabilidade nos 12 meses pagos, exclusão de danos indiretos. Sem SLA, estas cláusulas
+são ainda mais importantes — são a única fronteira que existe.
 
 ---
 
@@ -203,10 +235,13 @@ o cliente possa ver, "99,5%" é uma afirmação nossa contra a memória dele.
 | Consola do operador | GET da página |
 | Site | GET da página |
 
-**Onde vive — e esta é a decisão que importa:** a página de estado **não pode correr na
-infraestrutura que monitoriza**. Se o nó de dados cair, a página cai com ele e fica a dizer que
-está tudo bem, ou não diz nada. Fica num **VPS pequeno noutro fornecedor** (~4 €/mês), a sondar de
-fora, que é também o único modo de a medição ser credível.
+**Onde vive:** por agora **na mesma infraestrutura** (decidido), com o VPS separado a ficar para
+depois. A limitação tem de ser dita na própria página, senão engana: *se o nó principal cair, esta
+página cai com ele*. Enquanto for assim, ela serve para avisar de avarias parciais (o Meet em baixo,
+o OnlyOffice em baixo) e para publicar incidentes — não para provar disponibilidade.
+
+Como já não há SLA a medir (§4c), isto é aceitável. Quando o SLA voltar, o VPS separado (~4 €/mês
+noutro fornecedor, a sondar de fora) deixa de ser opcional.
 
 **Como:** [Uptime Kuma](https://github.com/louislam/uptime-kuma) (código aberto, self-hosted,
 alojável na UE) resolve 90% — sondas, histórico, página pública, avisos, RSS. Alternativa: escrever
@@ -214,9 +249,9 @@ a nossa, o que só faz sentido se quisermos as sondas profundas (enviar um e-mai
 ponta e medir quanto tempo demora a chegar). Recomendo começar pelo Kuma e só depois acrescentar as
 sondas profundas.
 
-**O que a página tem de mostrar**, para servir o SLA: estado de cada componente, **90 dias** de
-histórico, incidentes com cronologia (detetado → causa → resolvido), e subscrição por e-mail. A
-mesma subscrição serve para os avisos de subprocessadores — é uma lista só.
+**O que a página tem de mostrar:** estado de cada componente, **90 dias** de histórico, incidentes
+com cronologia (detetado → causa → resolvido), e subscrição por e-mail. A mesma subscrição serve
+para os avisos de subprocessadores — é uma lista só.
 
 **[decidir]** `status.beskos.com` (subdomínio) ou `/status`? Recomendo subdomínio: se o ingress
 principal cair, o `/status` cai com ele.
@@ -366,7 +401,7 @@ propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e itali
 | Fase | O quê | Depende de |
 |---|---|---|
 | **0** | Pilha: R2 para jurisdição UE, IA e embeddings pela TensorX (`qwen3-embedding-8b`) | Decisões tomadas — falta confirmar a região da TensorX |
-| **1** | **Página de estado** (VPS separado) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores, DPA e SLA | Fase 0, para a lista já refletir a realidade. O SLA precisa da página de estado para se medir |
+| **1** | **Página de estado** (na infraestrutura atual) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores e pelo DPA | Fase 0, para a lista já refletir a realidade |
 | **2** | Nova mensagem: início, `/sovereignty`, `/security` | Fase 1 (as provas têm de existir antes de se apontar para elas) |
 | **3** | `/migration`, páginas por app, comparações com Proton/openDesk/Infomaniak | Fase 2 |
 | **4** | **Congelar o conteúdo** e traduzir: alemão, francês, polaco — site e app | Conteúdo estável |
@@ -380,8 +415,25 @@ os idiomas vêm depois das páginas, e não ao mesmo tempo.
 
 ## 8. O que falta decidir
 
-1. **`status.beskos.com` ou `/status`?** Recomendo subdomínio, noutro fornecedor.
-2. **Tom por idioma**: um só, ou mais formal em alemão e no setor público? (com tradução por IA,
-   entra no prompt e é barato de mudar)
-3. **Registo CEIDG**: atualizar a morada para Poznań, para bater certo com a VIES?
+1. **`status.beskos.com` ou `/status`?** Com tudo na mesma infraestrutura, tanto faz tecnicamente;
+   o subdomínio poupa uma migração quando o VPS separado chegar.
+2. **Tom por idioma**: um só, ou mais formal em alemão e no setor público?
+3. **CEIDG**: registar Poznań como morada de entrega, para o registo bater certo com o publicado.
 4. **Quando começo.** Continua tudo por implementar, à espera da sua palavra.
+
+---
+
+## 9. Uma nota sobre o tamanho
+
+Você disse "um developer com um sonho". Vale a pena decidir o que fazer com isso, porque a mensagem
+muda conforme:
+
+- **Escondido**, é uma bomba-relógio: quem descobre tarde sente-se enganado, e descobre-se sempre.
+- **Dito**, é um argumento — em soberania, "uma pessoa em Poznań que responde ao telefone" bate uma
+  megaempresa americana para muita PME, agência e profissional liberal. É a mesma razão por que se
+  escolhe o contabilista da esquina.
+
+O que ele **não** ganha é o setor público e a empresa grande: aí pedem sociedade, seguro, SLA e
+certificação — e é por isso que a `/public-sector` deve ficar para o fim do plano, não para o
+princípio. O alvo realista destes primeiros meses são PME europeias com 5 a 50 pessoas que já hoje
+desconfiam do Google e do Microsoft.
