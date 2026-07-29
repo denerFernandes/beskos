@@ -19,7 +19,8 @@
 | Entidade | **Open Solutions** (nome comercial de *Dener Santos Fernandes*, empresário individual — JDG, não sp. z o.o.) · NIP **PL7773457857** · REGON 543340675 · Poznań |
 | Certificações | **Nenhuma ainda** — a página de segurança descreve práticas, não invoca normas |
 | Morada legal e objeções | **Wawrzyńca Engeströma 10, 60-571 Poznań, Polónia** · NIP PL7773457857 · REGON 543340675 |
-| Página de estado | **Sim**, mas na mesma infraestrutura por agora (VPS separado depois) |
+| Página de estado | **Sim**, em `status.beskos.com`, na mesma infraestrutura por agora (VPS separado em breve) |
+| Tom | **Corporativo**, igual em todos os idiomas — tratamento formal em cada um |
 | Seguro | **Não por agora** — o que obriga a limitar a responsabilidade nos Termos (ver §2b) |
 | SLA | **Fora por agora.** Em vez dele, uma página de *compromissos de serviço* sem créditos (ver §4c) |
 
@@ -136,6 +137,25 @@ lei europeia, operado por uma empresa europeia.
   exportáveis, e não há refém.
 - "A IA não estraga tudo isto?" → onde corre o modelo, o que sai da UE, como se desliga.
 
+**Tom: corporativo, e igual em todos os idiomas** (decidido). Isso muda o texto atual, que é
+informal e imperativo (*"Cancele quatro assinaturas"*). Na prática, por idioma:
+
+| Idioma | Tratamento formal |
+|---|---|
+| Português (PT) | 3.ª pessoa — "a sua equipa", "poderá exportar" |
+| Inglês | Neutro-formal; sem gíria nem exclamações |
+| Alemão | **Sie** (nunca *du*) |
+| Francês | **vous** |
+| Espanhol | **usted** |
+| Italiano | **Lei** |
+| Neerlandês | **u** |
+| Polaco | **Pan/Pani/Państwo** |
+
+Corporativo aqui quer dizer **sóbrio e preciso**, não pomposo: frases curtas, números concretos,
+zero superlativos. É também o registo que o comprador de soberania espera — quem escolhe onde ficam
+os dados da empresa não quer um site a falar-lhe como a um amigo. Isto entra no prompt de tradução,
+por isso é barato de aplicar e de corrigir.
+
 **O que NÃO dizer:** "conformidade garantida", "certificado ISO" (sem o ser), "imune ao CLOUD Act"
 (ninguém é imune — o que existe é não estar sujeito), "os seus dados nunca saem da UE" enquanto o
 R2/SES/DeepSeek estiverem lá.
@@ -235,13 +255,14 @@ o cliente possa ver, "99,5%" é uma afirmação nossa contra a memória dele.
 | Consola do operador | GET da página |
 | Site | GET da página |
 
-**Onde vive:** por agora **na mesma infraestrutura** (decidido), com o VPS separado a ficar para
-depois. A limitação tem de ser dita na própria página, senão engana: *se o nó principal cair, esta
-página cai com ele*. Enquanto for assim, ela serve para avisar de avarias parciais (o Meet em baixo,
-o OnlyOffice em baixo) e para publicar incidentes — não para provar disponibilidade.
+**Onde vive:** `status.beskos.com`, por agora na mesma infraestrutura, com a troca para um VPS
+separado a caminho. **Sem aviso na página** sobre essa limitação (decidido) — e o risco é pequeno:
+numa falha total a página fica inacessível, o que é bem menos mau do que uma página a garantir que
+está tudo bem enquanto não está. Nas falhas parciais, que são a maioria, ela funciona e é útil.
 
-Como já não há SLA a medir (§4c), isto é aceitável. Quando o SLA voltar, o VPS separado (~4 €/mês
-noutro fornecedor, a sondar de fora) deixa de ser opcional.
+O subdomínio é a convenção (`status.stripe.com`, `status.github.com`) e é o que as pessoas escrevem
+à mão quando algo falha. Além disso poupa a migração: quando a página mudar de servidor, muda-se um
+registo de DNS e mais nada. `/status` no site redireciona para lá.
 
 **Como:** [Uptime Kuma](https://github.com/louislam/uptime-kuma) (código aberto, self-hosted,
 alojável na UE) resolve 90% — sondas, histórico, página pública, avisos, RSS. Alternativa: escrever
@@ -413,13 +434,21 @@ os idiomas vêm depois das páginas, e não ao mesmo tempo.
 
 ---
 
-## 8. O que falta decidir
+## 8. Está tudo decidido
 
-1. **`status.beskos.com` ou `/status`?** Com tudo na mesma infraestrutura, tanto faz tecnicamente;
-   o subdomínio poupa uma migração quando o VPS separado chegar.
-2. **Tom por idioma**: um só, ou mais formal em alemão e no setor público?
-3. **CEIDG**: registar Poznań como morada de entrega, para o registo bater certo com o publicado.
-4. **Quando começo.** Continua tudo por implementar, à espera da sua palavra.
+| # | Decisão |
+|---|---|
+| Morada | Poznań publicada; CEIDG a atualizar (o Dener trata) |
+| Estado | `status.beskos.com`, mesma infraestrutura, sem aviso de limitação |
+| SLA | Fora; fica a página de compromissos |
+| Tom | Corporativo, formal em todos os idiomas |
+| Tradução | Toda por IA, revisão manual depois |
+| Idiomas | en, de, fr, pl, es, it, pt-PT, nl (nível 1) · sv, da, cs, ro (nível 2) |
+| URLs | Sempre em inglês |
+| Pilha | R2 em jurisdição UE; IA e embeddings pela TensorX (100% UE) |
+
+**Falta só uma coisa: dizer para começar.** Quando disser, arranco pela Fase 0 (pilha) e pela
+página de subprocessadores, que é a que sustenta tudo o resto.
 
 ---
 
