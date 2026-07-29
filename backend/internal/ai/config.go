@@ -49,7 +49,9 @@ func New(cfg Config) (Provider, error) {
 		if model == "" {
 			model = "deepseek/deepseek-v4-flash"
 		}
-		return NewDeepSeek(cfg.APIKey, base, model), nil
+		c := NewDeepSeek(cfg.APIKey, base, model)
+		c.name = "tensorx"
+		return c, nil
 	// case "claude": return NewClaude(...), nil   // futuro
 	// case "openai": return NewOpenAI(...), nil   // futuro
 	default:

@@ -87,6 +87,14 @@ func TestNewProviderSelection(t *testing.T) {
 	if d.model == "" {
 		t.Error("modelo por omissão em falta")
 	}
+	// O log de arranque escreve este nome. Dizer "deepseek" a falar com a TensorX faz o operador
+	// acreditar que o conteúdo sai da UE quando não sai — e o contrário, no dia em que sair.
+	if p.Name() != "tensorx" {
+		t.Errorf("Name() = %q, quero tensorx", p.Name())
+	}
+	if dd, _ := New(Config{Provider: "deepseek", APIKey: "k"}); dd.Name() != "deepseek" {
+		t.Errorf("deepseek: Name() = %q", dd.Name())
+	}
 }
 
 // Testa o DeepSeek contra um servidor OpenAI-compatível fake: valida payload enviado e parsing.
