@@ -35,6 +35,8 @@ jobs:
           # Só para o nome mail.beskos.com ter certificado válido e responder à descoberta dos
           # clientes de correio (o 443 desta máquina é do CapRover). Ver deploy/mailweb/nginx.conf.
           - { name: beskos-mailweb,  context: deploy/mailweb }
+          # pg_dump + rclone, três vezes por dia. Ver deploy/backup/README.md.
+          - { name: beskos-backup,   context: deploy/backup }
     steps:
       - uses: actions/checkout@v4
         with: { submodules: false }
@@ -71,6 +73,7 @@ jobs:
           # editor de office (nó `media`). A app no CapRover chama-se `docs`, não `onlyoffice`.
           - { app: docs,        image: beskos-docs }
           - { app: mail,        image: beskos-mailweb }
+          - { app: backup,      image: beskos-backup }
     steps:
       - name: deploy ${{ matrix.app }}
         run: |
