@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -17,23 +18,34 @@ type Embedder struct {
 	apiKey  string
 	baseURL string
 	model   string
-	hc      *http.Client
+	// dims: dimensão pedida ao servidor. O `qwen3-embedding-8b` devolve 4096 por omissão, mas a
+	// coluna é `vector(1536)` e o índice ivfflat do pgvector não passa das 2000 dimensões — sem
+	// isto, ou o INSERT falha, ou perdíamos o índice e a busca passava a varrer a tabela toda.
+	// Modelos com Matryoshka (é o caso do Qwen3) truncam sem estragar a qualidade.
+	dims int
+	hc   *http.Client
 }
 
 // NewEmbedderFromEnv lê a config do ambiente e devolve nil quando desligado (sem chave):
 //
-//	EMBEDDINGS_API_KEY   (obrigatório para ligar)
-//	EMBEDDINGS_BASE_URL  (default "https://api.openai.com/v1")
-//	EMBEDDINGS_MODEL     (default "text-embedding-3-small")
+//	EMBEDDINGS_API_KEY     (obrigatório para ligar)
+//	EMBEDDINGS_BASE_URL    (default "https://api.tensorx.ai/v1")
+//	EMBEDDINGS_MODEL       (default "qwen/qwen3-embedding-8b")
+//	EMBEDDINGS_DIMENSIONS  (default 1536 — tem de bater com a coluna vector(N))
 func NewEmbedderFromEnv() *Embedder {
 	key := os.Getenv("EMBEDDINGS_API_KEY")
 	if key == "" {
 		return nil
 	}
+	dims := 1536
+	if v, err := strconv.Atoi(os.Getenv("EMBEDDINGS_DIMENSIONS")); err == nil && v > 0 {
+		dims = v
+	}
 	return &Embedder{
 		apiKey:  key,
-		baseURL: getenv("EMBEDDINGS_BASE_URL", "https://api.openai.com/v1"),
-		model:   getenv("EMBEDDINGS_MODEL", "text-embedding-3-small"),
+		baseURL: getenv("EMBEDDINGS_BASE_URL", "https://api.tensorx.ai/v1"),
+		model:   getenv("EMBEDDINGS_MODEL", "qwen/qwen3-embedding-8b"),
+		dims:    dims,
 		hc:      &http.Client{Timeout: 60 * time.Second},
 	}
 }
@@ -43,7 +55,11 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	if len(texts) == 0 {
 		return nil, nil
 	}
-	body, err := json.Marshal(map[string]any{"model": e.model, "input": texts})
+	payload := map[string]any{"model": e.model, "input": texts}
+	if e.dims > 0 {
+		payload["dimensions"] = e.dims
+	}
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("embeddings: marshal request: %w", err)
 	}
@@ -83,6 +99,13 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	for _, d := range out.Data {
 		if d.Index < 0 || d.Index >= len(vecs) {
 			return nil, fmt.Errorf("embeddings: provider returned out-of-range index %d", d.Index)
+		}
+		// A dimensão TEM de bater com a coluna: um vetor de 4096 num vector(1536) rebenta no INSERT
+		// com um erro obscuro, e pior — se algum dia a coluna aceitasse, misturar dimensões (ou
+		// modelos) na mesma tabela dá uma busca semântica que devolve lixo em silêncio.
+		if e.dims > 0 && len(d.Embedding) != e.dims {
+			return nil, fmt.Errorf("embeddings: provider returned %d dimensions, expected %d (model %q ignores the `dimensions` parameter?)",
+				len(d.Embedding), e.dims, e.model)
 		}
 		vecs[d.Index] = d.Embedding
 	}
