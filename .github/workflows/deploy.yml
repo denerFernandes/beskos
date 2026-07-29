@@ -32,6 +32,9 @@ jobs:
           # Em produção o CapRover faz deploy por imagem e não monta nada do repositório, por
           # isso a modificação TEM de estar dentro da imagem. Ver deploy/onlyoffice/Dockerfile.
           - { name: beskos-docs,     context: deploy/onlyoffice }
+          # Só para o nome mail.beskos.com ter certificado válido e responder à descoberta dos
+          # clientes de correio (o 443 desta máquina é do CapRover). Ver deploy/mailweb/nginx.conf.
+          - { name: beskos-mailweb,  context: deploy/mailweb }
     steps:
       - uses: actions/checkout@v4
         with: { submodules: false }
@@ -67,6 +70,7 @@ jobs:
           - { app: manager,     image: beskos-manager }
           # editor de office (nó `media`). A app no CapRover chama-se `docs`, não `onlyoffice`.
           - { app: docs,        image: beskos-docs }
+          - { app: mail,        image: beskos-mailweb }
     steps:
       - name: deploy ${{ matrix.app }}
         run: |
