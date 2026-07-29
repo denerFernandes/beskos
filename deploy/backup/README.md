@@ -10,19 +10,15 @@ Retenção 30 dias.
 
 | | Estado |
 |---|---|
-| Base de dados da aplicação (contas, ficheiros, calendário, chat, wiki, faturação) | **Coberta** |
-| Ficheiros do Drive e anexos (R2) | Vivem no R2, com durabilidade do fornecedor. **Não há segunda cópia nossa** — um apagamento acidental do balde não é recuperável |
-| **Correio (caixas, mensagens, pastas)** | **NÃO coberto.** Ver abaixo |
+| Base de dados da aplicação (`beskos`) — contas, ficheiros, calendário, chat, wiki, faturação | **Coberta** |
+| Base de dados do correio (`stalwart`) — mensagens, anexos, caixas e a configuração do servidor | **Coberta** |
+| Ficheiros do Drive e anexos grandes (R2) | Vivem no R2, com durabilidade do fornecedor. **Não há segunda cópia nossa** — um apagamento acidental do balde não é recuperável |
 
-O Stalwart guarda tudo — mensagens, anexos, índice, contas — num **RocksDB** dentro do volume
-`stalwart_data`. Copiar esse diretório com o servidor a correr dá um backup inconsistente: o
-RocksDB tem escrita em curso e um `tar` a quente apanha-o a meio. E a exportação própria do
-Stalwart (`--export`) é um comando de linha que abre a base em exclusivo — **com o RocksDB, exige
-parar o correio**.
-
-Ou seja: com a arquitetura de hoje, um backup consistente do correio custa uma paragem do serviço,
-três vezes por dia. Não é aceitável, e a saída não é um script mais esperto — é mudar onde o
-correio vive. Ver [MIGRACAO-STALWART-POSTGRES.md](MIGRACAO-STALWART-POSTGRES.md).
+O Stalwart guarda tudo em **PostgreSQL** (ver [DIVERGENCES.md](../DIVERGENCES.md) §D9): mensagens,
+anexos, contas e a própria configuração dele. Por isso o correio entra aqui como qualquer outra
+base — **a quente, sem parar nada**. Se algum dia voltar a um armazenamento embutido, isto deixa de
+ser verdade e o backup do correio passa a exigir paragem: é uma decisão a tomar com essa conta
+feita.
 
 ## O que o script faz que a maioria não faz
 
