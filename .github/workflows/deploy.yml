@@ -1,13 +1,11 @@
 name: build & deploy
 
-# Push no master → constrói APENAS o que mudou e faz deploy no CapRover (rolling update).
+# Constrói APENAS o que mudou e publica no CapRover (rolling update).
 #
-# Antes, qualquer commit reconstruía as seis imagens e reiniciava tudo — mudar uma palavra num
-# texto reiniciava o correio, a API e o editor de documentos. Além de gastar minutos à toa (foi o
-# que esgotou o limite da conta), cada reinício é uma janela de risco que ninguém pediu.
-#
-# Agora um passo `plano` olha para os ficheiros alterados e monta a matriz. Se nada mexeu num
-# contexto, não corre build nenhum.
+# Antes corria a cada push e reconstruía as seis imagens: mudar uma palavra num texto reiniciava o
+# correio, a API e o editor de documentos. Gastava minutos à toa — foi o que esgotou o limite da
+# conta — e cada reinício desnecessário é uma janela de risco que ninguém pediu. Um passo `plano`
+# olha agora para os ficheiros alterados e monta a matriz; se nada mexeu num contexto, não há build.
 #
 # Segredos necessários (repo → Settings → Secrets):
 #   CAPROVER_URL       ex.: https://captain.beskos.com
