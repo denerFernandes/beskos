@@ -14,6 +14,10 @@ set -euo pipefail
 : "${DATABASE_URL:?DATABASE_URL em falta}"
 : "${BACKUP_BUCKET:?BACKUP_BUCKET em falta}"
 : "${RETENTION_DAYS:=30}"
+# Duas bases no mesmo servidor: a da aplicação e a do CORREIO. O Stalwart guarda tudo em Postgres
+# — mensagens, anexos, contas e a própria configuração — por isso o correio entra aqui como
+# qualquer outra base, a quente e sem parar nada.
+: "${BACKUP_DATABASES:=beskos stalwart}"
 
 STAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
 DAY="$(date -u +%Y/%m/%d)"
@@ -23,34 +27,41 @@ trap 'rm -rf "$TMP"' EXIT
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) backup: $*"; }
 fail() { log "FALHOU: $*"; exit 1; }
 
-DUMP="$TMP/beskos-$STAMP.dump"
+# url_para <base> — troca o nome da base no DATABASE_URL, preservando credenciais e opções.
+# O utilizador é o mesmo nas duas (é o que o Stalwart usa), por isso não há segunda credencial.
+url_para() {
+  echo "$DATABASE_URL" | sed -E "s#(://[^/]+/)[^?]+#\1$1#"
+}
 
-# -Fc: formato próprio, comprimido e restaurável seletivamente (tabela a tabela, se preciso).
-# --no-owner/--no-privileges: o restauro não depende de os mesmos papéis existirem no destino,
-# que é o que estraga metade dos restauros de emergência.
-log "a exportar a base de dados"
-pg_dump --dbname="$DATABASE_URL" --format=custom --no-owner --no-privileges --file="$DUMP" \
-  || fail "pg_dump"
+for BASE in $BACKUP_DATABASES; do
+  DUMP="$TMP/$BASE-$STAMP.dump"
 
-SIZE=$(stat -c %s "$DUMP" 2>/dev/null || stat -f %z "$DUMP")
-[ "$SIZE" -gt 1024 ] || fail "dump com $SIZE bytes — demasiado pequeno para ser verdade"
+  log "[$BASE] a exportar"
+  # -Fc: formato próprio, comprimido e restaurável seletivamente (tabela a tabela, se preciso).
+  # --no-owner/--no-privileges: o restauro não depende de os mesmos papéis existirem no destino,
+  # que é o que estraga metade dos restauros de emergência.
+  pg_dump --dbname="$(url_para "$BASE")" --format=custom --no-owner --no-privileges --file="$DUMP" \
+    || fail "[$BASE] pg_dump"
 
-# Verificação: lê o índice do ficheiro. Apanha truncagem e corrupção antes de irmos dormir.
-TABLES=$(pg_restore --list "$DUMP" | grep -c "TABLE DATA" || true)
-[ "$TABLES" -gt 0 ] || fail "o dump não tem dados de tabela nenhuma"
-log "dump verificado: $((SIZE / 1024)) KiB, $TABLES tabelas com dados"
+  SIZE=$(stat -c %s "$DUMP" 2>/dev/null || stat -f %z "$DUMP")
+  [ "$SIZE" -gt 1024 ] || fail "[$BASE] dump com $SIZE bytes — demasiado pequeno para ser verdade"
 
-log "a enviar para r2:$BACKUP_BUCKET/postgres/$DAY/"
-rclone copyto "$DUMP" "r2:$BACKUP_BUCKET/postgres/$DAY/beskos-$STAMP.dump" \
-  --s3-no-check-bucket --stats-one-line || fail "envio para o R2"
+  # Verificação: lê o índice do ficheiro. Apanha truncagem e corrupção antes de irmos dormir.
+  TABLES=$(pg_restore --list "$DUMP" | grep -c "TABLE DATA" || true)
+  [ "$TABLES" -gt 0 ] || fail "[$BASE] o dump não tem dados de tabela nenhuma"
+  log "[$BASE] verificado: $((SIZE / 1024)) KiB, $TABLES tabelas com dados"
 
-# Confirma do outro lado: enviar sem confirmar é assumir que a rede não mente.
-REMOTE=$(rclone size "r2:$BACKUP_BUCKET/postgres/$DAY/beskos-$STAMP.dump" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
-[ "$REMOTE" = "$SIZE" ] || fail "tamanho no R2 ($REMOTE) diferente do local ($SIZE)"
-log "confirmado no R2"
+  rclone copyto "$DUMP" "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump" \
+    --s3-no-check-bucket --stats-one-line || fail "[$BASE] envio para o R2"
 
-log "a limpar backups com mais de $RETENTION_DAYS dias"
-rclone delete "r2:$BACKUP_BUCKET/postgres/" --min-age "${RETENTION_DAYS}d" --rmdirs || true
+  # Confirma do outro lado: enviar sem confirmar é assumir que a rede não mente.
+  REMOTE=$(rclone size "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
+  [ "$REMOTE" = "$SIZE" ] || fail "[$BASE] tamanho no R2 ($REMOTE) diferente do local ($SIZE)"
+  log "[$BASE] confirmado no R2"
+
+  rclone delete "r2:$BACKUP_BUCKET/$BASE/" --min-age "${RETENTION_DAYS}d" --rmdirs || true
+  rm -f "$DUMP"
+done
 
 if [ -n "${HEARTBEAT_URL:-}" ]; then
   curl -fsS --max-time 20 "$HEARTBEAT_URL" >/dev/null && log "estado avisado" || log "aviso de estado falhou (o backup está feito)"
