@@ -32,7 +32,7 @@ def load_env() -> dict[str, str]:
 
 def monitor(name: str, **kw) -> dict:
     """Sonda com os valores por omissão. Nomes voltados para quem lê a página, que é pública:
-    "Correio — envio", não "smtp-465"."""
+    "Mail — sending", não "smtp-465"."""
     base = {
         "type": "http", "name": name, "interval": 60, "retryInterval": 60, "resendInterval": 0,
         "maxretries": 2, "timeout": 30, "method": "GET", "accepted_statuscodes": ["200-299"],
@@ -42,35 +42,42 @@ def monitor(name: str, **kw) -> dict:
     return {**base, **kw}
 
 
+# Nomes e textos da página em INGLÊS: é uma página pública, lida por clientes de vários países e
+# citada em conversas com auditores. (A moldura do Kuma — "All Systems Operational", "Last
+# Updated" — segue o idioma do browser de quem visita; o 1.x não tem como fixá-la do servidor.)
 def monitors(ai_key: str) -> list[dict]:
     return [
-        monitor("Aplicação", url="https://app.beskos.com/",
-                description="A aplicação web: correio, ficheiros, calendário e o resto."),
+        monitor("Application", url="https://app.beskos.com/",
+                description="The web application: mail, files, calendar and the rest."),
         # /api/readyz e não /healthz: o primeiro toca na base de dados. E tem de ser dentro de
         # /api — o proxy público só encaminha esse prefixo para a API; na raiz mediríamos o
         # servidor de ficheiros estáticos e diríamos "no ar" com a base em baixo.
         monitor("API", url="https://app.beskos.com/api/readyz",
-                description="A nossa API, incluindo a ligação à base de dados."),
-        monitor("Correio — envio (SMTP)", type="port", hostname="mail.beskos.com", port=465,
-                description="Servidor de envio."),
-        monitor("Correio — leitura (IMAP)", type="port", hostname="mail.beskos.com", port=993,
-                description="Acesso às caixas por IMAP."),
+                description="Our API, including the database connection."),
+        monitor("Mail — sending (SMTP)", type="port", hostname="mail.beskos.com", port=465,
+                description="Outbound mail server."),
+        monitor("Mail — access (IMAP)", type="port", hostname="mail.beskos.com", port=993,
+                description="Mailbox access over IMAP."),
         # 401 é a resposta CERTA de um endpoint que exige autenticação: prova que o servidor de
         # correio respondeu. Aceitar só 2xx deixaria isto vermelho para sempre.
-        monitor("Correio — leitura (JMAP)", url="https://app.beskos.com/.well-known/jmap",
-                accepted_statuscodes=["401"], description="Sessão JMAP, que é o que o webmail usa."),
-        monitor("Documentos", type="keyword", keyword="true",
+        monitor("Mail — access (JMAP)", url="https://app.beskos.com/.well-known/jmap",
+                accepted_statuscodes=["401"], description="JMAP session, which is what the webmail uses."),
+        monitor("Documents", type="keyword", keyword="true",
                 url="https://docs.beskos.com/healthcheck",
-                description="Edição de Word, Excel e PowerPoint."),
-        monitor("Reuniões", type="keyword", keyword="OK", url="https://meet.beskos.com/",
-                description="Servidor de videochamada."),
-        monitor("Assistente (IA)", url="https://api.tensorx.ai/v1/models",
+                description="Word, Excel and PowerPoint editing."),
+        monitor("Meetings", type="keyword", keyword="OK", url="https://meet.beskos.com/",
+                description="Video call server."),
+        monitor("Assistant (AI)", url="https://api.tensorx.ai/v1/models",
                 headers=f'{{"Authorization": "Bearer {ai_key}"}}',
-                description="Modelos servidos na UE, usados pelo assistente."),
-        monitor("Consola do operador", url="https://manager.beskos.com/login",
-                description="Painel interno de gestão."),
-        monitor("Site", url="https://beskos.com/", description="beskos.com"),
+                description="Models served in the EU, used by the assistant."),
+        monitor("Operator console (internal)", url="https://manager.beskos.com/login",
+                description="Internal management panel."),
+        monitor("Website", url="https://beskos.com/", description="beskos.com"),
     ]
+
+
+# Medidos, mas fora da página pública: listar um painel interno é dizer ao mundo que existe e onde.
+PRIVATE = {"Operator console (internal)"}
 
 
 def main() -> int:
@@ -103,19 +110,20 @@ def main() -> int:
     png = ROOT / "deploy" / "status" / "mark.png"
     icon = ("data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()) if png.exists() else "/icon.svg"
 
-    call("addStatusPage", "Estado do Beskos", SLUG)
-    mons = [{"id": int(i), "name": m["name"]} for i, m in sorted(known.items(), key=lambda x: int(x[0]))]
+    call("addStatusPage", "Beskos Status", SLUG)
+    mons = [{"id": int(i), "name": m["name"]} for i, m in sorted(known.items(), key=lambda x: int(x[0]))
+            if m["name"] not in PRIVATE]
     config = {
-        "slug": SLUG, "title": "Estado do Beskos",
-        "description": "Estado dos serviços do Beskos, medido de fora, a cada minuto. "
-                       "Os incidentes são publicados aqui.",
+        "slug": SLUG, "title": "Beskos Status",
+        "description": "Status of the Beskos services, measured from the outside, every minute. "
+                       "Incidents are published here.",
         "icon": "/icon.svg", "theme": "auto", "published": True, "showTags": False,
         "domainNameList": ["status.beskos.com"], "customCSS": "",
-        "footerText": "Beskos · Open Solutions, Poznań", "showPoweredBy": False,
+        "footerText": "Beskos · Open Solutions", "showPoweredBy": False,
         "googleAnalyticsId": None, "showCertificateExpiry": False,
     }
     # imgDataUrl TEM de ser string: com None o servidor rebenta em `startsWith`.
-    r = call("saveStatusPage", SLUG, config, icon, [{"name": "Serviços", "weight": 1, "monitorList": mons}])
+    r = call("saveStatusPage", SLUG, config, icon, [{"name": "Services", "weight": 1, "monitorList": mons}])
     print("página pública:", "ok" if (r or {}).get("ok") else r)
 
     # A raiz mostra a página pública, não o ecrã de entrada: quem escreve status.beskos.com
