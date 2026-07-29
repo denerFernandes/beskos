@@ -23,12 +23,17 @@ services:
       - "993:993"               # IMAPS (público)
     volumes:
       - stalwart_data:/opt/stalwart
-      - ./stalwart/config.toml:/opt/stalwart/etc/config.toml:ro
+      # /etc/stalwart/config.json é ONDE A IMAGEM PROCURA (`--config`). O caminho antigo
+      # (/opt/stalwart/etc/config.toml) não era lido — ver DIVERGENCES §D9.
+      - ./stalwart/config.json:/etc/stalwart/config.json:ro
     environment:
       # Admin GLOBAL de recuperação. Formato real da v0.16.4: user:senha (descoberto na Fase 0).
       # Só o backend Go usa; NUNCA chega ao frontend (brief §2).
       STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_SECRET}"
-      # Relay SES (produção): credenciais SMTP do SES lidas pelo bloco comentado no config.toml
+      # Lida pelo config.json (authSecret → EnvironmentVariable).
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      # Relay SES: configura-se no REGISTO do Stalwart (interface de administração), não em
+      # ficheiro — ver deploy/stalwart/README.md.
       # (ver instruções lá). Vazias em dev — inofensivas enquanto o bloco estiver comentado.
       SES_SMTP_USER: "${SES_SMTP_USER:-}"
       SES_SMTP_PASS: "${SES_SMTP_PASS:-}"
@@ -108,7 +113,7 @@ services:
       AI_PROVIDER: "${AI_PROVIDER:-deepseek}"
       AI_API_KEY: "${AI_API_KEY:-}"
       # Notificações por e-mail: submissão pelo próprio Stalwart, porta 465 (TLS implícito).
-      # A 587 do config.toml NÃO serve — o listener fecha a ligação (medido em 15/07/2026).
+      # A 587 do Stalwart NÃO serve — o listener fecha a ligação (medido em 15/07/2026).
       # INSECURE só em dev (cert self-signed); em produção, cert válido e insecure=false.
       NOTIFY_SMTP_HOST: "${NOTIFY_SMTP_HOST:-}"
       NOTIFY_SMTP_PORT: "${NOTIFY_SMTP_PORT:-465}"

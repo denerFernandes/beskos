@@ -15,7 +15,7 @@ não é um plano sobre o sistema.** A primeira coisa a fazer era olhar para a m�
 
 - O correio é exportado três vezes por dia, a quente, com o resto — ver [README.md](README.md).
 - A configuração real está em `/opt/beskos/stalwart/config.json` no VPS-1, montada no serviço de
-  swarm `stalwart`. O `config.toml` deste repositório é inerte e devia ser removido ou substituído
-  pelo real, para ninguém voltar a acreditar nele.
+  swarm `stalwart`. O `config.toml` deste repositório **já foi removido** e substituído pelo
+  formato real (`deploy/stalwart/config.json`), para ninguém voltar a acreditar nele.
 - O armazenamento dos anexos continua dentro do Postgres. Passá-los para o R2 (`blob`) aliviaria a
   base e o backup, e é uma opção a considerar quando o volume crescer — não é urgente com 12 MB.
