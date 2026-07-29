@@ -421,8 +421,8 @@ propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e itali
 
 | Fase | O quê | Depende de |
 |---|---|---|
-| **0** | Pilha: R2 para jurisdição UE, IA e embeddings pela TensorX (`qwen3-embedding-8b`) | Decisões tomadas — falta confirmar a região da TensorX |
-| **1** | **Página de estado** (na infraestrutura atual) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores e pelo DPA | Fase 0, para a lista já refletir a realidade |
+| **0** ✅ | Pilha: R2 para jurisdição UE, IA e embeddings pela TensorX (`qwen3-embedding-8b`) | **Feita** a 29/07/2026 — ver §7b |
+| **1** | **Página de estado** (na infraestrutura atual) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores e pelo DPA | Fase 0, para a lista já refletir a realidade · `/sub-processors` ✅ |
 | **2** | Nova mensagem: início, `/sovereignty`, `/security` | Fase 1 (as provas têm de existir antes de se apontar para elas) |
 | **3** | `/migration`, páginas por app, comparações com Proton/openDesk/Infomaniak | Fase 2 |
 | **4** | **Congelar o conteúdo** e traduzir: alemão, francês, polaco — site e app | Conteúdo estável |
@@ -431,6 +431,38 @@ propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e itali
 
 A ordem tem uma razão: traduzir antes de o conteúdo assentar é pagar a tradução duas vezes. Por isso
 os idiomas vêm depois das páginas, e não ao mesmo tempo.
+
+---
+
+## 7b. Fase 0 — o que ficou feito (29/07/2026)
+
+**Ficheiros.** A jurisdição não se muda num balde do R2 já criado: passou-se para **`beskos-data`**,
+criado em jurisdição UE (endpoint `<conta>.eu.r2.cloudflarestorage.com`). Os 73 objetos do balde
+antigo foram copiados e **verificados um a um** por tamanho e md5 — a cópia entre jurisdições passa
+obrigatoriamente pelo cliente, não há `CopyObject` de uma para a outra. Segunda passagem depois do
+corte, sem diferenças. O balde antigo **fica intacto**, como rede de segurança; apagar é decisão
+posterior e a quente não se apaga nada.
+
+**IA.** `AI_PROVIDER=tensorx`, mesmo protocolo (compatível com OpenAI), destino `api.tensorx.ai/v1`.
+Modelo `deepseek/deepseek-v4-flash`. O que muda para a mensagem: os modelos são servidos em
+infraestrutura europeia e o conteúdo **não chega a quem os desenvolveu** — que é a frase que a
+página de subprocessadores agora sustenta.
+
+**Embeddings.** `qwen/qwen3-embedding-8b`. Duas surpresas, ambas resolvidas no nosso lado:
+
+1. A TensorX **recusa o parâmetro `dimensions`** com 400 e devolve sempre 4096 dimensões.
+2. A coluna é `vector(1536)` e o índice ivfflat do pgvector **não passa das 2000** — com 4096
+   perdia-se o índice e a busca semântica passava a varrer a tabela inteira.
+
+Cortam-se as primeiras 1536 componentes e renormaliza-se (o Qwen3 é treinado com Matryoshka, tal
+como o `text-embedding-3` da OpenAI: o significado está à cabeça do vetor). A renormalização não é
+detalhe — a busca compara por produto interno, e sem ela os textos longos ficariam sistematicamente
+à frente. Migração `00127` limpa `wiki_chunks`, porque vetores de modelos diferentes não são
+comparáveis; o worker reindexa sozinho.
+
+**Uma lição para registo:** o primeiro commit da Fase 0 descrevia na mensagem um `case "tensorx"`
+que nunca chegou ao `config.go`. Em produção deu silêncio — IA desligada, `/api/ai/briefing` a 503 —
+e só apareceu ao ler os logs de arranque. Mensagem de commit não é prova; log de produção é.
 
 ---
 
@@ -447,8 +479,8 @@ os idiomas vêm depois das páginas, e não ao mesmo tempo.
 | URLs | Sempre em inglês |
 | Pilha | R2 em jurisdição UE; IA e embeddings pela TensorX (100% UE) |
 
-**Falta só uma coisa: dizer para começar.** Quando disser, arranco pela Fase 0 (pilha) e pela
-página de subprocessadores, que é a que sustenta tudo o resto.
+**Fase 0 feita e no ar** (§7b), e a página de subprocessadores publicada nos três idiomas atuais.
+A seguir, o resto das páginas legais e a página de estado.
 
 ---
 
