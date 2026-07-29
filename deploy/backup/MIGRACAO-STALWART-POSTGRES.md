@@ -1,7 +1,16 @@
 # Mudar o correio de RocksDB para Postgres
 
-**Estado: por executar.** Precisa de acesso ao VPS (não é uma operação de painel) e de uma janela
-de paragem do correio. Este documento é o plano e os comandos exatos.
+**Estado: por executar.** Precisa de acesso ao VPS — não é operação de painel.
+
+**Sem correio real em produção** (29/07/2026), a janela de paragem deixa de ser um problema: não há
+mensagens de clientes para preservar nem utilizadores a incomodar. Continua a valer a pena usar a
+exportação/importação em vez de começar do zero, porque ela traz também o **registo** — domínios,
+DKIM, TLS, contas — e isso poupa reconfigurar tudo à mão.
+
+**Antes de executar, é preciso ver o VPS.** Ao preparar isto descobri que o `config.toml` deste
+repositório não é sequer lido por esta versão (ver [DIVERGENCES.md](../DIVERGENCES.md) §D9), e que
+produção tem de estar a ler outra coisa qualquer. Migrar às cegas seria trabalhar sobre uma planta
+que não corresponde ao edifício.
 
 ## Porquê — e a razão não é arrumação
 
@@ -84,40 +93,44 @@ docker compose up -d stalwart
 **Se algo correr mal:** repor o `config.toml` anterior e subir o Stalwart. O RocksDB **não foi
 tocado** — a exportação lê, não escreve. É por isso que o passo 4 vem depois do 2, e não antes.
 
-## A configuração nova
+## A configuração nova — provada, não suposta
 
-Em `deploy/stalwart/config.toml`, substituir o bloco `[storage]` e acrescentar os armazenamentos:
+Corri a imagem oficial `v0.16.4` contra um Postgres e um S3 locais até arrancar: sobe, fica
+saudável e cria as 27 tabelas. O ficheiro de arranque é **JSON**, e define **apenas o armazenamento
+de dados** — o resto (listeners, TLS, domínios, contas) vive num registo dentro desse
+armazenamento. Ver [DIVERGENCES.md](../DIVERGENCES.md) §D9.
 
-```toml
-[storage]
-data = "postgres"
-fts = "postgres"
-lookup = "postgres"
-directory = "internal"
-blob = "r2"           # anexos e corpos grandes no R2, não na base
+`deploy/stalwart/config.json`:
 
-[store.postgres]
-type = "postgresql"
-host = "postgres"
-port = 5432
-database = "stalwart"
-user = "%{env:POSTGRES_USER}%"
-password = "%{env:POSTGRES_PASSWORD}%"
-
-[store.r2]
-type = "s3"
-bucket = "beskos-mail"
-region = "auto"
-endpoint = "https://<conta>.eu.r2.cloudflarestorage.com"
-access-key = "%{env:R2_ACCESS_KEY}%"
-secret-key = "%{env:R2_SECRET_KEY}%"
-
-[directory.internal]
-type = "internal"
-store = "postgres"
+```json
+{
+  "@type": "PostgreSql",
+  "host": "postgres",
+  "port": 5432,
+  "database": "stalwart",
+  "authUsername": "beskos",
+  "authSecret": { "@type": "EnvironmentVariable", "value": "POSTGRES_PASSWORD" }
+}
 ```
 
-E no `docker-compose.yml`, passar `R2_ACCESS_KEY`/`R2_SECRET_KEY` ao serviço `stalwart`.
+E no `docker-compose.yml`, montá-lo onde a imagem o procura:
+
+```yaml
+    volumes:
+      - ./stalwart/config.json:/etc/stalwart/config.json:ro
+```
+
+Duas armadilhas que custaram tempo e que vale a pena não repetir:
+
+- `@type` é **`PostgreSql`** — `postgresql` em minúsculas é recusado. As variantes aceites são
+  `RocksDb`, `Sqlite`, `FoundationDb`, `PostgreSql`, `MySql`.
+- O segredo é um enum etiquetado. Escrever `{"@type":"Value","value":"..."}` em vez de `"secret"`
+  **não dá erro nenhum** — dá uma senha vazia e depois uma falha de autenticação obscura do lado do
+  Postgres. Confirmar sempre com um arranque real.
+
+**O armazenamento dos anexos (S3/R2) já não se define aqui** — passou para o registo, ou seja,
+configura-se na interface de administração depois de o servidor subir. É um passo a fazer à mão
+uma vez, e a exportação/importação leva-o consigo daí em diante.
 
 ## Depois
 

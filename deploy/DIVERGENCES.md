@@ -275,6 +275,49 @@ o que não queremos. Trocamos o azul (`#446995`) pelo petróleo Beskos. Duas arm
 `curl -sL -H 'Accept-Encoding: gzip' --compressed http://127.0.0.1:8082/web-apps/apps/documenteditor/main/app/controller/Main.js | grep beskos-branding-patch`
 tem de encontrar o marcador (é o teste que apanha o `.gz` desatualizado).
 
+## D9 — A configuração da 0.16.4 é JSON e vive no registo, não no `config.toml` (29/07/2026)
+
+**Descoberto ao preparar a migração do correio para Postgres.** Provado contra a imagem oficial
+`stalwartlabs/stalwart:v0.16.4`, localmente.
+
+O `deploy/stalwart/config.toml` deste repositório **não é o formato que esta versão lê**:
+
+1. O comando por omissão da imagem é `stalwart --config /etc/stalwart/config.json` — o nosso
+   ficheiro está montado em `/opt/stalwart/etc/config.toml`, que **não é lido**.
+2. Esse ficheiro deixou de ser a configuração toda. É só a definição do **armazenamento de dados**;
+   listeners, TLS, domínios, autenticação e o resto passaram para um **registo** guardado dentro
+   desse armazenamento e editado pela interface de administração.
+3. Sem ficheiro nenhum, a 0.16.4 arranca em **modo de arranque com armazenamento efémero** — não
+   escreve nada em disco (confirmado: nem `/opt/stalwart` chega a existir).
+
+**Consequência prática, e é séria:** o bloco do relay SES comentado no nosso `config.toml`, com
+instruções a dizer "descomente para produção", **não faria absolutamente nada**. O mesmo vale para
+qualquer outra afinação que alguém julgue estar a fazer ali.
+
+**Formato provado do ficheiro de arranque** (arrancou e ficou saudável, com 27 tabelas criadas):
+
+```json
+{
+  "@type": "PostgreSql",
+  "host": "postgres", "port": 5432, "database": "stalwart",
+  "authUsername": "beskos",
+  "authSecret": { "@type": "Value", "secret": "..." }
+}
+```
+
+Duas armadilhas encontradas pelo caminho:
+
+- O `@type` é `PostgreSql` (as variantes aceites são `RocksDb`, `Sqlite`, `FoundationDb`,
+  `PostgreSql`, `MySql`) — `postgresql` em minúsculas é recusado.
+- O segredo é um enum etiquetado: `{"@type":"Value","secret":"..."}`. Escrever `"value"` em vez de
+  `"secret"` **não dá erro** — dá uma senha vazia e uma falha de autenticação obscura no Postgres.
+  As outras variantes são `None`, `EnvironmentVariable` e `File`.
+
+**Por confirmar em produção:** o correio de produção persiste entre reinícios e responde em JMAP,
+logo tem uma configuração real algures — que não é a deste repositório. Antes de qualquer migração
+é preciso ver o VPS e perceber o que está lá.
+
+
 ## Como reproduzir / re-verificar
 Container de teste: `docker run -d --name mailin-sw-probe -e STALWART_RECOVERY_ADMIN='admin:probe-secret' -p 18080:8080 stalwartlabs/stalwart:v0.16.4`
 Auth: `admin:probe-secret`. Ver `backend/internal/stalwart/*_test.go` (testes de integração que exercem estes payloads).
