@@ -25,7 +25,14 @@ com ele — que é exatamente quando as pessoas o procuram. `beskos.com/status` 
 Dez, de minuto a minuto, do lado de fora. Definidas em [`kuma-setup.py`](kuma-setup.py) — correr o
 script outra vez não duplica nada.
 
-Duas merecem nota:
+A página é **em inglês** — é pública, lida por clientes de vários países e citada em conversas com
+auditores. (A moldura do Kuma — "All Systems Operational", "Last Updated" — segue o idioma do
+browser de quem visita; o 1.x não tem como fixá-la do lado do servidor.)
+
+A **consola do operador** é medida mas **não aparece** na página pública: listar um painel interno é
+dizer ao mundo que existe e onde.
+
+Duas sondas merecem nota:
 
 - **API** aponta a `/api/readyz`, que toca na base de dados, e não a `/healthz`. E tem de ser dentro
   de `/api`: o proxy público só encaminha esse prefixo para a API — na raiz mediríamos o servidor de
