@@ -1,6 +1,7 @@
 # Plano — reposicionar a landing na soberania de dados europeia
 
-> Estado: **plano**, nada implementado. Escrito a 29/07/2026, atualizado com as decisões do Dener.
+> Estado: **Fases 0 a 3 implementadas e no ar** (ver §7b, §7c, §7d). Escrito a 29/07/2026.
+> Faltam as traduções para os seis idiomas novos (Fases 4 e 5) e a `/public-sector` (Fase 6).
 > Decisões pendentes marcadas com **[decidir]**.
 
 ## 0. Decisões já tomadas
@@ -529,3 +530,33 @@ O que ele **não** ganha é o setor público e a empresa grande: aí pedem socie
 certificação — e é por isso que a `/public-sector` deve ficar para o fim do plano, não para o
 princípio. O alvo realista destes primeiros meses são PME europeias com 5 a 50 pessoas que já hoje
 desconfiam do Google e do Microsoft.
+
+---
+
+## 7d. Auditoria da tabela de infraestrutura (29/07/2026)
+
+A página inicial passou a afirmar, componente a componente, onde corre cada peça. Essas afirmações
+foram verificadas contra a produção, e não contra a documentação:
+
+| Afirmação na página | Verificado como |
+|---|---|
+| Aplicação, base de dados e caixas na Alemanha | `mail.beskos.com` → 185.232.71.70 · RIPE: `NETCUP-NETWORK`, `country: DE`, netcup GmbH |
+| Reuniões e documentos em servidores nossos | `meet.beskos.com` → 185.232.69.0 e `docs.beskos.com` → 185.232.71.70, ambos netcup |
+| Ficheiros em jurisdição UE | CapRover (api/worker): `MINIO_ENDPOINT=…**eu**.r2.cloudflarestorage.com`, `MINIO_BUCKET=beskos-data` |
+| Envio por SES na Irlanda | `SES_REGION=eu-west-1` |
+| IA e embeddings na UE | `AI_PROVIDER=tensorx`, `EMBEDDINGS_BASE_URL=https://api.tensorx.ai/v1` |
+
+**Um desvio encontrado e corrigido.** O `deploy/secrets.env` ainda tinha os valores de R2 anteriores à
+Fase 0 — balde `beskos` e endpoint sem `.eu.`. A produção estava certa (a Fase 0 alterou o CapRover),
+mas o ficheiro de referência não foi acompanhado: quem repusesse o ambiente a partir dele mandaria os
+ficheiros de volta para o balde fora da jurisdição UE, invalidando em silêncio a afirmação que a
+página inicial agora faz na primeira dobra. Ficheiro alinhado e comentado.
+
+**Uma precisão por confirmar.** O RIPE dá `country: DE` para o bloco e a netcup GmbH é alemã, mas a
+netcup tem centros de dados em Nuremberga, Viena, Amesterdão e fora da UE — a cidade não se verifica
+de fora. As páginas dizem "Nuremberga"; se as VPS tiverem sido encomendadas noutro local, é aqui que
+se corrige. A afirmação "Alemanha" está verificada; a cidade depende do que consta do painel.
+
+**Nota de propriedade:** a netcup GmbH pertence ao grupo Anexia (Áustria) — o bloco de rede aparece
+como *powered by ANX*. Ambos os países são da União Europeia, pelo que a mensagem não muda; fica
+registado por ser o tipo de detalhe que um comprador atento verifica.
