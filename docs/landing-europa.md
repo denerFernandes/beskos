@@ -423,8 +423,8 @@ propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e itali
 |---|---|---|
 | **0** ✅ | Pilha: R2 para jurisdição UE, IA e embeddings pela TensorX (`qwen3-embedding-8b`) | **Feita** a 29/07/2026 — ver §7b |
 | **1** | **Página de estado** (na infraestrutura atual) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores e pelo DPA | Fase 0, para a lista já refletir a realidade · `/sub-processors` ✅ |
-| **2** | Nova mensagem: início, `/sovereignty`, `/security` | Fase 1 (as provas têm de existir antes de se apontar para elas) |
-| **3** | `/migration`, páginas por app, comparações com Proton/openDesk/Infomaniak | Fase 2 |
+| **2** ✅ | Nova mensagem: início, `/sovereignty`, `/security` | **Feita** a 29/07/2026 — ver §7c |
+| **3** | `/migration`, páginas por app · comparações com Proton/openDesk/Infomaniak ✅ | Fase 2 |
 | **4** | **Congelar o conteúdo** e traduzir: alemão, francês, polaco — site e app | Conteúdo estável |
 | **5** | Espanhol, italiano, neerlandês; `pt-BR` → `pt-PT` em tudo | Fase 4 |
 | **6** | `/public-sector` + nível 2 (sueco, dinamarquês, checo, romeno) | Tração |
@@ -463,6 +463,37 @@ comparáveis; o worker reindexa sozinho.
 **Uma lição para registo:** o primeiro commit da Fase 0 descrevia na mensagem um `case "tensorx"`
 que nunca chegou ao `config.go`. Em produção deu silêncio — IA desligada, `/api/ai/briefing` a 503 —
 e só apareceu ao ler os logs de arranque. Mensagem de commit não é prova; log de produção é.
+
+---
+
+## 7c. Fase 2 — o que ficou feito (29/07/2026)
+
+**A página inicial deixou de vender preço.** O herói passou a *"O trabalho da sua equipa, sob lei
+europeia"* e a calculadora desceu para junto do preço, com o enquadramento invertido — *alojar na
+Europa não é a opção cara* em vez de *poupe dinheiro*. Nova ordem: herói → onde estão os dados →
+quem opera → âmbito → integração → IA → saída → custo → preços → fecho.
+
+**As provas passaram a estar na primeira dobra.** Duas secções novas: `where` (tabela de oito
+componentes com operador, país e mecanismo de transferência, gerada de `lib/infrastructure.ts`) e
+`who` (entidade, morada e NIP/REGON, lidos de `lib/subprocessors.ts` para não haver duas verdades).
+Os três fornecedores americanos aparecem lá, com as CCT declaradas. As páginas legais já existiam
+desde a Fase 1 e a home não ligava a nenhuma; agora cada cartão liga à que o prova.
+
+**`/sovereignty`** leva o argumento completo, com a secção *o que não afirmamos*: sem certificações,
+sem SLA contratual, três fornecedores sujeitos a lei estrangeira e migração acompanhada em vez de
+automática.
+
+**Comparações nos dois eixos.** A tabela ganhou `euJurisdiction` (a que lei responde a empresa) e
+`managed` (serviço gerido ou software para alojar) — sem elas, a comparação decorria toda no
+terreno de quem já lá está. Entraram Proton, Infomaniak kSuite e openDesk: contra estes não se ganha
+por jurisdição, ganha-se por âmbito, e as páginas dizem-no. O openDesk não tem preço de tabela e a
+página omite o custo em vez de inventar um.
+
+**Idiomas.** O inglês passou a fonte de verdade (`Messages = typeof en`) e a idioma por omissão; o
+português passou a europeu e a registo corporativo em toda a landing, não só no legal.
+
+**Preços verificados** (julho de 2026): Proton Business Suite 12,99 USD/utilizador/mês no anual;
+Infomaniak kSuite Business CHF 7,33 (~8,03 €), convertido pelo câmbio fixo já declarado.
 
 ---
 
