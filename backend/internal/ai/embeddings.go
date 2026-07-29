@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -18,10 +19,13 @@ type Embedder struct {
 	apiKey  string
 	baseURL string
 	model   string
-	// dims: dimensão pedida ao servidor. O `qwen3-embedding-8b` devolve 4096 por omissão, mas a
-	// coluna é `vector(1536)` e o índice ivfflat do pgvector não passa das 2000 dimensões — sem
-	// isto, ou o INSERT falha, ou perdíamos o índice e a busca passava a varrer a tabela toda.
-	// Modelos com Matryoshka (é o caso do Qwen3) truncam sem estragar a qualidade.
+	// dims: dimensão com que gravamos. A coluna é `vector(1536)` e o índice ivfflat do pgvector não
+	// passa das 2000 dimensões — com os 4096 nativos do qwen3-embedding-8b, ou o INSERT rebenta, ou
+	// perdíamos o índice e a busca passava a varrer a tabela toda.
+	//
+	// Cortamos aqui, e não no pedido: a TensorX recusa o parâmetro `dimensions` com 400 (confirmado
+	// contra o endpoint real). Truncar é o mecanismo previsto — o Qwen3 é treinado com Matryoshka,
+	// tal como o text-embedding-3 da OpenAI, e guarda o significado nas primeiras componentes.
 	dims int
 	hc   *http.Client
 }
@@ -55,11 +59,7 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	if len(texts) == 0 {
 		return nil, nil
 	}
-	payload := map[string]any{"model": e.model, "input": texts}
-	if e.dims > 0 {
-		payload["dimensions"] = e.dims
-	}
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(map[string]any{"model": e.model, "input": texts})
 	if err != nil {
 		return nil, fmt.Errorf("embeddings: marshal request: %w", err)
 	}
@@ -100,14 +100,36 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 		if d.Index < 0 || d.Index >= len(vecs) {
 			return nil, fmt.Errorf("embeddings: provider returned out-of-range index %d", d.Index)
 		}
-		// A dimensão TEM de bater com a coluna: um vetor de 4096 num vector(1536) rebenta no INSERT
-		// com um erro obscuro, e pior — se algum dia a coluna aceitasse, misturar dimensões (ou
-		// modelos) na mesma tabela dá uma busca semântica que devolve lixo em silêncio.
-		if e.dims > 0 && len(d.Embedding) != e.dims {
-			return nil, fmt.Errorf("embeddings: provider returned %d dimensions, expected %d (model %q ignores the `dimensions` parameter?)",
-				len(d.Embedding), e.dims, e.model)
+		// A dimensão TEM de bater com a coluna: um vetor mais curto que o esperado é sinal de modelo
+		// trocado, e misturar modelos na mesma tabela dá uma busca semântica que devolve lixo em
+		// silêncio — pior do que falhar.
+		if len(d.Embedding) < e.dims {
+			return nil, fmt.Errorf("embeddings: model %q returned %d dimensions, need at least %d",
+				e.model, len(d.Embedding), e.dims)
 		}
-		vecs[d.Index] = d.Embedding
+		vecs[d.Index] = shorten(d.Embedding, e.dims)
 	}
 	return vecs, nil
+}
+
+// shorten corta o vetor às primeiras `dims` componentes e volta a normalizá-lo (norma 1).
+// A renormalização não é cosmética: cortado, o vetor perde comprimento, e a busca compara por
+// produto interno — sem isto os textos longos ficariam sistematicamente à frente dos curtos.
+func shorten(v []float32, dims int) []float32 {
+	if dims <= 0 || len(v) <= dims {
+		return v
+	}
+	out := v[:dims]
+	var sum float64
+	for _, x := range out {
+		sum += float64(x) * float64(x)
+	}
+	if sum == 0 {
+		return out
+	}
+	norm := float32(math.Sqrt(sum))
+	for i, x := range out {
+		out[i] = x / norm
+	}
+	return out
 }
