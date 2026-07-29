@@ -19,6 +19,9 @@
 | Aviso de novo subprocessador | **14 dias** |
 | Entidade | **Open Solutions** (nome comercial de *Dener Santos Fernandes*, empresário individual — JDG, não sp. z o.o.) · NIP **PL7773457857** · REGON 543340675 · Poznań |
 | Certificações | **Nenhuma ainda** — a página de segurança descreve práticas, não invoca normas |
+| Morada legal e objeções | **Wawrzyńca Engeströma 10, 60-571 Poznań, Polónia** · NIP PL7773457857 · REGON 543340675 |
+| Página de estado | **Sim**, pública, a cobrir todas as APIs |
+| Seguro | **Não por agora** — o que obriga a limitar a responsabilidade nos Termos (ver §2b) |
 
 ## 1. O que muda
 
@@ -78,9 +81,10 @@ Verifiquei o NIP na VIES: **PL7773457857 está válido para operações intracom
 confirma que a autoliquidação que já implementámos funciona connosco como vendedor. Duas coisas
 saltaram à vista:
 
-1. **A morada na VIES não é a que me deu.** Lá consta `SKRZYNKI, ŁAGODNA 7 M1, 62-060`; você
-   indicou `Wawrzyńca Engeströma 10, 60-571 Poznań`. As faturas e as páginas legais devem bater
-   certo com o registo — **[decidir]** qual é a morada de registo e qual é a de correspondência.
+1. **Morada:** publica-se `Wawrzyńca Engeströma 10, 60-571 Poznań` (decidido). Fica a nota: a VIES
+   devolve `SKRZYNKI, ŁAGODNA 7 M1, 62-060`, por isso ou o registo (CEIDG) é atualizado para
+   Poznań, ou um auditor mais atento vai reparar que a fatura e o registo não coincidem. Não trava
+   nada hoje; convém resolver antes do primeiro cliente grande.
 2. **O sujeito legal é a pessoa, não a marca.** Em JDG, quem contrata é *Dener Santos Fernandes*;
    "Open Solutions" é nome comercial. As páginas legais devem identificar assim:
    *"Open Solutions — Dener Santos Fernandes, Poznań, NIP PL7773457857, REGON 543340675"*. Esconder
@@ -93,9 +97,16 @@ pessoal. Um SLA com créditos e um DPA com indemnizações são obrigações rea
 públicos e empresas grandes que exigem sociedade — a JDG chega para PME, trava em contratos
 grandes. Não é impeditivo hoje; é um marcador para quando aparecer o primeiro cliente sério.
 
-**Recomendo, por esta ordem:** (a) identificação legal correta nas páginas, (b) **seguro de
-responsabilidade civil profissional** antes de prometer créditos de SLA, (c) abrir a sp. z o.o.
-quando o primeiro contrato o exigir — e não antes.
+**Sem seguro (decidido), a proteção passa a ser contratual.** É legítimo, mas tem de estar escrito:
+- **limitação de responsabilidade** nos Termos — teto igual ao que o cliente pagou nos últimos 12
+  meses, que é o padrão do setor;
+- **exclusão de danos indiretos** (lucros cessantes, perda de dados de terceiros);
+- **créditos de SLA como único remédio** pela indisponibilidade, e pagos em crédito de conta, não em
+  dinheiro.
+
+Sem estas três cláusulas, um SLA com créditos e um DPA com indemnizações apontam ao património
+pessoal. Com elas, o risco fica dimensionado ao contrato. A sp. z o.o. e o seguro ficam para quando
+aparecer o primeiro contrato que os exija.
 
 **Falta uma página** nas oito: `/imprint` (identificação legal). É esperada na Alemanha e na
 Áustria, e resolve a obrigação nos restantes. Barata de fazer: nome, morada, NIP, contacto,
@@ -163,12 +174,52 @@ existem na pilha — e é precisamente por o dizermos que a conversa se ganha. C
 a lista fica com: Netcup (servidores, DE), Cloudflare R2 (ficheiros, jurisdição UE), Cloudflare
 (DNS/CDN), Amazon SES (envio, IE), TensorX (IA), Stripe (pagamentos), e o que mais entrar.
 
-Aviso prévio fixado em **14 dias**. **[decidir]** para onde vai o pedido de objeção
-(`privacy@beskos.com`?) e se criamos página de estado pública — sem ela, o SLA mede-se pelos nossos
-registos, e o cliente tem de acreditar.
+Aviso prévio fixado em **14 dias**. As objeções vão para a morada legal (Poznań) e — porque ninguém
+manda carta para objetar a um subprocessador — também para **`privacy@beskos.com`**, que é o canal
+prático. A página de estado passa a existir (§4b) e é a fonte de medição do SLA.
 
 **Mudam:** início (novo herói e nova ordem — soberania, âmbito, provas, preço), `/compare` (juntar
 a coluna "jurisdição"), `/pricing` (manter a calculadora, boa, mas mais abaixo).
+
+---
+
+## 4b. Página de estado
+
+Decidido: existe, é pública, e cobre todas as APIs. É ela que sustenta o SLA — sem uma medição que
+o cliente possa ver, "99,5%" é uma afirmação nossa contra a memória dele.
+
+**O que se mede** (um componente por linha na página):
+
+| Componente | Sonda |
+|---|---|
+| Aplicação (app.beskos.com) | GET da página, código 200 |
+| API | endpoint público de saúde, com verificação da base de dados |
+| Correio — entrega (SMTP) | ligação a `mail.beskos.com:465` + `EHLO` |
+| Correio — leitura (IMAP/JMAP) | sessão JMAP com conta de teste |
+| Drive / ficheiros | escrita e leitura de um objeto pequeno no armazenamento |
+| Documentos (OnlyOffice) | saúde do serviço de edição |
+| Reuniões (LiveKit) | saúde do servidor de sala |
+| Assistente (TensorX) | pedido mínimo ao modelo |
+| Consola do operador | GET da página |
+| Site | GET da página |
+
+**Onde vive — e esta é a decisão que importa:** a página de estado **não pode correr na
+infraestrutura que monitoriza**. Se o nó de dados cair, a página cai com ele e fica a dizer que
+está tudo bem, ou não diz nada. Fica num **VPS pequeno noutro fornecedor** (~4 €/mês), a sondar de
+fora, que é também o único modo de a medição ser credível.
+
+**Como:** [Uptime Kuma](https://github.com/louislam/uptime-kuma) (código aberto, self-hosted,
+alojável na UE) resolve 90% — sondas, histórico, página pública, avisos, RSS. Alternativa: escrever
+a nossa, o que só faz sentido se quisermos as sondas profundas (enviar um e-mail de teste de ponta a
+ponta e medir quanto tempo demora a chegar). Recomendo começar pelo Kuma e só depois acrescentar as
+sondas profundas.
+
+**O que a página tem de mostrar**, para servir o SLA: estado de cada componente, **90 dias** de
+histórico, incidentes com cronologia (detetado → causa → resolvido), e subscrição por e-mail. A
+mesma subscrição serve para os avisos de subprocessadores — é uma lista só.
+
+**[decidir]** `status.beskos.com` (subdomínio) ou `/status`? Recomendo subdomínio: se o ingress
+principal cair, o `/status` cai com ele.
 
 ---
 
@@ -315,7 +366,7 @@ propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e itali
 | Fase | O quê | Depende de |
 |---|---|---|
 | **0** | Pilha: R2 para jurisdição UE, IA e embeddings pela TensorX (`qwen3-embedding-8b`) | Decisões tomadas — falta confirmar a região da TensorX |
-| **1** | As oito páginas legais em **inglês e português**, com as URLs em inglês. Começar pelos subprocessadores, DPA e SLA | Fase 0, para a lista já refletir a realidade |
+| **1** | **Página de estado** (VPS separado) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores, DPA e SLA | Fase 0, para a lista já refletir a realidade. O SLA precisa da página de estado para se medir |
 | **2** | Nova mensagem: início, `/sovereignty`, `/security` | Fase 1 (as provas têm de existir antes de se apontar para elas) |
 | **3** | `/migration`, páginas por app, comparações com Proton/openDesk/Infomaniak | Fase 2 |
 | **4** | **Congelar o conteúdo** e traduzir: alemão, francês, polaco — site e app | Conteúdo estável |
@@ -329,12 +380,8 @@ os idiomas vêm depois das páginas, e não ao mesmo tempo.
 
 ## 8. O que falta decidir
 
-1. **Morada legal**: a da VIES (`Skrzynki, Łagodna 7 m1`) ou a de Poznań? As faturas e as páginas
-   legais têm de bater certo com o registo.
-2. **Endereço para objeções a subprocessadores** e para assuntos de privacidade (`privacy@`?).
-3. **Página de estado pública** para o SLA se apoiar — fazemos, ou o SLA mede-se pelos nossos
-   registos?
-4. **Seguro de responsabilidade civil** antes de prometer créditos de SLA: tratamos disso?
-5. **Tom por idioma**: um só, ou mais formal em alemão e no setor público? (com tradução por IA,
-   isto entra no prompt e é barato de mudar)
-6. **Quando começo.** Continua tudo por implementar, à espera da sua palavra.
+1. **`status.beskos.com` ou `/status`?** Recomendo subdomínio, noutro fornecedor.
+2. **Tom por idioma**: um só, ou mais formal em alemão e no setor público? (com tradução por IA,
+   entra no prompt e é barato de mudar)
+3. **Registo CEIDG**: atualizar a morada para Poznań, para bater certo com a VIES?
+4. **Quando começo.** Continua tudo por implementar, à espera da sua palavra.
