@@ -29,6 +29,9 @@ func TestRoutesRegistered(t *testing.T) {
 	})
 
 	want := []string{
+		// Sondas públicas: é o que a página de estado mede. Fora do /api, o proxy não as alcança
+		// e a medição seria a do servidor de ficheiros estáticos.
+		"GET /api/healthz", "GET /api/readyz",
 		// Aliases de e-mail (o caso que motivou o teste).
 		"GET /api/aliases", "POST /api/aliases", "DELETE /api/aliases/{id}", "GET /api/me/addresses",
 		// Registo self-service e o que a página pública precisa antes de haver conta.

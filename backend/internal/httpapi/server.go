@@ -225,6 +225,11 @@ func (s *Server) Router() http.Handler {
 	r.Get("/readyz", s.handleReadyz)
 
 	r.Route("/api", func(r chi.Router) {
+		// As mesmas sondas, agora alcançáveis de fora: o proxy público só encaminha /api para cá,
+		// e sem isto a página de estado media o servidor de ficheiros estáticos em vez da API.
+		r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })
+		r.Get("/readyz", s.handleReadyz)
+
 		// Públicos. Login unificado: com caixa valida no Stalwart, sem caixa (organização
 		// recém-criada) valida no nosso cadastro. O /app deixou de existir.
 		r.Post("/auth/signup", s.handleSignup)
