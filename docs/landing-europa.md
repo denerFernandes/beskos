@@ -251,42 +251,62 @@ depois traduzir tudo de uma vez.
 
 ---
 
-## 6b. Tradução: como fazer, e quanto custa
+## 6b. Tradução: tudo por IA, com revisão manual depois
 
-Contei o que existe hoje (em inglês): **app ~8 400 palavras** (2 413 textos) e **landing ~3 200
-palavras** (~500 textos) — cerca de **11 600 palavras por idioma**. Com as páginas novas (soberania,
-migração, produto, e as nove legais) conto **2 a 2,5×**: à volta de **25 000 palavras por idioma**.
-São seis idiomas novos, mais a passagem do português para pt-PT.
+**Decidido:** traduzimos tudo por IA e o Dener revê. Sem agência, sem freelancers.
 
-Há três caminhos, e o certo é **misturá-los conforme o texto**:
+Volume real (contado, em inglês): **app ~8 400 palavras** (2 413 textos) + **landing ~3 200
+palavras** (~500 textos) ≈ **11 600 por idioma hoje**, e cerca de **25 000** com as páginas novas.
+Seis idiomas novos.
 
-| Caminho | Como | Custo típico | Onde usar |
-|---|---|---|---|
-| **Agência (LSP)** | Empresa de tradução, com revisor e glossário | €0,10–0,18/palavra → ~€2 500–4 500 por idioma | Não recomendo para tudo: são ~€20 000 nos seis |
-| **Nativo freelance** | Um tradutor por idioma (ProZ, Upwork), com glossário nosso | €0,06–0,12/palavra → ~€1 500–3 000 por idioma | Textos de marketing do site, onde o tom vende |
-| **IA + revisão nativa** | Traduzimos com IA e um nativo revê o resultado | 3–6 h de revisão por idioma → ~€150–400 | **Interface da app** (frases curtas, repetitivas, contexto fechado) |
+### O que isto exige para correr bem
 
-**A minha recomendação:**
-- **App (8 400 palavras, 2 413 textos):** IA + revisão nativa. É onde a IA acerta mais — "Guardar",
-  "Anexar ficheiro", "3 mensagens por ler" — e onde a agência custaria mais por menos valor.
-- **Landing (marketing):** nativo freelance por idioma, pelo menos nos três que compram soberania
-  (alemão, francês, polaco). Um título mal traduzido custa conversão; um botão, não.
-- **Legal (DPA, Termos, Privacidade, SLA, Uso aceitável):** aqui muda o método. Não se traduz para
-  ter oito contratos — **fixa-se um idioma que prevalece**.
+**1. Glossário primeiro.** Antes da primeira palavra: como se diz *mailbox, drive, board, meet,
+workspace, sub-processor, seat, tenant* em cada idioma. Sem glossário, a mesma coisa ganha dois
+nomes em ecrãs diferentes — o defeito mais visível de tradução automática, e o mais caro de
+desfazer depois.
 
-**A regra que poupa dinheiro e risco no legal:** o **inglês é a versão que governa**, e as outras
-são cortesia. Todas as páginas traduzidas levam uma linha do género *"Esta tradução é fornecida por
-conveniência. Em caso de divergência, prevalece a versão em inglês."* É o que fazem Stripe, Proton
-e companhia — evita pagar revisão jurídica em oito jurisdições e evita o pesadelo de dois contratos
-com sentidos diferentes. **Uma** revisão jurídica em inglês (advogado polaco com prática de GDPR e
-SaaS), e as traduções seguem o método da app.
+**2. Plurais não são todos iguais.** É o erro técnico que mais aparece:
 
-**Glossário primeiro.** Antes de traduzir uma palavra: fixar como se diz *mailbox, drive, board,
-meet, workspace, sub-processor, tenant, seat* em cada idioma. Sem isso, dois tradutores dão dois
-nomes à mesma coisa e a app fica incoerente.
+| Idioma | Formas que o i18next precisa |
+|---|---|
+| en, de, es, it, nl, sv | `_one`, `_other` |
+| fr | `_one`, `_many`, `_other` |
+| **pl** | `_one`, `_few`, `_many`, `_other` |
+| pt | `_one`, `_other` (mas com "milhões" a puxar `_many` em alguns casos) |
 
-**Ordem prática:** congelar o inglês → glossário → app por IA + revisão → landing por nativos →
-legal só em inglês, com a nota de prevalência.
+Hoje temos chaves como `unreadElsewhere_one/_other`. O polaco precisa de **quatro** — se a tradução
+não as gerar, a app mostra a chave crua a um cliente polaco. O script tem de conhecer isto por
+idioma, e o teste de chaves em falta tem de o verificar.
+
+**3. Marcadores e formatação intactos.** `{{count}}`, `{{email}}`, `<b>`, `\n` — a IA às vezes
+traduz o nome do marcador ou come a pontuação. Validação automática: cada texto traduzido tem de
+ter exatamente os mesmos marcadores que o original.
+
+**4. O alemão é ~30% mais comprido que o inglês.** Botões, menus e o rail de apps vão rebentar.
+Depois de traduzir: passar o ecrã principal, as definições e o registo em alemão e ver o que
+transborda. É trabalho de layout, não de tradução.
+
+**5. Legal: o inglês prevalece.** Com tradução por IA isto deixa de ser conselho e passa a ser
+condição. Cada página legal traduzida leva: *"Esta tradução é fornecida por conveniência. Em caso de
+divergência, prevalece a versão em inglês."* Uma revisão jurídica **em inglês** (advogado polaco com
+prática de GDPR/SaaS) e as traduções seguem por IA sem risco contratual.
+
+**6. O limite da revisão manual, dito com franqueza.** Você revê português, inglês e espanhol com
+propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e italiano ficam sem revisor**
+— e são três dos mercados que queremos. Duas redes de segurança baratas:
+- um link discreto *"reportar erro de tradução"* no rodapé, que abre e-mail com a página e o idioma;
+- tratar os primeiros clientes de cada mercado como revisores: um pedido simpático apanha mais
+  erros do que uma agência.
+
+### Como o script vai funcionar (quando começarmos)
+
+1. Lê o dicionário **inglês** (fonte de verdade) e o glossário.
+2. Traduz em blocos, com o contexto da chave (`webmail.pwHintShort` diz mais do que a frase).
+3. Gera as formas plurais certas para o idioma.
+4. Valida: marcadores iguais, sem chaves em falta, JSON válido, plurais completos.
+5. Escreve o ficheiro do idioma e mostra um `diff` para revisão.
+6. Corre outra vez só o que mudou — não retraduz o que já foi revisto (marca de revisão por chave).
 
 ---
 
@@ -315,5 +335,6 @@ os idiomas vêm depois das páginas, e não ao mesmo tempo.
 3. **Página de estado pública** para o SLA se apoiar — fazemos, ou o SLA mede-se pelos nossos
    registos?
 4. **Seguro de responsabilidade civil** antes de prometer créditos de SLA: tratamos disso?
-5. **Tom por idioma**: um só, ou mais formal em alemão e no setor público?
+5. **Tom por idioma**: um só, ou mais formal em alemão e no setor público? (com tradução por IA,
+   isto entra no prompt e é barato de mudar)
 6. **Quando começo.** Continua tudo por implementar, à espera da sua palavra.
