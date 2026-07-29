@@ -78,3 +78,6 @@ App `backup` no CapRover, imagem `beskos-backup`. Variáveis:
   chave do R2 lê os dumps. Cifrar com `age` antes de enviar resolve — ao preço de uma chave privada
   que, se se perder, torna os backups inúteis. Decisão consciente de não o fazer por agora.
 - **Cópia fora do R2.** Tudo num fornecedor só é um risco de conta, não de disco.
+- **Ensaio de restauro periódico.** O restauro foi provado à mão (29/07/2026, com dados reais das
+  duas bases). Um ensaio automático de tempos a tempos apanharia uma degradação silenciosa — é a
+  diferença entre "foi provado uma vez" e "sabemos que funciona hoje".
