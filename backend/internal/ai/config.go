@@ -37,6 +37,19 @@ func New(cfg Config) (Provider, error) {
 	switch cfg.Provider {
 	case "deepseek", "":
 		return NewDeepSeek(cfg.APIKey, cfg.BaseURL, cfg.Model), nil
+	case "tensorx":
+		// Mesmo protocolo (compatível com OpenAI), outro destino: a TensorX serve modelos abertos
+		// em infraestrutura europeia. É a diferença entre o conteúdo do cliente ficar na UE ou ir
+		// parar ao criador do modelo — e é o que sustenta a frase da página de subprocessadores.
+		base := cfg.BaseURL
+		if base == "" {
+			base = "https://api.tensorx.ai/v1"
+		}
+		model := cfg.Model
+		if model == "" {
+			model = "deepseek/deepseek-v4-flash"
+		}
+		return NewDeepSeek(cfg.APIKey, base, model), nil
 	// case "claude": return NewClaude(...), nil   // futuro
 	// case "openai": return NewOpenAI(...), nil   // futuro
 	default:
