@@ -9,6 +9,7 @@ seis builds foram cancelados de uma vez — e como forma de publicar sem esperar
     python3 deploy/deploy.py api worker         # várias
     python3 deploy/deploy.py --todas
     python3 deploy/deploy.py --local landing    # constrói NESTA máquina e envia a imagem
+    python3 deploy/deploy.py --em vps3 landing  # constrói NOUTRO VPS e envia a imagem
 
 Onde construir:
 
@@ -19,6 +20,16 @@ Onde construir:
   **Nesta máquina** (`--local`) — poupa o servidor, mas num Mac com Apple Silicon a imagem tem de
   ser cruzada para amd64 por emulação, o que é várias vezes mais lento, e depois há uma imagem
   inteira a subir pela sua ligação. Vale a pena quando não se quer carga no servidor.
+
+  **Noutro VPS** (`--em vps2|vps3|<ip>`) — o melhor dos dois: arquitetura nativa, ligação de
+  centro de dados, e o VPS-1 fica livre. É o Docker do outro VPS que constrói, por SSH.
+
+  Porquê isto e não uma opção do CapRover: o CapRover constrói SEMPRE no líder (VPS-1), porque é lá
+  que corre o contentor do captain, o único com acesso ao Docker. Os outros nós só executam.
+  Construir noutro sítio é falar com o Docker desse nó diretamente.
+
+  Requer que a chave esteja autorizada nesse VPS:
+      ssh-copy-id -i ~/.ssh/beskos_deploy.pub root@<ip>
 
 As apps que partilham a MESMA imagem (api, worker, manager-api) são construídas uma só vez: a
 primeira constrói, as outras recebem a imagem que saiu dela. Construir três vezes o mesmo código
@@ -54,6 +65,10 @@ APPS = {
 }
 
 EXCLUIR = ["node_modules", ".next", ".git", "dist", "target", "tsconfig.tsbuildinfo", ".turbo"]
+
+# Máquinas de build alternativas. O VPS-1 é o líder e corre o correio e a base de dados — é o que
+# se quer poupar. O VPS-3 (média) é o mais folgado: só trabalha durante reuniões.
+MAQUINAS = {"vps2": "185.232.71.20", "vps3": "185.232.69.0"}
 
 
 def env() -> dict[str, str]:
@@ -127,19 +142,40 @@ class Captain:
         return versoes[-1].get("deployedImageName") if versoes else None
 
 
-def construir_local(nome: str, contexto: str, etiqueta: str) -> str:
-    """Constrói nesta máquina e envia para o registo. Devolve o nome da imagem.
+def construir_fora(nome: str, contexto: str, etiqueta: str, em: str | None) -> str:
+    """Constrói e envia para o registo. Devolve o nome da imagem.
 
-    --platform linux/amd64 é OBRIGATÓRIO: os servidores são amd64 e um Mac com Apple Silicon
-    produziria uma imagem arm64 que rebenta no arranque com "exec format error".
+    `em` vazio = nesta máquina; caso contrário, o Docker do VPS indicado, por SSH.
+
+    --platform linux/amd64 é OBRIGATÓRIO quando se constrói num Mac com Apple Silicon: os
+    servidores são amd64 e uma imagem arm64 rebenta no arranque com "exec format error". Num VPS
+    a arquitetura já é a certa, mas indicá-la não custa nada e evita surpresas.
     """
     imagem = f"ghcr.io/denerfernandes/{nome}:{etiqueta}"
+    ambiente = dict(os.environ)
+    onde = "nesta máquina, cruzada para amd64"
+    if em:
+        anfitriao = MAQUINAS.get(em, em)
+        # Confirmar o SSH primeiro: sem isto, a falha aparece como um erro do `docker login`, que
+        # não diz nada a quem o lê às duas da manhã.
+        alcance = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
+                                  f"root@{anfitriao}", "docker version --format {{.Server.Version}}"],
+                                 capture_output=True, text=True)
+        if alcance.returncode != 0:
+            raise SystemExit(
+                f"\n  Não consigo falar com o Docker de {anfitriao}:\n"
+                f"    {alcance.stderr.strip().splitlines()[-1] if alcance.stderr.strip() else 'sem resposta'}\n\n"
+                f"  Autorize a chave nesse VPS:\n"
+                f"    ssh-copy-id -i ~/.ssh/beskos_deploy.pub root@{anfitriao}\n")
+        ambiente["DOCKER_HOST"] = f"ssh://root@{anfitriao}"
+        onde = f"em {anfitriao} (Docker {alcance.stdout.strip()}), nativa"
+
     token = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, check=True).stdout.strip()
     subprocess.run(["docker", "login", "ghcr.io", "-u", "denerFernandes", "--password-stdin"],
-                   input=token, text=True, check=True, capture_output=True)
-    print(f"  a construir {imagem} (amd64, por emulação)")
+                   input=token, text=True, check=True, capture_output=True, env=ambiente)
+    print(f"  a construir {imagem} ({onde})")
     subprocess.run(["docker", "buildx", "build", "--platform", "linux/amd64",
-                    "-t", imagem, "--push", str(RAIZ / contexto)], check=True)
+                    "-t", imagem, "--push", str(RAIZ / contexto)], check=True, env=ambiente)
     return imagem
 
 
@@ -150,7 +186,7 @@ def empacotar(contexto: str) -> pathlib.Path:
     return destino
 
 
-def publicar(apps: list[str], local: bool = False) -> int:
+def publicar(apps: list[str], local: bool = False, em: str | None = None) -> int:
     cap = Captain()
     feitos: dict[str, str] = {}          # contexto → imagem já construída
     erros = 0
@@ -164,9 +200,9 @@ def publicar(apps: list[str], local: bool = False) -> int:
             if not cap.esperar(app):
                 erros += 1
             continue
-        if local:
+        if local or em:
             nome = "beskos-" + ("api" if contexto == "backend" else contexto.split("/")[-1])
-            imagem = construir_local(nome, contexto, etiqueta)
+            imagem = construir_fora(nome, contexto, etiqueta, em)
             cap.enviar_imagem(app, imagem)
             if cap.esperar(app):
                 feitos[contexto] = imagem
@@ -190,6 +226,13 @@ if __name__ == "__main__":
         print("apps:", ", ".join(APPS))
         raise SystemExit(0)
     local = "--local" in args
+    em = None
+    if "--em" in args:
+        i = args.index("--em")
+        if i + 1 >= len(args):
+            print("--em precisa da máquina:", ", ".join(MAQUINAS), "ou um endereço"); raise SystemExit(2)
+        em = args[i + 1]
+        args = args[:i] + args[i + 2:]
     args = [a for a in args if a != "--local"]
     if not args:
         print("indique as apps, ou --todas"); raise SystemExit(2)
@@ -198,4 +241,4 @@ if __name__ == "__main__":
     if desconhecidas:
         print("app desconhecida:", ", ".join(desconhecidas), "\napps:", ", ".join(APPS))
         raise SystemExit(2)
-    raise SystemExit(1 if publicar(escolhidas, local=local) else 0)
+    raise SystemExit(1 if publicar(escolhidas, local=local, em=em) else 0)
