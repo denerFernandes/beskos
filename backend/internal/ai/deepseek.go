@@ -28,6 +28,10 @@ type DeepSeek struct {
 	model     string
 	reasoning bool // v4 "pensa" antes de responder; desligado por defeito (latência)
 	http      *http.Client
+	// name identifica QUEM serve o modelo (não o modelo). O mesmo cliente serve a DeepSeek direta
+	// e a TensorX, que fala o mesmo protocolo — e a diferença entre as duas é a jurisdição onde o
+	// conteúdo do cliente é tratado. O log de arranque tem de dizer a verdade sobre isso.
+	name string
 }
 
 func NewDeepSeek(apiKey, baseURL, model string) *DeepSeek {
@@ -61,7 +65,12 @@ func (d *DeepSeek) thinkingParam() *thinkingOpt {
 	return &thinkingOpt{Type: "disabled"}
 }
 
-func (d *DeepSeek) Name() string { return "deepseek" }
+func (d *DeepSeek) Name() string {
+	if d.name == "" {
+		return "deepseek"
+	}
+	return d.name
+}
 
 // Formato de fio compatível com OpenAI. Os tipos wire* existem para que o domínio (Message, Tool,
 // ToolCall) não fique preso ao formato de um fornecedor: trocar de provider é escrever outra
