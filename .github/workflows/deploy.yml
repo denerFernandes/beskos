@@ -17,9 +17,11 @@ name: build & deploy
 #
 # Via alternativa, sem GitHub: `python3 deploy/deploy.py <app>` constrói no próprio CapRover.
 
+# NÃO corre sozinho. A via normal de publicação passou a ser `python3 deploy/deploy.py <app>`,
+# que constrói no CapRover e não consome minutos do GitHub — foram eles que esgotaram o limite da
+# conta. Este workflow fica para quando se quiser usar o Actions de propósito: Actions → build &
+# deploy → Run workflow. A seleção do que construir continua a valer (só o que mudou).
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 env:
