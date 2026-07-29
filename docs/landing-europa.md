@@ -1,7 +1,19 @@
 # Plano — reposicionar a landing na soberania de dados europeia
 
-> Estado: **plano**, nada implementado. Escrito a 29/07/2026.
+> Estado: **plano**, nada implementado. Escrito a 29/07/2026, atualizado com as decisões do Dener.
 > Decisões pendentes marcadas com **[decidir]**.
+
+## 0. Decisões já tomadas
+
+| Tema | Decisão |
+|---|---|
+| URLs | **Sempre em inglês**, em todos os idiomas: `/sub-processors`, `/sla`, `/dpa`, `/security`, `/privacy`, `/cookies`, `/terms`, `/acceptable-use`. Só o conteúdo é traduzido |
+| Ficheiros | R2 passa a **jurisdição UE** (em vez de trocar de fornecedor) |
+| Assistente de IA | DeepSeek deixa de ser chamado diretamente: passa pela **TensorX** (`tensorx.ai`) |
+| Embeddings | OpenAI sai; entra **`qwen/qwen3-embedding-8b`** pela TensorX |
+| Idiomas | Os oito propostos, **`pt-BR` fora** por agora |
+| Âmbito dos idiomas | Landing **e app** — não só o site |
+| Páginas legais | As oito do desenho: Privacy, Cookies, Terms, Security, DPA, Acceptable Use, SLA, Sub-processors |
 
 ## 1. O que muda
 
@@ -35,20 +47,23 @@ com a pilha de hoje é falso, e é o tipo de afirmação que um comprador públi
 | Peça | Hoje | Problema para a mensagem | Saída |
 |---|---|---|---|
 | Servidores (app, BD, e-mail) | **Netcup**, Alemanha | Nenhum — é o melhor argumento que temos | Usar: "servidores na Alemanha" |
-| Ficheiros (Drive) | **Cloudflare R2** | Empresa **americana**: sujeita ao CLOUD Act mesmo com dados na UE | Trocar por Scaleway / OVHcloud / Hetzner / IONOS |
+| Ficheiros (Drive) | **Cloudflare R2**, jurisdição a mudar para **UE** | Dados ficam na UE; a Cloudflare continua americana (CLOUD Act aplica-se à empresa, não ao sítio dos bytes) | Decidido: manter com jurisdição UE. A página tem de o dizer assim, sem prometer "fora do alcance dos EUA" |
 | Envio de e-mail | **Amazon SES** (eu-west-1) | Dados na Irlanda, mas fornecedor **americano** | Relay europeu, ou enviar do próprio Stalwart |
 | DNS/CDN/TLS | **Cloudflare** | Todo o tráfego passa por um edge americano | Bunny (SI), ou Cloudflare só como DNS e TLS na origem |
-| Assistente de IA | **DeepSeek** (China) | Conteúdo do cliente sai da UE — o pior dos casos | **Mistral** (FR) ou modelo próprio |
-| Embeddings da wiki | **OpenAI** (EUA) | Idem | Modelo de embeddings europeu ou local |
+| Assistente de IA | DeepSeek **via TensorX** | Resolve-se **se** a TensorX servir o modelo na UE. O nome do modelo é chinês; o que conta é onde corre e quem o opera | **[decidir]** confirmar região e operador para o podermos escrever |
+| Embeddings da wiki | **`qwen/qwen3-embedding-8b`** via TensorX | Idem — modelo de pesos abertos, o que ajuda: pode correr em infraestrutura nossa ou europeia | **[decidir]** mesma confirmação |
 
-**Recomendação:** tratar isto como pré-requisito do lançamento, por esta ordem — IA (é conteúdo do
-cliente a sair), ficheiros (é o maior volume), envio, CDN. Enquanto não estiver feito, a página só
-pode dizer o que é verdade: *"servidores na Alemanha, empresa europeia"*, e não *"nenhum fornecedor
-fora da UE"*.
+**Com as decisões tomadas, sobra isto:** o envio (SES) e o CDN (Cloudflare) continuam americanos, e
+o R2 fica americano com dados na UE. Ou seja, a frase que a página pode sustentar é **"os seus dados
+são processados e guardados na UE"** — e não "nenhum fornecedor nosso é americano", que seria falso.
 
-**[decidir]** avançamos com as trocas antes de publicar, ou publicamos uma versão mais modesta já e
-reforçamos depois? A minha recomendação é a primeira: a mensagem de soberania só vale se aguentar
-uma pergunta de seguimento.
+A diferença não é retórica: é a primeira pergunta de um DPO alemão. A saída honesta, e que nos
+distingue, é a **página de subprocessadores** dizer tudo — quem, para quê, onde, com que
+salvaguarda. Quem publica a lista ganha a conversa mesmo com fornecedores americanos lá dentro;
+quem a esconde perde-a assim que alguém pergunta.
+
+**[decidir]** trocar o SES por um relay europeu e a CDN por Bunny fica para depois do lançamento?
+Recomendo que sim, mas com data marcada — e a lista de subprocessadores mostra o progresso sozinha.
 
 ---
 
@@ -78,20 +93,45 @@ R2/SES/DeepSeek estiverem lá.
 
 ## 4. Arquitetura do site
 
-Páginas atuais: início, funcionalidades, preços, comparar, docs, download, privacidade, termos.
+**Regra das URLs:** sempre em **inglês**, iguais em todos os idiomas (`/de/sub-processors`,
+`/fr/sub-processors`). Traduz-se o conteúdo, não o caminho — links partilhados entre colegas de
+países diferentes continuam a funcionar, e os documentos legais são citados pelo mesmo endereço em
+qualquer contrato.
 
-**Novas:**
-| Página | Porquê |
+**Novas — produto e argumento**
+
+| URL | Porquê |
 |---|---|
-| `/soberania` | O argumento central. Onde estão os dados, que leis, que fornecedores, o que muda face aos EUA |
-| `/seguranca` (centro de confiança) | DPA, subprocessadores, cifra, retenção, resposta a incidentes, contacto do DPO |
-| `/migracao` | O maior travão de compra: como se sai do Google/Microsoft sem perder correio nem agenda |
-| `/setor-publico` | Compras públicas, requisitos de alojamento, faturação, referências |
-| `/produto/<app>` | Uma por app (correio, drive, documentos, reuniões, chat, agenda, wiki, quadros): é o que traz tráfego de pesquisa |
-| `/comparar/openDesk`, `/comparar/proton`, `/comparar/infomaniak` | Já existe comparação com Google/Microsoft; falta a dos vizinhos europeus |
+| `/sovereignty` | O argumento central. Onde estão os dados, que leis, que fornecedores, o que muda face aos EUA |
+| `/migration` | O maior travão de compra: sair do Google/Microsoft sem perder correio nem agenda |
+| `/public-sector` | Compras públicas, requisitos de alojamento, faturação, referências |
+| `/product/<app>` | Uma por app (mail, drive, docs, meet, chat, calendar, wiki, boards): é o que traz tráfego de pesquisa |
+| `/compare/opendesk`, `/compare/proton`, `/compare/infomaniak` | Já há Google/Microsoft; falta a dos vizinhos europeus |
 
-**Mudam:** início (novo herói e nova ordem — soberania, âmbito, provas, preço), comparar (juntar a
-coluna "jurisdição"), preços (manter a calculadora, que é boa, mas abaixo).
+**Novas — legais e confiança** (as oito do desenho). São a espinha da mensagem: o que nos distingue
+não é dizer "soberania", é ter isto escrito e público.
+
+| URL | O que leva |
+|---|---|
+| `/privacy` | Política de privacidade (existe, a rever para a nova posição) |
+| `/cookies` | Política de cookies — separada da privacidade, como no desenho |
+| `/terms` | Termos de serviço (existe) |
+| `/security` | Como se protege: cifra em trânsito e em repouso, acesso, backups, réplica, resposta a incidentes, divulgação responsável |
+| `/dpa` | Acordo de subcontratação, **texto completo na página** (o modelo da TensorX é bom): definições, papéis, violação de dados, subprocessadores, transferências, auditoria + Anexo I (detalhes do tratamento) e Anexo II (medidas técnicas e SCCs) |
+| `/acceptable-use` | O que não se pode fazer com a plataforma — é o que permite suspender abuso sem discussão |
+| `/sla` | Disponibilidade prometida, como se mede, exclusões, créditos por escalão, como se reclama, tempos de resposta do suporte |
+| `/sub-processors` | A lista completa: **Subprocessador · Finalidade · Localização · Mecanismo de transferência**, com data da última atualização, compromisso de **aviso prévio** antes de acrescentar um novo, direito de objeção do cliente e subscrição de avisos |
+
+A página de subprocessadores é a mais importante das oito. É lá que se vê que a Cloudflare e a AWS
+existem na pilha — e é precisamente por o dizermos que a conversa se ganha. Com as decisões atuais,
+a lista fica com: Netcup (servidores, DE), Cloudflare R2 (ficheiros, jurisdição UE), Cloudflare
+(DNS/CDN), Amazon SES (envio, IE), TensorX (IA), Stripe (pagamentos), e o que mais entrar.
+
+**[decidir]** três coisas que a lista obriga a fixar: quantos dias de aviso prévio damos (14 é o
+costume), para onde vai o pedido de objeção, e se há página de estado pública para o SLA se apoiar.
+
+**Mudam:** início (novo herói e nova ordem — soberania, âmbito, provas, preço), `/compare` (juntar
+a coluna "jurisdição"), `/pricing` (manter a calculadora, boa, mas mais abaixo).
 
 ---
 
@@ -120,14 +160,31 @@ exatamente a nossa conversa. Checo e romeno por dimensão e concorrência fraca.
 **Deixar de fora por agora:** norueguês (fora da UE — a história muda, e leem inglês), finlandês,
 grego, húngaro e os bálticos (pequenos e confortáveis em inglês). Malta e Irlanda: inglês.
 
-**Duas decisões que isto levanta:**
+**Decidido:** `pt-BR` sai por agora. O português passa a ser **de Portugal** — o que obriga a uma
+passagem de vocabulário no que já existe ("arquivos"→"ficheiros", "baixar"→"transferir",
+"equipe"→"equipa", "usuário"→"utilizador", "tela"→"ecrã"), tanto na landing como na app.
 
-1. **Português divide-se.** O dicionário atual é neutro a puxar para o Brasil ("arquivos", "baixar",
-   "equipe"). Português de Portugal quer "ficheiros", "transferir", "equipa" — e um leitor
-   português nota a diferença de imediato. **[decidir]** mantemos os dois (`pt-PT` e `pt-BR`) ou o
-   Brasil deixa de ser alvo desta landing?
-2. **A fonte de verdade passa a ser o inglês.** Hoje é o `pt.ts`. Com oito idiomas, traduzir a
-   partir do inglês é mais barato, mais fiável e é o que qualquer agência ou ferramenta espera.
+**A fonte de verdade passa a ser o inglês.** Hoje é o `pt.ts`. Com oito idiomas, traduzir a partir
+do inglês é mais barato, mais fiável e é o que qualquer agência ou ferramenta espera.
+
+### E a app, que é o trabalho grande
+
+Os idiomas não são só do site. A app tem hoje **2 413 textos por idioma** (110 KB de JSON), em
+`pt-BR` e `en`. Passar a oito é multiplicar isso por quatro face ao que existe:
+
+| Superfície | Onde | Estado | Trabalho |
+|---|---|---|---|
+| App (webmail, painel, registo, primeiro acesso) | `frontend/src/i18n/locales/<lang>/common.json` | 2 413 textos × 2 idiomas | +6 idiomas, e converter o `pt-BR` em `pt-PT` |
+| Erros do servidor | mesmos ficheiros (`server.<código>`) | já traduzidos pelo cliente | acompanham o resto |
+| **E-mails transacionais** | `backend/internal/notify/messages.go` | **escritos em código**, só pt e en | tirar para ficheiros e traduzir — são o que o cliente lê fora da app |
+| Landing | `landing/lib/locales/…` | pt, en, es | +5, e a passagem para pt-PT |
+| Consola do operador (manager) | `manager/src/lib/strings.ts` | interno | **não traduzir** — é para nós |
+
+Duas coisas a acertar já, porque mudam o desenho:
+- **Idioma por utilizador** já existe (`mail_users.language`) e o seletor também. Falta decidir se
+  a organização impõe um idioma por omissão aos novos utilizadores. **[decidir]**
+- **Os e-mails saem no idioma de quem recebe** — já é assim; mas com oito idiomas convém que o
+  texto viva em ficheiros de tradução como o resto, e não em Go.
 
 **Custo realista por idioma:** ~700 linhas de texto hoje, ~1 200–1 500 com as páginas novas. Por
 idioma: tradução + revisão nativa + manutenção de cada página futura. É a manutenção que morde —
@@ -138,14 +195,22 @@ depois traduzir tudo de uma vez.
 
 ## 6. Mecânica (SEO e i18n)
 
+- **URLs em inglês em todos os idiomas.** Perde-se um pouco de SEO local (uma página `/de/preise`
+  posicionaria melhor em alemão do que `/de/pricing`), mas ganha-se em partilha, suporte e citação
+  legal. Compensa-se com `<title>`, `<h1>` e conteúdo no idioma — que é o que mais pesa.
 - `hreflang` recíproco entre os oito, mais `x-default` para o inglês.
 - Deteção por `Accept-Language` já existe; manter o seletor visível — quem chega de fora não quer
   ser adivinhado.
-- Moeda por país já existe (5 moedas) — acrescentar zloty se ainda não estiver, e mostrar preços
-  **com IVA** para consumidor e **sem** para empresa, com a nota da autoliquidação.
-- Termos e privacidade por idioma são texto **legal**: traduzir com revisão jurídica, não com IA.
+- Moeda por país já existe (5 moedas) — acrescentar zloty se faltar, e mostrar preços **com IVA**
+  para consumidor e **sem** para empresa, com a nota da autoliquidação.
+- **Páginas legais têm de ser datadas e versionadas.** "Última atualização" visível, e o histórico
+  guardado: um cliente que assinou em março tem direito a ver o texto de março.
+- Termos, privacidade e DPA são texto **legal**: revisão jurídica por idioma, não tradução
+  automática.
 - Páginas por país (`/de/…` com "servidores na Alemanha" em destaque) valem mais que páginas por
   idioma genéricas.
+- Na app, o mesmo dicionário serve oito idiomas: convém uma verificação no CI de que **nenhuma
+  chave falta** em nenhum idioma (hoje o TypeScript garante-o na landing, mas não no JSON da app).
 
 ---
 
@@ -153,21 +218,29 @@ depois traduzir tudo de uma vez.
 
 | Fase | O quê | Depende de |
 |---|---|---|
-| **0** | Trocar os fornecedores não-europeus (IA, ficheiros, envio, CDN) | Decisão sua |
-| **1** | Nova mensagem em pt + en: início, `/soberania`, `/seguranca` | Fase 0 para poder afirmar |
-| **2** | `/migracao`, páginas por app, comparações com Proton/openDesk/Infomaniak | Fase 1 |
-| **3** | Alemão, francês, polaco (os três que compram soberania) | Conteúdo congelado |
-| **4** | Espanhol, italiano, português de Portugal, neerlandês | Fase 3 |
-| **5** | `/setor-publico` + nível 2 de idiomas (sueco, dinamarquês, checo, romeno) | Tração |
+| **0** | Pilha: R2 para jurisdição UE, IA e embeddings pela TensorX (`qwen3-embedding-8b`) | Decisões tomadas — falta confirmar a região da TensorX |
+| **1** | As oito páginas legais em **inglês e português**, com as URLs em inglês. Começar pelos subprocessadores, DPA e SLA | Fase 0, para a lista já refletir a realidade |
+| **2** | Nova mensagem: início, `/sovereignty`, `/security` | Fase 1 (as provas têm de existir antes de se apontar para elas) |
+| **3** | `/migration`, páginas por app, comparações com Proton/openDesk/Infomaniak | Fase 2 |
+| **4** | **Congelar o conteúdo** e traduzir: alemão, francês, polaco — site e app | Conteúdo estável |
+| **5** | Espanhol, italiano, neerlandês; `pt-BR` → `pt-PT` em tudo | Fase 4 |
+| **6** | `/public-sector` + nível 2 (sueco, dinamarquês, checo, romeno) | Tração |
+
+A ordem tem uma razão: traduzir antes de o conteúdo assentar é pagar a tradução duas vezes. Por isso
+os idiomas vêm depois das páginas, e não ao mesmo tempo.
 
 ---
 
 ## 8. O que preciso de si
 
-1. **Fase 0**: avançamos com as trocas de fornecedor antes de publicar? (recomendo que sim)
-2. **Português**: `pt-PT` e `pt-BR` em paralelo, ou só `pt-PT`?
-3. **Factos que só você sabe**: entidade legal e país, morada fiscal, se há DPO nomeado,
-   certificações em curso (ISO 27001?), e se pode nomear os data centers.
-4. **Tom**: o atual é direto e informal. Alemanha e setor público esperam mais formalidade —
-   mantemos um tom só, ou ajustamos por idioma?
-5. **Tradução**: agência, tradutores nativos, ou IA com revisão nativa?
+1. **TensorX**: em que região correm os modelos, e quem é a entidade legal? É o que decide se a IA
+   entra na frase "processado na UE" ou se fica com uma nota à parte.
+2. **Factos legais**: entidade e morada fiscal, DPO nomeado (ou não), certificações em curso, e se
+   podemos nomear os data centers da Netcup.
+3. **SLA**: que disponibilidade queremos prometer (99,5%? 99,9%?), com que créditos e que tempos de
+   resposta do suporte. Prometer a mais é dívida.
+4. **Subprocessadores**: dias de aviso prévio (sugiro 14) e endereço para objeções.
+5. **Tom por idioma**: um só tom, ou mais formal em alemão e no setor público?
+6. **Tradução**: agência, nativos, ou IA com revisão nativa? (o legal — DPA, termos, privacidade —
+   deve levar revisão jurídica, não tradução automática)
+7. **Quando começo.** Nada disto está implementado; fico à espera da sua palavra.
