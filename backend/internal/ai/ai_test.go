@@ -71,6 +71,22 @@ func TestNewProviderSelection(t *testing.T) {
 	if _, err := New(Config{Provider: "inexistente", APIKey: "k"}); err == nil {
 		t.Errorf("provider desconhecido deveria falhar")
 	}
+	// A TensorX é o que mantém o conteúdo dentro da UE. Sem este case, o arranque diz "provider
+	// desconhecido", a IA fica desligada em silêncio e a app responde 503 — foi o que aconteceu.
+	p, err := New(Config{Provider: "tensorx", APIKey: "k"})
+	if err != nil {
+		t.Fatalf("tensorx deveria construir: %v", err)
+	}
+	d, ok := p.(*DeepSeek)
+	if !ok {
+		t.Fatalf("tensorx deveria usar o cliente OpenAI-compatível, veio %T", p)
+	}
+	if d.baseURL != "https://api.tensorx.ai/v1" {
+		t.Errorf("baseURL = %q", d.baseURL)
+	}
+	if d.model == "" {
+		t.Error("modelo por omissão em falta")
+	}
 }
 
 // Testa o DeepSeek contra um servidor OpenAI-compatível fake: valida payload enviado e parsing.
