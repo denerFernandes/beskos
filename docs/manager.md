@@ -235,7 +235,7 @@ o manager **escreve**. Nenhuma rota do produto escreve em `plans`.
     DESTINATÁRIOS, como o SES cobra); enforcement do `max_daily_send` do plano nos 3 caminhos —
     criar outbox (429 `mail.daily_limit_reached`, i18n pt/en), worker no envio real (revalida +
     conta), proxy JMAP (intercepta `EmailSubmission/set`; contagem otimista) e assistente; rollup
-    `mail_sent` agora real; bloco `queue.strategy/route` do SES no config.toml do Stalwart
+    `mail_sent` agora real; relay do SES no registo do Stalwart (não em ficheiro — ver deploy/stalwart/README.md)
     (comentado em dev, instruções para ligar em produção; envs `SES_SMTP_USER/PASS` no compose).
     Provado ao vivo: contador saturado → 429; 7/5000 → 201; rollup refletiu 7.*
   - *Identidade SES automática por domínio (pedido 22/07/2026): `internal/ses` (cliente SESv2 com
