@@ -313,9 +313,19 @@ Duas armadilhas encontradas pelo caminho:
   `"secret"` **não dá erro** — dá uma senha vazia e uma falha de autenticação obscura no Postgres.
   As outras variantes são `None`, `EnvironmentVariable` e `File`.
 
-**Por confirmar em produção:** o correio de produção persiste entre reinícios e responde em JMAP,
-logo tem uma configuração real algures — que não é a deste repositório. Antes de qualquer migração
-é preciso ver o VPS e perceber o que está lá.
+**Confirmado em produção (29/07/2026), com acesso ao VPS-1:**
+
+- A plataforma **não corre por `docker compose`** — são **serviços de swarm**. O
+  `deploy/docker-compose.yml` deste repositório também não descreve o que lá está.
+- O serviço `stalwart` arranca com `--config /etc/stalwart/config.json`, montado a partir de
+  **`/opt/beskos/stalwart/config.json`** no host.
+- Esse ficheiro tem exatamente o formato acima — e **já aponta para PostgreSQL**: base `stalwart`,
+  no mesmo servidor da aplicação. Ou seja, as mensagens, os anexos e as contas do correio estão
+  todos em SQL, e são exportáveis a quente (é o que o serviço de backup passou a fazer).
+
+**O que fazer com o `deploy/stalwart/config.toml`:** removê-lo, ou substituí-lo pelo ficheiro real.
+Enquanto lá estiver, com comentários a dizer "descomente para produção", vai continuar a enganar
+quem o ler — foi o que me aconteceu, e levou-me a planear uma migração que não era precisa.
 
 
 ## Como reproduzir / re-verificar
