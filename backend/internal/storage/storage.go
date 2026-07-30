@@ -55,8 +55,9 @@ func New(endpoint, accessKey, secretKey, bucket, region string, useSSL bool) (*S
 
 // Put envia um blob. key deve ser prefixado por tenant (ex.: "<tenant>/<hash>").
 //
-// Com a cifra ligada, o que chega ao armazenamento é cifrado e o fornecedor nunca vê o conteúdo. A
-// chave do objeto é registada ANTES do envio, de propósito — ver docs/cifra-ficheiros.md §2d.
+// Com a cifra ligada, o que chega ao armazenamento é cifrado e o fornecedor nunca vê o conteúdo. É
+// UMA escrita: a chave do objeto viaja dentro do próprio objeto, embrulhada, e por isso não há uma
+// segunda escrita para ordenar — ver docs/cifra-ficheiros.md §2d.
 func (s *Service) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
 	if s.keys == nil {
 		_, err := s.client.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
