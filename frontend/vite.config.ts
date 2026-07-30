@@ -7,6 +7,18 @@ import react from "@vitejs/plugin-react";
 // credencial da caixa server-to-server, então o browser nunca segura a senha (ver jmap_proxy.go).
 const API = process.env.API_URL ?? "http://localhost:8000";
 
+// Apontar o proxy à API DE PRODUÇÃO para trabalhar no frontend sem levantar o backend:
+//     API_URL=https://app.beskos.com npm run dev
+//
+// changeOrigin é obrigatório quando o destino é remoto: sem ele o pedido chega com
+// `Host: localhost:5173` e o nginx de produção, que encaminha por nome, não sabe a quem entregar.
+// Contra um backend local não faz diferença nenhuma.
+//
+// O cookie de sessão de produção é Secure+SameSite=None. Funciona porque os browsers tratam
+// `localhost` como contexto seguro mesmo em http — e é por isso que isto tem de correr em
+// localhost e não num IP da rede local, onde o cookie seria recusado em silêncio.
+const REMOTO = /^https:/.test(API);
+
 // SEGURANÇA DO PACOTE (desktop/mobile Tauri): o Vite injeta em TEXTO CLARO no bundle qualquer
 // variável de ambiente com prefixo VITE_. Como o app é distribuído (e um utilizador pode inspecionar
 // o pacote), NENHUM segredo pode ser VITE_. Só a allow-list abaixo é permitida — o build FALHA se
@@ -28,10 +40,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": { target: API, ws: true },
-      "/jmap": { target: API, ws: true }, // ws para o eventsource SSE do JMAP
-      "/auth": API,
-      "/.well-known": API,
+      "/api": { target: API, ws: true, changeOrigin: REMOTO },
+      "/jmap": { target: API, ws: true, changeOrigin: REMOTO }, // ws para o eventsource SSE do JMAP
+      "/auth": { target: API, changeOrigin: REMOTO },
+      "/.well-known": { target: API, changeOrigin: REMOTO },
     },
   },
   build: {
