@@ -8,6 +8,10 @@
 #     acontecer dentro da janela, o monitor cai e nós sabemos. Backup silencioso que deixou de
 #     correr há três semanas é o modo de falha clássico.
 #  3. FALHA ALTO. Qualquer erro aborta com mensagem; nada de continuar como se nada fosse.
+#  4. CIFRA antes de enviar, com chave ASSIMÉTRICA (age). O servidor leva só a chave pública: pode
+#     escrever cópias novas e NÃO consegue ler as antigas. Com cifra simétrica, quem comprometesse
+#     este contentor lia o histórico todo — que aqui inclui as mensagens de correio, porque o
+#     Stalwart guarda tudo em Postgres. A chave privada vive fora desta infraestrutura.
 
 set -euo pipefail
 
@@ -18,6 +22,10 @@ set -euo pipefail
 # — mensagens, anexos, contas e a própria configuração — por isso o correio entra aqui como
 # qualquer outra base, a quente e sem parar nada.
 : "${BACKUP_DATABASES:=beskos stalwart}"
+# Destinatário age (chave pública, "age1..."). Sem ela o backup ABORTA: enviar em claro para um
+# balde de um fornecedor americano é exatamente o que esta cifra existe para evitar, e uma variável
+# esquecida não pode degradar isso em silêncio.
+: "${BACKUP_AGE_RECIPIENT:?BACKUP_AGE_RECIPIENT em falta (chave pública age do destinatário)}"
 
 STAMP="$(date -u +%Y-%m-%dT%H%M%SZ)"
 DAY="$(date -u +%Y/%m/%d)"
@@ -47,20 +55,33 @@ for BASE in $BACKUP_DATABASES; do
   [ "$SIZE" -gt 1024 ] || fail "[$BASE] dump com $SIZE bytes — demasiado pequeno para ser verdade"
 
   # Verificação: lê o índice do ficheiro. Apanha truncagem e corrupção antes de irmos dormir.
+  # Feita ANTES da cifra, de propósito: depois de cifrado já não se consegue olhar lá para dentro,
+  # e um dump partido cifrado continua partido.
   TABLES=$(pg_restore --list "$DUMP" | grep -c "TABLE DATA" || true)
   [ "$TABLES" -gt 0 ] || fail "[$BASE] o dump não tem dados de tabela nenhuma"
   log "[$BASE] verificado: $((SIZE / 1024)) KiB, $TABLES tabelas com dados"
 
-  rclone copyto "$DUMP" "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump" \
+  # Cifra para o destinatário. O que sai daqui não se abre sem a chave privada, que não está neste
+  # servidor — nem no balde, nem no CapRover.
+  ENC="$DUMP.age"
+  age --encrypt --recipient "$BACKUP_AGE_RECIPIENT" --output "$ENC" "$DUMP" || fail "[$BASE] cifra"
+  rm -f "$DUMP" # o dump em claro não sobrevive a esta linha
+  ENC_SIZE=$(stat -c %s "$ENC" 2>/dev/null || stat -f %z "$ENC")
+  [ "$ENC_SIZE" -gt 1024 ] || fail "[$BASE] cifrado com $ENC_SIZE bytes — não pode ser"
+
+  rclone copyto "$ENC" "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump.age" \
     --s3-no-check-bucket --stats-one-line || fail "[$BASE] envio para o R2"
 
   # Confirma do outro lado: enviar sem confirmar é assumir que a rede não mente.
-  REMOTE=$(rclone size "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
-  [ "$REMOTE" = "$SIZE" ] || fail "[$BASE] tamanho no R2 ($REMOTE) diferente do local ($SIZE)"
-  log "[$BASE] confirmado no R2"
+  REMOTE=$(rclone size "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump.age" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
+  [ "$REMOTE" = "$ENC_SIZE" ] || fail "[$BASE] tamanho no R2 ($REMOTE) diferente do local ($ENC_SIZE)"
+  log "[$BASE] confirmado no R2, cifrado"
 
-  rclone delete "r2:$BACKUP_BUCKET/$BASE/" --min-age "${RETENTION_DAYS}d" --rmdirs || true
-  rm -f "$DUMP"
+  # Sem --rmdirs: no R2 não há diretórios, só chaves com barras. Pedir para os apagar enche o
+  # registo de erros que não são erros — e um registo cheio de erros ignorados é onde o erro a sério
+  # se esconde.
+  rclone delete "r2:$BACKUP_BUCKET/$BASE/" --min-age "${RETENTION_DAYS}d" || true
+  rm -f "$ENC"
 done
 
 if [ -n "${HEARTBEAT_URL:-}" ]; then

@@ -433,7 +433,10 @@ func main() {
 	startMetering(q)
 
 	// Montagem offline das gravações (track egress → MP4 via ffmpeg; fila por prioridade).
-	startAssembly(q, meteringStorage())
+	// A montagem das gravações e a selagem partilham o mesmo serviço de storage.
+	stWorker := meteringStorage(q)
+	startAssembly(q, stWorker)
+	startSealing(stWorker)
 
 	// Tarefas em fundo do assistente (§7.5 do desenho do assistente). O executor é montado a
 	// partir de um httpapi.Server porque precisa exatamente das mesmas dependências do motor
@@ -479,6 +482,9 @@ func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client)
 	if ep := os.Getenv("MINIO_ENDPOINT"); ep != "" {
 		if s, serr := storage.New(ep, os.Getenv("MINIO_ACCESS_KEY"), os.Getenv("MINIO_SECRET_KEY"),
 			os.Getenv("MINIO_BUCKET"), os.Getenv("MINIO_REGION"), os.Getenv("MINIO_SSL") == "true"); serr == nil {
+			if err := s.EnableEncryption(q, os.Getenv("FILE_ENC_KEYS")); err != nil {
+				log.Fatalf("storage encryption: %v", err)
+			}
 			st = s
 		} else {
 			log.Printf("assistant tasks: storage unavailable, docs.create will fail: %v", serr)

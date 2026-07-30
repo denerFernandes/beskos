@@ -3,8 +3,8 @@
 Três vezes por dia — **02:00, 10:00 e 18:00 UTC** — mais uma corrida a cada arranque do serviço,
 para que um erro de configuração apareça no minuto do deploy e não às duas da manhã.
 
-Destino: `r2://beskos-backup/postgres/AAAA/MM/DD/beskos-<carimbo>.dump`, em **jurisdição UE**.
-Retenção 30 dias.
+Destino: `r2://beskos-backup/<base>/AAAA/MM/DD/<base>-<carimbo>.dump.age`, em **jurisdição UE**.
+Retenção 30 dias. **Cifrados** — ver [Cifra](#cifra) já a seguir.
 
 ## O que está coberto, e o que não está
 
@@ -32,29 +32,80 @@ feita.
    O modo de falha clássico dos backups não é falharem — é terem deixado de correr há três semanas
    sem ninguém reparar.
 4. **Falha alto.** Qualquer erro aborta com mensagem. Nada de continuar como se nada fosse.
+5. **Cifra antes de enviar**, com chave assimétrica. Ponto seguinte.
+
+## Cifra
+
+Os dumps saem daqui cifrados com [`age`](https://age-encryption.org), para uma chave **assimétrica**.
+O servidor leva só a **chave pública**: pode escrever cópias novas e **não consegue ler as antigas**.
+
+Não é um detalhe de configuração — é a diferença entre dois cenários. Com cifra simétrica (ou sem
+cifra), quem comprometesse este contentor, ou a chave do R2, lia o histórico inteiro. E o histórico
+aqui **inclui as mensagens de correio**, porque o Stalwart guarda tudo em Postgres. Com chave
+assimétrica, o mesmo atacante consegue no máximo escrever lixo por cima de cópias futuras.
+
+A **chave privada vive fora desta infraestrutura** — não está no contentor, nem no balde, nem no
+CapRover. Só aparece no momento do restauro, passada em `AGE_IDENTITY_FILE`.
+
+> **Perder a chave privada torna todas as cópias inúteis.** É o preço, e é consciente: sem ela, o
+> backup é uma cópia legível dos dados de todos os clientes num balde de um fornecedor americano.
+> Guarde-a em dois sítios independentes do resto (cofre de senhas + papel, por exemplo).
+
+Gerar o par:
+
+```sh
+age-keygen -o beskos-backup.key     # a privada; guardar FORA daqui
+# a pública sai no stderr e no comentário do ficheiro: "age1..."
+```
+
+A pública vai para `BACKUP_AGE_RECIPIENT`. **Sem ela o backup aborta** — enviar em claro é
+exatamente o que esta cifra existe para evitar, e uma variável esquecida não pode degradar isso em
+silêncio.
 
 ## Restaurar
 
-Testado ponta a ponta (dump → R2 → base vazia → dados de volta) antes de isto entrar.
-
 ```sh
-# 1. Escolher o backup. --files-only é OBRIGATÓRIO: sem ele o rclone também lista as PASTAS e
+# 1. Escolher a cópia. --files-only é OBRIGATÓRIO: sem ele o rclone também lista as PASTAS e
 #    um `tail -1` distraído devolve "2026/07/29/" em vez do ficheiro. (Aconteceu no primeiro teste.)
-rclone lsf r2:beskos-backup/postgres --recursive --files-only | sort | tail -5
+rclone lsf r2:beskos-backup/beskos --recursive --files-only | sort | tail -5
 
-# 2. Trazer
-rclone copyto "r2:beskos-backup/postgres/2026/07/29/beskos-<carimbo>.dump" /tmp/r.dump
+# 2. Restaurar para uma base NOVA (nunca por cima da que está a servir, sem antes olhar para ela).
+#    O restore.sh trata de descarregar, decifrar e verificar antes de escrever seja o que for.
+createdb beskos_restaurado
+AGE_IDENTITY_FILE=/caminho/para/beskos-backup.key BACKUP_BUCKET=beskos-backup \
+  restore.sh beskos beskos/2026/07/29/beskos-<carimbo>.dump.age \
+  --to "postgres://.../beskos_restaurado"
 
-# 3. Restaurar para uma base NOVA (nunca por cima da que está a servir, sem antes olhar para ela)
-createdb beskos_restore
-pg_restore --dbname="postgres://.../beskos_restore" --no-owner --no-privileges /tmp/r.dump
-
-# 4. Conferir antes de trocar seja o que for
-psql "postgres://.../beskos_restore" -c "select count(*) from tenants;"
+# 3. Conferir antes de trocar seja o que for
+psql "postgres://.../beskos_restaurado" -c "select count(*) from tenants;"
 ```
+
+Sem `--to`, o `restore.sh` decifra, verifica e deixa o dump em claro em disco — que é o que se quer
+quando o destino ainda não existe ou quando só se quer espreitar lá para dentro.
 
 O `--no-owner --no-privileges` no dump e no restauro é de propósito: o restauro deixa de depender
 de os mesmos papéis existirem no destino, que é o que estraga metade dos restauros de emergência.
+
+### Ensaio
+
+```sh
+deploy/backup/test-restore.sh
+```
+
+Levanta um Postgres descartável, corre o **`backup.sh` e o `restore.sh` verdadeiros** (não cópias
+adaptadas para teste — um ensaio que exercita um script parecido não prova nada sobre o que corre às
+duas da manhã), e compara o conteúdo no fim. O R2 é substituído por um remoto `local` do rclone: o
+mesmo comando, o mesmo caminho de código, a escrever num diretório.
+
+Verifica, por esta ordem: que o ficheiro enviado começa pelo cabeçalho do `age`; que o `pg_restore`
+**não** o consegue ler; que não há texto do conteúdo lá dentro; que não sobrou dump em claro em
+disco; que uma **chave privada diferente é rejeitada**; e que o restauro com a chave certa devolve as
+linhas com o conteúdo idêntico (comparação por *hash* do conteúdo, não por contagem de linhas — uma
+contagem deixaria passar um restauro que trouxesse as linhas certas com o conteúdo trocado).
+
+Correr sempre que se mexer no `backup.sh`, no `restore.sh` ou na imagem. A cifra assimétrica faz com
+que um erro do lado da chave só se manifeste no dia do restauro — o pior dia possível para o
+descobrir.
 
 ## Configuração
 
@@ -66,6 +117,8 @@ App `backup` no CapRover, imagem `beskos-backup`. Variáveis:
 | `R2_ENDPOINT` | `<conta>.eu.r2.cloudflarestorage.com` — o endpoint da **jurisdição UE** |
 | `R2_ACCESS_KEY` / `R2_SECRET_KEY` | Credenciais do R2 |
 | `BACKUP_BUCKET` | `beskos-backup` |
+| `BACKUP_AGE_RECIPIENT` | Chave **pública** `age1…`. **Obrigatória** — sem ela o backup aborta |
+| `BACKUP_DATABASES` | `beskos stalwart` (por omissão) |
 | `RETENTION_DAYS` | 30 |
 | `HEARTBEAT_URL` | Monitor de *push* da página de estado (opcional, mas é o que nos avisa) |
 
@@ -73,11 +126,8 @@ App `backup` no CapRover, imagem `beskos-backup`. Variáveis:
 
 - **Credencial dedicada.** Hoje o serviço usa a mesma chave do R2 que a aplicação, que também lê os
   ficheiros dos clientes. Um token com escrita apenas no balde de backups reduz o estrago de uma
-  fuga.
-- **Cifra do lado do cliente.** Os objetos são cifrados em repouso pelo fornecedor; quem tiver a
-  chave do R2 lê os dumps. Cifrar com `age` antes de enviar resolve — ao preço de uma chave privada
-  que, se se perder, torna os backups inúteis. Decisão consciente de não o fazer por agora.
+  fuga. Menos grave desde a cifra — o que lá está já não se lê — mas continua a permitir apagar.
 - **Cópia fora do R2.** Tudo num fornecedor só é um risco de conta, não de disco.
-- **Ensaio de restauro periódico.** O restauro foi provado à mão (29/07/2026, com dados reais das
-  duas bases). Um ensaio automático de tempos a tempos apanharia uma degradação silenciosa — é a
-  diferença entre "foi provado uma vez" e "sabemos que funciona hoje".
+- **Ensaio de restauro periódico.** O `test-restore.sh` prova a ida e volta em qualquer máquina, mas
+  correr à mão. Agendá-lo apanharia uma degradação silenciosa — é a diferença entre "foi provado uma
+  vez" e "sabemos que funciona hoje".
