@@ -28,6 +28,7 @@ type Client struct {
 	accessKey string
 	secretKey string
 	selector  string // seletor DKIM neutro (marca), ex.: "beskos" — nunca revela o SES
+	accountID string // conta AWS, só para montar ARNs (tenants); vazio desliga os tenants
 	host      string
 	http      *http.Client
 	now       func() time.Time // injetável nos testes de assinatura
@@ -49,6 +50,9 @@ func NewFromEnv() *Client {
 	}
 	c := New(region, key, secret)
 	c.selector = selector
+	// Sem SES_ACCOUNT_ID os tenants ficam desligados e o resto continua a funcionar: é uma melhoria
+	// de isolamento, não um requisito para enviar correio.
+	c.accountID = os.Getenv("SES_ACCOUNT_ID")
 	return c
 }
 

@@ -12,12 +12,13 @@ RUN CGO_ENABLED=0 go build -o /out/api ./cmd/api \
  && CGO_ENABLED=0 go build -o /out/stalwart-blobstore ./cmd/stalwart-blobstore \
  && CGO_ENABLED=0 go build -o /out/blobmigrate ./cmd/blobmigrate \
  && CGO_ENABLED=0 go build -o /out/mailprova ./cmd/mailprova \
- && CGO_ENABLED=0 go build -o /out/swprobe ./cmd/swprobe
+ && CGO_ENABLED=0 go build -o /out/swprobe ./cmd/swprobe \
+ && CGO_ENABLED=0 go build -o /out/ses-tenants ./cmd/ses-tenants
 
 FROM alpine:3.20
 # ffmpeg/ffprobe: montagem offline das gravações no worker (docs/manager.md §1).
 RUN apk add --no-cache ca-certificates curl ffmpeg
-COPY --from=build /out/api /out/worker /out/bootstrap /out/manager-api /out/blobgw /out/stalwart-blobstore /out/blobmigrate /out/mailprova /out/swprobe /usr/local/bin/
+COPY --from=build /out/api /out/worker /out/bootstrap /out/manager-api /out/blobgw /out/stalwart-blobstore /out/blobmigrate /out/mailprova /out/swprobe /out/ses-tenants /usr/local/bin/
 # Roda como usuário sem privilégios (não-root): um comprometimento não vira root no container.
 RUN adduser -D -H -u 10001 mailin
 USER mailin

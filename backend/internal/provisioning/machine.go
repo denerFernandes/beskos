@@ -12,9 +12,11 @@ package provisioning
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/ses"
 	"mailin/backend/internal/stalwart"
 )
 
@@ -57,6 +59,11 @@ type EmailRelay interface {
 	// MailFromSubdomain/MailFromMX descrevem o registo que o cliente publica para o MAIL FROM.
 	MailFromSubdomain(domain string) string
 	MailFromMX() string
+	// CreateTenant/AssociateIdentity isolam a reputação deste domínio da dos outros clientes. Sem
+	// isto, devoluções de um cliente degradam a reputação da CONTA e a AWS pode suspender o correio
+	// de toda a gente; com isto, pausa só o tenant afetado.
+	CreateTenant(ctx context.Context, name string) error
+	AssociateIdentity(ctx context.Context, tenant, domain string) error
 }
 
 // Store é o subconjunto do db.Queries usado pela máquina.
@@ -140,6 +147,17 @@ func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error
 		if err != nil {
 			return false, fmt.Errorf("registar identidade no relay: %w", err) // retry no próximo tick
 		}
+		// Isolamento de reputação: um tenant SES por domínio, com a identidade associada. Falhar
+		// aqui NÃO bloqueia o provisionamento — o correio sai à mesma, apenas sem o isolamento —,
+		// mas fica registado, porque um cliente sem tenant é um cliente que pode derrubar os
+		// outros.
+		tenant := ses.TenantName(d.Dominio)
+		if err := m.relay.CreateTenant(ctx, tenant); err != nil {
+			log.Printf("provisioning: tenant SES de %s não criado (reputação fica partilhada): %v", d.Dominio, err)
+		} else if err := m.relay.AssociateIdentity(ctx, tenant, d.Dominio); err != nil {
+			log.Printf("provisioning: identidade de %s não associada ao tenant %s: %v", d.Dominio, tenant, err)
+		}
+
 		// Custom MAIL FROM (bounce.<domínio>): sem ele o "enviado por" do destinatário mostra o
 		// amazonses. Fallback USE_DEFAULT_VALUE — não bloqueia o envio enquanto o MX não propaga.
 		if err := m.relay.SetMailFrom(ctx, d.Dominio); err != nil {

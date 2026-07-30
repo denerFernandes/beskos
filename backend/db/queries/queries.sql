@@ -85,6 +85,11 @@ UPDATE domains
 SET provision_state = $2, stalwart_id = $3, dkim_status = $4, dns_status = $5, dns_zone = $6
 WHERE id = $1 RETURNING *;
 
+-- Todos os domínios, para tarefas de manutenção que têm de passar por cada um (ex.: garantir o
+-- tenant SES dos que foram provisionados antes de o isolamento existir).
+-- name: ListAllDomains :many
+SELECT * FROM domains ORDER BY created_at;
+
 -- name: ListDomainsInState :many
 SELECT * FROM domains WHERE provision_state = $1 ORDER BY created_at ASC LIMIT $2;
 
