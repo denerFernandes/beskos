@@ -1,5 +1,5 @@
 #!/bin/bash
-# Backup do Postgres para o R2 (jurisdição UE).
+# Backup do Postgres para o destino (jurisdição UE).
 #
 # Três coisas que este script faz e que a maioria não faz:
 #  1. VERIFICA o ficheiro antes de o enviar (`pg_restore --list`). Um dump que não se consegue ler
@@ -69,18 +69,18 @@ for BASE in $BACKUP_DATABASES; do
   ENC_SIZE=$(stat -c %s "$ENC" 2>/dev/null || stat -f %z "$ENC")
   [ "$ENC_SIZE" -gt 1024 ] || fail "[$BASE] cifrado com $ENC_SIZE bytes — não pode ser"
 
-  rclone copyto "$ENC" "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump.age" \
-    --s3-no-check-bucket --stats-one-line || fail "[$BASE] envio para o R2"
+  rclone copyto "$ENC" "copias:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump.age" \
+    --s3-no-check-bucket --stats-one-line || fail "[$BASE] envio para o destino"
 
   # Confirma do outro lado: enviar sem confirmar é assumir que a rede não mente.
-  REMOTE=$(rclone size "r2:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump.age" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
-  [ "$REMOTE" = "$ENC_SIZE" ] || fail "[$BASE] tamanho no R2 ($REMOTE) diferente do local ($ENC_SIZE)"
-  log "[$BASE] confirmado no R2, cifrado"
+  REMOTE=$(rclone size "copias:$BACKUP_BUCKET/$BASE/$DAY/$BASE-$STAMP.dump.age" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
+  [ "$REMOTE" = "$ENC_SIZE" ] || fail "[$BASE] tamanho no destino ($REMOTE) diferente do local ($ENC_SIZE)"
+  log "[$BASE] confirmado no destino, cifrado"
 
-  # Sem --rmdirs: no R2 não há diretórios, só chaves com barras. Pedir para os apagar enche o
+  # Sem --rmdirs: no destino não há diretórios, só chaves com barras. Pedir para os apagar enche o
   # registo de erros que não são erros — e um registo cheio de erros ignorados é onde o erro a sério
   # se esconde.
-  rclone delete "r2:$BACKUP_BUCKET/$BASE/" --min-age "${RETENTION_DAYS}d" || true
+  rclone delete "copias:$BACKUP_BUCKET/$BASE/" --min-age "${RETENTION_DAYS}d" || true
   rm -f "$ENC"
 done
 
@@ -121,13 +121,13 @@ if [ -n "${BLOB_BUCKET:-}" ]; then
   rm -f "$TAR"
   ENC_SIZE=$(stat -c %s "$TAR.age" 2>/dev/null || stat -f %z "$TAR.age")
 
-  rclone copyto "$TAR.age" "r2:$BACKUP_BUCKET/blobs/$DAY/blobs-$STAMP.tar.age" \
+  rclone copyto "$TAR.age" "copias:$BACKUP_BUCKET/blobs/$DAY/blobs-$STAMP.tar.age" \
     --s3-no-check-bucket --stats-one-line || fail "[blobs] envio"
-  REMOTE=$(rclone size "r2:$BACKUP_BUCKET/blobs/$DAY/blobs-$STAMP.tar.age" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
-  [ "$REMOTE" = "$ENC_SIZE" ] || fail "[blobs] tamanho no R2 ($REMOTE) diferente do local ($ENC_SIZE)"
-  log "[blobs] confirmado no R2, cifrado"
+  REMOTE=$(rclone size "copias:$BACKUP_BUCKET/blobs/$DAY/blobs-$STAMP.tar.age" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
+  [ "$REMOTE" = "$ENC_SIZE" ] || fail "[blobs] tamanho no destino ($REMOTE) diferente do local ($ENC_SIZE)"
+  log "[blobs] confirmado no destino, cifrado"
 
-  rclone delete "r2:$BACKUP_BUCKET/blobs/" --min-age "${RETENTION_DAYS}d" || true
+  rclone delete "copias:$BACKUP_BUCKET/blobs/" --min-age "${RETENTION_DAYS}d" || true
   rm -rf "$DIR" "$TAR.age"
 fi
 

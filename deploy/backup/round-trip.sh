@@ -49,7 +49,7 @@ export DATABASE_URL="$PG/beskos"
 export BACKUP_BUCKET="$BUCKET"
 export BACKUP_DATABASES="beskos stalwart"
 export BACKUP_AGE_RECIPIENT="$PUBLICA"
-export RCLONE_CONFIG_R2_TYPE=local
+export RCLONE_CONFIG_COPIAS_TYPE=local
 export BLOB_BUCKET=/tmp/blobs-origem
 export RCLONE_CONFIG_BLOBS_TYPE=local
 /usr/local/bin/backup.sh || fail "backup.sh"
