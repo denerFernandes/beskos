@@ -7,13 +7,15 @@ set -euo pipefail
 
 # O rclone lê a configuração do ambiente (RCLONE_CONFIG_<REMOTO>_*), o que evita ter um ficheiro
 # com credenciais dentro da imagem.
-export RCLONE_CONFIG_R2_TYPE=s3
-export RCLONE_CONFIG_R2_PROVIDER=Cloudflare
-export RCLONE_CONFIG_R2_ENDPOINT="${R2_ENDPOINT:?R2_ENDPOINT em falta}"
-export RCLONE_CONFIG_R2_ACCESS_KEY_ID="${R2_ACCESS_KEY:?R2_ACCESS_KEY em falta}"
-export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="${R2_SECRET_KEY:?R2_SECRET_KEY em falta}"
-export RCLONE_CONFIG_R2_REGION=auto
-export RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+# Destino das cópias. O fornecedor é configurável de propósito: já foi Cloudflare, é Bunny, e o
+# próximo não deve obrigar a mexer em código — só numa variável.
+export RCLONE_CONFIG_COPIAS_TYPE=s3
+export RCLONE_CONFIG_COPIAS_PROVIDER="${BACKUP_PROVIDER:-Other}"
+export RCLONE_CONFIG_COPIAS_ENDPOINT="${BACKUP_ENDPOINT:?BACKUP_ENDPOINT em falta}"
+export RCLONE_CONFIG_COPIAS_ACCESS_KEY_ID="${BACKUP_ACCESS_KEY:?BACKUP_ACCESS_KEY em falta}"
+export RCLONE_CONFIG_COPIAS_SECRET_ACCESS_KEY="${BACKUP_SECRET_KEY:?BACKUP_SECRET_KEY em falta}"
+export RCLONE_CONFIG_COPIAS_REGION="${BACKUP_REGION:-auto}"
+export RCLONE_CONFIG_COPIAS_NO_CHECK_BUCKET=true
 
 # Segundo remoto: o balde da APLICAÇÃO, de onde se lê o prefixo do correio. É só de leitura para
 # este serviço — o backup nunca escreve no balde de produção, e credenciais separadas tornam isso
@@ -33,7 +35,7 @@ echo "backup: serviço iniciado — 02:00, 10:00 e 18:00 UTC (+ uma corrida agor
 /usr/local/bin/backup.sh || echo "backup: a corrida inicial falhou — ver acima"
 
 # O crond do busybox não herda o ambiente, por isso guarda-se num ficheiro que a tarefa carrega.
-env | grep -E '^(DATABASE_URL|BACKUP_BUCKET|BACKUP_DATABASES|BACKUP_AGE_RECIPIENT|BLOB_BUCKET|BLOB_PREFIX|BLOB_MAX_KIB|RETENTION_DAYS|HEARTBEAT_URL|RCLONE_CONFIG_)' \
+env | grep -E '^(DATABASE_URL|BACKUP_BUCKET|BACKUP_DATABASES|BACKUP_AGE_RECIPIENT|BACKUP_PROVIDER|BACKUP_ENDPOINT|BACKUP_ACCESS_KEY|BACKUP_SECRET_KEY|BACKUP_REGION|BLOB_BUCKET|BLOB_PREFIX|BLOB_MAX_KIB|RETENTION_DAYS|HEARTBEAT_URL|RCLONE_CONFIG_)' \
   | sed 's/^/export /; s/=/="/; s/$/"/' > /etc/backup.env
 
 mkdir -p /etc/crontabs

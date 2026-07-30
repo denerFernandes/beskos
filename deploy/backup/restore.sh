@@ -39,7 +39,7 @@ if [ -f "$OBJETO" ]; then
   cp "$OBJETO" "$ENC"
 else
   log "a descarregar $OBJETO"
-  rclone copyto "r2:${BACKUP_BUCKET:?BACKUP_BUCKET em falta}/$OBJETO" "$ENC" \
+  rclone copyto "copias:${BACKUP_BUCKET:?BACKUP_BUCKET em falta}/$OBJETO" "$ENC" \
     --s3-no-check-bucket --stats-one-line || fail "descarregar"
 fi
 
