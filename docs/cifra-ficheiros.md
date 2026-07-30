@@ -223,3 +223,56 @@ não cometer.
 - **Armazenamento:** +0,0015% (16 bytes por MiB).
 - **Latência:** nenhuma consulta nova por leitura — a chave do objeto vem dentro do objeto (§2d) e a
   do tenant fica em cache em memória, carregada uma vez.
+
+---
+
+## 7. O gateway do correio (`blobgw`)
+
+Feito a 30/07/2026, depois de a §2f mostrar que o correio ficava de fora e de a documentação do
+Stalwart confirmar que **o armazenamento S3 dele não tem opção de cifra nenhuma** — os campos são
+`bucket`, `region`, `accessKey`, `secretKey`, `securityToken`, `profile`, `timeout`, `maxRetries`,
+`verifyAfterWrite`, `keyPrefix` e `allowInvalidCerts`. Nada de SSE-S3, SSE-C ou chave do cliente.
+
+**A ideia:** falar a língua dele. O Stalwart aponta o `endpoint` para o
+[`blobgw`](../backend/cmd/blobgw/) em vez da Cloudflare; nós ciframos com o formato que já existe e
+reencaminhamos. Ele não sabe que mudou nada.
+
+### Porque é pequeno, e porque pode ter réplicas
+
+Lido o cliente dele (`crates/store/src/backend/s3/mod.rs`), usa **quatro operações** em estilo de
+caminho: `GET`, `GET` com `Range`, `PUT` de corpo inteiro, `HEAD` (o `verify_after_write`) e
+`DELETE`. **Não usa multipart** — o `put_object` recebe o corpo todo de uma vez.
+
+É isso que permite ao serviço **não ter estado nenhum**, e portanto correr em N réplicas. Está em
+duas: enquanto uma reinicia, o correio continua a ser escrito pela outra — que é o que lhe tira o
+estatuto de ponto único de falha no caminho do correio.
+
+### O que fica de fora, de propósito
+
+Multipart fora de ordem, URLs pré-assinados e listagens — tudo o que o LiveKit precisa para as
+gravações. As gravações continuam com a selagem em fundo (§2e), que tem uma janela de texto claro
+curta e declarada. Uma peça que serve dois clientes com necessidades diferentes acaba por servir mal
+os dois; quando o multipart for feito, será com o gateway já rodado.
+
+### A assinatura é verificada
+
+"Está numa rede privada" é uma suposição sobre a infraestrutura de amanhã, não uma propriedade do
+serviço — e quem falar com ele lê o correio todo. Como a assinatura SigV4 cobre o resumo
+**declarado** do corpo e não o corpo, o corpo é conferido em passagem e um objeto que não bate certo
+é apagado antes de se responder.
+
+### O que os objetos antigos fazem
+
+Os 43 blocos que já lá estavam em claro continuam a ler-se: a deteção é pela magia no cabeçalho, e
+um objeto sem ela sai tal como está. Ficam por cifrar até serem reescritos. Selá-los passa a ser
+seguro **desde que o gateway esteja no caminho** — e é por isso que não é automático: a lista branca
+da selagem continua a excluir `mail/`, e mudá-la sem o gateway repetiria a avaria da §2f.
+
+### Estado
+
+| | |
+|---|---|
+| Código e testes | ✅ 11 testes, incluindo um `PUT` assinado como o `rust-s3` e a recusa de corpo trocado |
+| Ensaio contra o R2 de produção | ✅ PUT, HEAD, GET, Range, cifra confirmada nos bytes, assinatura errada recusada, DELETE |
+| Serviço em produção | ✅ `blobgw`, 2 réplicas, porta 8090, sem exposição pública |
+| Stalwart a apontar para ele | ⏳ falta mudar em Settings → Storage → Blob store |
