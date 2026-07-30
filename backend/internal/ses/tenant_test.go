@@ -40,3 +40,26 @@ func TestTenantNameSoTemCaracteresAceites(t *testing.T) {
 		}
 	}
 }
+
+// A SES responde "já existe" de duas maneiras, e o comando de retroação tem de aceitar as duas —
+// senão falha em tudo o que já estava criado, que é o caso normal quando se corre a segunda vez.
+func TestJaExisteAceitaAsDuasFormas(t *testing.T) {
+	casos := []struct {
+		nome   string
+		status int
+		corpo  string
+		quer   bool
+	}{
+		{"nome da exceção", 400, `{"__type":"AlreadyExistsException"}`, true},
+		{"frase em inglês", 400, `{"message":"Tenant with name beskos-com already exists in account 1"}`, true},
+		{"conflito", 409, ``, true},
+		{"já associado", 400, `{"message":"Resources arn:... has already been associated with tenant x"}`, true},
+		{"outro erro 400", 400, `{"message":"invalid tenant name"}`, false},
+		{"erro do servidor", 500, `already exists`, false}, // 500 nunca é repetição: é avaria
+	}
+	for _, c := range casos {
+		if got := jaExiste(c.status, []byte(c.corpo)); got != c.quer {
+			t.Errorf("%s: jaExiste = %v, esperava %v", c.nome, got, c.quer)
+		}
+	}
+}

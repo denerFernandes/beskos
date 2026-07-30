@@ -64,6 +64,10 @@ type EmailRelay interface {
 	// de toda a gente; com isto, pausa só o tenant afetado.
 	CreateTenant(ctx context.Context, name string) error
 	AssociateIdentity(ctx context.Context, tenant, domain string) error
+	// O conjunto de configuração é o que funciona HOJE: colado à identidade, a AWS aplica-o a todas
+	// as mensagens do domínio sem que nada no caminho do correio mude.
+	CreateConfigurationSet(ctx context.Context, name string) error
+	SetIdentityConfigurationSet(ctx context.Context, domain, name string) error
 }
 
 // Store é o subconjunto do db.Queries usado pela máquina.
@@ -151,11 +155,22 @@ func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error
 		// aqui NÃO bloqueia o provisionamento — o correio sai à mesma, apenas sem o isolamento —,
 		// mas fica registado, porque um cliente sem tenant é um cliente que pode derrubar os
 		// outros.
-		tenant := ses.TenantName(d.Dominio)
-		if err := m.relay.CreateTenant(ctx, tenant); err != nil {
-			log.Printf("provisioning: tenant SES de %s não criado (reputação fica partilhada): %v", d.Dominio, err)
-		} else if err := m.relay.AssociateIdentity(ctx, tenant, d.Dominio); err != nil {
-			log.Printf("provisioning: identidade de %s não associada ao tenant %s: %v", d.Dominio, tenant, err)
+		nome := ses.TenantName(d.Dominio)
+
+		// O conjunto de configuração é o que produz efeito já: colado à identidade, dá métricas de
+		// reputação por cliente e permite suspender só este domínio.
+		if err := m.relay.CreateConfigurationSet(ctx, nome); err != nil {
+			log.Printf("provisioning: conjunto de configuração de %s não criado (métricas ficam agregadas): %v", d.Dominio, err)
+		} else if err := m.relay.SetIdentityConfigurationSet(ctx, d.Dominio, nome); err != nil {
+			log.Printf("provisioning: conjunto %s não ficou predefinido em %s: %v", nome, d.Dominio, err)
+		}
+
+		// O tenant fica criado à espera do dia em que as mensagens levem o cabeçalho X-SES-TENANT —
+		// é o que traz a pausa automática da AWS por reputação.
+		if err := m.relay.CreateTenant(ctx, nome); err != nil {
+			log.Printf("provisioning: tenant SES de %s não criado: %v", d.Dominio, err)
+		} else if err := m.relay.AssociateIdentity(ctx, nome, d.Dominio); err != nil {
+			log.Printf("provisioning: identidade de %s não associada ao tenant %s: %v", d.Dominio, nome, err)
 		}
 
 		// Custom MAIL FROM (bounce.<domínio>): sem ele o "enviado por" do destinatário mostra o

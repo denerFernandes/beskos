@@ -1,4 +1,6 @@
-// ses-tenants garante que cada domínio já provisionado tem o seu tenant no SES.
+// ses-tenants garante que cada domínio já provisionado tem o seu isolamento no SES:
+// um conjunto de configuração predefinido na identidade (que é o que produz efeito hoje) e um
+// tenant associado (que produz efeito quando as mensagens levarem o cabeçalho X-SES-TENANT).
 //
 // PORQUÊ UM COMANDO À PARTE: o isolamento de reputação passou a ser criado no provisionamento, mas
 // os domínios que já lá estavam nunca passam por esse passo outra vez. Sem isto, os clientes
@@ -53,28 +55,39 @@ func main() {
 	for _, d := range dominios {
 		nome := ses.TenantName(d.Dominio)
 
-		estado, err := relay.TenantSendingStatus(ctx, nome)
-		if err == nil {
-			log.Printf("  %-28s tenant %-28s já existe (envio: %s)", d.Dominio, nome, estado)
-			continue
-		}
 		if !*criar {
-			log.Printf("  %-28s tenant %-28s EM FALTA", d.Dominio, nome)
-			feitos++
+			estado, err := relay.TenantSendingStatus(ctx, nome)
+			if err == nil {
+				log.Printf("  %-24s %-24s tenant existe (envio: %s)", d.Dominio, nome, estado)
+			} else {
+				log.Printf("  %-24s %-24s EM FALTA", d.Dominio, nome)
+				feitos++
+			}
 			continue
 		}
 
+		// O conjunto de configuração primeiro: é o que produz efeito sem depender de mais nada.
+		if err := relay.CreateConfigurationSet(ctx, nome); err != nil {
+			log.Printf("  %-24s criar conjunto: %v", d.Dominio, err)
+			falhas++
+			continue
+		}
+		if err := relay.SetIdentityConfigurationSet(ctx, d.Dominio, nome); err != nil {
+			log.Printf("  %-24s predefinir conjunto: %v", d.Dominio, err)
+			falhas++
+			continue
+		}
 		if err := relay.CreateTenant(ctx, nome); err != nil {
-			log.Printf("  %-28s criar tenant: %v", d.Dominio, err)
+			log.Printf("  %-24s criar tenant: %v", d.Dominio, err)
 			falhas++
 			continue
 		}
 		if err := relay.AssociateIdentity(ctx, nome, d.Dominio); err != nil {
-			log.Printf("  %-28s associar identidade: %v", d.Dominio, err)
+			log.Printf("  %-24s associar identidade: %v", d.Dominio, err)
 			falhas++
 			continue
 		}
-		log.Printf("  %-28s tenant %-28s criado e associado", d.Dominio, nome)
+		log.Printf("  %-24s %-24s conjunto predefinido + tenant associado", d.Dominio, nome)
 		feitos++
 	}
 
