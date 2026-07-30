@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // Tenants do SES — isolamento de reputação entre clientes.
@@ -197,4 +198,98 @@ func (c *Client) SetSendingEnabled(ctx context.Context, name string, enabled boo
 		return nil
 	}
 	return fmt.Errorf("ses sending=%v em %q: HTTP %d: %s", enabled, name, status, out)
+}
+
+// --- Métricas de reputação por cliente ----------------------------------------------------------
+
+// Reputacao resume o que a SES mede num conjunto de configuração — ou seja, num cliente.
+type Reputacao struct {
+	Enviadas   float64
+	Devolvidas float64 // permanentes + temporárias
+	Queixas    float64
+}
+
+// TaxaDevolucao e TaxaQueixa em fração (0,05 = 5%). Sem envios, zero: um cliente que não enviou
+// nada não tem taxa nenhuma, e dividir por zero seria suspendê-lo por não existir.
+func (r Reputacao) TaxaDevolucao() float64 {
+	if r.Enviadas == 0 {
+		return 0
+	}
+	return r.Devolvidas / r.Enviadas
+}
+
+func (r Reputacao) TaxaQueixa() float64 {
+	if r.Enviadas == 0 {
+		return 0
+	}
+	return r.Queixas / r.Enviadas
+}
+
+// ReputacaoDoConjunto lê as métricas de um conjunto de configuração no intervalo dado.
+//
+// É esta chamada que torna a vigilância possível sem tocar no caminho do correio: a dimensão
+// CONFIGURATION_SET é exatamente o que colámos a cada identidade de domínio.
+func (c *Client) ReputacaoDoConjunto(ctx context.Context, conjunto string, de, ate time.Time) (Reputacao, error) {
+	metricas := []struct{ id, nome string }{
+		{"s", "SEND"},
+		{"pb", "PERMANENT_BOUNCE"},
+		{"tb", "TRANSIENT_BOUNCE"},
+		{"c", "COMPLAINT"},
+	}
+	consultas := make([]map[string]any, 0, len(metricas))
+	for _, m := range metricas {
+		consultas = append(consultas, map[string]any{
+			"Id":         m.id,
+			"Namespace":  "VDM",
+			"Metric":     m.nome,
+			"Dimensions": map[string]string{"CONFIGURATION_SET": conjunto},
+			"StartDate":  de.Unix(),
+			"EndDate":    ate.Unix(),
+		})
+	}
+	body, _ := json.Marshal(map[string]any{"Queries": consultas})
+
+	status, out, err := c.do(ctx, http.MethodPost, "/v2/email/metrics/batch", body)
+	if err != nil {
+		return Reputacao{}, err
+	}
+	if status != http.StatusOK {
+		return Reputacao{}, fmt.Errorf("ses métricas de %q: HTTP %d: %s", conjunto, status, out)
+	}
+
+	var r struct {
+		Results []struct {
+			ID     string    `json:"Id"`
+			Values []float64 `json:"Values"`
+		} `json:"Results"`
+		Errors []struct {
+			ID      string `json:"Id"`
+			Message string `json:"Message"`
+		} `json:"Errors"`
+	}
+	if err := json.Unmarshal(out, &r); err != nil {
+		return Reputacao{}, fmt.Errorf("decode métricas: %w", err)
+	}
+	// Um erro numa das consultas não pode passar por "zero devoluções": zero é o valor que faz o
+	// vigia concluir que está tudo bem, e é exatamente o que não se sabe.
+	if len(r.Errors) > 0 {
+		return Reputacao{}, fmt.Errorf("ses métricas de %q: %s", conjunto, r.Errors[0].Message)
+	}
+
+	var rep Reputacao
+	for _, res := range r.Results {
+		total := 0.0
+		for _, v := range res.Values {
+			total += v
+		}
+		switch res.ID {
+		case "s":
+			rep.Enviadas = total
+		case "pb", "tb":
+			rep.Devolvidas += total
+		case "c":
+			rep.Queixas = total
+		}
+	}
+	return rep, nil
 }
