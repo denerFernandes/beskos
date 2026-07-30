@@ -93,6 +93,18 @@ localização no CapRover. `manager.beskos.com` faz o equivalente para `manager`
 | `docs` | A | `185.232.71.70` | 🟠 | OnlyOffice |
 | `meet` | A | `185.232.69.0` | ⚪ | LiveKit (WebRTC/UDP — **não** proxied) |
 | `mail` | A | `185.232.71.70` | ⚪ | Stalwart (SMTP/IMAP — **não** proxied) |
+
+> **O `mail` não passa por CDN, WAF nem proteção — nunca.** Acontece: a 29/07/2026 a zona mudou do
+> Cloudflare para a Bunny e o **Bunny Shield** ficou ligado no registo `mail`. O nome passou a
+> resolver para um IP da Bunny e **a receção de correio parou** — o `MX` aponta para `mail`, e quem
+> tenta entregar bate na porta 25 de um proxy que só fala HTTP e leva "ligação recusada". O servidor
+> estava bom o tempo todo: `telnet 185.232.71.70 25` respondia `220 … Stalwart ESMTP`.
+>
+> Vale para qualquer fornecedor e para qualquer nome de correio: proxy de HTTP não encaminha SMTP,
+> IMAP nem TLS implícito na 465. `app`, `captain` e a raiz podem ser acelerados; `mail` não.
+>
+> **Como se apanha em dez segundos:** `dig +short mail.beskos.com A` tem de devolver o IP do VPS. Se
+> devolver outra coisa, o correio está em baixo mesmo que tudo o resto pareça bem.
 | `beskos.com` | MX | `10 mail.beskos.com` | — | inbound |
 | `beskos.com` | TXT (SPF) | `v=spf1 include:amazonses.com include:_spf.mail.beskos.com -all` | — | SES + mail próprio |
 | `resend._domainkey`/`<sel>._domainkey` | CNAME/TXT | DKIM do SES + DKIM da Stalwart | — | 2 assinaturas |

@@ -29,6 +29,8 @@ func main() {
 	aplicar := flag.Bool("aplicar", false, "escreve a alteração; sem isto só mostra")
 	flag.Parse()
 
+	log.Printf("=== corrida %s ===", time.Now().UTC().Format(time.RFC3339))
+
 	c := stalwart.New(env("STALWART_URL"), env("STALWART_ADMIN_ID"), env("STALWART_ADMIN_SECRET"))
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -76,7 +78,12 @@ func main() {
 // no meio das repetições.
 func esperar() {
 	log.Printf("terminado; a app pode ser apagada")
-	select {}
+	// Dormir em ciclo, e não `select {}`: sem casos, o Go deteta impasse e aborta o processo — o
+	// que faz o CapRover reiniciar em ciclo e mistura o registo de várias corridas, que é
+	// exatamente o que este comando não pode fazer, porque o registo É o resultado.
+	for {
+		time.Sleep(time.Hour)
+	}
 }
 
 func identar(b []byte) string {
