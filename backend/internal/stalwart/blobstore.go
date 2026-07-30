@@ -21,9 +21,20 @@ type BlobStore struct {
 	Config json.RawMessage
 }
 
+// singletonID é o id dos objetos únicos do registo do Stalwart. Não é convenção nossa: no código
+// dele é o número 20080258862541, que na base32 de alfabeto próprio que ele usa para ids se escreve
+// exatamente assim. Um `get` com `ids: null` devolve lista vazia e o `query` nem existe para estes
+// objetos, por isso o id tem de ir explícito.
+const singletonID = "singleton"
+
+// GetBlobStoreRaw devolve a resposta do Stalwart tal e qual, para diagnóstico.
+func (c *Client) GetBlobStoreRaw(ctx context.Context) (json.RawMessage, error) {
+	return c.call(ctx, "x:BlobStore/get", map[string]any{"ids": []string{singletonID}})
+}
+
 // GetBlobStore lê a configuração atual.
 func (c *Client) GetBlobStore(ctx context.Context) (*BlobStore, error) {
-	raw, err := c.call(ctx, "x:BlobStore/get", map[string]any{"ids": nil})
+	raw, err := c.GetBlobStoreRaw(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -34,15 +45,9 @@ func (c *Client) GetBlobStore(ctx context.Context) (*BlobStore, error) {
 		return nil, fmt.Errorf("decode BlobStore/get: %w", err)
 	}
 	if len(r.List) == 0 {
-		return nil, fmt.Errorf("stalwart: BlobStore/get não devolveu nada")
+		return nil, fmt.Errorf("stalwart: BlobStore/get não devolveu lista; resposta crua: %s", raw)
 	}
-	var id struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal(r.List[0], &id); err != nil {
-		return nil, fmt.Errorf("decode id do BlobStore: %w", err)
-	}
-	return &BlobStore{ID: id.ID, Config: r.List[0]}, nil
+	return &BlobStore{ID: singletonID, Config: r.List[0]}, nil
 }
 
 // S3BlobStore é a variante S3, com os nomes de campo do esquema do Stalwart.
