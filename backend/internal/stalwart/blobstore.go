@@ -103,3 +103,28 @@ func mustJSON(v any) []byte {
 	b, _ := json.Marshal(v)
 	return b
 }
+
+// ReloadSettings faz o Stalwart reler a configuração do registo.
+//
+// É NECESSÁRIO depois de mudar o armazenamento de blocos: o `set` grava a definição, mas o processo
+// continua a usar a que tem em memória — e o correio novo continua a ir para o sítio antigo, sem
+// erro nenhum, que é a forma mais silenciosa possível de uma alteração não acontecer.
+//
+// No modelo dele isto é um objeto de ação criado no registo, não um método próprio: `x:Action/set`
+// com a variante `ReloadSettings`. A alteração é difundida pelo cluster.
+func (c *Client) ReloadSettings(ctx context.Context) error {
+	raw, err := c.call(ctx, "x:Action/set", map[string]any{
+		"create": map[string]any{"a1": map[string]any{"@type": "ReloadSettings"}},
+	})
+	if err != nil {
+		return err
+	}
+	var r setResult
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return fmt.Errorf("decode Action/set: %w", err)
+	}
+	if len(r.NotCreated) > 0 {
+		return fmt.Errorf("recarga recusada: %s", string(mustJSON(r.NotCreated)))
+	}
+	return nil
+}

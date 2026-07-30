@@ -63,6 +63,13 @@ func main() {
 	}
 	log.Printf("aplicado")
 
+	// Sem isto o Stalwart continua a usar o armazenamento antigo até reiniciar — e o correio novo
+	// ia para o sítio antigo sem dar erro nenhum.
+	if err := c.ReloadSettings(ctx); err != nil {
+		log.Fatalf("recarregar a configuração: %v", err)
+	}
+	log.Printf("configuração recarregada")
+
 	// Ler de volta. "Escrevi" não é o mesmo que "está lá": um `set` aceite e um estado por
 	// confirmar são coisas diferentes, e esta é fácil de conferir.
 	depois, err := c.GetBlobStore(ctx)
