@@ -645,6 +645,7 @@ que nós temos, o que os protege do nosso fornecedor de armazenamento — não d
 - **Não é cifra ponta a ponta.** Temos as chaves, porque o produto gera miniaturas, edita Office no
   navegador e serve links públicos. Dizer o contrário seria o erro que a `/sovereignty` existe para
   não cometer.
-- **A frase sobre as cópias de segurança encolheu.** Dizia que a base do correio guarda "mensagens e
-  anexos"; passa a dizer configuração, contas e metadados. Se o corpo das mensagens vive no R2, o
-  `pg_dump` não o leva — por confirmar, e entretanto não se afirma.
+- **O armazenamento de objetos não tem segunda cópia nossa.** As cópias de segurança são das bases
+  de dados; os ficheiros do Drive e as gravações dependem da durabilidade do fornecedor. Passa a
+  estar escrito, em vez de a palavra "cópias" cobrir tudo. (A cópia do correio **está** completa —
+  verificado a 30/07 restaurando-a e procurando lá dentro o texto de uma mensagem.)
