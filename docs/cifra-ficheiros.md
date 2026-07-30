@@ -121,15 +121,20 @@ lista negra teria de adivinhar todos os vizinhos futuros, e um balde partilhado 
 A reversão está em [`cmd/unseal`](../backend/cmd/unseal/main.go), e fica no repositório: se voltar a
 acontecer, quer-se a reversão pronta e não um programa escrito à pressa durante a avaria.
 
-**Duas consequências que ficam por resolver**, ambas registadas nas páginas públicas:
+**Duas consequências, ambas registadas nas páginas públicas:**
 
 1. **O conteúdo do correio não é cifrado por nós.** Está fora do alcance deste desenho enquanto o
    Stalwart escrever direto no balde — e nós não modificamos o Stalwart (CLAUDE.md §5.4). A página
    de segurança diz isto por palavras nossas em vez de deixar descobrir.
-2. **A cópia de segurança da base `stalwart` pode não conter as mensagens.** Se o corpo das
-   mensagens vive no R2 e não no Postgres, o `pg_dump` leva a configuração e os metadados e deixa o
-   conteúdo para trás — e o R2 não tem segunda cópia nossa. Falta confirmar contra a configuração do
-   Stalwart em produção, a que não se chega deste lado.
+2. **A cópia de segurança do correio está bem — verificado, e ao contrário do que eu suspeitei.**
+   Restaurei a cópia cifrada de 30/07 para um Postgres descartável e procurei lá dentro o texto de
+   uma mensagem que está no R2: **está na base**, na tabela `p`. O `pg_dump` leva as contas, a
+   configuração e o conteúdo das mensagens. O que o R2 guarda em `mail/` é a cópia do Stalwart em
+   formato dele (comprimida), não a única.
+
+   Fica na mesma um limite, e esse é real: **o armazenamento de objetos não tem segunda cópia
+   nossa**. Os ficheiros do Drive e as gravações dependem da durabilidade do fornecedor. Está dito
+   na página de segurança em vez de deixar a palavra "cópias" cobrir tudo.
 
 ## 3. As duas vias que não passam pelo backend
 
