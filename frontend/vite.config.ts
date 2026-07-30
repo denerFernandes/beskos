@@ -19,6 +19,21 @@ const API = process.env.API_URL ?? "http://localhost:8000";
 // localhost e não num IP da rede local, onde o cookie seria recusado em silêncio.
 const REMOTO = /^https:/.test(API);
 
+// Duas variáveis parecidas, efeitos opostos — e é fácil trocá-las:
+//   API_URL        destino do PROXY. O browser continua a falar com localhost (mesma origem).
+//   VITE_API_BASE  base ABSOLUTA embutida no pacote. O browser passa a ir direto ao endereço,
+//                  o proxy deixa de ser usado, e as chamadas ficam cross-site.
+// Em desenvolvimento web quer-se a primeira. A segunda só faz sentido no pacote Tauri, que não
+// tem proxy nenhum. Trocá-las dá erros de certificado ou de CORS que não apontam para a causa.
+if (process.env.VITE_API_BASE && !process.env.TAURI_ENV_PLATFORM) {
+  console.warn(
+    `\n[aviso] VITE_API_BASE=${process.env.VITE_API_BASE} está definida.\n` +
+    `        As chamadas vão DIRETAS a esse endereço e o proxy não é usado.\n` +
+    `        Para trabalhar contra outro backend em desenvolvimento, use antes:\n` +
+    `            API_URL=${process.env.VITE_API_BASE} npm run dev\n`,
+  );
+}
+
 // SEGURANÇA DO PACOTE (desktop/mobile Tauri): o Vite injeta em TEXTO CLARO no bundle qualquer
 // variável de ambiente com prefixo VITE_. Como o app é distribuído (e um utilizador pode inspecionar
 // o pacote), NENHUM segredo pode ser VITE_. Só a allow-list abaixo é permitida — o build FALHA se
