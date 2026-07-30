@@ -1,8 +1,8 @@
 # Plano — cifra de envelope dos ficheiros, com chave nossa
 
-> Estado: **plano**, nada implementado. Escrito a 29/07/2026.
-> Decisão tomada: cifra de envelope no nosso backend (não SSE-C, não E2EE). Gravações e cópias de
-> segurança entram nesta fase.
+> Estado: **no ar** desde 30/07/2026. Escrito como plano a 29/07.
+> Cifra de envelope no nosso backend (não SSE-C, não E2EE). Gravações e cópias de segurança
+> incluídas. Ler o §2f antes de mexer na selagem — custou 43 mensagens de correio.
 
 ## 1. O problema, dito com precisão
 
@@ -106,6 +106,30 @@ Um trabalho no worker ([`sealing.go`](../backend/cmd/worker/sealing.go)) percorr
 fundo, com pausa entre objetos — isto corre no mesmo servidor que serve o correio dos clientes, e
 migrar depressa não vale interromper quem está a trabalhar. Uma passagem que não termine não é
 problema: a seguinte salta o que já está feito.
+
+## 2f. O balde não é só nosso
+
+Descoberto à primeira passagem em produção, da pior maneira: a selagem cifrou **43 mensagens de
+correio** e o Stalwart deixou de as conseguir ler. Ele guarda-as em `mail/…`, no mesmo balde,
+escritas e lidas por ele, sem passar por este código.
+
+A causa não foi um caso não previsto — foi a **pergunta errada**. A função perguntava "isto parece
+seguro de cifrar?" quando tinha de perguntar "**isto foi escrito por nós?**". Passou a lista branca:
+`<tenant>/…` e `recordings/…`, as únicas famílias de chaves que o `storage.Service` escreve. Uma
+lista negra teria de adivinhar todos os vizinhos futuros, e um balde partilhado só ganha vizinhos.
+
+A reversão está em [`cmd/unseal`](../backend/cmd/unseal/main.go), e fica no repositório: se voltar a
+acontecer, quer-se a reversão pronta e não um programa escrito à pressa durante a avaria.
+
+**Duas consequências que ficam por resolver**, ambas registadas nas páginas públicas:
+
+1. **O conteúdo do correio não é cifrado por nós.** Está fora do alcance deste desenho enquanto o
+   Stalwart escrever direto no balde — e nós não modificamos o Stalwart (CLAUDE.md §5.4). A página
+   de segurança diz isto por palavras nossas em vez de deixar descobrir.
+2. **A cópia de segurança da base `stalwart` pode não conter as mensagens.** Se o corpo das
+   mensagens vive no R2 e não no Postgres, o `pg_dump` leva a configuração e os metadados e deixa o
+   conteúdo para trás — e o R2 não tem segunda cópia nossa. Falta confirmar contra a configuração do
+   Stalwart em produção, a que não se chega deste lado.
 
 ## 3. As duas vias que não passam pelo backend
 
