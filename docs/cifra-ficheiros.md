@@ -126,15 +126,26 @@ acontecer, quer-se a reversão pronta e não um programa escrito à pressa duran
 1. **O conteúdo do correio não é cifrado por nós.** Está fora do alcance deste desenho enquanto o
    Stalwart escrever direto no balde — e nós não modificamos o Stalwart (CLAUDE.md §5.4). A página
    de segurança diz isto por palavras nossas em vez de deixar descobrir.
-2. **A cópia de segurança do correio está bem — verificado, e ao contrário do que eu suspeitei.**
-   Restaurei a cópia cifrada de 30/07 para um Postgres descartável e procurei lá dentro o texto de
-   uma mensagem que está no R2: **está na base**, na tabela `p`. O `pg_dump` leva as contas, a
-   configuração e o conteúdo das mensagens. O que o R2 guarda em `mail/` é a cópia do Stalwart em
-   formato dele (comprimida), não a única.
+2. **Os anexos e o original das mensagens NÃO estão na cópia de segurança.** Medido a 30/07
+   restaurando a cópia cifrada para um Postgres descartável e comparando com o balde:
 
-   Fica na mesma um limite, e esse é real: **o armazenamento de objetos não tem segunda cópia
-   nossa**. Os ficheiros do Drive e as gravações dependem da durabilidade do fornecedor. Está dito
-   na página de segurança em vez de deixar a palavra "cópias" cobrir tudo.
+   | | Postgres (tabela `p`) | R2 (`mail/`) |
+   |---|---|---|
+   | Total | 115 KiB em 110 linhas | **637 KiB** em 43 ficheiros |
+   | Maior item | 7 885 bytes | **552 638 bytes** |
+
+   O Stalwart divide: no Postgres fica a mensagem **analisada** (remetente, assunto, termos de
+   pesquisa, texto do corpo) e no R2 a mensagem **crua com os anexos**, que é o que o IMAP entrega
+   quando um cliente pede o original. Um objeto de 540 KiB não cabe numa base cuja maior linha tem
+   7,9 KiB — e confirmou-se por fatias: um pedaço do meio da mensagem grande está na base, o do fim
+   não está.
+
+   Ou seja, o `pg_dump` sozinho **não restaura o correio**. Devolve caixas, contas e conteúdo
+   pesquisável; perde os anexos e o original. E o R2 não tem segunda cópia nossa.
+
+   **O que falta decidir:** incluir o prefixo `mail/` do balde nas cópias de segurança. É barato —
+   637 KiB hoje — e é a diferença entre "temos cópias" e "conseguimos restaurar". Fica registado
+   aqui em vez de na página de segurança, que entretanto deixou de afirmar o que não se sabia.
 
 ## 3. As duas vias que não passam pelo backend
 
