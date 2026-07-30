@@ -115,7 +115,86 @@ func (c *Client) TenantSendingStatus(ctx context.Context, name string) (string, 
 
 // jaExiste reconhece a resposta de "o recurso já lá está". O provisionamento repete-se sempre que
 // um passo anterior falha, por isso criar duas vezes tem de ser inofensivo.
+//
+// Duas formas, porque o SES usa as duas: o nome da exceção (`AlreadyExistsException`) e uma frase
+// em inglês corrente ("Tenant with name X already exists in account Y"). Procurar só a primeira
+// fazia o comando de retroação falhar em tudo o que já estivesse criado.
 func jaExiste(status int, corpo []byte) bool {
-	return status == http.StatusConflict ||
-		(status == http.StatusBadRequest && strings.Contains(string(corpo), "AlreadyExists"))
+	if status == http.StatusConflict {
+		return true
+	}
+	if status != http.StatusBadRequest {
+		return false
+	}
+	// Qualquer 400 que diga "already" é uma repetição, não um erro: a SES usa pelo menos três
+	// formas — o nome da exceção, "already exists" e "has already been associated". Perseguir cada
+	// frase é uma corrida que se perde; o que importa é a categoria.
+	return strings.Contains(strings.ToLower(string(corpo)), "already")
+}
+
+// --- Conjuntos de configuração ---------------------------------------------------------------
+//
+// PORQUE EXISTEM AQUI, ao lado dos tenants: resolvem o mesmo problema por um caminho que NÃO exige
+// tocar no correio. Um tenant só recebe tráfego se cada mensagem trouxer o cabeçalho `X-SES-TENANT`
+// — e as mensagens dos clientes não passam pelo nosso código, passam pelo Stalwart. Um conjunto de
+// configuração, ao contrário, pode ser colado à IDENTIDADE do domínio, e a AWS aplica-o
+// «every time email is sent from the identity». Nada no caminho do correio muda.
+//
+// O que se ganha sem cabeçalho nenhum: métricas de reputação por cliente (saber de QUEM são as
+// devoluções) e a capacidade de suspender o envio de UM cliente sem tocar na conta.
+//
+// O que continua a precisar do cabeçalho: a pausa AUTOMÁTICA da AWS por reputação, que é do
+// mecanismo dos tenants. Enquanto isso não existir, a pausa é nossa — e é para isso que serve o
+// SetSendingEnabled abaixo.
+
+// CreateConfigurationSet cria o conjunto do domínio, com métricas de reputação ligadas.
+//
+// Sem `ReputationMetricsEnabled` o conjunto existe mas não mede nada, e o painel da SES continua a
+// dar um número só para todos os clientes — que é exatamente o problema que isto vem resolver.
+func (c *Client) CreateConfigurationSet(ctx context.Context, name string) error {
+	body, _ := json.Marshal(map[string]any{
+		"ConfigurationSetName": name,
+		"ReputationOptions":    map[string]any{"ReputationMetricsEnabled": true},
+		"SendingOptions":       map[string]any{"SendingEnabled": true},
+	})
+	status, out, err := c.do(ctx, http.MethodPost, "/v2/email/configuration-sets", body)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusOK || status == http.StatusCreated || jaExiste(status, out) {
+		return nil
+	}
+	return fmt.Errorf("ses create configuration set %q: HTTP %d: %s", name, status, out)
+}
+
+// SetIdentityConfigurationSet torna o conjunto o predefinido da identidade. É esta chamada que
+// dispensa o cabeçalho por mensagem.
+func (c *Client) SetIdentityConfigurationSet(ctx context.Context, domain, name string) error {
+	body, _ := json.Marshal(map[string]any{"ConfigurationSetName": name})
+	status, out, err := c.do(ctx, http.MethodPut,
+		"/v2/email/identities/"+domain+"/configuration-set", body)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusOK {
+		return nil
+	}
+	return fmt.Errorf("ses set default config set de %q: HTTP %d: %s", domain, status, out)
+}
+
+// SetSendingEnabled liga ou desliga o envio de UM cliente, sem tocar nos outros nem na conta.
+//
+// É a ferramenta que faltava: até aqui, perante um cliente a queimar a reputação, as opções eram
+// não fazer nada ou suspender a conta inteira.
+func (c *Client) SetSendingEnabled(ctx context.Context, name string, enabled bool) error {
+	body, _ := json.Marshal(map[string]any{"SendingEnabled": enabled})
+	status, out, err := c.do(ctx, http.MethodPut,
+		"/v2/email/configuration-sets/"+name+"/sending", body)
+	if err != nil {
+		return err
+	}
+	if status == http.StatusOK {
+		return nil
+	}
+	return fmt.Errorf("ses sending=%v em %q: HTTP %d: %s", enabled, name, status, out)
 }

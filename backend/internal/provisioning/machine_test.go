@@ -184,11 +184,13 @@ func TestIdempotentActivate(t *testing.T) {
 // --- Relay SES ---------------------------------------------------------------
 
 type fakeRelay struct {
-	created    int
-	mailFrom   int
-	verified   bool
-	tenants    []string // nomes criados
-	associados []string // "tenant/domínio"
+	created      int
+	mailFrom     int
+	verified     bool
+	tenants      []string // nomes criados
+	associados   []string // "tenant/domínio"
+	conjuntos    []string // conjuntos de configuração criados
+	predefinidos []string // "domínio/conjunto"
 }
 
 func (f *fakeRelay) CreateIdentity(context.Context, string) (string, string, error) {
@@ -207,6 +209,14 @@ func (f *fakeRelay) CreateTenant(_ context.Context, name string) error {
 }
 func (f *fakeRelay) AssociateIdentity(_ context.Context, tenant, domain string) error {
 	f.associados = append(f.associados, tenant+"/"+domain)
+	return nil
+}
+func (f *fakeRelay) CreateConfigurationSet(_ context.Context, name string) error {
+	f.conjuntos = append(f.conjuntos, name)
+	return nil
+}
+func (f *fakeRelay) SetIdentityConfigurationSet(_ context.Context, domain, name string) error {
+	f.predefinidos = append(f.predefinidos, domain+"/"+name)
 	return nil
 }
 
@@ -242,6 +252,11 @@ func TestRelaySES(t *testing.T) {
 	}
 	if len(relay.associados) != 1 || relay.associados[0] != "cliente-com-br/cliente.com.br" {
 		t.Errorf("associação esperada [cliente-com-br/cliente.com.br], veio %v", relay.associados)
+	}
+	// O conjunto de configuração tem de ficar PREDEFINIDO na identidade: é isso que dispensa o
+	// cabeçalho por mensagem e faz as métricas ficarem separadas sem tocar no caminho do correio.
+	if len(relay.predefinidos) != 1 || relay.predefinidos[0] != "cliente.com.br/cliente-com-br" {
+		t.Errorf("conjunto predefinido esperado [cliente.com.br/cliente-com-br], veio %v", relay.predefinidos)
 	}
 	if relay.mailFrom != 1 {
 		t.Errorf("SetMailFrom deveria ser 1x, veio %d", relay.mailFrom)
