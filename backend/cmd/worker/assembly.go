@@ -94,7 +94,12 @@ func assembleRecording(ctx context.Context, q *db.Queries, st *storage.Service, 
 	}
 
 	// Publica o MP4 final e fecha a gravação.
-	key := fmt.Sprintf("recordings/%s.mp4", rec.ID)
+	//
+	// Prefixo de tenant: é o que faz a gravação ser cifrada com a chave DESSE tenant em vez da KEK,
+	// e portanto ficar dentro da garantia de eliminação por tenant — apagar a chave de um cliente
+	// tem de tornar ilegível tudo o que é dele, gravações incluídas. As gravações antigas, em
+	// `recordings/…`, continuam a ler-se: a chave delas está guardada na base de dados.
+	key := fmt.Sprintf("%s/recordings/%s.mp4", rec.TenantID, rec.ID)
 	f, err := os.Open(out)
 	if err != nil {
 		_ = q.SetRecordingAssemblyFailed(ctx, rec.ID)

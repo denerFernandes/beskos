@@ -599,3 +599,52 @@ revisão jurídica em inglês cobre as oito páginas, e as traduções seguem se
 
 **Sem revisor nativo:** alemão, francês, italiano e neerlandês. Cada ficheiro gerado diz isso no
 cabeçalho, e não numa nota que ninguém lê.
+
+
+---
+
+## 7f. A afirmação pública passa a ser "Europa" (29/07/2026)
+
+Decidido: o sítio deixa de dizer **Alemanha** e passa a dizer **Europa** / **União Europeia**. Muda
+o herói, a tabela de infraestrutura, a página de segurança, a lista de subprocessadores, a FAQ de
+preços e o §7 do DPA, nos oito idiomas.
+
+**O que se perde, dito por inteiro:** "servidores na Alemanha" era a afirmação mais concreta e mais
+verificável do sítio, e é precisamente a que o mercado alemão — o maior alvo do plano — mais
+valoriza. Um comprador que compara fornecedores lê "Alemanha" como um facto e "Europa" como uma
+categoria.
+
+**O que se ganha:** a afirmação deixa de depender do sítio de uma máquina. Uma VPS que mude de
+centro de dados dentro da UE não obriga a reescrever oito idiomas nem cria uma divergência entre o
+que a página diz e o que a infraestrutura faz — que é o risco que a §7d já tinha apanhado uma vez,
+no `secrets.env`. É também a fronteira que o RGPD usa: o que se avalia é UE contra país terceiro.
+
+A verificação da §7d mantém-se válida e não foi apagada: os servidores continuam a ser netcup, com
+`country: DE` no RIPE. O que mudou foi o nível de detalhe que se publica, não o facto.
+
+
+---
+
+## 7g. A cifra dos ficheiros muda a linha mais fraca (30/07/2026)
+
+A linha do R2 na tabela de infraestrutura era a mais fraca do sítio: conteúdo de clientes numa
+empresa americana, com a chave do lado dela. Deixou de ser — os ficheiros vão cifrados por nós
+(`docs/cifra-ficheiros.md`), e o fornecedor guarda só cifrado.
+
+Muda a página de segurança, o Anexo II do DPA, a nota da tabela de infraestrutura e o item
+"não dizemos que nenhum fornecedor nosso está sujeito a lei estrangeira" da `/sovereignty`. A
+comparação com a Proton fica **mais** precisa, não mais forte: "os ficheiros são cifrados com chaves
+que nós temos, o que os protege do nosso fornecedor de armazenamento — não de nós".
+
+**O que NÃO se pôde afirmar, e está escrito:**
+
+- **O correio não está coberto.** O Stalwart escreve o conteúdo das mensagens direto no balde e
+  lê-o de lá; não passa pela nossa camada e não o modificamos (CLAUDE.md §5.4). A página de
+  segurança diz isto por palavras nossas — descobriu-se ao cifrá-lo por engano
+  (`docs/cifra-ficheiros.md` §2f), e uma limitação que já custou uma avaria não se omite.
+- **Não é cifra ponta a ponta.** Temos as chaves, porque o produto gera miniaturas, edita Office no
+  navegador e serve links públicos. Dizer o contrário seria o erro que a `/sovereignty` existe para
+  não cometer.
+- **A frase sobre as cópias de segurança encolheu.** Dizia que a base do correio guarda "mensagens e
+  anexos"; passa a dizer configuração, contas e metadados. Se o corpo das mensagens vive no R2, o
+  `pg_dump` não o leva — por confirmar, e entretanto não se afirma.
