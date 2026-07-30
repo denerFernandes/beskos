@@ -55,20 +55,23 @@ func selarPassagem(ctx context.Context, st *storage.Service) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
-	for key := range st.ListKeys(ctx, "") {
+	for obj := range st.ListObjects(ctx, "") {
 		vistos++
-		cifrado, err := st.IsEncrypted(ctx, key)
+		if !obj.Selavel() {
+			continue
+		}
+		cifrado, err := st.IsEncrypted(ctx, obj.Key)
 		if err != nil {
 			falhas++
-			log.Printf("sealing: %s: %v", key, err)
+			log.Printf("sealing: %s: %v", obj.Key, err)
 			continue
 		}
 		if cifrado {
 			continue
 		}
-		if err := st.Seal(ctx, key); err != nil {
+		if err := st.Seal(ctx, obj.Key); err != nil {
 			falhas++
-			log.Printf("sealing: %s: %v", key, err)
+			log.Printf("sealing: %s: %v", obj.Key, err)
 			continue
 		}
 		selados++

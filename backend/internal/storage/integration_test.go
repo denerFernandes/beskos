@@ -223,6 +223,63 @@ func TestIntegrationSelagem(t *testing.T) {
 	}
 }
 
+// TestIntegrationObjetoVazio cobre o caso que apareceu no primeiro dia em produção: os marcadores
+// de pasta do Drive têm zero bytes, o pedido do cabeçalho responde 416, e a passagem de selagem
+// enchia o registo de erros que não eram erros.
+func TestIntegrationObjetoVazio(t *testing.T) {
+	s, _, tenant := testService(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	key := fmt.Sprintf("%s/pasta-%s/", tenant, uuid.NewString())
+	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
+
+	semCifra := &Service{client: s.client, bucket: s.bucket}
+	if err := semCifra.Put(ctx, key, bytes.NewReader(nil), 0, "application/x-directory"); err != nil {
+		t.Fatalf("criar marcador: %v", err)
+	}
+
+	cifrado, err := s.IsEncrypted(ctx, key)
+	if err != nil {
+		t.Fatalf("IsEncrypted num objeto vazio devia ser silencioso, deu: %v", err)
+	}
+	if cifrado {
+		t.Fatal("um objeto de zero bytes não pode estar cifrado")
+	}
+	if (Object{Key: key, Size: 0}).Selavel() {
+		t.Fatal("um marcador de pasta não devia ser selado")
+	}
+}
+
+// TestIntegrationSelagemNaoRevelaTipo: depois de selar, o fornecedor deixa de saber que aquilo é um
+// vídeo. O tipo é metadado sobre o conteúdo, e o conteúdo passou a ser opaco — dizer-lhe que é um
+// `video/mp4` devolvia-lhe parte do que a cifra escondeu. Quem serve o ficheiro tira o tipo do nome
+// na nossa base de dados (`mime.TypeByExtension`), nunca do armazenamento.
+func TestIntegrationSelagemNaoRevelaTipo(t *testing.T) {
+	s, _, tenant := testService(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	key := fmt.Sprintf("%s/recordings/tipo-%s.mp4", tenant, uuid.NewString())
+	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
+
+	semCifra := &Service{client: s.client, bucket: s.bucket}
+	if err := semCifra.Put(ctx, key, bytes.NewReader([]byte("filme")), 5, "video/mp4"); err != nil {
+		t.Fatalf("Put: %v", err)
+	}
+	if err := s.Seal(ctx, key); err != nil {
+		t.Fatalf("Seal: %v", err)
+	}
+
+	info, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.ContentType == "video/mp4" {
+		t.Fatal("o armazenamento continua a saber que o objeto cifrado é um vídeo")
+	}
+}
+
 // lerCru busca os bytes diretamente do balde, sem passar pelo Service — é literalmente o que o
 // fornecedor de armazenamento tem. Não dá para reutilizar um Service sem chaves: esse recusa-se a
 // servir um objeto cifrado, e ainda bem (devolver bytes cifrados como se fossem o ficheiro seria
