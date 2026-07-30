@@ -385,6 +385,8 @@ func main() {
 		}
 		machine.WithRelay(relay, brand)
 		log.Printf("SES relay enabled (white-label BYODKIM; brand=%s)", brand)
+		// Vigia de reputação: suspende um cliente antes que a AWS suspenda todos.
+		startReputacao(q, relay)
 	}
 	runner := provisioning.NewRunner(machine, q)
 
