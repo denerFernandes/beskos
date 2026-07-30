@@ -111,7 +111,7 @@ func (s *Service) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 // Com o objeto cifrado, o seek passa a ser sobre o conteúdo EM CLARO: o leitor traduz a posição
 // pedida em blocos e vai buscar só esses ao armazenamento. Um salto para o meio de uma gravação de
 // duas horas lê um bloco, não a gravação inteira.
-func (s *Service) GetSeek(ctx context.Context, key string) (io.ReadSeekCloser, error) {
+func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) {
 	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return nil, err
@@ -124,7 +124,7 @@ func (s *Service) GetSeek(ctx context.Context, key string) (io.ReadSeekCloser, e
 			obj.Close()
 			return nil, serr
 		}
-		return obj, nil
+		return &SeekObject{ReadSeeker: obj, c: obj, origem: obj}, nil
 	}
 	if perr != nil {
 		obj.Close()
@@ -144,16 +144,28 @@ func (s *Service) GetSeek(ctx context.Context, key string) (io.ReadSeekCloser, e
 		obj.Close()
 		return nil, err
 	}
-	return &seekCloser{SeekReader: sr, c: obj}, nil
+	return &SeekObject{ReadSeeker: sr, c: obj, origem: obj}, nil
 }
 
-// seekCloser junta o leitor com seek ao Closer do objeto do armazenamento.
-type seekCloser struct {
-	*filecrypt.SeekReader
-	c io.Closer
+// SeekObject é o objeto aberto para leitura com salto. Traz também a data da última alteração, que
+// vem de borla na resposta do armazenamento — um servidor S3 tem de a devolver, e ir buscá-la a um
+// segundo pedido custaria uma ida à rede em cada leitura.
+type SeekObject struct {
+	io.ReadSeeker
+	c      io.Closer
+	origem *minio.Object
 }
 
-func (s *seekCloser) Close() error { return s.c.Close() }
+func (s *SeekObject) Close() error { return s.c.Close() }
+
+// ModTime é quando o objeto mudou pela última vez, do lado do armazenamento.
+func (s *SeekObject) ModTime() (time.Time, error) {
+	info, err := s.origem.Stat()
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.LastModified, nil
+}
 
 // Exists diz se o blob já existe (usado para dedup: não reenviar conteúdo idêntico).
 func (s *Service) Exists(ctx context.Context, key string) (bool, error) {
