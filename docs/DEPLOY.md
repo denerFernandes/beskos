@@ -94,6 +94,34 @@ localização no CapRover. `manager.beskos.com` faz o equivalente para `manager`
 | `meet` | A | `185.232.69.0` | ⚪ | LiveKit (WebRTC/UDP — **não** proxied) |
 | `mail` | A | `185.232.71.70` | ⚪ | Stalwart (SMTP/IMAP — **não** proxied) |
 
+### Serviços do Swarm: nunca `docker restart`
+
+A 30/07/2026 o correio e o webmail estiveram meia hora em baixo por causa disto. O Stalwart corre
+como **serviço do Swarm** (`docker service ls`), não como contentor do compose. Reiniciar a tarefa à
+mão parte o encaminhamento:
+
+```sh
+docker restart stalwart.1.xxxx          # ERRADO
+docker service update --force stalwart  # certo
+```
+
+**Porquê:** o contentor volta com um IP novo e o serviço continua a encaminhar para o antigo. Todos
+os clientes usam o nome (`stalwart:8080`), batem no VIP morto, e o sintoma é o pior possível — o TCP
+é **aceite** e a ligação é fechada a seguir, em todos os protocolos. Parece o servidor a avariar.
+Nos registos do Swarm ficou a prova: três arranques falhados com
+`Bind for 0.0.0.0:25 failed: port is already allocated`, porque o contentor reiniciado à mão segurava
+a porta enquanto o Swarm tentava criar o substituto.
+
+**O que ficou feito para não repetir:** o serviço passou a `--endpoint-mode dnsrr`. O nome resolve
+direto para a tarefa, sem VIP — deixa de existir a peça que encravou. É seguro porque as portas de
+correio são publicadas em modo `host`, fora da malha do Swarm.
+
+**E o `healthcheck` não apanha isto.** O da imagem faz `curl http://127.0.0.1:8080/healthz/live`
+DENTRO do contentor: durante a avaria toda ele respondia, e o Docker dizia `healthy` — com razão. Um
+teste de loopback não passa pelo caminho que falha. Quem apanha é a **sentinela no worker**
+(`cmd/worker/sentinela.go`), que se liga pelo mesmo nome e pela mesma rede que a API usa. A
+diferença entre "o processo está de pé" e "o serviço está a servir".
+
 > **O `mail` não passa por CDN, WAF nem proteção — nunca.** Acontece: a 29/07/2026 a zona mudou do
 > Cloudflare para a Bunny e o **Bunny Shield** ficou ligado no registo `mail`. O nome passou a
 > resolver para um IP da Bunny e **a receção de correio parou** — o `MX` aponta para `mail`, e quem

@@ -56,6 +56,7 @@ APPS = {
     "api": "backend",
     "worker": "backend",
     "manager-api": "backend",
+    "swprobe": "backend",
     "blobgw": "backend",
     "stalwart-cfg": "backend",
     "app": "frontend",

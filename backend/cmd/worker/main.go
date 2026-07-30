@@ -437,6 +437,7 @@ func main() {
 	stWorker := meteringStorage(q)
 	startAssembly(q, stWorker)
 	startSealing(stWorker)
+	startSentinela(os.Getenv("STALWART_URL"))
 
 	// Tarefas em fundo do assistente (§7.5 do desenho do assistente). O executor é montado a
 	// partir de um httpapi.Server porque precisa exatamente das mesmas dependências do motor
