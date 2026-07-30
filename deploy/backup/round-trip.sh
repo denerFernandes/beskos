@@ -35,19 +35,38 @@ PUBLICA=$(grep -o 'age1[a-z0-9]*' /tmp/chave.txt | head -1)
 [ -n "$PUBLICA" ] || fail "age-keygen não deu chave pública"
 ok "pública $PUBLICA"
 
-echo "3. a correr o backup.sh (o verdadeiro)"
+echo "3. a semear blocos do correio no armazenamento"
+# O Stalwart guarda a mensagem crua e os anexos aqui, fora da base de dados. Sem estes ficheiros na
+# cópia, um restauro devolve caixas sem anexos — foi o buraco medido a 30/07/2026.
+BLOBS=/tmp/blobs-origem/mail
+mkdir -p "$BLOBS"
+printf 'mensagem crua com anexo' > "$BLOBS/0abc"
+head -c 100000 /dev/urandom > "$BLOBS/1def"
+ok "2 blocos"
+
+echo "4. a correr o backup.sh (o verdadeiro)"
 export DATABASE_URL="$PG/beskos"
 export BACKUP_BUCKET="$BUCKET"
 export BACKUP_DATABASES="beskos stalwart"
 export BACKUP_AGE_RECIPIENT="$PUBLICA"
 export RCLONE_CONFIG_R2_TYPE=local
+export BLOB_BUCKET=/tmp/blobs-origem
+export RCLONE_CONFIG_BLOBS_TYPE=local
 /usr/local/bin/backup.sh || fail "backup.sh"
+
+ARQUIVO=$(find "$BUCKET/blobs" -name '*.tar.age' | head -1)
+[ -n "$ARQUIVO" ] || fail "os blocos do correio não foram para a cópia"
+head -c 21 "$ARQUIVO" | grep -q "age-encryption.org" || fail "o arquivo dos blocos não está cifrado"
+grep -qa "mensagem crua com anexo" "$ARQUIVO" && fail "texto do correio em claro dentro do arquivo"
+age --decrypt --identity /tmp/chave.txt "$ARQUIVO" | tar -tf - | grep -q "0abc" \
+  || fail "o bloco não está dentro do arquivo"
+ok "blocos do correio cifrados e recuperáveis"
 
 CIFRADO=$(find "$BUCKET/beskos" -name '*.dump.age' | head -1)
 [ -n "$CIFRADO" ] || fail "não apareceu ficheiro cifrado no balde"
 ok "$(basename "$CIFRADO")"
 
-echo "4. a verificar que o que foi enviado NÃO se lê"
+echo "5. a verificar que o que foi enviado NÃO se lê"
 # Esta é a asserção que interessa. Sem ela, o ensaio passaria na mesma se o backup.sh tivesse
 # enviado o dump em claro por engano — e ninguém daria por isso até ao balde ser copiado.
 head -c 21 "$CIFRADO" | grep -q "age-encryption.org" \
@@ -66,7 +85,7 @@ ok "nenhum texto em claro lá dentro"
   || fail "ficou um dump em claro em disco depois do backup"
 ok "não sobrou dump em claro em disco"
 
-echo "5. a verificar que a chave ERRADA não abre"
+echo "6. a verificar que a chave ERRADA não abre"
 age-keygen -o /tmp/outra.txt 2>/dev/null
 if AGE_IDENTITY_FILE=/tmp/outra.txt BACKUP_BUCKET="$BUCKET" \
    /usr/local/bin/restore.sh beskos "${CIFRADO#"$BUCKET"/}" --to "$PG/beskos_restaurado" >/dev/null 2>&1; then
@@ -74,12 +93,12 @@ if AGE_IDENTITY_FILE=/tmp/outra.txt BACKUP_BUCKET="$BUCKET" \
 fi
 ok "chave errada rejeitada"
 
-echo "6. a restaurar com a chave certa (o restore.sh verdadeiro)"
+echo "7. a restaurar com a chave certa (o restore.sh verdadeiro)"
 AGE_IDENTITY_FILE=/tmp/chave.txt BACKUP_BUCKET="$BUCKET" \
   /usr/local/bin/restore.sh beskos "${CIFRADO#"$BUCKET"/}" --to "$PG/beskos_restaurado" \
   || fail "restore.sh"
 
-echo "7. a comparar o conteúdo restaurado com o original"
+echo "8. a comparar o conteúdo restaurado com o original"
 VOLTA=$(psql "$PG/beskos_restaurado" -qtAc "SELECT md5(string_agg(corpo, ',' ORDER BY id)) FROM mensagens")
 [ "$VOLTA" = "$IMPRESSAO" ] || fail "impressão diferente: $VOLTA vs $IMPRESSAO"
 LINHAS=$(psql "$PG/beskos_restaurado" -qtAc "SELECT count(*) FROM mensagens")
