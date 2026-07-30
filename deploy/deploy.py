@@ -57,6 +57,7 @@ APPS = {
     "worker": "backend",
     "manager-api": "backend",
     "blobgw": "backend",
+    "stalwart-cfg": "backend",
     "app": "frontend",
     "manager": "manager",
     "landing": "landing",
