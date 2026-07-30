@@ -84,6 +84,53 @@ for BASE in $BACKUP_DATABASES; do
   rm -f "$ENC"
 done
 
+# ---------------------------------------------------------------------------------------------
+# Blocos do correio.
+#
+# O Stalwart DIVIDE cada mensagem: no Postgres fica a versão analisada (remetente, assunto, termos
+# de pesquisa, texto do corpo) e no armazenamento de objetos fica a mensagem CRUA com os anexos —
+# que é o que o IMAP entrega quando um cliente pede o original. Medido a 30/07/2026: 115 KiB na base
+# contra 637 KiB no balde, com um único anexo de 540 KiB que não cabe numa base cuja maior linha tem
+# 7,9 KiB.
+#
+# Ou seja: o pg_dump sozinho NÃO restaura o correio. Devolve caixas, contas e conteúdo pesquisável,
+# e perde os anexos. Por isso os blocos entram aqui.
+if [ -n "${BLOB_BUCKET:-}" ]; then
+  PREFIXO="${BLOB_PREFIX:-mail}"
+  TAR="$TMP/blobs-$STAMP.tar"
+  DIR="$TMP/blobs"
+  mkdir -p "$DIR"
+
+  log "[blobs] a trazer $PREFIXO/ do armazenamento"
+  rclone copy "blobs:$BLOB_BUCKET/$PREFIXO" "$DIR" --stats-one-line || fail "[blobs] descarregar"
+
+  # TETO. Isto copia o prefixo INTEIRO a cada corrida — barato com centenas de KiB, absurdo com
+  # dezenas de GiB. Falhar alto quando passar do teto é melhor do que uma fatura a crescer em
+  # silêncio: quando isto disparar, a cópia passa a incremental (`rclone sync` dos objetos já
+  # cifrados pelo gateway, que aí não precisam do age).
+  BYTES=$(du -sk "$DIR" | cut -f1)
+  [ "$BYTES" -le "${BLOB_MAX_KIB:-2097152}" ] \
+    || fail "[blobs] $((BYTES / 1024)) MiB passa do teto — está na hora da cópia incremental"
+
+  tar -cf "$TAR" -C "$DIR" . || fail "[blobs] arquivar"
+  FICHEIROS=$(tar -tf "$TAR" | grep -c . || true)
+  [ "$FICHEIROS" -gt 0 ] || fail "[blobs] arquivo vazio"
+  log "[blobs] $FICHEIROS ficheiros, $((BYTES / 1024)) MiB"
+
+  age --encrypt --recipient "$BACKUP_AGE_RECIPIENT" --output "$TAR.age" "$TAR" || fail "[blobs] cifra"
+  rm -f "$TAR"
+  ENC_SIZE=$(stat -c %s "$TAR.age" 2>/dev/null || stat -f %z "$TAR.age")
+
+  rclone copyto "$TAR.age" "r2:$BACKUP_BUCKET/blobs/$DAY/blobs-$STAMP.tar.age" \
+    --s3-no-check-bucket --stats-one-line || fail "[blobs] envio"
+  REMOTE=$(rclone size "r2:$BACKUP_BUCKET/blobs/$DAY/blobs-$STAMP.tar.age" --json | sed 's/.*"bytes":\([0-9]*\).*/\1/')
+  [ "$REMOTE" = "$ENC_SIZE" ] || fail "[blobs] tamanho no R2 ($REMOTE) diferente do local ($ENC_SIZE)"
+  log "[blobs] confirmado no R2, cifrado"
+
+  rclone delete "r2:$BACKUP_BUCKET/blobs/" --min-age "${RETENTION_DAYS}d" || true
+  rm -rf "$DIR" "$TAR.age"
+fi
+
 if [ -n "${HEARTBEAT_URL:-}" ]; then
   curl -fsS --max-time 20 "$HEARTBEAT_URL" >/dev/null && log "estado avisado" || log "aviso de estado falhou (o backup está feito)"
 fi
