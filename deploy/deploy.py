@@ -56,6 +56,7 @@ APPS = {
     "api": "backend",
     "worker": "backend",
     "manager-api": "backend",
+    "blobgw": "backend",
     "app": "frontend",
     "manager": "manager",
     "landing": "landing",
