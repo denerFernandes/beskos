@@ -133,23 +133,20 @@ func (c *Client) GetDataStageScript(ctx context.Context) (json.RawMessage, error
 
 // SetDataStageScript faz a fase DATA correr o script indicado.
 func (c *Client) SetDataStageScript(ctx context.Context, nomeDoScript string) error {
+	// CAMINHOS DE PATCH, não um objeto aninhado. O JMAP do Stalwart atualiza por ponteiro
+	// (`script/match/0/if`); mandar `script` como objeto com um `match` lá dentro é recusado com
+	// `invalidPatch` a apontar precisamente `script/match`.
+	//
+	// SÓ NAS PORTAS DE SUBMISSÃO. A fase DATA corre em TODAS as sessões, incluindo o correio que
+	// ENTRA na porta 25 — e aí `env_from.domain` é o domínio de quem nos escreveu. Sem esta
+	// condição, uma mensagem do Gmail chegaria com `X-SES-TENANT: gmail-com` colado: lixo no
+	// correio dos clientes e um número errado nas métricas do relay.
 	raw, err := c.call(ctx, "x:MtaStageData/set", map[string]any{
 		"update": map[string]any{
 			singletonID: map[string]any{
-				// SÓ NAS PORTAS DE SUBMISSÃO. A fase DATA corre em TODAS as sessões, incluindo o
-				// correio que ENTRA na porta 25 — e aí `env_from.domain` é o domínio de quem nos
-				// escreveu. Sem esta condição, uma mensagem do Gmail chegaria com
-				// `X-SES-TENANT: gmail-com` colado, o que é lixo no correio dos clientes e um
-				// número errado nas métricas do relay.
-				//
-				// A expressão escolhe o script por sessão: só quem submete (465/587) o recebe.
-				"script": map[string]any{
-					"else": "''",
-					"match": []map[string]any{{
-						"if":   "local_port == 465 || local_port == 587",
-						"then": fmt.Sprintf("'%s'", nomeDoScript),
-					}},
-				},
+				"script/else":         "''",
+				"script/match/0/if":   "local_port == 465 || local_port == 587",
+				"script/match/0/then": fmt.Sprintf("'%s'", nomeDoScript),
 			},
 		},
 	})
