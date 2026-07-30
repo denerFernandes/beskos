@@ -119,6 +119,10 @@ func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	inicio := time.Now()
 	key, err := g.chave(r.URL.Path)
 	if err != nil {
+		// COM registo: um pedido recusado que não deixa rasto é indistinguível de um pedido que
+		// nunca chegou. Custou uma diagnose inteira a perceber que o cliente mandava o nome de
+		// balde antigo e nós respondíamos 403 em silêncio.
+		log.Printf("%s %s -> 403 recusado: %v", r.Method, r.URL.Path, err)
 		erroS3(w, http.StatusForbidden, "AccessDenied", err.Error())
 		return
 	}

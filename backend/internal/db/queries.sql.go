@@ -6340,6 +6340,42 @@ func (q *Queries) ListAliasesForUser(ctx context.Context, arg ListAliasesForUser
 	return items, nil
 }
 
+const listAllDomains = `-- name: ListAllDomains :many
+SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains ORDER BY created_at
+`
+
+// Todos os domínios, para tarefas de manutenção que têm de passar por cada um (ex.: garantir o
+// tenant SES dos que foram provisionados antes de o isolamento existir).
+func (q *Queries) ListAllDomains(ctx context.Context) ([]Domain, error) {
+	rows, err := q.db.Query(ctx, listAllDomains)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Domain
+	for rows.Next() {
+		var i Domain
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Dominio,
+			&i.StalwartID,
+			&i.DkimStatus,
+			&i.DnsStatus,
+			&i.ProvisionState,
+			&i.DnsZone,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllFoldersByOwner = `-- name: ListAllFoldersByOwner :many
 SELECT id, tenant_id, owner_user_id, parent_id, name, created_at FROM storage_folders WHERE owner_user_id = $1
 `

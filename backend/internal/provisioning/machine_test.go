@@ -184,9 +184,11 @@ func TestIdempotentActivate(t *testing.T) {
 // --- Relay SES ---------------------------------------------------------------
 
 type fakeRelay struct {
-	created  int
-	mailFrom int
-	verified bool
+	created    int
+	mailFrom   int
+	verified   bool
+	tenants    []string // nomes criados
+	associados []string // "tenant/domínio"
 }
 
 func (f *fakeRelay) CreateIdentity(context.Context, string) (string, string, error) {
@@ -199,6 +201,14 @@ func (f *fakeRelay) IdentityVerified(context.Context, string) (bool, error) {
 func (f *fakeRelay) SetMailFrom(context.Context, string) error { f.mailFrom++; return nil }
 func (f *fakeRelay) MailFromSubdomain(domain string) string    { return "bounce." + domain }
 func (f *fakeRelay) MailFromMX() string                        { return "feedback-smtp.eu-west-1.amazonses.com" }
+func (f *fakeRelay) CreateTenant(_ context.Context, name string) error {
+	f.tenants = append(f.tenants, name)
+	return nil
+}
+func (f *fakeRelay) AssociateIdentity(_ context.Context, tenant, domain string) error {
+	f.associados = append(f.associados, tenant+"/"+domain)
+	return nil
+}
 
 // Com relay (white-label): a zona ganha o DKIM da NOSSA chave (sem amazonses), o SPF via _spf.<brand>
 // e um DMARC; o DKIM do Stalwart é removido; e o dns_verified só sai quando o SES confirma.
@@ -224,6 +234,14 @@ func TestRelaySES(t *testing.T) {
 		if !containsStr(zone, want) {
 			t.Errorf("zona sem %q:\n%s", want, zone)
 		}
+	}
+	// Isolamento de reputação: o domínio tem de ganhar um tenant SES próprio e ficar associado a
+	// ele. Sem isto, devoluções de um cliente penalizam a conta inteira.
+	if len(relay.tenants) != 1 || relay.tenants[0] != "cliente-com-br" {
+		t.Errorf("tenant SES esperado [cliente-com-br], veio %v", relay.tenants)
+	}
+	if len(relay.associados) != 1 || relay.associados[0] != "cliente-com-br/cliente.com.br" {
+		t.Errorf("associação esperada [cliente-com-br/cliente.com.br], veio %v", relay.associados)
 	}
 	if relay.mailFrom != 1 {
 		t.Errorf("SetMailFrom deveria ser 1x, veio %d", relay.mailFrom)
