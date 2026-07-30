@@ -9,11 +9,12 @@ ARGS     ?=
 
 # URLs embutidas na app (VITE_*), por modo. Produção = SaaS público; dev = backend local.
 # (São embutidas em texto claro no pacote — só URLs públicas, nunca segredos.)
-PROD_ENV := VITE_API_BASE=https://app.beskos.com VITE_PUBLIC_BASE=https://app.beskos.com
+PROD_API := https://app.beskos.com
+PROD_ENV := VITE_API_BASE=$(PROD_API) VITE_PUBLIC_BASE=$(PROD_API)
 DEV_ENV  := VITE_API_BASE=http://localhost:8000 VITE_PUBLIC_BASE=http://localhost:5173
 
 .DEFAULT_GOAL := help
-.PHONY: help deps web desktop desktop-prod desktop-dev desktop-run android ios android-dev ios-dev icons doctor clean mobile
+.PHONY: help deps web web-dev desktop desktop-prod desktop-dev desktop-run android ios android-dev ios-dev icons doctor clean mobile
 
 help: ## Mostra os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -25,6 +26,12 @@ deps: ## Instala as dependências do frontend (npm --legacy-peer-deps)
 
 web: ## Build só do frontend web (dist/) — sem empacotar
 	cd $(FRONTEND) && npm run build
+
+web-dev: ## Frontend local contra a API de PRODUÇÃO (localhost:5173, dados reais)
+	@echo "  frontend em http://localhost:5173 · API: $(PROD_API)"
+	@echo "  ATENÇÃO: dados REAIS. Apagar, remover ou enviar daqui acontece mesmo."
+	@echo
+	cd $(FRONTEND) && env -u VITE_API_BASE API_URL=$(PROD_API) npm run dev
 
 ## ─── Desktop (macOS/Windows/Linux, conforme a máquina que corre) ───
 desktop: desktop-prod ## Atalho para desktop-prod (build de produção)
