@@ -134,13 +134,30 @@ type Object struct {
 	Size int64
 }
 
-// Selavel diz se vale a pena selar este objeto.
+// Selavel diz se este objeto é NOSSO e vale a pena selar.
 //
-// Fica de fora o que não é conteúdo: os marcadores de pasta do Drive (chave terminada em barra,
-// zero bytes). Cifrá-los trocaria um marcador de zero bytes por um objeto de ~90 bytes, e um
-// marcador de pasta não tem nada que esconder.
+// LISTA BRANCA, e a razão é cara: o balde não é só nosso. O Stalwart guarda as mensagens em
+// `mail/…`, escritas por ele e lidas por ele, sem passar por este código. A primeira versão desta
+// função selava tudo o que encontrava e cifrou 43 mensagens de correio em produção — que o Stalwart
+// deixou imediatamente de conseguir ler. Cifrar o ficheiro de outro processo não é uma melhoria de
+// segurança, é uma avaria.
+//
+// Por isso a pergunta não é "isto parece seguro de cifrar?" mas "isto foi escrito por nós?". Só há
+// duas famílias de chaves que o storage.Service escreve: `<tenant>/…` e as gravações antigas em
+// `recordings/…`. O resto é de outra pessoa até prova em contrário — e um balde partilhado só ganha
+// vizinhos com o tempo.
+//
+// Fica de fora também o que não é conteúdo: os marcadores de pasta do Drive têm zero bytes, e
+// cifrá-los trocava zero bytes por noventa sem esconder nada.
 func (o Object) Selavel() bool {
-	return o.Size > 0 && !strings.HasSuffix(o.Key, "/")
+	if o.Size == 0 || strings.HasSuffix(o.Key, "/") {
+		return false
+	}
+	if strings.HasPrefix(o.Key, "recordings/") {
+		return true
+	}
+	_, temTenant := tenantFromKey(o.Key)
+	return temTenant
 }
 
 // ListObjects percorre o balde. `prefix` vazio percorre tudo.

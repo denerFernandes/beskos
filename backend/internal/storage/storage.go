@@ -86,6 +86,14 @@ func (s *Service) Put(ctx context.Context, key string, r io.Reader, size int64, 
 	return err
 }
 
+// PutPlain escreve SEM cifrar, mesmo com a cifra ligada. Existe para desfazer uma selagem feita por
+// engano (ver cmd/unseal) — um objeto que afinal é de outro processo, que o lê diretamente do balde
+// e não sabe do nosso formato. Não tem outro uso legítimo: o caminho normal é o Put.
+func (s *Service) PutPlain(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
+	_, err := s.client.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
+	return err
+}
+
 // Get devolve o conteúdo do blob para streaming ao cliente, já decifrado quando for o caso. Um
 // objeto anterior à cifra sai tal como está — a deteção é pela magia no cabeçalho, não por
 // configuração.
