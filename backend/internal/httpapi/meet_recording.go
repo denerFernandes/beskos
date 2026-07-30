@@ -98,7 +98,12 @@ func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"recording_id": rec.ID, "mode": "tracks"})
 		return
 	}
-	filepath := "recordings/" + req.Room + "-" + strconv.FormatInt(time.Now().Unix(), 10) + ".mp4"
+	// Prefixo de tenant na chave: é o que faz a gravação cair na cifra POR TENANT em vez de ser
+	// embrulhada pela KEK. Apagar a chave de um tenant tem de tornar ilegível tudo o que é dele,
+	// gravações incluídas. As gravações antigas ficam onde estão — leem-se pela chave guardada na
+	// base de dados — e serão seladas com a KEK pela passagem de selagem.
+	filepath := mu.TenantID.String() + "/recordings/" + req.Room + "-" +
+		strconv.FormatInt(time.Now().Unix(), 10) + ".mp4"
 
 	egReq := map[string]any{
 		"roomName": req.Room,
@@ -320,11 +325,24 @@ func (s *Server) handleEgressEvent(ctx context.Context, event string, raw []byte
 
 // blobKeyFromFilename normaliza o filename do EgressInfo para a chave no bucket (o LiveKit pode
 // devolver o caminho absoluto local ou com o nome do bucket à frente).
+//
+// As chaves novas trazem o tenant à frente (`<tenant>/recordings/…`), por isso o corte é feito no
+// UUID quando ele existe — cortar em "recordings/" perderia o prefixo e a gravação deixaria de ser
+// cifrada com a chave do tenant.
 func blobKeyFromFilename(name string) string {
-	if i := strings.Index(name, "recordings/"); i >= 0 {
-		return name[i:]
+	i := strings.Index(name, "recordings/")
+	if i < 0 {
+		return name
 	}
-	return name
+	// Recua até ao início do segmento anterior, se for um UUID de tenant.
+	if i > 0 {
+		anterior := strings.LastIndex(name[:i-1], "/")
+		candidato := name[anterior+1 : i-1]
+		if _, err := uuid.Parse(candidato); err == nil {
+			return name[anterior+1:]
+		}
+	}
+	return name[i:]
 }
 
 // recordLayout valida o layout do RoomComposite pedido pelo host contra a lista suportada pelo

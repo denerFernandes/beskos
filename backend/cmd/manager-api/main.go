@@ -12,8 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"mailin/backend/internal/db"
 	"mailin/backend/internal/billing"
+	"mailin/backend/internal/db"
 	"mailin/backend/internal/managerapi"
 )
 

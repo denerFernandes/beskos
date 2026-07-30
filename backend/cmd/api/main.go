@@ -58,6 +58,9 @@ func main() {
 		log.Fatalf("sms: %v", err)
 	}
 
+	// O mesmo *db.Queries serve o servidor e as chaves da cifra dos ficheiros.
+	q := db.New(pool)
+
 	// Storage (MinIO) opcional. Sem MINIO_ENDPOINT, os endpoints de arquivos respondem 503.
 	var st *storage.Service
 	if ep := os.Getenv("MINIO_ENDPOINT"); ep != "" {
@@ -70,7 +73,17 @@ func main() {
 		if err != nil {
 			log.Fatalf("storage: %v", err)
 		}
-		log.Printf("storage enabled (MinIO %s)", ep)
+		// Cifra de envelope: sem FILE_ENC_KEYS o serviço escreve em claro, como antes. Uma chave
+		// malformada é fatal de propósito — arrancar com ela seria escrever objetos que ninguém
+		// mais consegue abrir. Ver docs/cifra-ficheiros.md.
+		if err := st.EnableEncryption(q, os.Getenv("FILE_ENC_KEYS")); err != nil {
+			log.Fatalf("storage encryption: %v", err)
+		}
+		if st.Encrypting() {
+			log.Printf("storage enabled (%s), envelope encryption ON", ep)
+		} else {
+			log.Printf("storage enabled (%s), NOT encrypted (set FILE_ENC_KEYS)", ep)
+		}
 	} else {
 		log.Printf("storage disabled (set MINIO_ENDPOINT)")
 	}
@@ -84,7 +97,7 @@ func main() {
 	bset := billingCfg.Settings()
 	log.Printf("billing enabled (provider=%s currency=%s min_paid_users=%d)", billingProvider.Name(), bset.Currency, bset.MinPaidUsers)
 
-	srv := httpapi.NewServer(db.New(pool), sw, aiProvider, smsSender, st, billingProvider, bset)
+	srv := httpapi.NewServer(q, sw, aiProvider, smsSender, st, billingProvider, bset)
 
 	// Prontidão (/readyz): pinga o Postgres. O orquestrador só encaminha tráfego quando a base responde.
 	srv.SetReadiness(pool.Ping)

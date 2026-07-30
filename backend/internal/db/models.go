@@ -1036,6 +1036,14 @@ type TenantDailyUsage struct {
 	UpdatedAt       time.Time   `json:"updated_at"`
 }
 
+type TenantKey struct {
+	TenantID   uuid.UUID          `json:"tenant_id"`
+	WrappedKey []byte             `json:"wrapped_key"`
+	KekVersion int32              `json:"kek_version"`
+	CreatedAt  time.Time          `json:"created_at"`
+	RotatedAt  pgtype.Timestamptz `json:"rotated_at"`
+}
+
 type TenantMailSent struct {
 	TenantID uuid.UUID   `json:"tenant_id"`
 	Day      pgtype.Date `json:"day"`

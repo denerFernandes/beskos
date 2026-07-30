@@ -53,7 +53,7 @@ func scanRecordingRetention(ctx context.Context, q *db.Queries, st *storage.Serv
 
 // meteringStorage monta o cliente MinIO para a retenção (mesmas envs do api). nil = sem storage
 // (a retenção só apaga linhas cujo blob esteja vazio).
-func meteringStorage() *storage.Service {
+func meteringStorage(q *db.Queries) *storage.Service {
 	ep := os.Getenv("MINIO_ENDPOINT")
 	if ep == "" {
 		return nil
@@ -68,12 +68,17 @@ func meteringStorage() *storage.Service {
 		log.Printf("metering: storage disabled: %v", err)
 		return nil
 	}
+	// A montagem das gravações escreve por aqui: sem isto, o MP4 final saía em claro enquanto os
+	// ficheiros do Drive saíam cifrados. Ver docs/cifra-ficheiros.md §3a.
+	if err := st.EnableEncryption(q, os.Getenv("FILE_ENC_KEYS")); err != nil {
+		log.Fatalf("metering: storage encryption: %v", err)
+	}
 	return st
 }
 
 // startMetering liga o rollup + retenção num ticker horário (primeira passada já no arranque).
 func startMetering(q *db.Queries) {
-	st := meteringStorage()
+	st := meteringStorage(q)
 	go func() {
 		t := time.NewTicker(time.Hour)
 		defer t.Stop()

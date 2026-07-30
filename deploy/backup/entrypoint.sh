@@ -20,7 +20,7 @@ echo "backup: serviço iniciado — 02:00, 10:00 e 18:00 UTC (+ uma corrida agor
 /usr/local/bin/backup.sh || echo "backup: a corrida inicial falhou — ver acima"
 
 # O crond do busybox não herda o ambiente, por isso guarda-se num ficheiro que a tarefa carrega.
-env | grep -E '^(DATABASE_URL|BACKUP_BUCKET|RETENTION_DAYS|HEARTBEAT_URL|RCLONE_CONFIG_)' \
+env | grep -E '^(DATABASE_URL|BACKUP_BUCKET|BACKUP_DATABASES|BACKUP_AGE_RECIPIENT|RETENTION_DAYS|HEARTBEAT_URL|RCLONE_CONFIG_)' \
   | sed 's/^/export /; s/=/="/; s/$/"/' > /etc/backup.env
 
 mkdir -p /etc/crontabs
