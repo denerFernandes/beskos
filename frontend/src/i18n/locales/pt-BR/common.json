@@ -279,7 +279,8 @@
       "expand": "Expandir",
       "maximize": "Tela cheia",
       "restore": "Restaurar",
-      "bigNoDrive": "“{{name}}” é grande demais para anexar e o Drive está desligado — não é possível enviar este ficheiro."
+      "bigNoDrive": "“{{name}}” é grande demais para anexar e o Drive está desligado — não é possível enviar este ficheiro.",
+      "dropHere": "Solte para anexar"
     },
     "reader": {
       "none": "Selecione uma mensagem para ler.",

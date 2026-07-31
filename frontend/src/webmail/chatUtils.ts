@@ -1,4 +1,3 @@
-import { useRef, useState } from "react";
 import { type ChatMessage } from "./backend";
 import { SHORTCODES } from "./emoji";
 
@@ -92,21 +91,3 @@ export function applyReaction(m: ChatMessage, emoji: string, userId: string, rem
   return { ...m, reactions };
 }
 
-// Zona de arrastar-e-soltar arquivos. Só reage a arrasto de arquivos (ignora drag de outros
-// elementos); usa contador de enter/leave para não piscar ao passar sobre filhos.
-export function useFileDrop(onDrop: (files: FileList) => void) {
-  const [over, setOver] = useState(false);
-  const depth = useRef(0);
-  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes("Files");
-  const handlers = {
-    onDragEnter: (e: React.DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); depth.current++; setOver(true); },
-    onDragOver: (e: React.DragEvent) => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "copy"; },
-    onDragLeave: (e: React.DragEvent) => { if (!hasFiles(e)) return; depth.current--; if (depth.current <= 0) { depth.current = 0; setOver(false); } },
-    onDrop: (e: React.DragEvent) => {
-      if (!hasFiles(e)) return;
-      e.preventDefault(); depth.current = 0; setOver(false);
-      if (e.dataTransfer.files?.length) onDrop(e.dataTransfer.files);
-    },
-  };
-  return { over, handlers };
-}
