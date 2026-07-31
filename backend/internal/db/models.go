@@ -812,6 +812,36 @@ type MfaChallenge struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
+type Note struct {
+	ID          uuid.UUID       `json:"id"`
+	TenantID    uuid.UUID       `json:"tenant_id"`
+	OwnerUserID uuid.UUID       `json:"owner_user_id"`
+	Title       string          `json:"title"`
+	BodyJson    json.RawMessage `json:"body_json"`
+	BodyText    string          `json:"body_text"`
+	MeetingID   pgtype.UUID     `json:"meeting_id"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+	UpdatedBy   pgtype.UUID     `json:"updated_by"`
+}
+
+type NoteGrant struct {
+	ID          uuid.UUID   `json:"id"`
+	TenantID    uuid.UUID   `json:"tenant_id"`
+	NoteID      uuid.UUID   `json:"note_id"`
+	SubjectType string      `json:"subject_type"`
+	SubjectID   pgtype.UUID `json:"subject_id"`
+	Role        string      `json:"role"`
+	CreatedAt   time.Time   `json:"created_at"`
+}
+
+type NotePin struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	NoteID   uuid.UUID `json:"note_id"`
+	UserID   uuid.UUID `json:"user_id"`
+	PinnedAt time.Time `json:"pinned_at"`
+}
+
 type Notification struct {
 	ID        uuid.UUID          `json:"id"`
 	TenantID  uuid.UUID          `json:"tenant_id"`

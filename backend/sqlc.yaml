@@ -36,6 +36,10 @@ sql:
           # blocos tal e qual; []byte serializaria em base64 e o frontend caía no fallback de texto.
           - column: "wiki_pages.body_json"
             go_type: "encoding/json.RawMessage"
+          # Notes: same block format as the wiki, same reason -- raw JSON in the response, never
+          # base64, or the editor would receive text and fall back to plain rendering.
+          - column: "notes.body_json"
+            go_type: "encoding/json.RawMessage"
           - column: "wiki_page_versions.body_json"
             go_type: "encoding/json.RawMessage"
           - column: "wiki_home.body_json"
