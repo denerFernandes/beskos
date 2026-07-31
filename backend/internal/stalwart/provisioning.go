@@ -162,7 +162,7 @@ func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliase
 	if len(r.NotUpdated) > 0 {
 		b, _ := json.Marshal(r.NotUpdated)
 		sent, _ := json.Marshal(m)
-		return fmt.Errorf("stalwart notUpdated: %s (enviámos aliases=%s)", string(b), string(sent))
+		return fmt.Errorf("stalwart notUpdated: %s (we sent aliases=%s)", string(b), string(sent))
 	}
 	return nil
 }

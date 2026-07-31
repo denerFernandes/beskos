@@ -54,7 +54,7 @@ func main() {
 	log.Printf("script installed, id %s", id)
 
 	if err := c.SetDataStageScript(ctx, scriptName); err != nil {
-		log.Fatalf("ligar à fase DATA: %v", err)
+		log.Fatalf("connect to the DATA stage: %v", err)
 	}
 	log.Printf("fase DATA ligada ao script")
 

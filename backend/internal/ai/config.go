@@ -32,7 +32,7 @@ func FromEnv() Config {
 // New constrói o Provider a partir da config. É o ÚNICO ponto que conhece providers concretos.
 func New(cfg Config) (Provider, error) {
 	if cfg.APIKey == "" {
-		return nil, fmt.Errorf("ai: AI_API_KEY é obrigatório")
+		return nil, fmt.Errorf("ai: AI_API_KEY is required")
 	}
 	switch cfg.Provider {
 	case "deepseek", "":

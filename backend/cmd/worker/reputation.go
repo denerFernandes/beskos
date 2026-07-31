@@ -68,7 +68,15 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) {
 		return
 	}
 
-	until := time.Now()
+	// ALINHADO À MEIA-NOITE UTC, e não a rolar a partir de agora. A SES só devolve os dados diários
+	// agregados quando o intervalo vai de meia-noite a meia-noite; com marcas de dia parcial responde
+	// HTTP 400 e não devolve número nenhum. Isto foi um erro que só apareceu em produção: o vigia
+	// falhava em TODAS as passagens desde que foi instalado, e ninguém era medido.
+	//
+	// O preço é a janela terminar na última meia-noite, ou seja até 24 h de atraso sobre o que está a
+	// acontecer agora. É aceitável porque este vigia nunca foi a defesa em tempo real — essa é a
+	// pausa automática da SES por tenant, que atua sem nós. Este é a rede que apanha a tendência.
+	until := time.Now().UTC().Truncate(24 * time.Hour)
 	from := until.Add(-reputationWindow)
 
 	for _, d := range domains {

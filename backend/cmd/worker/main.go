@@ -236,7 +236,7 @@ func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartU
 	// 60s em vez de parar de enviar).
 	notify := make(chan struct{}, 1)
 	if lc, err := pool.Acquire(ctx); err != nil {
-		log.Printf("outbox: LISTEN indisponível (%v); a usar apenas timer", err)
+		log.Printf("outbox: LISTEN unavailable (%v); falling back to the timer", err)
 	} else if _, err := lc.Exec(ctx, "LISTEN outbox_new"); err != nil {
 		log.Printf("outbox: LISTEN falhou (%v); a usar apenas timer", err)
 		lc.Release()
@@ -245,7 +245,7 @@ func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartU
 			defer lc.Release()
 			for {
 				if _, err := lc.Conn().WaitForNotification(ctx); err != nil {
-					log.Printf("outbox: WaitForNotification terminou (%v); só timer daqui em diante", err)
+					log.Printf("outbox: WaitForNotification ended (%v); timer only from here on", err)
 					return
 				}
 				select {
