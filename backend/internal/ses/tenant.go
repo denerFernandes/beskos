@@ -57,7 +57,7 @@ func (c *Client) CreateTenant(ctx context.Context, name string) error {
 	if status == http.StatusOK || status == http.StatusCreated {
 		return nil
 	}
-	if jaExiste(status, out) {
+	if alreadyExists(status, out) {
 		return nil
 	}
 	return fmt.Errorf("ses create tenant %q: HTTP %d: %s", name, status, out)
@@ -71,7 +71,7 @@ func (c *Client) CreateTenant(ctx context.Context, name string) error {
 // número que não muda.
 func (c *Client) AssociateIdentity(ctx context.Context, tenant, domain string) error {
 	if c.accountID == "" {
-		return fmt.Errorf("ses: SES_ACCOUNT_ID em falta — sem ele não se monta o ARN da identidade")
+		return fmt.Errorf("ses: SES_ACCOUNT_ID missing — without it the identity ARN cannot be built")
 	}
 	arn := fmt.Sprintf("arn:aws:ses:%s:%s:identity/%s", c.region, c.accountID, domain)
 	body, _ := json.Marshal(map[string]any{
@@ -82,7 +82,7 @@ func (c *Client) AssociateIdentity(ctx context.Context, tenant, domain string) e
 	if err != nil {
 		return err
 	}
-	if status == http.StatusOK || status == http.StatusCreated || jaExiste(status, out) {
+	if status == http.StatusOK || status == http.StatusCreated || alreadyExists(status, out) {
 		return nil
 	}
 	return fmt.Errorf("ses associate %q ao tenant %q: HTTP %d: %s", domain, tenant, status, out)
@@ -120,7 +120,7 @@ func (c *Client) TenantSendingStatus(ctx context.Context, name string) (string, 
 // Duas formas, porque o SES usa as duas: o nome da exceção (`AlreadyExistsException`) e uma frase
 // em inglês corrente ("Tenant with name X already exists in account Y"). Procurar só a primeira
 // fazia o comando de retroação falhar em tudo o que já estivesse criado.
-func jaExiste(status int, corpo []byte) bool {
+func alreadyExists(status int, body []byte) bool {
 	if status == http.StatusConflict {
 		return true
 	}
@@ -130,7 +130,7 @@ func jaExiste(status int, corpo []byte) bool {
 	// Qualquer 400 que diga "already" é uma repetição, não um erro: a SES usa pelo menos três
 	// formas — o nome da exceção, "already exists" e "has already been associated". Perseguir cada
 	// frase é uma corrida que se perde; o que importa é a categoria.
-	return strings.Contains(strings.ToLower(string(corpo)), "already")
+	return strings.Contains(strings.ToLower(string(body)), "already")
 }
 
 // --- Conjuntos de configuração ---------------------------------------------------------------
@@ -162,7 +162,7 @@ func (c *Client) CreateConfigurationSet(ctx context.Context, name string) error 
 	if err != nil {
 		return err
 	}
-	if status == http.StatusOK || status == http.StatusCreated || jaExiste(status, out) {
+	if status == http.StatusOK || status == http.StatusCreated || alreadyExists(status, out) {
 		return nil
 	}
 	return fmt.Errorf("ses create configuration set %q: HTTP %d: %s", name, status, out)
@@ -203,58 +203,58 @@ func (c *Client) SetSendingEnabled(ctx context.Context, name string, enabled boo
 // --- Métricas de reputação por cliente ----------------------------------------------------------
 
 // Reputacao resume o que a SES mede num conjunto de configuração — ou seja, num cliente.
-type Reputacao struct {
-	Enviadas   float64
-	Devolvidas float64 // permanentes + temporárias
-	Queixas    float64
+type Reputation struct {
+	Sent       float64
+	Bounced    float64 // permanentes + temporárias
+	Complaints float64
 }
 
 // TaxaDevolucao e TaxaQueixa em fração (0,05 = 5%). Sem envios, zero: um cliente que não enviou
 // nada não tem taxa nenhuma, e dividir por zero seria suspendê-lo por não existir.
-func (r Reputacao) TaxaDevolucao() float64 {
-	if r.Enviadas == 0 {
+func (r Reputation) BounceRate() float64 {
+	if r.Sent == 0 {
 		return 0
 	}
-	return r.Devolvidas / r.Enviadas
+	return r.Bounced / r.Sent
 }
 
-func (r Reputacao) TaxaQueixa() float64 {
-	if r.Enviadas == 0 {
+func (r Reputation) ComplaintRate() float64 {
+	if r.Sent == 0 {
 		return 0
 	}
-	return r.Queixas / r.Enviadas
+	return r.Complaints / r.Sent
 }
 
 // ReputacaoDoConjunto lê as métricas de um conjunto de configuração no intervalo dado.
 //
 // É esta chamada que torna a vigilância possível sem tocar no caminho do correio: a dimensão
 // CONFIGURATION_SET é exatamente o que colámos a cada identidade de domínio.
-func (c *Client) ReputacaoDoConjunto(ctx context.Context, conjunto string, de, ate time.Time) (Reputacao, error) {
-	metricas := []struct{ id, nome string }{
+func (c *Client) ConfigSetReputation(ctx context.Context, configSet string, from, until time.Time) (Reputation, error) {
+	metrics := []struct{ id, name string }{
 		{"s", "SEND"},
 		{"pb", "PERMANENT_BOUNCE"},
 		{"tb", "TRANSIENT_BOUNCE"},
 		{"c", "COMPLAINT"},
 	}
-	consultas := make([]map[string]any, 0, len(metricas))
-	for _, m := range metricas {
-		consultas = append(consultas, map[string]any{
+	queries := make([]map[string]any, 0, len(metrics))
+	for _, m := range metrics {
+		queries = append(queries, map[string]any{
 			"Id":         m.id,
 			"Namespace":  "VDM",
-			"Metric":     m.nome,
-			"Dimensions": map[string]string{"CONFIGURATION_SET": conjunto},
-			"StartDate":  de.Unix(),
-			"EndDate":    ate.Unix(),
+			"Metric":     m.name,
+			"Dimensions": map[string]string{"CONFIGURATION_SET": configSet},
+			"StartDate":  from.Unix(),
+			"EndDate":    until.Unix(),
 		})
 	}
-	body, _ := json.Marshal(map[string]any{"Queries": consultas})
+	body, _ := json.Marshal(map[string]any{"Queries": queries})
 
 	status, out, err := c.do(ctx, http.MethodPost, "/v2/email/metrics/batch", body)
 	if err != nil {
-		return Reputacao{}, err
+		return Reputation{}, err
 	}
 	if status != http.StatusOK {
-		return Reputacao{}, fmt.Errorf("ses métricas de %q: HTTP %d: %s", conjunto, status, out)
+		return Reputation{}, fmt.Errorf("ses métricas de %q: HTTP %d: %s", configSet, status, out)
 	}
 
 	var r struct {
@@ -268,15 +268,15 @@ func (c *Client) ReputacaoDoConjunto(ctx context.Context, conjunto string, de, a
 		} `json:"Errors"`
 	}
 	if err := json.Unmarshal(out, &r); err != nil {
-		return Reputacao{}, fmt.Errorf("decode métricas: %w", err)
+		return Reputation{}, fmt.Errorf("decode métricas: %w", err)
 	}
 	// Um erro numa das consultas não pode passar por "zero devoluções": zero é o valor que faz o
 	// vigia concluir que está tudo bem, e é exatamente o que não se sabe.
 	if len(r.Errors) > 0 {
-		return Reputacao{}, fmt.Errorf("ses métricas de %q: %s", conjunto, r.Errors[0].Message)
+		return Reputation{}, fmt.Errorf("ses métricas de %q: %s", configSet, r.Errors[0].Message)
 	}
 
-	var rep Reputacao
+	var rep Reputation
 	for _, res := range r.Results {
 		total := 0.0
 		for _, v := range res.Values {
@@ -284,11 +284,11 @@ func (c *Client) ReputacaoDoConjunto(ctx context.Context, conjunto string, de, a
 		}
 		switch res.ID {
 		case "s":
-			rep.Enviadas = total
+			rep.Sent = total
 		case "pb", "tb":
-			rep.Devolvidas += total
+			rep.Bounced += total
 		case "c":
-			rep.Queixas = total
+			rep.Complaints = total
 		}
 	}
 	return rep, nil

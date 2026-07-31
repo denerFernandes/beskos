@@ -45,20 +45,20 @@ if envelope :domain :matches "from" "*.*.*.*.*" {
 }
 
 // UpsertSieveScript cria ou atualiza um script de sistema e devolve o id.
-func (c *Client) UpsertSieveScript(ctx context.Context, nome, conteudo string) (string, error) {
+func (c *Client) UpsertSieveScript(ctx context.Context, name, content string) (string, error) {
 	// Procura primeiro: o `set` do registo não tem "cria ou atualiza", e provisionar duas vezes não
 	// pode deixar dois scripts com o mesmo nome.
-	id, err := c.sieveScriptID(ctx, nome)
+	id, err := c.sieveScriptID(ctx, name)
 	if err != nil {
 		return "", err
 	}
 
-	campos := map[string]any{"name": nome, "contents": conteudo, "isActive": true}
+	fields := map[string]any{"name": name, "contents": content, "isActive": true}
 	args := map[string]any{}
 	if id != "" {
-		args["update"] = map[string]any{id: campos}
+		args["update"] = map[string]any{id: fields}
 	} else {
-		args["create"] = map[string]any{"s1": campos}
+		args["create"] = map[string]any{"s1": fields}
 	}
 
 	raw, err := c.call(ctx, "x:SieveSystemScript/set", args)
@@ -70,7 +70,7 @@ func (c *Client) UpsertSieveScript(ctx context.Context, nome, conteudo string) (
 		return "", fmt.Errorf("decode SieveSystemScript/set: %w", err)
 	}
 	if len(r.NotCreated) > 0 || len(r.NotUpdated) > 0 {
-		return "", fmt.Errorf("stalwart recusou o script: criados=%s atualizados=%s",
+		return "", fmt.Errorf("stalwart rejected the script: created=%s updated=%s",
 			mustJSON(r.NotCreated), mustJSON(r.NotUpdated))
 	}
 	if id != "" {
@@ -80,7 +80,7 @@ func (c *Client) UpsertSieveScript(ctx context.Context, nome, conteudo string) (
 }
 
 // sieveScriptID procura um script de sistema pelo nome. Devolve "" se não existir.
-func (c *Client) sieveScriptID(ctx context.Context, nome string) (string, error) {
+func (c *Client) sieveScriptID(ctx context.Context, name string) (string, error) {
 	raw, err := c.call(ctx, "x:SieveSystemScript/query", map[string]any{})
 	if err != nil {
 		return "", err
@@ -108,7 +108,7 @@ func (c *Client) sieveScriptID(ctx context.Context, nome string) (string, error)
 		return "", fmt.Errorf("decode SieveSystemScript/get: %w", err)
 	}
 	for _, s := range g.List {
-		if s.Name == nome {
+		if s.Name == name {
 			return s.ID, nil
 		}
 	}
@@ -126,13 +126,13 @@ func (c *Client) GetDataStageScript(ctx context.Context) (json.RawMessage, error
 		List []json.RawMessage `json:"list"`
 	}
 	if err := json.Unmarshal(raw, &r); err != nil || len(r.List) == 0 {
-		return nil, fmt.Errorf("MtaStageData/get não devolveu nada: %v", err)
+		return nil, fmt.Errorf("MtaStageData/get returned nothing: %v", err)
 	}
 	return r.List[0], nil
 }
 
 // SetDataStageScript faz a fase DATA correr o script indicado.
-func (c *Client) SetDataStageScript(ctx context.Context, nomeDoScript string) error {
+func (c *Client) SetDataStageScript(ctx context.Context, scriptName string) error {
 	// CAMINHOS DE PATCH, não um objeto aninhado. O JMAP do Stalwart atualiza por ponteiro
 	// (`script/match/0/if`); mandar `script` como objeto com um `match` lá dentro é recusado com
 	// `invalidPatch` a apontar precisamente `script/match`.
@@ -146,7 +146,7 @@ func (c *Client) SetDataStageScript(ctx context.Context, nomeDoScript string) er
 			singletonID: map[string]any{
 				"script/else":         "''",
 				"script/match/0/if":   "local_port == 465 || local_port == 587",
-				"script/match/0/then": fmt.Sprintf("'%s'", nomeDoScript),
+				"script/match/0/then": fmt.Sprintf("'%s'", scriptName),
 			},
 		},
 	})

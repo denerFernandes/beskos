@@ -45,7 +45,7 @@ func (c *Client) GetBlobStore(ctx context.Context) (*BlobStore, error) {
 		return nil, fmt.Errorf("decode BlobStore/get: %w", err)
 	}
 	if len(r.List) == 0 {
-		return nil, fmt.Errorf("stalwart: BlobStore/get não devolveu lista; resposta crua: %s", raw)
+		return nil, fmt.Errorf("stalwart: BlobStore/get returned no list; raw response: %s", raw)
 	}
 	return &BlobStore{ID: singletonID, Config: r.List[0]}, nil
 }
@@ -94,7 +94,7 @@ func (c *Client) SetBlobStoreS3(ctx context.Context, id string, s S3BlobStore) e
 		return fmt.Errorf("decode BlobStore/set: %w", err)
 	}
 	if len(r.NotUpdated) > 0 {
-		return fmt.Errorf("stalwart recusou a alteração: %s", string(mustJSON(r.NotUpdated)))
+		return fmt.Errorf("stalwart rejected the change: %s", string(mustJSON(r.NotUpdated)))
 	}
 	return nil
 }
@@ -124,7 +124,7 @@ func (c *Client) ReloadSettings(ctx context.Context) error {
 		return fmt.Errorf("decode Action/set: %w", err)
 	}
 	if len(r.NotCreated) > 0 {
-		return fmt.Errorf("recarga recusada: %s", string(mustJSON(r.NotCreated)))
+		return fmt.Errorf("reload rejected: %s", string(mustJSON(r.NotCreated)))
 	}
 	return nil
 }

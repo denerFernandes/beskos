@@ -6,7 +6,7 @@
 // encontra. Isto traz esses.
 //
 //	blobmigrate            # mostra o que faria
-//	blobmigrate --fazer    # copia
+//	blobmigrate --apply    # copia
 //
 // Cifra ao copiar, usando o mesmo storage.Service que o gateway usa — o resultado é byte a byte o
 // mesmo que se a mensagem tivesse entrado pelo caminho novo. Não apaga a origem: o balde antigo
@@ -29,97 +29,97 @@ import (
 
 func main() {
 	log.SetFlags(0)
-	fazer := flag.Bool("fazer", false, "copia mesmo; sem isto só mostra")
-	prefixo := flag.String("prefixo", "mail/", "prefixo a migrar")
+	run := flag.Bool("apply", false, "actually copy; without this it only reports")
+	prefix := flag.String("prefixo", "mail/", "prefixo a migrar")
 	flag.Parse()
 
-	origem, err := minio.New(env("ORIGEM_ENDPOINT"), &minio.Options{
+	source, err := minio.New(env("ORIGEM_ENDPOINT"), &minio.Options{
 		Creds:  credentials.NewStaticV4(env("ORIGEM_ACCESS_KEY"), env("ORIGEM_SECRET_KEY"), ""),
 		Secure: true, Region: "auto",
 	})
 	if err != nil {
 		log.Fatalf("origem: %v", err)
 	}
-	baldeOrigem := env("ORIGEM_BUCKET")
+	sourceBucket := env("ORIGEM_BUCKET")
 
-	ssl, _ := strconv.ParseBool(envOu("DESTINO_SSL", "true"))
-	destino, err := storage.New(env("DESTINO_ENDPOINT"), env("DESTINO_ACCESS_KEY"),
-		env("DESTINO_SECRET_KEY"), env("DESTINO_BUCKET"), envOu("DESTINO_REGION", "auto"), ssl)
+	ssl, _ := strconv.ParseBool(envOr("DESTINO_SSL", "true"))
+	dest, err := storage.New(env("DESTINO_ENDPOINT"), env("DESTINO_ACCESS_KEY"),
+		env("DESTINO_SECRET_KEY"), env("DESTINO_BUCKET"), envOr("DESTINO_REGION", "auto"), ssl)
 	if err != nil {
 		log.Fatalf("destino: %v", err)
 	}
-	if err := destino.EnableEncryption(nil, env("FILE_ENC_KEYS")); err != nil {
+	if err := dest.EnableEncryption(nil, env("FILE_ENC_KEYS")); err != nil {
 		log.Fatalf("cifra: %v", err)
 	}
-	if !destino.Encrypting() {
-		log.Fatal("sem FILE_ENC_KEYS não vale a pena migrar — o objetivo é chegar lá cifrado")
+	if !dest.Encrypting() {
+		log.Fatal("without FILE_ENC_KEYS there is no point migrating — the goal is to arrive encrypted")
 	}
 
 	ctx := context.Background()
-	var vistos, copiados, jaCifrados, falhas int
+	var seen, copied, alreadyEncrypted, failures int
 
-	for obj := range origem.ListObjects(ctx, baldeOrigem, minio.ListObjectsOptions{
-		Prefix: *prefixo, Recursive: true,
+	for obj := range source.ListObjects(ctx, sourceBucket, minio.ListObjectsOptions{
+		Prefix: *prefix, Recursive: true,
 	}) {
 		if obj.Err != nil {
-			log.Fatalf("listar: %v", obj.Err)
+			log.Fatalf("list: %v", obj.Err)
 		}
 		if obj.Size == 0 {
 			continue
 		}
-		vistos++
+		seen++
 
 		// Já lá está cifrado? Então não se toca: repetir a migração tem de ser inofensivo.
-		if cifrado, err := destino.IsEncrypted(ctx, obj.Key); err == nil && cifrado {
-			jaCifrados++
+		if cifrado, err := dest.IsEncrypted(ctx, obj.Key); err == nil && cifrado {
+			alreadyEncrypted++
 			continue
 		}
 
-		if !*fazer {
+		if !*run {
 			log.Printf("  copiaria %s (%d bytes)", obj.Key, obj.Size)
-			copiados++
+			copied++
 			continue
 		}
-		if err := copiar(ctx, origem, baldeOrigem, destino, obj.Key, obj.Size); err != nil {
+		if err := copyObject(ctx, source, sourceBucket, dest, obj.Key, obj.Size); err != nil {
 			log.Printf("  ✗ %s: %v", obj.Key, err)
-			falhas++
+			failures++
 			continue
 		}
-		copiados++
-		log.Printf("  ✓ %s (%d bytes, cifrado)", obj.Key, obj.Size)
+		copied++
+		log.Printf("  ✓ %s (%d bytes, encrypted)", obj.Key, obj.Size)
 	}
 
-	verbo := "por copiar"
-	if *fazer {
-		verbo = "copiados"
+	verb := "por copiar"
+	if *run {
+		verb = "copiados"
 	}
-	log.Printf("%d objetos na origem, %d %s, %d já estavam cifrados, %d falhas",
-		vistos, copiados, verbo, jaCifrados, falhas)
-	if falhas > 0 {
+	log.Printf("%d objects at the source, %d %s, %d were already encrypted, %d failures",
+		seen, copied, verb, alreadyEncrypted, failures)
+	if failures > 0 {
 		os.Exit(1)
 	}
 }
 
-func copiar(ctx context.Context, origem *minio.Client, balde string, destino *storage.Service, key string, tamanho int64) error {
-	src, err := origem.GetObject(ctx, balde, key, minio.GetObjectOptions{})
+func copyObject(ctx context.Context, source *minio.Client, bucket string, dest *storage.Service, key string, size int64) error {
+	src, err := source.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		return err
 	}
 	defer src.Close()
-	return destino.Put(ctx, key, src, tamanho, "")
+	return dest.Put(ctx, key, src, size, "")
 }
 
-func env(nome string) string {
-	v := os.Getenv(nome)
+func env(name string) string {
+	v := os.Getenv(name)
 	if v == "" {
-		log.Fatalf("%s em falta", nome)
+		log.Fatalf("%s missing", name)
 	}
 	return v
 }
 
-func envOu(nome, omissao string) string {
-	if v := os.Getenv(nome); v != "" {
+func envOr(name, fallback string) string {
+	if v := os.Getenv(name); v != "" {
 		return v
 	}
-	return omissao
+	return fallback
 }

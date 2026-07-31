@@ -45,12 +45,12 @@ func (r *SeekReader) Read(p []byte) (int, error) {
 	}
 	idx := r.pos / int64(r.h.ChunkSize)
 	if idx != r.chunkIndex {
-		if err := r.carregar(idx); err != nil {
+		if err := r.load(idx); err != nil {
 			return 0, err
 		}
 	}
-	dentro := r.pos - idx*int64(r.h.ChunkSize)
-	n := copy(p, r.chunk[dentro:])
+	inside := r.pos - idx*int64(r.h.ChunkSize)
+	n := copy(p, r.chunk[inside:])
 	r.pos += int64(n)
 	return n, nil
 }
@@ -65,10 +65,10 @@ func (r *SeekReader) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekEnd:
 		abs = r.h.PlainSize + offset
 	default:
-		return 0, fmt.Errorf("filecrypt: whence inválido: %d", whence)
+		return 0, fmt.Errorf("filecrypt: invalid whence: %d", whence)
 	}
 	if abs < 0 {
-		return 0, errors.New("filecrypt: posição negativa")
+		return 0, errors.New("filecrypt: negative position")
 	}
 	// Posicionar depois do fim é legítimo (o io.Seeker permite-o); a leitura seguinte dá EOF.
 	r.pos = abs
@@ -76,32 +76,32 @@ func (r *SeekReader) Seek(offset int64, whence int) (int64, error) {
 }
 
 // carregar traz um bloco do armazenamento e decifra-o.
-func (r *SeekReader) carregar(idx int64) error {
+func (r *SeekReader) load(idx int64) error {
 	// O último bloco é mais curto: o tamanho vem do que falta até ao fim em claro.
-	restam := r.h.PlainSize - idx*int64(r.h.ChunkSize)
-	if restam <= 0 {
+	remaining := r.h.PlainSize - idx*int64(r.h.ChunkSize)
+	if remaining <= 0 {
 		return io.EOF
 	}
-	tamanho := int64(r.h.ChunkSize)
-	ultimo := false
-	if restam <= tamanho {
-		tamanho, ultimo = restam, true
+	size := int64(r.h.ChunkSize)
+	last := false
+	if remaining <= size {
+		size, last = remaining, true
 	}
 
 	if _, err := r.src.Seek(chunkOffset(r.h, idx), io.SeekStart); err != nil {
 		return err
 	}
-	buf := make([]byte, tamanho+TagSize)
+	buf := make([]byte, size+TagSize)
 	if _, err := io.ReadFull(r.src, buf); err != nil {
 		if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return ErrCorrupt
 		}
 		return err
 	}
-	aberto, err := r.gcm.Open(nil, nonce(r.h.NoncePrefix, idx), buf, aad(idx, ultimo))
+	opened, err := r.gcm.Open(nil, nonce(r.h.NoncePrefix, idx), buf, aad(idx, last))
 	if err != nil {
 		return ErrCorrupt
 	}
-	r.chunk, r.chunkIndex = aberto, idx
+	r.chunk, r.chunkIndex = opened, idx
 	return nil
 }

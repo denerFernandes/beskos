@@ -25,56 +25,56 @@ import (
 // um problema de rede numa cascata de reinícios — e o registo passa a contar a história errada.
 
 const (
-	intervaloSentinela = time.Minute
+	watchdogInterval = time.Minute
 	// Só se queixa depois de falhar seguidas: um pico de rede não é uma avaria, e um alarme que
 	// dispara sozinho de vez em quando deixa de ser lido.
-	falhasParaAlarme = 3
+	failuresBeforeAlarm = 3
 )
 
-func startSentinela(stalwartURL string) {
+func startWatchdog(stalwartURL string) {
 	if stalwartURL == "" {
 		log.Printf("stalwart sentinel disabled (STALWART_URL unset)")
 		return
 	}
-	alvo := strings.TrimRight(stalwartURL, "/") + "/healthz/live"
+	target := strings.TrimRight(stalwartURL, "/") + "/healthz/live"
 
 	go func() {
 		cli := &http.Client{Timeout: 10 * time.Second}
-		var seguidas int
+		var consecutive int
 		for {
-			time.Sleep(intervaloSentinela)
+			time.Sleep(watchdogInterval)
 
-			err := espreitar(cli, alvo)
+			err := peek(cli, target)
 			if err == nil {
-				if seguidas >= falhasParaAlarme {
+				if consecutive >= failuresBeforeAlarm {
 					log.Printf("stalwart sentinel: RECOVERED, %s reachable again after %d failures",
-						alvo, seguidas)
+						target, consecutive)
 				}
-				seguidas = 0
+				consecutive = 0
 				continue
 			}
 
-			seguidas++
+			consecutive++
 			// O primeiro aviso é o que interessa: diz o que falhou e, sobretudo, distingue-o do
 			// healthcheck do contentor, que continuará a dizer `healthy`.
-			if seguidas == falhasParaAlarme {
+			if consecutive == failuresBeforeAlarm {
 				log.Printf("stalwart sentinel: UNREACHABLE by service name for %d checks: %v "+
 					"(the container healthcheck may still report healthy — it probes loopback, "+
 					"this probes the path clients use; suspect swarm routing, see docs/DEPLOY.md)",
-					seguidas, err)
-			} else if seguidas > falhasParaAlarme && seguidas%10 == 0 {
-				log.Printf("stalwart sentinel: still unreachable after %d checks: %v", seguidas, err)
+					consecutive, err)
+			} else if consecutive > failuresBeforeAlarm && consecutive%10 == 0 {
+				log.Printf("stalwart sentinel: still unreachable after %d checks: %v", consecutive, err)
 			}
 		}
 	}()
-	log.Printf("stalwart sentinel started (checks %s every %s)", alvo, intervaloSentinela)
+	log.Printf("stalwart sentinel started (checks %s every %s)", target, watchdogInterval)
 }
 
-func espreitar(cli *http.Client, alvo string) error {
+func peek(cli *http.Client, target string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, alvo, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func espreitar(cli *http.Client, alvo string) error {
 	// Qualquer resposta HTTP serve: o que se está a verificar é que a ligação chega ao fim e é
 	// atendida, não o que o Stalwart acha da saúde dele.
 	if resp.StatusCode >= 500 {
-		return fmt.Errorf("respondeu %s", resp.Status)
+		return fmt.Errorf("answered %s", resp.Status)
 	}
 	return nil
 }

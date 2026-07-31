@@ -21,11 +21,11 @@ import (
 
 func main() {
 	log.SetFlags(0)
-	alvo := envOu("SW_ADDR", "stalwart:8080")
-	log.Printf("=== sonda %s a %s ===", time.Now().UTC().Format(time.RFC3339), alvo)
+	target := envOr("SW_ADDR", "stalwart:8080")
+	log.Printf("=== sonda %s a %s ===", time.Now().UTC().Format(time.RFC3339), target)
 
 	// 1. O TCP aceita?
-	c, err := net.DialTimeout("tcp", alvo, 10*time.Second)
+	c, err := net.DialTimeout("tcp", target, 10*time.Second)
 	if err != nil {
 		log.Fatalf("1. TCP: %v", err)
 	}
@@ -33,33 +33,33 @@ func main() {
 	log.Printf("1. TCP: aceita")
 
 	// 2. HTTP simples.
-	log.Printf("2. HTTP simples: %s", tentar(func() (string, error) { return pedir("http://" + alvo + "/") }))
+	log.Printf("2. HTTP simples: %s", attempt(func() (string, error) { return request("http://" + target + "/") }))
 
 	// 3. TLS. Se ele responder aqui e não em 2, o listener passou a ser HTTPS — e todo o resto da
 	//    infraestrutura que lhe fala em HTTP simples deixa de funcionar sem mudar nada nela.
-	log.Printf("3. TLS: %s", tentar(func() (string, error) {
-		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", alvo,
+	log.Printf("3. TLS: %s", attempt(func() (string, error) {
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", target,
 			&tls.Config{InsecureSkipVerify: true})
 		if err != nil {
 			return "", err
 		}
 		defer conn.Close()
 		e := conn.ConnectionState()
-		nomes := "sem certificado"
+		names := "sem certificado"
 		if len(e.PeerCertificates) > 0 {
-			nomes = e.PeerCertificates[0].Subject.CommonName
+			names = e.PeerCertificates[0].Subject.CommonName
 		}
-		fmt.Fprintf(conn, "GET / HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", alvo)
-		linha, err := bufio.NewReader(conn).ReadString('\n')
+		fmt.Fprintf(conn, "GET / HTTP/1.1\r\nHost: %s\r\nConnection: close\r\n\r\n", target)
+		line, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("handshake OK (certificado %s) → %s", nomes, strings.TrimSpace(linha)), nil
+		return fmt.Sprintf("handshake OK (certificado %s) → %s", names, strings.TrimSpace(line)), nil
 	}))
 
 	// 4. O caminho que a aplicação usa mesmo.
-	log.Printf("4. POST /jmap/ em HTTP simples: %s", tentar(func() (string, error) {
-		resp, err := (&http.Client{Timeout: 15 * time.Second}).Post("http://"+alvo+"/jmap/",
+	log.Printf("4. POST /jmap/ em HTTP simples: %s", attempt(func() (string, error) {
+		resp, err := (&http.Client{Timeout: 15 * time.Second}).Post("http://"+target+"/jmap/",
 			"application/json", strings.NewReader(`{"using":[],"methodCalls":[]}`))
 		if err != nil {
 			return "", err
@@ -68,13 +68,13 @@ func main() {
 		return resp.Status, nil
 	}))
 
-	log.Printf("=== fim ===")
+	log.Printf("=== end ===")
 	for {
 		time.Sleep(time.Hour)
 	}
 }
 
-func tentar(f func() (string, error)) string {
+func attempt(f func() (string, error)) string {
 	s, err := f()
 	if err != nil {
 		return "FALHOU: " + err.Error()
@@ -82,7 +82,7 @@ func tentar(f func() (string, error)) string {
 	return s
 }
 
-func pedir(url string) (string, error) {
+func request(url string) (string, error) {
 	resp, err := (&http.Client{Timeout: 15 * time.Second}).Get(url)
 	if err != nil {
 		return "", err
@@ -91,9 +91,9 @@ func pedir(url string) (string, error) {
 	return resp.Status, nil
 }
 
-func envOu(nome, omissao string) string {
-	if v := os.Getenv(nome); v != "" {
+func envOr(name, fallback string) string {
+	if v := os.Getenv(name); v != "" {
 		return v
 	}
-	return omissao
+	return fallback
 }

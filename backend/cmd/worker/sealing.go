@@ -26,10 +26,10 @@ import (
 // feito.
 
 const (
-	intervaloSelagem  = 10 * time.Minute
-	pausaEntreObjetos = 200 * time.Millisecond
+	sealingInterval     = 10 * time.Minute
+	pauseBetweenObjects = 200 * time.Millisecond
 	// Teto por passagem: mantém a passagem curta e o registo legível.
-	maxPorPassagem = 500
+	maxPerPass = 500
 )
 
 func startSealing(st *storage.Service) {
@@ -41,28 +41,28 @@ func startSealing(st *storage.Service) {
 		// Primeira passagem com atraso: o arranque já tem que fazer.
 		time.Sleep(time.Minute)
 		for {
-			selarPassagem(context.Background(), st)
-			time.Sleep(intervaloSelagem)
+			sealPass(context.Background(), st)
+			time.Sleep(sealingInterval)
 		}
 	}()
 	log.Printf("sealing worker started (encrypts objects left in the clear)")
 }
 
-func selarPassagem(ctx context.Context, st *storage.Service) {
-	inicio := time.Now()
-	var vistos, selados, falhas int
+func sealPass(ctx context.Context, st *storage.Service) {
+	start := time.Now()
+	var seen, sealed, failures int
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	for obj := range st.ListObjects(ctx, "") {
-		vistos++
-		if !obj.Selavel() {
+		seen++
+		if !obj.Sealable() {
 			continue
 		}
 		cifrado, err := st.IsEncrypted(ctx, obj.Key)
 		if err != nil {
-			falhas++
+			failures++
 			log.Printf("sealing: %s: %v", obj.Key, err)
 			continue
 		}
@@ -70,19 +70,19 @@ func selarPassagem(ctx context.Context, st *storage.Service) {
 			continue
 		}
 		if err := st.Seal(ctx, obj.Key); err != nil {
-			falhas++
+			failures++
 			log.Printf("sealing: %s: %v", obj.Key, err)
 			continue
 		}
-		selados++
-		if selados >= maxPorPassagem {
+		sealed++
+		if sealed >= maxPerPass {
 			break
 		}
-		time.Sleep(pausaEntreObjetos)
+		time.Sleep(pauseBetweenObjects)
 	}
 
-	if selados > 0 || falhas > 0 {
-		log.Printf("sealing: %d objetos vistos, %d selados, %d falhas, em %s",
-			vistos, selados, falhas, time.Since(inicio).Round(time.Second))
+	if sealed > 0 || failures > 0 {
+		log.Printf("sealing: %d objects seen, %d sealed, %d failures, in %s",
+			seen, sealed, failures, time.Since(start).Round(time.Second))
 	}
 }

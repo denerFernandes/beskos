@@ -8,7 +8,7 @@
 // e, portanto, mais probabilidade de a estragar.
 //
 //	ses-tenants            # mostra o estado de cada domínio
-//	ses-tenants --criar    # cria o que faltar
+//	ses-tenants --create    # cria o que faltar
 //
 // Idempotente: um tenant que já existe é sucesso. Correr duas vezes não faz mal.
 package main
@@ -28,12 +28,12 @@ import (
 
 func main() {
 	log.SetFlags(0)
-	criar := flag.Bool("criar", false, "cria os tenants em falta; sem isto só mostra")
+	create := flag.Bool("create", false, "create the missing tenants; without this it only reports")
 	flag.Parse()
 
 	relay := ses.NewFromEnv()
 	if relay == nil {
-		log.Fatal("SES desligado (faltam SES_REGION e as credenciais AWS)")
+		log.Fatal("SES off (SES_REGION and the AWS credentials are missing)")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
@@ -41,70 +41,70 @@ func main() {
 
 	pool, err := pgxpool.New(ctx, env("DATABASE_URL"))
 	if err != nil {
-		log.Fatalf("base de dados: %v", err)
+		log.Fatalf("database: %v", err)
 	}
 	defer pool.Close()
 
-	dominios, err := db.New(pool).ListAllDomains(ctx)
+	domains, err := db.New(pool).ListAllDomains(ctx)
 	if err != nil {
-		log.Fatalf("listar domínios: %v", err)
+		log.Fatalf("list domains: %v", err)
 	}
-	log.Printf("%d domínios", len(dominios))
+	log.Printf("%d domains", len(domains))
 
-	var feitos, falhas int
-	for _, d := range dominios {
-		nome := ses.TenantName(d.Dominio)
+	var done, failures int
+	for _, d := range domains {
+		name := ses.TenantName(d.Dominio)
 
-		if !*criar {
-			estado, err := relay.TenantSendingStatus(ctx, nome)
+		if !*create {
+			status, err := relay.TenantSendingStatus(ctx, name)
 			if err == nil {
-				log.Printf("  %-24s %-24s tenant existe (envio: %s)", d.Dominio, nome, estado)
+				log.Printf("  %-24s %-24s tenant existe (envio: %s)", d.Dominio, name, status)
 			} else {
-				log.Printf("  %-24s %-24s EM FALTA", d.Dominio, nome)
-				feitos++
+				log.Printf("  %-24s %-24s MISSING", d.Dominio, name)
+				done++
 			}
 			continue
 		}
 
 		// O conjunto de configuração primeiro: é o que produz efeito sem depender de mais nada.
-		if err := relay.CreateConfigurationSet(ctx, nome); err != nil {
-			log.Printf("  %-24s criar conjunto: %v", d.Dominio, err)
-			falhas++
+		if err := relay.CreateConfigurationSet(ctx, name); err != nil {
+			log.Printf("  %-24s create configuration set: %v", d.Dominio, err)
+			failures++
 			continue
 		}
-		if err := relay.SetIdentityConfigurationSet(ctx, d.Dominio, nome); err != nil {
-			log.Printf("  %-24s predefinir conjunto: %v", d.Dominio, err)
-			falhas++
+		if err := relay.SetIdentityConfigurationSet(ctx, d.Dominio, name); err != nil {
+			log.Printf("  %-24s set default configuration set: %v", d.Dominio, err)
+			failures++
 			continue
 		}
-		if err := relay.CreateTenant(ctx, nome); err != nil {
+		if err := relay.CreateTenant(ctx, name); err != nil {
 			log.Printf("  %-24s criar tenant: %v", d.Dominio, err)
-			falhas++
+			failures++
 			continue
 		}
-		if err := relay.AssociateIdentity(ctx, nome, d.Dominio); err != nil {
+		if err := relay.AssociateIdentity(ctx, name, d.Dominio); err != nil {
 			log.Printf("  %-24s associar identidade: %v", d.Dominio, err)
-			falhas++
+			failures++
 			continue
 		}
-		log.Printf("  %-24s %-24s conjunto predefinido + tenant associado", d.Dominio, nome)
-		feitos++
+		log.Printf("  %-24s %-24s default configuration set + tenant associated", d.Dominio, name)
+		done++
 	}
 
-	verbo := "por criar"
-	if *criar {
-		verbo = "criados"
+	verb := "por criar"
+	if *create {
+		verb = "criados"
 	}
-	log.Printf("%d %s, %d falhas", feitos, verbo, falhas)
-	if falhas > 0 {
+	log.Printf("%d %s, %d falhas", done, verb, failures)
+	if failures > 0 {
 		os.Exit(1)
 	}
 }
 
-func env(nome string) string {
-	v := os.Getenv(nome)
+func env(name string) string {
+	v := os.Getenv(name)
 	if v == "" {
-		log.Fatalf("%s em falta", nome)
+		log.Fatalf("%s missing", name)
 	}
 	return v
 }

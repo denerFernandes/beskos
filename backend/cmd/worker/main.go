@@ -386,7 +386,7 @@ func main() {
 		machine.WithRelay(relay, brand)
 		log.Printf("SES relay enabled (white-label BYODKIM; brand=%s)", brand)
 		// Vigia de reputação: suspende um cliente antes que a AWS suspenda todos.
-		startReputacao(q, relay)
+		startReputation(q, relay)
 	}
 	runner := provisioning.NewRunner(machine, q)
 
@@ -439,7 +439,7 @@ func main() {
 	stWorker := meteringStorage(q)
 	startAssembly(q, stWorker)
 	startSealing(stWorker)
-	startSentinela(os.Getenv("STALWART_URL"))
+	startWatchdog(os.Getenv("STALWART_URL"))
 
 	// Tarefas em fundo do assistente (§7.5 do desenho do assistente). O executor é montado a
 	// partir de um httpapi.Server porque precisa exatamente das mesmas dependências do motor

@@ -75,9 +75,9 @@ const (
 
 var (
 	// ErrNotEncrypted diz que o objeto não tem a nossa magia — é conteúdo legado, em claro.
-	ErrNotEncrypted = errors.New("filecrypt: objeto sem cabeçalho cifrado")
+	ErrNotEncrypted = errors.New("filecrypt: object has no encrypted header")
 	// ErrCorrupt cobre selo inválido, cabeçalho truncado e bloco fora de sítio.
-	ErrCorrupt = errors.New("filecrypt: objeto corrompido ou adulterado")
+	ErrCorrupt = errors.New("filecrypt: object is corrupt or tampered with")
 )
 
 // Header descreve um objeto cifrado.
@@ -147,8 +147,8 @@ func EncryptedSize(plainSize int64, chunkSize, wrappedLen int) int64 {
 	if plainSize == 0 {
 		return base
 	}
-	blocos := (plainSize + int64(chunkSize) - 1) / int64(chunkSize)
-	return base + plainSize + blocos*TagSize
+	blocks := (plainSize + int64(chunkSize) - 1) / int64(chunkSize)
+	return base + plainSize + blocks*TagSize
 }
 
 // chunkOffset devolve onde começa, no objeto cifrado, o bloco de índice i.
@@ -177,7 +177,7 @@ func aad(index int64, last bool) []byte {
 
 func newGCM(key []byte) (cipher.AEAD, error) {
 	if len(key) != KeySize {
-		return nil, fmt.Errorf("filecrypt: chave tem de ter %d bytes, tem %d", KeySize, len(key))
+		return nil, fmt.Errorf("filecrypt: key must be %d bytes, it has %d", KeySize, len(key))
 	}
 	blk, err := aes.NewCipher(key)
 	if err != nil {

@@ -79,52 +79,52 @@ func (k *keyring) tenantKey(ctx context.Context, tenant uuid.UUID) ([]byte, erro
 
 	row, err := k.q.GetTenantKey(ctx, tenant)
 	if err == nil {
-		chave, uerr := k.kek.Unwrap(row.WrappedKey, int(row.KekVersion))
+		key, uerr := k.kek.Unwrap(row.WrappedKey, int(row.KekVersion))
 		if uerr != nil {
 			return nil, uerr
 		}
-		k.guarda(tenant, chave)
-		return chave, nil
+		k.store(tenant, key)
+		return key, nil
 	}
 
 	// Ainda não existe: gera. Duas chamadas em paralelo para o mesmo tenant não podem criar duas
 	// chaves — a segunda tornaria ilegível o que a primeira cifrou. O INSERT é ON CONFLICT DO
 	// NOTHING; se não devolver linha, alguém ganhou a corrida e relemos a dele.
-	nova, err := filecrypt.NewKey()
+	fresh, err := filecrypt.NewKey()
 	if err != nil {
 		return nil, err
 	}
-	wrapped, versao, err := k.kek.Wrap(nova)
+	wrapped, version, err := k.kek.Wrap(fresh)
 	if err != nil {
 		return nil, err
 	}
-	criada, err := k.q.CreateTenantKey(ctx, db.CreateTenantKeyParams{
-		TenantID: tenant, WrappedKey: wrapped, KekVersion: int32(versao),
+	created, err := k.q.CreateTenantKey(ctx, db.CreateTenantKeyParams{
+		TenantID: tenant, WrappedKey: wrapped, KekVersion: int32(version),
 	})
 	if err != nil {
 		// Sem linha devolvida: houve corrida. Relê a chave que o outro criou.
 		row, rerr := k.q.GetTenantKey(ctx, tenant)
 		if rerr != nil {
-			return nil, fmt.Errorf("chave do tenant %s: %w", tenant, err)
+			return nil, fmt.Errorf("tenant key %s: %w", tenant, err)
 		}
-		chave, uerr := k.kek.Unwrap(row.WrappedKey, int(row.KekVersion))
+		key, uerr := k.kek.Unwrap(row.WrappedKey, int(row.KekVersion))
 		if uerr != nil {
 			return nil, uerr
 		}
-		k.guarda(tenant, chave)
-		return chave, nil
+		k.store(tenant, key)
+		return key, nil
 	}
-	chave, err := k.kek.Unwrap(criada.WrappedKey, int(criada.KekVersion))
+	key, err := k.kek.Unwrap(created.WrappedKey, int(created.KekVersion))
 	if err != nil {
 		return nil, err
 	}
-	k.guarda(tenant, chave)
-	return chave, nil
+	k.store(tenant, key)
+	return key, nil
 }
 
-func (k *keyring) guarda(tenant uuid.UUID, chave []byte) {
+func (k *keyring) store(tenant uuid.UUID, key []byte) {
 	k.mu.Lock()
-	k.tenant[tenant] = chave
+	k.tenant[tenant] = key
 	k.mu.Unlock()
 }
 
@@ -153,11 +153,11 @@ func (k *keyring) wrapForKey(ctx context.Context, blobKey string) (dek []byte, h
 
 	// Objeto de sistema (as gravações antigas, em `recordings/…`): embrulha-se com a KEK, e fica
 	// de fora da eliminação por tenant. As gravações novas levam prefixo de tenant por isso mesmo.
-	wrapped, versao, err := k.kek.Wrap(dek)
+	wrapped, version, err := k.kek.Wrap(dek)
 	if err != nil {
 		return nil, h, err
 	}
-	h.KEKVersion, h.WrappedKey = versao, wrapped
+	h.KEKVersion, h.WrappedKey = version, wrapped
 	return dek, h, nil
 }
 
@@ -168,7 +168,7 @@ func (k *keyring) unwrapFromHeader(ctx context.Context, blobKey string, h filecr
 	}
 	tenant, ok := tenantFromKey(blobKey)
 	if !ok {
-		return nil, fmt.Errorf("storage: %q diz estar embrulhado por tenant mas a chave não tem prefixo", blobKey)
+		return nil, fmt.Errorf("storage: %q claims to be tenant-wrapped but the key has no prefix", blobKey)
 	}
 	tk, err := k.tenantKey(ctx, tenant)
 	if err != nil {
@@ -180,11 +180,11 @@ func (k *keyring) unwrapFromHeader(ctx context.Context, blobKey string, h filecr
 // abre prepara a leitura de um objeto: lê o cabeçalho, decide se está cifrado e devolve o leitor
 // certo. Um objeto sem a nossa magia é devolvido tal como está — é assim que o conteúdo anterior à
 // cifra continua a servir-se enquanto a migração não lhe chega.
-func (s *Service) abre(ctx context.Context, key string, obj io.ReadCloser) (io.ReadCloser, error) {
-	h, lido, err := lerCabecalho(obj)
+func (s *Service) decrypt(ctx context.Context, key string, obj io.ReadCloser) (io.ReadCloser, error) {
+	h, read, err := readHeader(obj)
 	if errors.Is(err, filecrypt.ErrNotEncrypted) {
 		// Anterior à cifra: devolve o que foi lido colado ao resto.
-		return juntar(io.MultiReader(bytes.NewReader(lido), obj), obj), nil
+		return join(io.MultiReader(bytes.NewReader(read), obj), obj), nil
 	}
 	if err != nil {
 		obj.Close()
@@ -192,7 +192,7 @@ func (s *Service) abre(ctx context.Context, key string, obj io.ReadCloser) (io.R
 	}
 	if s.keys == nil {
 		obj.Close()
-		return nil, errors.New("storage: objeto cifrado mas a cifra está desligada (falta FILE_ENC_KEYS)")
+		return nil, errors.New("storage: object is encrypted but encryption is off (FILE_ENC_KEYS missing)")
 	}
 	dek, err := s.keys.unwrapFromHeader(ctx, key, h)
 	if err != nil {
@@ -204,31 +204,31 @@ func (s *Service) abre(ctx context.Context, key string, obj io.ReadCloser) (io.R
 		obj.Close()
 		return nil, err
 	}
-	return juntar(r, obj), nil
+	return join(r, obj), nil
 }
 
 // lerCabecalho consome o cabeçalho fixo e a chave embrulhada. Devolve também os bytes lidos, para
 // quem precise de os recolar quando afinal o objeto não estava cifrado.
-func lerCabecalho(r io.Reader) (filecrypt.Header, []byte, error) {
-	fixo := make([]byte, filecrypt.FixedHeaderSize)
-	n, err := io.ReadFull(r, fixo)
+func readHeader(r io.Reader) (filecrypt.Header, []byte, error) {
+	fixed := make([]byte, filecrypt.FixedHeaderSize)
+	n, err := io.ReadFull(r, fixed)
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return filecrypt.Header{}, fixo[:n], err
+		return filecrypt.Header{}, fixed[:n], err
 	}
-	h, perr := filecrypt.ParseHeader(fixo[:n])
+	h, perr := filecrypt.ParseHeader(fixed[:n])
 	if perr != nil {
-		return filecrypt.Header{}, fixo[:n], perr
+		return filecrypt.Header{}, fixed[:n], perr
 	}
 	if l := h.WrappedKeyLen(); l > 0 {
 		if _, err := io.ReadFull(r, h.WrappedKey); err != nil {
-			return filecrypt.Header{}, fixo[:n], filecrypt.ErrCorrupt
+			return filecrypt.Header{}, fixed[:n], filecrypt.ErrCorrupt
 		}
 	}
-	return h, fixo[:n], nil
+	return h, fixed[:n], nil
 }
 
 // juntar cola um leitor a um Closer — o objeto do armazenamento tem de ser fechado na mesma.
-func juntar(r io.Reader, c io.Closer) io.ReadCloser { return &readCloser{r: r, c: c} }
+func join(r io.Reader, c io.Closer) io.ReadCloser { return &readCloser{r: r, c: c} }
 
 type readCloser struct {
 	r io.Reader

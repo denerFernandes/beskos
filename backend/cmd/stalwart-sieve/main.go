@@ -5,7 +5,7 @@
 // funciona com o nosso código em baixo, nunca dispara.
 //
 //	stalwart-sieve            # mostra o script e a configuração atual, não altera nada
-//	stalwart-sieve --aplicar  # instala e liga à fase DATA
+//	stalwart-sieve --apply  # instala e liga à fase DATA
 //
 // Imprime SEMPRE a configuração atual da fase DATA antes de mexer: se algo correr mal, a reversão
 // está no registo e não na memória de alguém.
@@ -22,11 +22,11 @@ import (
 	"mailin/backend/internal/stalwart"
 )
 
-const nomeDoScript = "ses-tenant"
+const scriptName = "ses-tenant"
 
 func main() {
 	log.SetFlags(0)
-	aplicar := flag.Bool("aplicar", false, "instala mesmo; sem isto só mostra")
+	apply := flag.Bool("apply", false, "actually install; without this it only reports")
 	flag.Parse()
 
 	log.Printf("=== corrida %s ===", time.Now().UTC().Format(time.RFC3339))
@@ -35,53 +35,53 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	atual, err := c.GetDataStageScript(ctx)
+	current, err := c.GetDataStageScript(ctx)
 	if err != nil {
-		log.Fatalf("ler a fase DATA: %v", err)
+		log.Fatalf("read the DATA stage: %v", err)
 	}
-	log.Printf("FASE DATA ATUAL (guardar — é a reversão):\n%s", identar(atual))
-	log.Printf("SCRIPT A INSTALAR (%s):\n%s", nomeDoScript, stalwart.ScriptTenantSES())
+	log.Printf("CURRENT DATA STAGE (keep — it is the rollback):\n%s", indent(current))
+	log.Printf("SCRIPT A INSTALAR (%s):\n%s", scriptName, stalwart.ScriptTenantSES())
 
-	if !*aplicar {
-		log.Printf("nada foi alterado (faltou --aplicar)")
+	if !*apply {
+		log.Printf("nothing was changed (--apply was not given)")
 		return
 	}
 
-	id, err := c.UpsertSieveScript(ctx, nomeDoScript, stalwart.ScriptTenantSES())
+	id, err := c.UpsertSieveScript(ctx, scriptName, stalwart.ScriptTenantSES())
 	if err != nil {
 		log.Fatalf("instalar o script: %v", err)
 	}
-	log.Printf("script instalado, id %s", id)
+	log.Printf("script installed, id %s", id)
 
-	if err := c.SetDataStageScript(ctx, nomeDoScript); err != nil {
+	if err := c.SetDataStageScript(ctx, scriptName); err != nil {
 		log.Fatalf("ligar à fase DATA: %v", err)
 	}
 	log.Printf("fase DATA ligada ao script")
 
-	depois, err := c.GetDataStageScript(ctx)
+	after, err := c.GetDataStageScript(ctx)
 	if err != nil {
-		log.Fatalf("reler: %v", err)
+		log.Fatalf("re-read: %v", err)
 	}
-	log.Printf("FASE DATA AGORA:\n%s", identar(depois))
-	log.Printf("falta RECARREGAR o Stalwart para isto valer — `docker service update --force stalwart`")
+	log.Printf("FASE DATA AGORA:\n%s", indent(after))
+	log.Printf("Stalwart still has to be RELOADED for this to take effect — `docker service update --force stalwart`")
 }
 
-func identar(b []byte) string {
+func indent(b []byte) string {
 	var v any
 	if err := json.Unmarshal(b, &v); err != nil {
 		return string(b)
 	}
-	bonito, err := json.MarshalIndent(v, "", "  ")
+	pretty, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return string(b)
 	}
-	return string(bonito)
+	return string(pretty)
 }
 
-func env(nome string) string {
-	v := os.Getenv(nome)
+func env(name string) string {
+	v := os.Getenv(name)
 	if v == "" {
-		log.Fatalf("%s em falta", nome)
+		log.Fatalf("%s missing", name)
 	}
 	return v
 }
