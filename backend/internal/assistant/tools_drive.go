@@ -78,6 +78,12 @@ type Deps struct {
 	WikiRead       WikiRead
 	WikiCreatePage WikiCreatePage
 	WikiEditPage   WikiEditPage
+
+	// Notes: private by default, so every one of these re-checks the caller's access in the adapter.
+	NotesSearch NotesSearch
+	NotesRead   NotesRead
+	NotesCreate NotesCreate
+	NotesEdit   NotesEdit
 }
 
 // BuildRegistry monta o catálogo a partir do que a instalação tem ligado.
@@ -116,6 +122,9 @@ func BuildRegistry(d Deps) *Registry {
 	}
 	if d.WikiRead != nil {
 		tools = append(tools, wikiTools(d.WikiSearch, d.WikiRead, d.WikiCreatePage, d.WikiEditPage)...)
+	}
+	if d.NotesRead != nil {
+		tools = append(tools, notesTools(d.NotesSearch, d.NotesRead, d.NotesCreate, d.NotesEdit)...)
 	}
 	return NewRegistry(tools...)
 }

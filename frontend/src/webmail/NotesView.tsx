@@ -49,7 +49,9 @@ export function NotesView({ noteParam, onNote }: { noteParam?: string; onNote: (
   const chans = useQuery({ queryKey: ["chat-channels"], queryFn: () => backend.chatChannels(), retry: false });
   const sendToChat = useMutation({
     mutationFn: ({ note, channelId }: { note: Note; channelId: string }) =>
-      backend.chatSend(channelId, publicUrl(`/mail/notes/${note.id}`)),
+      // Markdown, not the bare URL: the reader sees the note's TITLE instead of thirty-six
+      // characters of uuid. The preview card still appears, because the address is inside it.
+      backend.chatSend(channelId, `[${noteTitle(note, t)}](${publicUrl(`/mail/notes/${note.id}`)})`),
     onSuccess: () => { setToChat(null); toast(t("notes.sentToChat")); },
     onError: (e) => toast((e as Error).message),
   });

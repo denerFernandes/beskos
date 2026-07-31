@@ -37,6 +37,11 @@ func (s *Server) buildAssistant() *assistant.Engine {
 		WikiRead:       s.assistantWikiRead,
 		WikiCreatePage: s.assistantWikiCreate,
 		WikiEditPage:   s.assistantWikiEdit,
+		// Notes: private by default, so each adapter re-checks NoteRole for the caller.
+		NotesSearch: s.assistantNotesSearch,
+		NotesRead:   s.assistantNotesRead,
+		NotesCreate: s.assistantNotesCreate,
+		NotesEdit:   s.assistantNotesEdit,
 	})
 	// O Confirmer é o que torna `mail.send` executável de todo: sem ele o motor recusa tudo o que
 	// sai para fora, em vez de deixar passar (§6.3, fail-closed).

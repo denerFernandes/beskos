@@ -98,11 +98,36 @@ type Task struct {
 	Assignee string `json:"assignee"`
 }
 
+// Person is somebody a task can be assigned to.
+type Person struct {
+	Name  string
+	Email string
+}
+
 // ExtractTasks pede ao modelo uma lista JSON de tarefas e a decodifica de forma defensiva.
-func (a *Assistant) ExtractTasks(ctx context.Context, subject, body string) ([]Task, error) {
-	sys := fmt.Sprintf("Extraia tarefas acionáveis do e-mail. Responda em %s. "+
+//
+// THE ROSTER TRAVELS WITH THE REQUEST and the model must answer with an E-MAIL from it. Without
+// that it could only echo the name as written -- somebody types "Dener" while the account shows
+// "D Fernandes", and the assignment was lost in silence. Asking for the address trades a comparison
+// of names, which fails on surnames and accents, for an exact match.
+//
+// Only addresses FROM THIS LIST are kept: anything else is dropped below, because a model that
+// invents an address assigns the work to nobody while the person believes they assigned it.
+func (a *Assistant) ExtractTasks(ctx context.Context, subject, body string, people []Person) ([]Task, error) {
+	roster := ""
+	if len(people) > 0 {
+		var b strings.Builder
+		for _, p := range people {
+			fmt.Fprintf(&b, "\n- %s <%s>", p.Name, p.Email)
+		}
+		roster = "\n\nPessoas da organização (use o E-MAIL exato de uma delas em \"assignee\", " + // lang:ok
+			"ou \"\" se ninguém for indicado):" + b.String() // lang:ok
+	}
+	sys := fmt.Sprintf("Extraia tarefas acionáveis do texto (e-mail, conversa ou nota). Responda em %s. "+ // lang:ok
+		"Se o texto disser quem faz — por nome próprio, apelido ou @menção — indique-o em \"assignee\". "+ // lang:ok
 		"Responda APENAS com um array JSON, sem texto ao redor, no formato "+
-		`[{"title":"...","due":"...","assignee":"..."}]. Use "" quando não houver prazo/responsável.`, a.lang)
+		`[{"title":"...","due":"...","assignee":"..."}]. Use "" quando não houver prazo/responsável.%s`, // lang:ok
+		a.lang, roster)
 	out, err := a.complete(ctx, sys, "Assunto: "+subject+"\n\nCorpo:\n"+body, 0.2)
 	if err != nil {
 		return nil, err
@@ -111,7 +136,28 @@ func (a *Assistant) ExtractTasks(ctx context.Context, subject, body string) ([]T
 	if err := json.Unmarshal([]byte(stripJSONFence(out)), &tasks); err != nil {
 		return nil, fmt.Errorf("the AI reply is not valid task JSON: %w", err)
 	}
-	return tasks, nil
+	return keepKnownAssignees(tasks, people), nil
+}
+
+// keepKnownAssignees drops any assignee the model did not take from the roster.
+//
+// An invented address assigns the work to nobody while the screen says it was assigned -- worse than
+// leaving it blank, because nobody goes looking for an owner that is already shown. Comparison is on
+// the e-mail, lowercased; the name is never trusted, precisely because names are what fail.
+func keepKnownAssignees(tasks []Task, people []Person) []Task {
+	known := make(map[string]string, len(people))
+	for _, p := range people {
+		known[strings.ToLower(strings.TrimSpace(p.Email))] = p.Email
+	}
+	for i, tk := range tasks {
+		email, ok := known[strings.ToLower(strings.TrimSpace(tk.Assignee))]
+		if !ok {
+			tasks[i].Assignee = ""
+			continue
+		}
+		tasks[i].Assignee = email
+	}
+	return tasks
 }
 
 // BriefingInput é o material do dia para o resumo (a IA não busca dados; nós os fornecemos).

@@ -13,6 +13,7 @@ var AppTools = map[string][]string{
 	"files":    {ToolDriveSearch, ToolDocsCreate, ToolDocsRead, ToolDocsEdit, ToolDocsShare},
 	"kanban":   {ToolTasksCreate},
 	"wiki":     {ToolWikiSearch, ToolWikiRead, ToolWikiCreatePage, ToolWikiEditPage},
+	"notes":    {ToolNotesSearch, ToolNotesRead, ToolNotesCreate, ToolNotesEdit},
 }
 
 // AppAgent mapeia uma app ao agente de ORIGEM que depende dela: desligar a app tira o agente do

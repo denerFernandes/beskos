@@ -151,9 +151,15 @@ func (s *Server) noteUnfurl(ctx context.Context, u *url.URL, raw string) (unfurl
 	if err != nil {
 		return unfurlData{}, false
 	}
+	// A note need not have a title, and a card showing only its author says nothing about what was
+	// shared. Falls back to the meeting's name, then to the first line of the note itself -- which is
+	// what someone would have written as a title anyway. Empty stays empty and the client names it.
 	title := strings.TrimSpace(n.Title)
 	if title == "" && n.MeetingTitle != nil {
 		title = strings.TrimSpace(*n.MeetingTitle)
+	}
+	if title == "" {
+		title = firstLine(n.BodyText, 80)
 	}
 	site := ""
 	if n.OwnerName != nil {
