@@ -2,6 +2,8 @@ import { useEffect, useRef } from "react";
 import type { MailService } from "../jmap/mail";
 import type { Notif } from "./backend";
 import { showDesktopNotification, isDomain, type NotifDomain } from "./desktopNotify";
+import { isTauri } from "./tauriNotify";
+import { playSound } from "./sounds";
 import { notifText } from "./notifText";
 import i18n from "../i18n";
 
@@ -53,6 +55,10 @@ export function useDesktopNotifier(opts: {
             // Abre a MENSAGEM, não só a caixa: /mail/mail/<pasta>/<id> é a rota do leitor.
             link: `/mail/mail/inbox/${top.id}`,
           });
+          // SÓ NO APP DE DESKTOP. Na web o e-mail não toca: quem tem o webmail aberto o dia inteiro
+          // recebe dezenas de mensagens e um som a cada uma leva a desligar o som todo — incluindo
+          // os avisos que importam. No app nativo o aviso é do sistema e é isso que se espera dele.
+          if (isTauri()) playSound("email");
         }
       }
     } catch { /* rede: ignora, o polling recupera */ }
@@ -80,6 +86,10 @@ export function useDesktopNotifier(opts: {
       showDesktopNotification(dom, {
         title: txt.title, body: txt.body, tag: `notif-${n.id}`, link: n.link,
       });
+      // O som toca INDEPENDENTEMENTE de a aba estar visível, ao contrário da notificação do SO. É
+      // precisamente para isso que serve: um segundo monitor conta como "visível" para o browser,
+      // mas quem está a olhar para o outro ecrã não vê nada — ouve.
+      playSound("notify");
     }
   }, [notifItems]);
 

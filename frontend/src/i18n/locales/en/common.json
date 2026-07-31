@@ -698,7 +698,15 @@
     "mailSec": {
       "ssl": "SSL/TLS",
       "starttls": "STARTTLS"
-    }
+    },
+    "soundGroup": "Sounds",
+    "soundNotify": "Sound on new notifications",
+    "soundNotifyHintWeb": "Plays for messages, tasks and invitations. New e-mail does not play here — in the browser it would be too much.",
+    "soundNotifyHintApp": "Plays for notifications and for new e-mail.",
+    "soundMeet": "Meet sounds",
+    "soundMeetHint": "When you join a room, when someone asks to join, and when someone joins.",
+    "soundTryNotify": "Hear the notification",
+    "soundTryKnock": "Hear the join request"
   },
   "errors": {
     "generic": "Something went wrong",
