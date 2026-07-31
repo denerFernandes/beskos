@@ -157,8 +157,10 @@ def portuguese_in(line: str) -> str | None:
     if ALLOW.search(line):
         return None
     stripped = re.sub(r"https?://\S+", "", line)
-    # Domain names end in ".com"/".org": the \b in WORDS would read that as Portuguese "com".
-    stripped = re.sub(r"\b[\w-]+\.(?:com|org|net|io|br|pt|dev|app)\b", "", stripped)
+    # Domain names end in ".com"/".org": the \b in WORDS would read that as Portuguese "com". The
+    # TLD is stripped with its dot and WITHOUT requiring a valid label before it -- case-insensitively,
+    # and tolerating the malformed hostnames that show up in tests of a domain validator.
+    stripped = re.sub(r"\.(?:com|org|net|io|br|pt|dev|app)\b", "", stripped, flags=re.I)
     stripped = re.sub(r"""(?:import|from|require)\s*\(?\s*["'][^"']+["']""", "", stripped)
     for probe in (ACCENTS, SUFFIX_RE, WORDS_RE):
         m = probe.search(stripped)
