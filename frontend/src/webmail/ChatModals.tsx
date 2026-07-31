@@ -129,7 +129,11 @@ export function NewConvoModal({ mode, me, onClose, onCreated }: { mode: "channel
 }
 
 // ForwardModal escolhe o canal de destino para encaminhar uma mensagem.
-export function ForwardModal({ channels, onClose, onPick }: { channels: ChatChannel[]; onClose: () => void; onPick: (channelId: string) => void }) {
+// Also used by Notes to pick where to share. The title is a prop because "forward to" is not what
+// someone sharing a note is doing, and a picker that says the wrong verb teaches the wrong model.
+export function ForwardModal({ channels, onClose, onPick, title }: {
+  channels: ChatChannel[]; onClose: () => void; onPick: (channelId: string) => void; title?: string;
+}) {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
   const term = q.trim().toLowerCase();
@@ -137,7 +141,7 @@ export function ForwardModal({ channels, onClose, onPick }: { channels: ChatChan
   return (
     <div className="tk-bg open" onMouseDown={onClose}>
       <div className="tk" onMouseDown={(e) => e.stopPropagation()} style={{ width: 380 }}>
-        <header><span>{t("chat.forwardTo")}</span><button className="ib" title={t("common.close")} onClick={onClose}>✕</button></header>
+        <header><span>{title ?? t("chat.forwardTo")}</span><button className="ib" title={t("common.close")} onClick={onClose}>✕</button></header>
         <div className="body">
           <input autoFocus className="chan-filter" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("chat.searchChannel")} />
           <div className="chan-list" style={{ maxHeight: 320, overflowY: "auto", marginTop: 8 }}>

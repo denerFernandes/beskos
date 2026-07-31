@@ -24,6 +24,9 @@ import (
 // /mail/kanban/<board>/<card> -- the shape the app links to, and the one the task notifications use.
 var taskPath = regexp.MustCompile(`^/mail/kanban/([0-9a-fA-F-]{36})/([0-9a-fA-F-]{36})/?$`)
 
+// /mail/notes/<note> -- a note pasted into a conversation.
+var notePath = regexp.MustCompile(`^/mail/notes/([0-9a-fA-F-]{36})/?$`)
+
 // ownHost reports whether the URL points at this deployment, so it is resolved from the database
 // instead of fetched over the network.
 func (s *Server) ownHost(u *url.URL) bool {
@@ -46,6 +49,9 @@ func (s *Server) ownHost(u *url.URL) bool {
 // there is nothing to show -- unknown shape, missing row, or no permission -- and the caller must
 // treat all three the same, so the answer never reveals which one it was.
 func (s *Server) internalUnfurl(ctx context.Context, u *url.URL) (unfurlData, bool) {
+	if m := notePath.FindStringSubmatch(u.Path); m != nil {
+		return s.noteUnfurl(ctx, u, m[1])
+	}
 	m := taskPath.FindStringSubmatch(u.Path)
 	if m == nil {
 		return unfurlData{}, false
@@ -120,4 +126,44 @@ func firstLine(s string, max int) string {
 		return strings.TrimSpace(s[:max]) + "…"
 	}
 	return s
+}
+
+// noteUnfurl previews a note pasted into a conversation.
+//
+// A note is private until it is shared, so the preview is resolved FOR THE READER: pasting a link
+// into a channel does not hand the note to the channel. Everyone who may already see it gets the
+// card; everyone else gets a plain link and no hint that there is anything behind it. That is the
+// point -- an unfurl that leaked the title would turn "share the link" into "share the note".
+func (s *Server) noteUnfurl(ctx context.Context, u *url.URL, raw string) (unfurlData, bool) {
+	noteID, err := uuid.Parse(raw)
+	if err != nil {
+		return unfurlData{}, false
+	}
+	mu := mailUserFrom(ctx)
+	if mu.ID == uuid.Nil {
+		return unfurlData{}, false
+	}
+	rank, err := s.q.NoteRole(ctx, db.NoteRoleParams{UserID: mu.ID, NoteID: noteID, TenantID: mu.TenantID})
+	if err != nil || rank <= 0 {
+		return unfurlData{}, false
+	}
+	n, err := s.q.GetNote(ctx, db.GetNoteParams{UserID: mu.ID, NoteID: noteID, TenantID: mu.TenantID})
+	if err != nil {
+		return unfurlData{}, false
+	}
+	title := strings.TrimSpace(n.Title)
+	if title == "" && n.MeetingTitle != nil {
+		title = strings.TrimSpace(*n.MeetingTitle)
+	}
+	site := ""
+	if n.OwnerName != nil {
+		site = *n.OwnerName
+	}
+	return unfurlData{
+		Kind:        "note",
+		URL:         u.String(),
+		Title:       title,
+		Description: firstLine(n.BodyText, 160),
+		Site:        site,
+	}, true
 }
