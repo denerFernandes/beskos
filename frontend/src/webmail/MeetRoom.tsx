@@ -198,11 +198,18 @@ function LeaveOnWindowClose() {
 // que é exatamente o que se quer anunciar.
 function RoomSounds() {
   const room = useRoomContext();
+  // Entering plays ONCE. There are two ways to learn we are in -- being connected already when this
+  // mounts, and the Connected event -- and both fire in the ordinary case, which chimed twice.
+  const announced = useRef(false);
   useEffect(() => {
-    const onJoined = () => playSound("meetJoin");
+    const onJoined = () => {
+      if (announced.current) return;
+      announced.current = true;
+      playSound("meetJoin");
+    };
     const onPeerJoined = () => playSound("meetPeer");
-    // Já ligados quando este componente monta (o caso normal: o LiveKitRoom liga antes dos filhos
-    // montarem). Sem isto o som de entrada nunca tocaria, porque o evento já passou.
+    // Already connected when this mounts (the ordinary case: LiveKitRoom connects before its
+    // children mount). Without this the join sound would never play, the event having passed.
     if (room.state === "connected") onJoined();
     room.on(RoomEvent.Connected, onJoined);
     room.on(RoomEvent.ParticipantConnected, onPeerJoined);
@@ -514,7 +521,14 @@ function CopyLinkButton({ room }: { room: string }) {
 // Sala de espera do host: convidados pendentes (aprovação). Poll + admitir/negar.
 function HostLobby({ meetingId }: { meetingId: string }) {
   const { t } = useTranslation();
-  const q = useQuery({ queryKey: ["lobby", meetingId], queryFn: () => backend.meetLobby(meetingId), refetchInterval: 3000, retry: false });
+  // refetchIntervalInBackground: without it TanStack Query STOPS polling once the window loses
+  // focus -- which is exactly when this matters. A host working in another window only learned
+  // about someone waiting at the door on coming back, and the knock arrived with all of the delay
+  // at once.
+  const q = useQuery({
+    queryKey: ["lobby", meetingId], queryFn: () => backend.meetLobby(meetingId),
+    refetchInterval: 3000, refetchIntervalInBackground: true, retry: false,
+  });
   const admit = useMutation({ mutationFn: (id: string) => backend.meetAdmit(id), onSuccess: () => q.refetch() });
   const deny = useMutation({ mutationFn: (id: string) => backend.meetDeny(id), onSuccess: () => q.refetch() });
   const pending = q.data?.pending ?? [];

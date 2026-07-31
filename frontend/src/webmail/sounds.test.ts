@@ -138,3 +138,57 @@ describe("unlockSounds", () => {
     expect(listeners).toEqual(["pointerdown", "keydown", "touchstart"]);
   });
 });
+
+// A suspended context is the normal state of a page the browser has put in the background, and it
+// is also where every context starts before the first gesture. currentTime does not advance while
+// suspended, so scheduling "now + 10ms" and calling resume() in the same breath puts the whole gain
+// envelope in the past: the oscillator starts, the envelope has already finished, nothing is heard.
+// This is what made a Meet join sound silent while the window was not focused.
+describe("a suspended context", () => {
+  it("schedules only after the context is running again", async () => {
+    const started: number[] = [];
+    const gains: number[] = [];
+    let state = "suspended";
+    let now = 5;
+    const wire = { connect: (n: unknown) => n };
+    const ctx = {
+      get state() { return state; },
+      get currentTime() { return now; },
+      // Real resume() is ASYNC: the state and the clock only move when the promise settles. A fake
+      // that mutates synchronously hides exactly the bug this test exists for.
+      resume: () => Promise.resolve().then(() => { state = "running"; now = 9; }),
+      createOscillator: () => ({
+        type: "", frequency: { value: 0 }, connect: wire.connect,
+        start: (t: number) => started.push(t), stop: () => {},
+      }),
+      createGain: () => ({
+        gain: { setValueAtTime: (_v: number, t: number) => gains.push(t), exponentialRampToValueAtTime: () => {} },
+        connect: wire.connect,
+      }),
+      destination: {},
+    };
+    vi.stubGlobal("localStorage", memoryStorageForTest());
+    vi.stubGlobal("window", { AudioContext: function () { return ctx; } as unknown as typeof AudioContext, addEventListener: () => {} });
+    vi.resetModules();
+    const { playSound } = await import("./sounds");
+
+    playSound("meetPeer");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(started.length).toBeGreaterThan(0);
+    // The envelope must start at or after the time the context reports once awake -- never before.
+    expect(Math.min(...gains)).toBeGreaterThanOrEqual(9);
+    expect(Math.min(...started)).toBeGreaterThanOrEqual(9);
+  });
+});
+
+function memoryStorageForTest(): Storage {
+  const m = new Map<string, string>();
+  return {
+    getItem: (k: string) => m.get(k) ?? null,
+    setItem: (k: string, v: string) => { m.set(k, String(v)); },
+    removeItem: (k: string) => { m.delete(k); },
+    clear: () => m.clear(),
+  } as unknown as Storage;
+}
