@@ -125,7 +125,7 @@ func (s *Server) disabledAppsEffective(ctx context.Context, tenantID uuid.UUID) 
 	if err != nil {
 		return disabled
 	}
-	plan := s.planByKey(ctx, t.Plano)
+	plan := s.planByKey(ctx, t.Plan)
 	if len(plan.AppsEnabled) == 0 {
 		return disabled
 	}

@@ -92,7 +92,7 @@ func (s *Server) handleSyncMoveFile(w http.ResponseWriter, r *http.Request) {
 		folder = pgtype.UUID{Bytes: pid, Valid: true}
 	}
 	rec, err := s.q.MoveRenameStorageFile(r.Context(), db.MoveRenameStorageFileParams{
-		ID: id, OwnerUserID: ownerPg(mu), FolderID: folder, Nome: name,
+		ID: id, OwnerUserID: ownerPg(mu), FolderID: folder, Name: name,
 	})
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "files.not_found")

@@ -114,7 +114,7 @@ func (c *Client) call(ctx context.Context, method string, args any) (json.RawMes
 		return nil, fmt.Errorf("decode jmap response: %w (body=%s)", err, string(raw))
 	}
 	if len(jr.MethodResponses) == 0 {
-		return nil, fmt.Errorf("stalwart: resposta sem methodResponses")
+		return nil, fmt.Errorf("stalwart: response has no methodResponses")
 	}
 
 	// methodResponses[0] = [ method, payload, callId ]. Extraímos o payload (índice 1).
@@ -170,7 +170,7 @@ func firstCreatedID(r *setResult) (string, error) {
 		}
 		return "", err
 	}
-	return "", fmt.Errorf("stalwart: nenhum objeto criado na resposta")
+	return "", fmt.Errorf("stalwart: no object created in the response")
 }
 
 // ErrWeakPassword: o Stalwart tem um medidor de força (zxcvbn) e recusa a senha antes de criar a

@@ -16,7 +16,7 @@ import (
 )
 
 type createDomainReq struct {
-	Dominio string `json:"dominio"`
+	Domain string `json:"domain"`
 }
 
 // handleCreateDomain registra um domínio no estado 'pending' e responde na hora.
@@ -27,20 +27,20 @@ func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	req.Dominio = strings.ToLower(strings.TrimSpace(req.Dominio))
-	if req.Dominio == "" {
+	req.Domain = strings.ToLower(strings.TrimSpace(req.Domain))
+	if req.Domain == "" {
 		writeErr(w, http.StatusBadRequest, "domains.name_required")
 		return
 	}
 	d, err := s.q.CreateDomain(r.Context(), db.CreateDomainParams{
-		TenantID: u.TenantID, Dominio: req.Dominio,
+		TenantID: u.TenantID, Domain: req.Domain,
 	})
 	if err != nil {
 		writeErr(w, http.StatusConflict, "domains.already_exists")
 		return
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
-		TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "domain.create", Alvo: req.Dominio,
+		TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "domain.create", Target: req.Domain,
 	})
 	writeJSON(w, http.StatusCreated, d)
 }
@@ -57,7 +57,7 @@ func (s *Server) handleGetDomain(w http.ResponseWriter, r *http.Request) {
 		zone = *d.DnsZone
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"id": d.ID, "dominio": d.Dominio, "provision_state": d.ProvisionState,
+		"id": d.ID, "domain": d.Domain, "provision_state": d.ProvisionState,
 		"dkim_status": d.DkimStatus, "dns_status": d.DnsStatus,
 		"dns_records": orEmpty(provisioning.ParseZone(zone)), // nunca null: domínio novo ainda não tem zona
 	})
@@ -104,7 +104,7 @@ func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 		Password: req.Password, QuotaBytes: quota << 30,
 	})
 	if err != nil {
-		log.Printf("criar caixa no Stalwart falhou: %v", err)
+		log.Printf("creating the mailbox in Stalwart failed: %v", err)
 		if errors.Is(err, stalwart.ErrWeakPassword) {
 			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
 			return
@@ -112,7 +112,7 @@ func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}
-	email := req.Login + "@" + d.Dominio
+	email := req.Login + "@" + d.Domain
 	mu, err := s.q.CreateMailUser(r.Context(), db.CreateMailUserParams{
 		TenantID: d.TenantID, Email: email, Name: req.Name, Role: "user",
 		StalwartAccountID: &acctID, QuotaBytes: quota << 30,
@@ -123,7 +123,7 @@ func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
 		TenantID: pgtype.UUID{Bytes: d.TenantID, Valid: true}, Actor: mailUserFrom(r.Context()).Email,
-		Acao: "mailbox.create", Alvo: email,
+		Action: "mailbox.create", Target: email,
 	})
 	s.syncSeats(d.TenantID) // seats na Stripe acompanham (rateio no período)
 	writeJSON(w, http.StatusCreated, mu)
@@ -140,7 +140,7 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 	}
 	u := mailUserFrom(r.Context())
 	if n, err := s.q.CountMailUsersOnDomain(r.Context(), db.CountMailUsersOnDomainParams{
-		TenantID: d.TenantID, Dominio: &d.Dominio,
+		TenantID: d.TenantID, Domain: &d.Domain,
 	}); err != nil || n > 0 {
 		writeErr(w, http.StatusConflict, "domains.has_mailboxes")
 		return
@@ -154,8 +154,8 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 	// Identidade SES: best-effort (sem SES configurado, ou falha transitória, não bloqueia — a
 	// identidade órfã pode ser removida à mão na AWS; fica no log).
 	if s.sesRelay != nil {
-		if err := s.sesRelay.DeleteIdentity(r.Context(), d.Dominio); err != nil {
-			log.Printf("domains: ses delete identity %s: %v", d.Dominio, err)
+		if err := s.sesRelay.DeleteIdentity(r.Context(), d.Domain); err != nil {
+			log.Printf("domains: ses delete identity %s: %v", d.Domain, err)
 		}
 	}
 	if err := s.q.DeleteDomainRow(r.Context(), db.DeleteDomainRowParams{ID: d.ID, TenantID: d.TenantID}); err != nil {
@@ -163,7 +163,7 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
-		TenantID: pgtype.UUID{Bytes: d.TenantID, Valid: true}, Actor: u.Email, Acao: "domain.delete", Alvo: d.Dominio,
+		TenantID: pgtype.UUID{Bytes: d.TenantID, Valid: true}, Actor: u.Email, Action: "domain.delete", Target: d.Domain,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }

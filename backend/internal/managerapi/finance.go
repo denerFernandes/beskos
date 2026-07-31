@@ -77,8 +77,8 @@ const gb = int64(1 << 30)
 // tenantFinance é a linha da tabela de margem por tenant.
 type tenantFinance struct {
 	ID           string `json:"id"`
-	Nome         string `json:"nome"`
-	Plano        string `json:"plano"`
+	Name         string `json:"name"`
+	Plan         string `json:"plan"`
 	Status       string `json:"status"`
 	Users        int32  `json:"users"`
 	MrrCents     int64  `json:"mrr_cents"`
@@ -123,7 +123,7 @@ func (s *Server) computeFinance(ctx context.Context) (map[string]any, []tenantFi
 	for _, t := range rows {
 		mrr := int64(0)
 		if t.Status == "active" {
-			mrr = priceByKey[t.Plano] * int64(t.Users)
+			mrr = priceByKey[t.Plan] * int64(t.Users)
 		}
 		// Custo variável estimado: storage (+ gravações) por GB-mês, IA por 1M tokens (30d),
 		// e-mail por 1k envios (30d).
@@ -131,7 +131,7 @@ func (s *Server) computeFinance(ctx context.Context) (map[string]any, []tenantFi
 			t.AiTokens30d*cm.AiPerMtokCents/1_000_000 +
 			t.MailSent30d*cm.EmailPer1kCents/1_000
 		out = append(out, tenantFinance{
-			ID: t.ID.String(), Nome: t.Nome, Plano: t.Plano, Status: t.Status, Users: t.Users,
+			ID: t.ID.String(), Name: t.Name, Plan: t.Plan, Status: t.Status, Users: t.Users,
 			MrrCents: mrr, CostCents: cost, MarginCents: mrr - cost,
 			StorageBytes: t.StorageBytes, AiTokens30d: t.AiTokens30d,
 		})

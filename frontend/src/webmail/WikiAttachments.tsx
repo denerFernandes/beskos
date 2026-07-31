@@ -32,9 +32,9 @@ export function WikiAttachments({ pageId, canEdit }: { pageId: string; canEdit: 
       {items.map((a) => (
         <div className="wiki-att-item" key={a.id}>
           <IcPaperclip size={14} />
-          <span className="grow nm">{a.nome}</span>
-          <span className="sz">{fmtSize(a.tamanho)}</span>
-          <button className="ib" title={t("files.download")} onClick={() => triggerDownload(wikiApi.attachmentDownloadUrl(pageId, a.id), a.nome)}><IcDownload size={14} /></button>
+          <span className="grow nm">{a.name}</span>
+          <span className="sz">{fmtSize(a.size)}</span>
+          <button className="ib" title={t("files.download")} onClick={() => triggerDownload(wikiApi.attachmentDownloadUrl(pageId, a.id), a.name)}><IcDownload size={14} /></button>
           {canEdit && <button className="ib danger" title={t("wiki.remove")} onClick={() => detach.mutate(a.id)}><IcX size={13} /></button>}
         </div>
       ))}

@@ -141,7 +141,7 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenant, err := s.q.CreateTenant(r.Context(), db.CreateTenantParams{Nome: req.OrgName, Plano: billing.DefaultPlanID})
+	tenant, err := s.q.CreateTenant(r.Context(), db.CreateTenantParams{Name: req.OrgName, Plan: billing.DefaultPlanID})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "tenant.create_failed")
 		return
@@ -152,7 +152,7 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		_ = s.q.DeleteTenant(context.WithoutCancel(r.Context()), tenant.ID)
 	}
 
-	dom, err := s.q.CreateDomain(r.Context(), db.CreateDomainParams{TenantID: tenant.ID, Dominio: req.Domain})
+	dom, err := s.q.CreateDomain(r.Context(), db.CreateDomainParams{TenantID: tenant.ID, Domain: req.Domain})
 	if err != nil {
 		rollback("criar domínio", err)
 		writeErr(w, http.StatusConflict, "signup.domain_taken")
@@ -213,10 +213,10 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		City: b.City, PostalCode: b.PostalCode, AddressLine1: b.AddressLine1, AddressLine2: b.AddressLine2,
 		InvoiceEmail: b.InvoiceEmail, InvoiceName: b.InvoiceName, Phone: b.Phone,
 	}); err != nil {
-		log.Printf("signup: guardar faturação do tenant %s: %v", tenant.ID, err) // não trava o registo
+		log.Printf("signup: save billing for tenant %s: %v", tenant.ID, err) // não trava o registo
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
-		TenantID: pgtype.UUID{Bytes: tenant.ID, Valid: true}, Actor: email, Acao: "signup", Alvo: req.Domain,
+		TenantID: pgtype.UUID{Bytes: tenant.ID, Valid: true}, Actor: email, Action: "signup", Target: req.Domain,
 	})
 
 	// Sessão: quem se regista entra na app a seguir ao pagamento, sem repetir a senha.

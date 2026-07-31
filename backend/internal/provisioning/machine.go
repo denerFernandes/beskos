@@ -115,7 +115,7 @@ func (m *Machine) AdvanceOnce(ctx context.Context, d db.Domain) (changed bool, e
 	case StateActive, StateError:
 		return false, nil // terminais
 	default:
-		return false, fmt.Errorf("estado desconhecido: %q", d.ProvisionState)
+		return false, fmt.Errorf("unknown state: %q", d.ProvisionState)
 	}
 }
 
@@ -126,9 +126,9 @@ func (m *Machine) stepCreateDomain(ctx context.Context, d db.Domain) (bool, erro
 	if stalwartID == "" {
 		// Com relay (SES), o Stalwart não gere DKIM (autoDKIM=false): quem assina é o SES via BYODKIM.
 		autoDKIM := m.relay == nil
-		id, err := m.sw.CreateDomain(ctx, d.Dominio, "tenant_id="+d.TenantID.String(), autoDKIM)
+		id, err := m.sw.CreateDomain(ctx, d.Domain, "tenant_id="+d.TenantID.String(), autoDKIM)
 		if err != nil {
-			return false, fmt.Errorf("criar domínio: %w", err)
+			return false, fmt.Errorf("create domain: %w", err)
 		}
 		stalwartID = id
 	}
@@ -142,45 +142,45 @@ func (m *Machine) stepCreateDomain(ctx context.Context, d db.Domain) (bool, erro
 func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error) {
 	zone, err := m.sw.GetDomainDNSZone(ctx, strval(d.StalwartID))
 	if err != nil {
-		return false, fmt.Errorf("ler zona: %w", err)
+		return false, fmt.Errorf("read zone: %w", err)
 	}
 	if m.relay != nil {
 		// White-label: o SES assina via BYODKIM (chave nossa). Registamos a identidade e trocamos o
 		// DKIM do Stalwart pelo nosso — o cliente publica só a nossa chave pública, sem ver o Amazon.
-		selector, publicKey, err := m.relay.CreateIdentity(ctx, d.Dominio)
+		selector, publicKey, err := m.relay.CreateIdentity(ctx, d.Domain)
 		if err != nil {
-			return false, fmt.Errorf("registar identidade no relay: %w", err) // retry no próximo tick
+			return false, fmt.Errorf("register identity with the relay: %w", err) // retry no próximo tick
 		}
 		// Isolamento de reputação: um tenant SES por domínio, com a identidade associada. Falhar
 		// aqui NÃO bloqueia o provisionamento — o correio sai à mesma, apenas sem o isolamento —,
 		// mas fica registado, porque um cliente sem tenant é um cliente que pode derrubar os
 		// outros.
-		nome := ses.TenantName(d.Dominio)
+		name := ses.TenantName(d.Domain)
 
 		// O conjunto de configuração é o que produz efeito já: colado à identidade, dá métricas de
 		// reputação por cliente e permite suspender só este domínio.
-		if err := m.relay.CreateConfigurationSet(ctx, nome); err != nil {
-			log.Printf("provisioning: conjunto de configuração de %s não criado (métricas ficam agregadas): %v", d.Dominio, err)
-		} else if err := m.relay.SetIdentityConfigurationSet(ctx, d.Dominio, nome); err != nil {
-			log.Printf("provisioning: conjunto %s não ficou predefinido em %s: %v", nome, d.Dominio, err)
+		if err := m.relay.CreateConfigurationSet(ctx, name); err != nil {
+			log.Printf("provisioning: configuration set for %s not created (metrics stay aggregated): %v", d.Domain, err)
+		} else if err := m.relay.SetIdentityConfigurationSet(ctx, d.Domain, name); err != nil {
+			log.Printf("provisioning: configuration set %s did not become the default on %s: %v", name, d.Domain, err)
 		}
 
 		// O tenant fica criado à espera do dia em que as mensagens levem o cabeçalho X-SES-TENANT —
 		// é o que traz a pausa automática da AWS por reputação.
-		if err := m.relay.CreateTenant(ctx, nome); err != nil {
-			log.Printf("provisioning: tenant SES de %s não criado: %v", d.Dominio, err)
-		} else if err := m.relay.AssociateIdentity(ctx, nome, d.Dominio); err != nil {
-			log.Printf("provisioning: identidade de %s não associada ao tenant %s: %v", d.Dominio, nome, err)
+		if err := m.relay.CreateTenant(ctx, name); err != nil {
+			log.Printf("provisioning: SES tenant for %s not created: %v", d.Domain, err)
+		} else if err := m.relay.AssociateIdentity(ctx, name, d.Domain); err != nil {
+			log.Printf("provisioning: identity for %s not associated with tenant %s: %v", d.Domain, name, err)
 		}
 
 		// Custom MAIL FROM (bounce.<domínio>): sem ele o "enviado por" do destinatário mostra o
 		// amazonses. Fallback USE_DEFAULT_VALUE — não bloqueia o envio enquanto o MX não propaga.
-		if err := m.relay.SetMailFrom(ctx, d.Dominio); err != nil {
+		if err := m.relay.SetMailFrom(ctx, d.Domain); err != nil {
 			return false, fmt.Errorf("configurar MAIL FROM no relay: %w", err) // retry no próximo tick
 		}
 		zone = StripStalwartDKIM(zone)
-		zone = AugmentZoneForSES(zone, d.Dominio, selector, publicKey, m.brand,
-			m.relay.MailFromSubdomain(d.Dominio), m.relay.MailFromMX())
+		zone = AugmentZoneForSES(zone, d.Domain, selector, publicKey, m.brand,
+			m.relay.MailFromSubdomain(d.Domain), m.relay.MailFromMX())
 		return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "ses", d.DnsStatus, &zone)
 	}
 	// Sem relay: espera o DKIM do Stalwart (não aparece na hora — DIVERGENCES §D4).
@@ -198,7 +198,7 @@ func (m *Machine) stepOfferDNS(ctx context.Context, d db.Domain) (bool, error) {
 // dns_pending → dns_verified: worker faz polling até os registros baterem. Com relay, exige
 // também que o SES confirme o DKIM da identidade (senão o SES recusaria o MAIL FROM depois).
 func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) {
-	ok, err := m.dns.Verify(ctx, d.Dominio, strval(d.DnsZone))
+	ok, err := m.dns.Verify(ctx, d.Domain, strval(d.DnsZone))
 	if err != nil {
 		return false, fmt.Errorf("verificar DNS: %w", err)
 	}
@@ -206,9 +206,9 @@ func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) 
 		return false, nil // cliente ainda não publicou
 	}
 	if m.relay != nil {
-		verified, rerr := m.relay.IdentityVerified(ctx, d.Dominio)
+		verified, rerr := m.relay.IdentityVerified(ctx, d.Domain)
 		if rerr != nil {
-			return false, fmt.Errorf("verificar identidade no relay: %w", rerr)
+			return false, fmt.Errorf("verify identity with the relay: %w", rerr)
 		}
 		if !verified {
 			return false, nil // SES ainda a validar os CNAMEs DKIM; tenta de novo depois
@@ -220,7 +220,7 @@ func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) 
 // dns_verified → active: cria a mailbox inicial (postmaster) e marca ativo.
 // Idempotente: CreateAccount falhando por já existir não bloqueia a ativação.
 func (m *Machine) stepActivate(ctx context.Context, d db.Domain) (bool, error) {
-	email := "postmaster@" + d.Dominio
+	email := "postmaster@" + d.Domain
 	// Idempotência: se a mailbox já foi persistida (retomada), pula a criação e só ativa.
 	if _, err := m.store.GetMailUserByEmail(ctx, email); err != nil {
 		acctID, err := m.sw.CreateAccount(ctx, stalwart.AccountInput{
@@ -231,13 +231,13 @@ func (m *Machine) stepActivate(ctx context.Context, d db.Domain) (bool, error) {
 			QuotaBytes:  1 << 30,
 		})
 		if err != nil {
-			return false, fmt.Errorf("criar mailbox inicial: %w", err)
+			return false, fmt.Errorf("create the initial mailbox: %w", err)
 		}
 		if _, err := m.store.CreateMailUser(ctx, db.CreateMailUserParams{
 			TenantID: d.TenantID, Email: email, Name: "Postmaster", Role: "admin",
 			StalwartAccountID: &acctID, QuotaBytes: 1 << 30,
 		}); err != nil {
-			return false, fmt.Errorf("persistir mailbox: %w", err)
+			return false, fmt.Errorf("persist mailbox: %w", err)
 		}
 	}
 	return m.persist(ctx, d, StateActive, d.StalwartID, d.DkimStatus, d.DnsStatus, d.DnsZone)
@@ -249,7 +249,7 @@ func (m *Machine) persist(ctx context.Context, d db.Domain, state string, stalwa
 		DkimStatus: dkim, DnsStatus: dns, DnsZone: zone,
 	})
 	if err != nil {
-		return false, fmt.Errorf("persistir estado %s: %w", state, err)
+		return false, fmt.Errorf("persist state %s: %w", state, err)
 	}
 	return true, nil
 }

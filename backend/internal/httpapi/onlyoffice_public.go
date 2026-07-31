@@ -52,14 +52,14 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 	// e de fora, e a barra diz de quem é o ficheiro. Sem marca configurada, vai vazio (marca padrão).
 	brand := map[string]any{}
 	if tn, terr := s.q.GetTenant(r.Context(), f.TenantID); terr == nil {
-		brand = map[string]any{"name": tn.Nome, "color": tn.BrandColor, "logo": tn.BrandLogo}
+		brand = map[string]any{"name": tn.Name, "color": tn.BrandColor, "logo": tn.BrandLogo}
 	}
 
-	ext := extOf(f.Nome)
+	ext := extOf(f.Name)
 	if !officeExts[ext] {
 		// Não é office: o cliente mostra descarga (se permitida) ou "sem pré-visualização".
 		writeJSON(w, http.StatusOK, map[string]any{
-			"kind": "file", "name": f.Nome, "allow_download": f.AllowDownload, "brand": brand,
+			"kind": "file", "name": f.Name, "allow_download": f.AllowDownload, "brand": brand,
 		})
 		return
 	}
@@ -71,7 +71,7 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 		Exp: time.Now().Add(docTokenTTL),
 	})
 	base := s.office.filesHostURL
-	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Versao)))).String(), "-", "")
+	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Version)))).String(), "-", "")
 
 	// Nome do convidado: o cliente passa-o já traduzido/aleatório (?guest=). Sem isso, um neutro.
 	guestName := strings.TrimSpace(r.URL.Query().Get("guest"))
@@ -94,7 +94,7 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 		"document": map[string]any{
 			"fileType": ext,
 			"key":      key,
-			"title":    f.Nome,
+			"title":    f.Name,
 			"url":      base + "/doc/files/" + f.ID.String() + "/download?token=" + docToken,
 			"permissions": map[string]any{
 				// Descarga/impressão seguem o toggle do link; edição segue a permissão.
@@ -122,7 +122,7 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 		"apiJs":          s.office.publicURL + "/web-apps/apps/api/documents/api.js",
 		"config":         config,
 		"canWrite":       canWrite,
-		"name":           f.Nome,
+		"name":           f.Name,
 		"allow_download": f.AllowDownload,
 		"brand":          brand,
 	})

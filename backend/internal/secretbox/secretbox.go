@@ -50,7 +50,7 @@ func (b *Box) Decrypt(stored string) (string, error) {
 		return stored, nil
 	}
 	if b == nil {
-		return "", errors.New("secretbox: valor cifrado sem chave configurada")
+		return "", errors.New("secretbox: encrypted value with no key configured")
 	}
 	raw, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(stored, prefix))
 	if err != nil {

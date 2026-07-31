@@ -33,4 +33,4 @@ RETURNING *;
 UPDATE plans SET active = @active, updated_at = now() WHERE key = @key;
 
 -- name: ManagerSetTenantPlan :exec
-UPDATE tenants SET plano = @plano WHERE id = @id;
+UPDATE tenants SET plan = @plan WHERE id = @id;

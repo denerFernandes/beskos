@@ -51,7 +51,7 @@ export type Language = "" | "pt-BR" | "en";
 
 export interface Domain {
   id: string;
-  dominio: string;
+  domain: string;
   provision_state: string;
 }
 
@@ -64,7 +64,7 @@ export interface DNSRecord {
 
 export interface DomainDetail {
   id: string;
-  dominio: string;
+  domain: string;
   provision_state: string;
   dkim_status: string;
   dns_status: string;
@@ -155,8 +155,8 @@ export const api = {
   domains: () => req<Domain[]>("/api/domains"),
   deleteDomain: (id: string) =>
     req<{ status: string }>(`/api/domains/${id}`, { method: "DELETE" }),
-  createDomain: (dominio: string) =>
-    req<Domain>("/api/domains", { method: "POST", body: JSON.stringify({ dominio }) }),
+  createDomain: (domain: string) =>
+    req<Domain>("/api/domains", { method: "POST", body: JSON.stringify({ domain }) }),
   getDomain: (id: string) => req<DomainDetail>(`/api/domains/${id}`),
   createMailbox: (domainId: string, login: string, name: string, password: string) =>
     req<{ email: string }>(`/api/domains/${domainId}/mailboxes`, {

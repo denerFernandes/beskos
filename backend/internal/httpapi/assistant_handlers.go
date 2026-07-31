@@ -91,7 +91,7 @@ func (s *Server) assistantDriveSearch(ctx context.Context, id assistant.Identity
 	}
 	owner := pgtype.UUID{Bytes: id.UserID, Valid: true}
 	pattern := likePattern(query)
-	files, err := s.q.SearchStorageFiles(ctx, db.SearchStorageFilesParams{OwnerUserID: owner, Nome: pattern})
+	files, err := s.q.SearchStorageFiles(ctx, db.SearchStorageFilesParams{OwnerUserID: owner, Name: pattern})
 	if err != nil {
 		return nil, fmt.Errorf("file search: %w", err)
 	}
@@ -111,7 +111,7 @@ func (s *Server) assistantDriveSearch(ctx context.Context, id assistant.Identity
 		if f.FolderID.Valid && excluded[uuidText(f.FolderID)] {
 			continue
 		}
-		hit := assistant.DriveHit{ID: f.ID.String(), Name: f.Nome, Kind: "file", Size: f.Tamanho}
+		hit := assistant.DriveHit{ID: f.ID.String(), Name: f.Name, Kind: "file", Size: f.Size}
 		if f.FolderID.Valid {
 			hit.Folder = uuidText(f.FolderID)
 		}
@@ -456,9 +456,9 @@ func (s *Server) assistantDocsShare(ctx context.Context, id assistant.Identity, 
 	if err != nil {
 		return assistant.ShareResult{}, fmt.Errorf("file not found or not yours")
 	}
-	nivel := "leitor"
+	level := "leitor"
 	if role == "editor" {
-		nivel = "editor"
+		level = "editor"
 	}
 	var shared []string
 	for _, email := range emails {
@@ -467,19 +467,19 @@ func (s *Server) assistantDocsShare(ctx context.Context, id assistant.Identity, 
 			continue // não é colega deste tenant: não se partilha às cegas
 		}
 		if _, err := s.q.CreateShare(ctx, db.CreateShareParams{
-			FileID: f.ID, TenantID: f.TenantID, Principal: email, Nivel: nivel,
+			FileID: f.ID, TenantID: f.TenantID, Principal: email, Level: level,
 		}); err != nil {
 			continue
 		}
 		s.notifyUser(ctx, f.TenantID, target.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
-			map[string]string{"actor": mu.Email, "file": f.Nome})
+			"New shared file", mu.Email+" shared \""+f.Name+"\" with you", fileLink(f.ID), uuid.Nil,
+			map[string]string{"actor": mu.Email, "file": f.Name})
 		shared = append(shared, email)
 	}
 	if len(shared) == 0 {
 		return assistant.ShareResult{}, fmt.Errorf("none of those addresses is a colleague in this organisation")
 	}
-	return assistant.ShareResult{File: f.Nome, SharedWith: shared}, nil
+	return assistant.ShareResult{File: f.Name, SharedWith: shared}, nil
 }
 
 // assistantDocsCreate constrói o ficheiro Office EM GO (decisão §12.1, ponto 2) e grava-o no Drive
@@ -507,5 +507,5 @@ func (s *Server) assistantDocsCreate(ctx context.Context, id assistant.Identity,
 		// traduz (lei 4.6).
 		return assistant.DriveHit{}, fmt.Errorf("%s", code)
 	}
-	return assistant.DriveHit{ID: rec.ID.String(), Name: rec.Nome, Kind: "file", Size: rec.Tamanho}, nil
+	return assistant.DriveHit{ID: rec.ID.String(), Name: rec.Name, Kind: "file", Size: rec.Size}, nil
 }

@@ -354,7 +354,7 @@ func (q *Queries) DetachWikiAttachment(ctx context.Context, arg DetachWikiAttach
 }
 
 const getWikiAttachmentBlob = `-- name: GetWikiAttachmentBlob :one
-SELECT f.id, f.tenant_id, f.owner_user_id, f.nome, f.blob_key, f.hash, f.tamanho, f.versao, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at, a.page_id FROM wiki_attachments a JOIN storage_files f ON f.id = a.file_id
+SELECT f.id, f.tenant_id, f.owner_user_id, f.name, f.blob_key, f.hash, f.size, f.version, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at, a.page_id FROM wiki_attachments a JOIN storage_files f ON f.id = a.file_id
 WHERE a.id = $1 AND a.tenant_id = $2
 `
 
@@ -367,11 +367,11 @@ type GetWikiAttachmentBlobRow struct {
 	ID          uuid.UUID          `json:"id"`
 	TenantID    uuid.UUID          `json:"tenant_id"`
 	OwnerUserID pgtype.UUID        `json:"owner_user_id"`
-	Nome        string             `json:"nome"`
+	Name        string             `json:"name"`
 	BlobKey     string             `json:"blob_key"`
 	Hash        string             `json:"hash"`
-	Tamanho     int64              `json:"tamanho"`
-	Versao      int32              `json:"versao"`
+	Size        int64              `json:"size"`
+	Version     int32              `json:"version"`
 	CreatedAt   time.Time          `json:"created_at"`
 	FolderID    pgtype.UUID        `json:"folder_id"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
@@ -388,11 +388,11 @@ func (q *Queries) GetWikiAttachmentBlob(ctx context.Context, arg GetWikiAttachme
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -759,7 +759,7 @@ func (q *Queries) ListVisibleWikiSpaces(ctx context.Context, arg ListVisibleWiki
 }
 
 const listWikiAttachments = `-- name: ListWikiAttachments :many
-SELECT a.id, a.file_id, f.nome, f.tamanho, a.created_at
+SELECT a.id, a.file_id, f.name, f.size, a.created_at
 FROM wiki_attachments a JOIN storage_files f ON f.id = a.file_id
 WHERE a.page_id = $1 AND a.tenant_id = $2 ORDER BY a.created_at
 `
@@ -772,8 +772,8 @@ type ListWikiAttachmentsParams struct {
 type ListWikiAttachmentsRow struct {
 	ID        uuid.UUID `json:"id"`
 	FileID    uuid.UUID `json:"file_id"`
-	Nome      string    `json:"nome"`
-	Tamanho   int64     `json:"tamanho"`
+	Name      string    `json:"name"`
+	Size      int64     `json:"size"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -789,8 +789,8 @@ func (q *Queries) ListWikiAttachments(ctx context.Context, arg ListWikiAttachmen
 		if err := rows.Scan(
 			&i.ID,
 			&i.FileID,
-			&i.Nome,
-			&i.Tamanho,
+			&i.Name,
+			&i.Size,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

@@ -33,18 +33,18 @@ func ParseKEK(s string) (*KEK, error) {
 		return nil, nil // cifra desligada: ver Service.
 	}
 	k := &KEK{byVersion: map[int][KeySize]byte{}}
-	for _, parte := range strings.Split(s, ",") {
-		parte = strings.TrimSpace(parte)
-		if parte == "" {
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
 			continue
 		}
-		version, encoded := 1, parte
-		if i := strings.Index(parte, ":"); i > 0 {
-			n, err := strconv.Atoi(parte[:i])
+		version, encoded := 1, part
+		if i := strings.Index(part, ":"); i > 0 {
+			n, err := strconv.Atoi(part[:i])
 			if err != nil {
-				return nil, fmt.Errorf("filecrypt: versão de KEK inválida em %q", parte)
+				return nil, fmt.Errorf("filecrypt: invalid KEK version in %q", part)
 			}
-			version, encoded = n, parte[i+1:]
+			version, encoded = n, part[i+1:]
 		}
 		raw, err := hex.DecodeString(strings.TrimSpace(encoded))
 		if err != nil {
@@ -82,7 +82,7 @@ func NewKey() ([]byte, error) {
 func (k *KEK) Wrap(key []byte) ([]byte, int, error) {
 	master, ok := k.byVersion[k.current]
 	if !ok {
-		return nil, 0, fmt.Errorf("filecrypt: KEK v%d desconhecida", k.current)
+		return nil, 0, fmt.Errorf("filecrypt: unknown KEK v%d", k.current)
 	}
 	out, err := wrapWith(master[:], key)
 	return out, k.current, err
@@ -93,7 +93,7 @@ func (k *KEK) Wrap(key []byte) ([]byte, int, error) {
 func (k *KEK) WrapWithVersion(key []byte, version int) ([]byte, error) {
 	master, ok := k.byVersion[version]
 	if !ok {
-		return nil, fmt.Errorf("filecrypt: KEK v%d desconhecida", version)
+		return nil, fmt.Errorf("filecrypt: unknown KEK v%d", version)
 	}
 	return wrapWith(master[:], key)
 }

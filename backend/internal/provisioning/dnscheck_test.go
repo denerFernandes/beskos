@@ -11,55 +11,55 @@ import (
 // correio a cair.
 func TestMatchesPorTipo(t *testing.T) {
 	cases := []struct {
-		nome  string
+		name  string
 		rec   DNSRecord
 		found []string
 		want  bool
 	}{
 		{
-			nome:  "MX ignora a prioridade e o ponto final",
+			name:  "MX ignora a prioridade e o ponto final",
 			rec:   DNSRecord{Type: "MX", Value: "10 mail.exemplo.com.", Purpose: "mx"},
 			found: []string{"mail.exemplo.com"},
 			want:  true,
 		},
 		{
-			nome:  "MX de outro fornecedor não passa",
+			name:  "MX de outro fornecedor não passa",
 			rec:   DNSRecord{Type: "MX", Value: "10 mail.exemplo.com.", Purpose: "mx"},
 			found: []string{"aspmx.l.google.com"},
 			want:  false,
 		},
 		{
-			nome:  "SPF basta conter o nosso include",
+			name:  "SPF basta conter o nosso include",
 			rec:   DNSRecord{Type: "TXT", Value: "v=spf1 include:_spf.beskos.com ~all", Purpose: "spf"},
 			found: []string{"v=spf1 ip4:1.2.3.4 include:_spf.beskos.com include:outro.com -all"},
 			want:  true,
 		},
 		{
-			nome:  "SPF sem o nosso include falha",
+			name:  "SPF sem o nosso include falha",
 			rec:   DNSRecord{Type: "TXT", Value: "v=spf1 include:_spf.beskos.com ~all", Purpose: "spf"},
 			found: []string{"v=spf1 include:_spf.google.com ~all"},
 			want:  false,
 		},
 		{
-			nome:  "DKIM compara a chave, não a ordem das tags",
+			name:  "DKIM compara a chave, não a ordem das tags",
 			rec:   DNSRecord{Type: "TXT", Value: "v=DKIM1; k=rsa; p=MIIBIjANBg", Purpose: "dkim"},
 			found: []string{"k=rsa; p=MIIBIjANBg; v=DKIM1"},
 			want:  true,
 		},
 		{
-			nome:  "DKIM com outra chave falha (é o caso perigoso)",
+			name:  "DKIM com outra chave falha (é o caso perigoso)",
 			rec:   DNSRecord{Type: "TXT", Value: "v=DKIM1; k=rsa; p=MIIBIjANBg", Purpose: "dkim"},
 			found: []string{"v=DKIM1; k=rsa; p=OUTRACHAVE"},
 			want:  false,
 		},
 		{
-			nome:  "DMARC aceita qualquer política publicada",
+			name:  "DMARC aceita qualquer política publicada",
 			rec:   DNSRecord{Type: "TXT", Value: "v=DMARC1; p=quarantine; rua=mailto:d@b.com", Purpose: "dmarc"},
 			found: []string{"v=DMARC1; p=none"},
 			want:  true,
 		},
 		{
-			nome:  "SRV compara o alvo",
+			name:  "SRV compara o alvo",
 			rec:   DNSRecord{Type: "SRV", Value: "0 1 993 mail.exemplo.com.", Purpose: "other"},
 			found: []string{"mail.exemplo.com"},
 			want:  true,
@@ -67,7 +67,7 @@ func TestMatchesPorTipo(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := matches(c.rec, c.found); got != c.want {
-			t.Errorf("%s: matches=%v, quer %v", c.nome, got, c.want)
+			t.Errorf("%s: matches=%v, quer %v", c.name, got, c.want)
 		}
 	}
 }

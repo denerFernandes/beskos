@@ -61,7 +61,7 @@ func (s *Server) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "invites.failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "invite.create", Alvo: req.Email})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "invite.create", Target: req.Email})
 	// O envio do e-mail de convite é um gancho externo; devolvemos o token para o fluxo.
 	writeJSON(w, http.StatusCreated, map[string]any{"id": inv.ID, "email": inv.Email, "role": inv.Role, "token": inv.Token})
 }
@@ -141,7 +141,7 @@ func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "auth.email_taken")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: inv.TenantID, Valid: true}, Actor: inv.Email, Acao: "invite.accept", Alvo: inv.Role})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: inv.TenantID, Valid: true}, Actor: inv.Email, Action: "invite.accept", Target: inv.Role})
 	token, ok := s.issueSession(w, r.Context(), u)
 	if !ok {
 		return
@@ -193,7 +193,7 @@ func (s *Server) handleChangeRole(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "members.failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "member.role_change", Alvo: updated.Email + "→" + req.Role})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "member.role_change", Target: updated.Email + "→" + req.Role})
 	writeJSON(w, http.StatusOK, updated)
 }
 
@@ -220,7 +220,7 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "members.failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "member.remove", Alvo: target.Email})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "member.remove", Target: target.Email})
 	s.syncSeats(u.TenantID) // seats na Stripe acompanham (crédito proporcional)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
 }

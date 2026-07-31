@@ -128,11 +128,11 @@ func (s *Server) handleExportDomainDNS(w http.ResponseWriter, r *http.Request) {
 			b.WriteString(fmt.Sprintf("%s,%s,%q\n", rec.Type, rec.Host, rec.Value))
 		}
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", d.Dominio+"-dns.csv"))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", d.Domain+"-dns.csv"))
 		_, _ = w.Write([]byte(b.String()))
 	default:
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", d.Dominio+".zone"))
-		_, _ = w.Write([]byte(provisioning.ZoneFile(d.Dominio, zone)))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", d.Domain+".zone"))
+		_, _ = w.Write([]byte(provisioning.ZoneFile(d.Domain, zone)))
 	}
 }

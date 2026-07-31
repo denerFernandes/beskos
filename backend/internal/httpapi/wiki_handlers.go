@@ -644,13 +644,13 @@ func (s *Server) handleDownloadWikiAttachment(w http.ResponseWriter, r *http.Req
 	}
 	defer obj.Close()
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	ct := mime.TypeByExtension("." + extOf(f.Nome))
+	ct := mime.TypeByExtension("." + extOf(f.Name))
 	if r.URL.Query().Get("inline") == "1" && safeInlineType(ct) {
 		w.Header().Set("Content-Type", ct)
-		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", f.Nome))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", f.Name))
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.Nome))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.Name))
 	}
 	_, _ = io.Copy(w, obj)
 }

@@ -174,7 +174,7 @@ func (c *Client) DeleteIdentity(ctx context.Context, domain string) error {
 func generateDKIMKeypair() (privB64, pubB64 string, err error) {
 	k, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return "", "", fmt.Errorf("gerar chave DKIM: %w", err)
+		return "", "", fmt.Errorf("generate DKIM key: %w", err)
 	}
 	privDER, err := x509.MarshalPKCS8PrivateKey(k)
 	if err != nil {

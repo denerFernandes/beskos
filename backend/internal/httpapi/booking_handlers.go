@@ -155,7 +155,7 @@ func (s *Server) handleSaveBookingPage(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusInternalServerError, "booking.save_failed")
 			return
 		}
-		orgSlug = bookingSlugify(ten.Nome)
+		orgSlug = bookingSlugify(ten.Name)
 		userSlug = bookingSlugify(mu.Name)
 		if userSlug == "" {
 			userSlug = bookingSlugify(strings.SplitN(mu.Email, "@", 2)[0])
@@ -225,7 +225,7 @@ func (s *Server) handlePublicBookingInfo(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"org": ten.Nome, "name": owner.Name, "avatar": owner.Avatar, "title": page.Title,
+		"org": ten.Name, "name": owner.Name, "avatar": owner.Avatar, "title": page.Title,
 		"duration_min": page.DurationMin, "phone_field": page.PhoneField, "company_field": page.CompanyField,
 		"weekdays": weekdays,
 		// Marca da organização: a página pública veste as cores/logo do cliente.

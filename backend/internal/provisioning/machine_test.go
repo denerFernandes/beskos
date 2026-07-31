@@ -67,7 +67,7 @@ func (s *fakeStore) GetMailUserByEmail(_ context.Context, email string) (db.Mail
 }
 
 func newDomain(state string) db.Domain {
-	return db.Domain{ID: uuid.New(), TenantID: uuid.New(), Dominio: "cliente.com.br", ProvisionState: state}
+	return db.Domain{ID: uuid.New(), TenantID: uuid.New(), Domain: "cliente.com.br", ProvisionState: state}
 }
 
 // runToActive roda a máquina até um estado terminal ou até parar de progredir.
@@ -189,7 +189,7 @@ type fakeRelay struct {
 	verified     bool
 	tenants      []string // nomes criados
 	associados   []string // "tenant/domínio"
-	conjuntos    []string // conjuntos de configuração criados
+	configSets   []string // conjuntos de configuração criados
 	predefinidos []string // "domínio/conjunto"
 }
 
@@ -212,7 +212,7 @@ func (f *fakeRelay) AssociateIdentity(_ context.Context, tenant, domain string) 
 	return nil
 }
 func (f *fakeRelay) CreateConfigurationSet(_ context.Context, name string) error {
-	f.conjuntos = append(f.conjuntos, name)
+	f.configSets = append(f.configSets, name)
 	return nil
 }
 func (f *fakeRelay) SetIdentityConfigurationSet(_ context.Context, domain, name string) error {

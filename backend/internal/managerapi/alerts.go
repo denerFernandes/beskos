@@ -48,9 +48,9 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 		if t.MaxUsers > 0 {
 			pct := int(t.Users) * 100 / int(t.MaxUsers)
 			if int(t.Users) >= int(t.MaxUsers) {
-				add("critical", "users_cap", id, t.Nome, fmt.Sprintf("%d/%d utilizadores (teto do plano atingido)", t.Users, t.MaxUsers))
+				add("critical", "users_cap", id, t.Name, fmt.Sprintf("%d/%d utilizadores (teto do plano atingido)", t.Users, t.MaxUsers))
 			} else if pct >= warnUsersPct {
-				add("warn", "users_cap", id, t.Nome, fmt.Sprintf("%d/%d utilizadores (%d%% do teto)", t.Users, t.MaxUsers, pct))
+				add("warn", "users_cap", id, t.Name, fmt.Sprintf("%d/%d utilizadores (%d%% do teto)", t.Users, t.MaxUsers, pct))
 			}
 		}
 		// Pool de storage.
@@ -58,23 +58,23 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 			capBytes := int64(t.MaxStorageGb) << 30
 			pct := int(t.StorageBytes * 100 / capBytes)
 			if pct >= critStoragePct {
-				add("critical", "storage_cap", id, t.Nome, fmt.Sprintf("storage a %d%% do plano (%d GB)", pct, t.MaxStorageGb))
+				add("critical", "storage_cap", id, t.Name, fmt.Sprintf("storage a %d%% do plano (%d GB)", pct, t.MaxStorageGb))
 			} else if pct >= warnStoragePct {
-				add("warn", "storage_cap", id, t.Nome, fmt.Sprintf("storage a %d%% do plano (%d GB)", pct, t.MaxStorageGb))
+				add("warn", "storage_cap", id, t.Name, fmt.Sprintf("storage a %d%% do plano (%d GB)", pct, t.MaxStorageGb))
 			}
 		}
 		// Envio diário.
 		if t.MaxDailySend > 0 {
 			pct := int(t.MailToday) * 100 / int(t.MaxDailySend)
 			if pct >= 100 {
-				add("critical", "mail_cap", id, t.Nome, fmt.Sprintf("%d envios hoje — teto diário (%d) atingido", t.MailToday, t.MaxDailySend))
+				add("critical", "mail_cap", id, t.Name, fmt.Sprintf("%d envios hoje — teto diário (%d) atingido", t.MailToday, t.MaxDailySend))
 			} else if pct >= warnMailPct {
-				add("warn", "mail_cap", id, t.Nome, fmt.Sprintf("%d envios hoje (%d%% do teto diário)", t.MailToday, pct))
+				add("warn", "mail_cap", id, t.Name, fmt.Sprintf("%d envios hoje (%d%% do teto diário)", t.MailToday, pct))
 			}
 		}
 		// Spike de IA vs baseline.
 		if t.AiToday >= aiSpikeFloor && t.AiPrevAvg > 0 && t.AiToday >= t.AiPrevAvg*aiSpikeFactor {
-			add("warn", "ai_spike", id, t.Nome,
+			add("warn", "ai_spike", id, t.Name,
 				fmt.Sprintf("%d tokens de IA hoje (%d× a média dos 7 dias: %d)", t.AiToday, t.AiToday/max64(t.AiPrevAvg, 1), t.AiPrevAvg))
 		}
 	}
@@ -89,14 +89,14 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 			complaintPct := float64(t.Complaints30d) * 100 / float64(t.Sent30d)
 			id := t.ID.String()
 			if bouncePct >= 10 {
-				add("critical", "bounce_rate", id, t.Nome, fmt.Sprintf("taxa de bounce %.1f%% em 30d (%d/%d) — risco de pausa no SES", bouncePct, t.Bounces30d, t.Sent30d))
+				add("critical", "bounce_rate", id, t.Name, fmt.Sprintf("taxa de bounce %.1f%% em 30d (%d/%d) — risco de pausa no SES", bouncePct, t.Bounces30d, t.Sent30d))
 			} else if bouncePct >= 5 {
-				add("warn", "bounce_rate", id, t.Nome, fmt.Sprintf("taxa de bounce %.1f%% em 30d (%d/%d)", bouncePct, t.Bounces30d, t.Sent30d))
+				add("warn", "bounce_rate", id, t.Name, fmt.Sprintf("taxa de bounce %.1f%% em 30d (%d/%d)", bouncePct, t.Bounces30d, t.Sent30d))
 			}
 			if complaintPct >= 0.5 {
-				add("critical", "complaint_rate", id, t.Nome, fmt.Sprintf("taxa de reclamações %.2f%% em 30d (%d/%d) — risco de pausa no SES", complaintPct, t.Complaints30d, t.Sent30d))
+				add("critical", "complaint_rate", id, t.Name, fmt.Sprintf("taxa de reclamações %.2f%% em 30d (%d/%d) — risco de pausa no SES", complaintPct, t.Complaints30d, t.Sent30d))
 			} else if complaintPct >= 0.1 {
-				add("warn", "complaint_rate", id, t.Nome, fmt.Sprintf("taxa de reclamações %.2f%% em 30d (%d/%d)", complaintPct, t.Complaints30d, t.Sent30d))
+				add("warn", "complaint_rate", id, t.Name, fmt.Sprintf("taxa de reclamações %.2f%% em 30d (%d/%d)", complaintPct, t.Complaints30d, t.Sent30d))
 			}
 		}
 	}

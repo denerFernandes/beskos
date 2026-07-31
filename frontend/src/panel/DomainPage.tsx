@@ -63,7 +63,7 @@ export function DomainPage({ id, canManage, onBack }: { id: string; canManage: b
       <div className="pnl-top">
         <button className="pnl-icon-btn" title={t("common.back")} onClick={onBack}><IcArrowLeft size={16} /></button>
         <div>
-          <h1 className="mono">{d?.dominio ?? "…"}</h1>
+          <h1 className="mono">{d?.domain ?? "…"}</h1>
           <div className="desc">{t("domains.dnsHint")}</div>
         </div>
       </div>
@@ -85,14 +85,14 @@ export function DomainPage({ id, canManage, onBack }: { id: string; canManage: b
             <button className="pnl-btn" disabled={check.isFetching} onClick={() => void check.refetch()}>
               {check.isFetching ? "…" : t("domains.dnsRecheck")}
             </button>
-            <button className="pnl-btn ghost" onClick={() => void api.dnsExport(id, "zone", d?.dominio ?? "").catch((e) => toast((e as Error).message))}>
+            <button className="pnl-btn ghost" onClick={() => void api.dnsExport(id, "zone", d?.domain ?? "").catch((e) => toast((e as Error).message))}>
               {t("domains.dnsExportZone")}
             </button>
-            <button className="pnl-btn ghost" onClick={() => void api.dnsExport(id, "csv", d?.dominio ?? "").catch((e) => toast((e as Error).message))}>CSV</button>
+            <button className="pnl-btn ghost" onClick={() => void api.dnsExport(id, "csv", d?.domain ?? "").catch((e) => toast((e as Error).message))}>CSV</button>
           </div>
         </div>
 
-        <ProviderGuide domain={d?.dominio ?? ""} onExport={() => void api.dnsExport(id, "zone", d?.dominio ?? "").catch((e) => toast((e as Error).message))} />
+        <ProviderGuide domain={d?.domain ?? ""} onExport={() => void api.dnsExport(id, "zone", d?.domain ?? "").catch((e) => toast((e as Error).message))} />
 
         <RecordsCard title={t("domains.dnsRequiredTitle")} hint={t("domains.dnsRequiredHint")} records={essential} checks={byKey} />
         <RecordsCard title={t("domains.dnsOptionalTitle")} hint={t("domains.dnsOptionalHint")} records={optional} checks={byKey} collapsible />
@@ -101,9 +101,9 @@ export function DomainPage({ id, canManage, onBack }: { id: string; canManage: b
           <div className="pnl-card danger">
             <div className="pnl-card-h"><div><h3>{t("domains.dangerTitle")}</h3><div className="desc">{t("domains.deleteHint")}</div></div></div>
             <div className="pnl-card-b dom-danger">
-              <input className="pnl-input" style={{ width: 260 }} placeholder={d.dominio} value={confirmName}
+              <input className="pnl-input" style={{ width: 260 }} placeholder={d.domain} value={confirmName}
                 onChange={(e) => { setConfirmName(e.target.value); setDelErr(""); }} />
-              <button className="pnl-btn danger" disabled={confirmName !== d.dominio || del.isPending} onClick={() => del.mutate()}>
+              <button className="pnl-btn danger" disabled={confirmName !== d.domain || del.isPending} onClick={() => del.mutate()}>
                 {t("domains.deleteBtn")}
               </button>
               {delErr && <p className="pnl-err">{delErr}</p>}

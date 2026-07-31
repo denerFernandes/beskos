@@ -194,13 +194,13 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 			continue
 		}
 		if _, err := s.q.CreateShare(r.Context(), db.CreateShareParams{
-			FileID: f.ID, TenantID: f.TenantID, Principal: email, Nivel: "leitor",
+			FileID: f.ID, TenantID: f.TenantID, Principal: email, Level: "leitor",
 		}); err != nil {
 			continue
 		}
 		s.notifyUser(r.Context(), f.TenantID, target.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
-			map[string]string{"actor": mu.Email, "file": f.Nome})
+			"New shared file", mu.Email+" shared \""+f.Name+"\" with you", fileLink(f.ID), uuid.Nil,
+			map[string]string{"actor": mu.Email, "file": f.Name})
 		shared++
 	}
 	// `external`/`not_emailed`: a UI tem de poder dizer "o link foi criado mas o e-mail não saiu"
@@ -218,7 +218,7 @@ func (s *Server) handleShareWithGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		GroupID string `json:"group_id"`
-		Nivel   string `json:"nivel"`
+		Level   string `json:"level"`
 	}
 	if !decode(w, r, &req) {
 		return
@@ -228,9 +228,9 @@ func (s *Server) handleShareWithGroup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "groups.invalid_id")
 		return
 	}
-	nivel := "leitor"
-	if req.Nivel == "editor" {
-		nivel = "editor"
+	level := "leitor"
+	if req.Level == "editor" {
+		level = "editor"
 	}
 	mu := mailUserFrom(r.Context())
 	if _, err := s.q.GetUserGroup(r.Context(), db.GetUserGroupParams{ID: gid, TenantID: mu.TenantID}); err != nil {
@@ -251,14 +251,14 @@ func (s *Server) handleShareWithGroup(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if _, err := s.q.CreateShare(r.Context(), db.CreateShareParams{
-			FileID: f.ID, TenantID: f.TenantID, Principal: m.Email, Nivel: nivel,
+			FileID: f.ID, TenantID: f.TenantID, Principal: m.Email, Level: level,
 		}); err != nil {
 			continue
 		}
 		existing[m.Email] = true
 		s.notifyUser(r.Context(), f.TenantID, m.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
-			map[string]string{"actor": mu.Email, "file": f.Nome})
+			"New shared file", mu.Email+" shared \""+f.Name+"\" with you", fileLink(f.ID), uuid.Nil,
+			map[string]string{"actor": mu.Email, "file": f.Name})
 		shared++
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"shared": shared})
@@ -309,6 +309,6 @@ func (s *Server) handlePublicFileDownload(w http.ResponseWriter, r *http.Request
 	defer obj.Close()
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.Nome))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.Name))
 	_, _ = io.Copy(w, obj)
 }

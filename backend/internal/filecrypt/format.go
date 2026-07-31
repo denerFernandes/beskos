@@ -121,7 +121,7 @@ func ParseHeader(buf []byte) (Header, error) {
 		return Header{}, ErrNotEncrypted
 	}
 	if buf[4] != 1 {
-		return Header{}, fmt.Errorf("filecrypt: versão de formato %d desconhecida", buf[4])
+		return Header{}, fmt.Errorf("filecrypt: unknown format version %d", buf[4])
 	}
 	h := Header{
 		ChunkSize:     int(binary.BigEndian.Uint32(buf[8:12])),

@@ -46,7 +46,7 @@ func (c *Client) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapRe
 	}
 	upd, ok := r.Updated["singleton"]
 	if !ok {
-		return nil, errors.New("stalwart: bootstrap não retornou singleton atualizado")
+		return nil, errors.New("stalwart: bootstrap returned no updated singleton")
 	}
 	var res BootstrapResult
 	if err := json.Unmarshal(upd, &res); err != nil {

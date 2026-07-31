@@ -45,7 +45,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
     onError: (e) => setPlanMsg(errorText(e instanceof ApiError ? e.code : "manager.failed")),
   });
   const activePlans = (plansQ.data ?? []).filter((p) => p.active);
-  const currentPlan = planPick || t?.plano || "";
+  const currentPlan = planPick || t?.plan || "";
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,8 +54,8 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
           {S.tenants.back}
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">{t?.nome ?? "…"}</h1>
-          {t && <Badge variant="outline">{t.plano}</Badge>}
+          <h1 className="text-xl font-semibold tracking-tight">{t?.name ?? "…"}</h1>
+          {t && <Badge variant="outline">{t.plan}</Badge>}
           {t && (
             <Badge variant={t.status === "active" ? "default" : "secondary"}>{t.status}</Badge>
           )}
@@ -74,7 +74,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
             ))}
           </SelectContent>
         </Select>
-        <Button size="sm" disabled={!planPick || planPick === t?.plano || applyPlan.isPending}
+        <Button size="sm" disabled={!planPick || planPick === t?.plan || applyPlan.isPending}
           onClick={() => applyPlan.mutate()}>
           {applyPlan.isPending ? S.tenantPlan.applying : S.tenantPlan.apply}
         </Button>

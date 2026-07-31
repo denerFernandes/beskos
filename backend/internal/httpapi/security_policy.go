@@ -55,7 +55,7 @@ func (s *Server) handleSetSecurityPolicy(w http.ResponseWriter, r *http.Request)
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
 		TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email,
-		Acao: action, Alvo: req.MFAMethod,
+		Action: action, Target: req.MFAMethod,
 	})
 	writeJSON(w, http.StatusOK, map[string]any{"mfa_required": req.MFARequired, "mfa_method": req.MFAMethod})
 }

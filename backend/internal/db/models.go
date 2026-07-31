@@ -153,8 +153,8 @@ type AuditLog struct {
 	ID        uuid.UUID   `json:"id"`
 	TenantID  pgtype.UUID `json:"tenant_id"`
 	Actor     string      `json:"actor"`
-	Acao      string      `json:"acao"`
-	Alvo      string      `json:"alvo"`
+	Action    string      `json:"action"`
+	Target    string      `json:"target"`
 	Timestamp time.Time   `json:"timestamp"`
 }
 
@@ -461,7 +461,7 @@ type DeviceToken struct {
 type Domain struct {
 	ID             uuid.UUID `json:"id"`
 	TenantID       uuid.UUID `json:"tenant_id"`
-	Dominio        string    `json:"dominio"`
+	Domain         string    `json:"domain"`
 	StalwartID     *string   `json:"stalwart_id"`
 	DkimStatus     string    `json:"dkim_status"`
 	DnsStatus      string    `json:"dns_status"`
@@ -539,8 +539,8 @@ type FileVersion struct {
 	TenantID  uuid.UUID   `json:"tenant_id"`
 	BlobKey   string      `json:"blob_key"`
 	Hash      string      `json:"hash"`
-	Tamanho   int64       `json:"tamanho"`
-	Versao    int32       `json:"versao"`
+	Size      int64       `json:"size"`
+	Version   int32       `json:"version"`
 	CreatedBy pgtype.UUID `json:"created_by"`
 	CreatedAt time.Time   `json:"created_at"`
 }
@@ -958,11 +958,11 @@ type StorageFile struct {
 	ID          uuid.UUID          `json:"id"`
 	TenantID    uuid.UUID          `json:"tenant_id"`
 	OwnerUserID pgtype.UUID        `json:"owner_user_id"`
-	Nome        string             `json:"nome"`
+	Name        string             `json:"name"`
 	BlobKey     string             `json:"blob_key"`
 	Hash        string             `json:"hash"`
-	Tamanho     int64              `json:"tamanho"`
-	Versao      int32              `json:"versao"`
+	Size        int64              `json:"size"`
+	Version     int32              `json:"version"`
 	CreatedAt   time.Time          `json:"created_at"`
 	FolderID    pgtype.UUID        `json:"folder_id"`
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
@@ -984,14 +984,14 @@ type StorageShare struct {
 	FileID    uuid.UUID `json:"file_id"`
 	TenantID  uuid.UUID `json:"tenant_id"`
 	Principal string    `json:"principal"`
-	Nivel     string    `json:"nivel"`
+	Level     string    `json:"level"`
 }
 
 type Subscription struct {
-	TenantID      uuid.UUID `json:"tenant_id"`
-	StripeID      *string   `json:"stripe_id"`
-	FaixaDeCaixas string    `json:"faixa_de_caixas"`
-	Status        string    `json:"status"`
+	TenantID     uuid.UUID `json:"tenant_id"`
+	StripeID     *string   `json:"stripe_id"`
+	MailboxRange string    `json:"mailbox_range"`
+	Status       string    `json:"status"`
 }
 
 type Tag struct {
@@ -1004,8 +1004,8 @@ type Tag struct {
 
 type Tenant struct {
 	ID                 uuid.UUID `json:"id"`
-	Nome               string    `json:"nome"`
-	Plano              string    `json:"plano"`
+	Name               string    `json:"name"`
+	Plan               string    `json:"plan"`
 	Status             string    `json:"status"`
 	StalwartInstance   string    `json:"stalwart_instance"`
 	OutboundIpPool     string    `json:"outbound_ip_pool"`
@@ -1054,7 +1054,7 @@ type Usage struct {
 	TenantID     uuid.UUID   `json:"tenant_id"`
 	StorageBytes int64       `json:"storage_bytes"`
 	SentToday    int64       `json:"sent_today"`
-	Periodo      pgtype.Date `json:"periodo"`
+	Period       pgtype.Date `json:"period"`
 }
 
 type UserGroup struct {

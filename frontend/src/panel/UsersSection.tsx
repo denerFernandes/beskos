@@ -87,7 +87,7 @@ export function UsersSection({ me }: { me: Me | undefined }) {
   );
 }
 
-function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: string; dominio: string }[]; actorRole: string; onClose: () => void; onDone: () => void }) {
+function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: string; domain: string }[]; actorRole: string; onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation();
   const [domainId, setDomainId] = useState(domains[0]?.id ?? "");
   const [login, setLogin] = useState(""), [name, setName] = useState(""), [pwd, setPwd] = useState(""), [role, setRole] = useState("member"), [err, setErr] = useState("");
@@ -98,7 +98,7 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
     mutationFn: () => api.createUser(domainId, login, name, pwd, role, groups),
     onSuccess: onDone, onError: (e) => setErr((e as Error).message),
   });
-  const dom = domains.find((d) => d.id === domainId)?.dominio ?? "";
+  const dom = domains.find((d) => d.id === domainId)?.domain ?? "";
   // Aviso de cobrança (24/07/2026): com assinatura Stripe ativa e plano pago, um utilizador novo
   // entra na assinatura com valor PROPORCIONAL aos dias restantes do período.
   const billing = useQuery({ queryKey: ["billing"], queryFn: api.billing, retry: false });
@@ -110,7 +110,7 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
       footer={<><button className="pnl-btn ghost" onClick={onClose}>{t("common.cancel")}</button>
         <button className="pnl-btn primary" disabled={m.isPending || !login || !pwOk.current} onClick={() => m.mutate()}>{t("usersSection.create")}</button></>}>
       <div className="pnl-field"><label>{t("panel.domains")}</label>
-        <select className="pnl-select" value={domainId} onChange={(e) => setDomainId(e.target.value)}>{domains.map((d) => <option key={d.id} value={d.id}>{d.dominio}</option>)}</select></div>
+        <select className="pnl-select" value={domainId} onChange={(e) => setDomainId(e.target.value)}>{domains.map((d) => <option key={d.id} value={d.id}>{d.domain}</option>)}</select></div>
       <div className="pnl-field"><label>{t("usersSection.login")}</label>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <input className="pnl-input" value={login} onChange={(e) => setLogin(e.target.value)} placeholder="ana" autoFocus /><span className="mono desc">@{dom}</span></div></div>
@@ -243,7 +243,7 @@ function UserPermissionsModal({ userId, label, onClose }: { userId: string; labe
 // Aliases: um endereço extra que entrega na caixa de outra pessoa (contacto@empresa.com → caixa da
 // Ana). NÃO é um membro — não entra no chat, nos grupos nem na lista de pessoas; é só correio. Conta
 // como uma caixa para efeitos de plano e faturação, e é por isso que aparece aqui, ao lado delas.
-function AliasesCard({ domains, canManage }: { domains: { id: string; dominio: string }[]; canManage: boolean }) {
+function AliasesCard({ domains, canManage }: { domains: { id: string; domain: string }[]; canManage: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["aliases"], queryFn: () => api.aliases(), retry: false });
@@ -279,7 +279,7 @@ function AliasesCard({ domains, canManage }: { domains: { id: string; dominio: s
               onChange={(e) => setLocal(e.target.value.replace(/[@\s]/g, ""))} />
             <span className="alias-at">@</span>
             <select className="pnl-select" style={{ width: 200 }} value={domainId || domains[0]?.id || ""} onChange={(e) => setDomainId(e.target.value)}>
-              {domains.map((d) => <option key={d.id} value={d.id}>{d.dominio}</option>)}
+              {domains.map((d) => <option key={d.id} value={d.id}>{d.domain}</option>)}
             </select>
             <select className="pnl-select" style={{ width: 240 }} value={ownerId} onChange={(e) => setOwnerId(e.target.value)}>
               <option value="">{t("aliases.pickOwner")}</option>

@@ -92,7 +92,7 @@ func (s *Server) handleSyncFileBlocks(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"block_size": bs,
-		"total_size": f.Tamanho,
+		"total_size": f.Size,
 		"hash":       f.Hash, // hash do ficheiro inteiro: serve de If-Match na escrita
 		"hashes":     hashes,
 	})
@@ -162,7 +162,7 @@ func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Reques
 	hasher := sha256.New()
 	out := io.MultiWriter(tmp, hasher) // grava e vai calculando o hash final ao mesmo tempo
 
-	if err := rebuildFromDelta(out, old, body, cur.Tamanho, totalSize, bs, changed); err != nil {
+	if err := rebuildFromDelta(out, old, body, cur.Size, totalSize, bs, changed); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -185,10 +185,10 @@ func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Reques
 	// Histórico: fotografa o estado anterior antes de trocar o conteúdo (igual ao upload normal).
 	_ = s.q.SnapshotFileVersion(r.Context(), db.SnapshotFileVersionParams{
 		FileID: cur.ID, TenantID: mu.TenantID, BlobKey: cur.BlobKey, Hash: cur.Hash,
-		Tamanho: cur.Tamanho, Versao: cur.Versao, CreatedBy: pgtype.UUID{Bytes: mu.ID, Valid: true},
+		Size: cur.Size, Version: cur.Version, CreatedBy: pgtype.UUID{Bytes: mu.ID, Valid: true},
 	})
 	rec, err := s.q.UpdateStorageFileContent(r.Context(), db.UpdateStorageFileContentParams{
-		ID: cur.ID, TenantID: mu.TenantID, BlobKey: blobKey, Hash: hash, Tamanho: totalSize,
+		ID: cur.ID, TenantID: mu.TenantID, BlobKey: blobKey, Hash: hash, Size: totalSize,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.record_failed")

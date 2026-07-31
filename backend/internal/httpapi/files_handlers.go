@@ -104,16 +104,16 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Versionamento por nome (mesmo nome → nova versão).
-	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Nome: header.Filename})
+	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Name: header.Filename})
 	rec, err := s.q.CreateStorageFile(r.Context(), db.CreateStorageFileParams{
 		TenantID: mu.TenantID, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
-		Nome: header.Filename, BlobKey: blobKey, Hash: hash, Tamanho: header.Size, Versao: prevMax + 1, FolderID: folderID,
+		Name: header.Filename, BlobKey: blobKey, Hash: hash, Size: header.Size, Version: prevMax + 1, FolderID: folderID,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.record_failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Acao: "file.upload", Alvo: header.Filename})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Action: "file.upload", Target: header.Filename})
 	writeJSON(w, http.StatusCreated, rec)
 }
 
@@ -198,7 +198,7 @@ func (s *Server) handleSearchFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	pattern := likePattern(q)
-	files, err := s.q.SearchStorageFiles(r.Context(), db.SearchStorageFilesParams{OwnerUserID: ownerPg(mu), Nome: pattern})
+	files, err := s.q.SearchStorageFiles(r.Context(), db.SearchStorageFilesParams{OwnerUserID: ownerPg(mu), Name: pattern})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.search_failed")
 		return
@@ -283,13 +283,13 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	// inline=1 só é honrado para tipos seguros de visualizar (imagem/pdf/áudio/vídeo). Um .html/.svg
 	// servido inline executaria JS no nosso origin (stored XSS) — para esses, força download.
-	ct := mime.TypeByExtension("." + extOf(f.Nome))
+	ct := mime.TypeByExtension("." + extOf(f.Name))
 	if r.URL.Query().Get("inline") == "1" && safeInlineType(ct) {
 		w.Header().Set("Content-Type", ct)
-		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", f.Nome))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("inline; filename=%q", f.Name))
 	} else {
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.Nome))
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", f.Name))
 	}
 	_, _ = io.Copy(w, obj)
 }
@@ -415,7 +415,7 @@ func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "storage.list_failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"current_version": f.Versao, "versions": orEmpty(vs)})
+	writeJSON(w, http.StatusOK, map[string]any{"current_version": f.Version, "versions": orEmpty(vs)})
 }
 
 // handleRestoreVersion volta o ficheiro ao conteúdo de uma versão antiga. Fotografa a versão corrente
@@ -439,10 +439,10 @@ func (s *Server) handleRestoreVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q.SnapshotFileVersion(r.Context(), db.SnapshotFileVersionParams{
-		FileID: f.ID, TenantID: f.TenantID, BlobKey: f.BlobKey, Hash: f.Hash, Tamanho: f.Tamanho, Versao: f.Versao,
+		FileID: f.ID, TenantID: f.TenantID, BlobKey: f.BlobKey, Hash: f.Hash, Size: f.Size, Version: f.Version,
 	})
 	updated, err := s.q.UpdateStorageFileContent(r.Context(), db.UpdateStorageFileContentParams{
-		ID: f.ID, TenantID: f.TenantID, BlobKey: v.BlobKey, Hash: v.Hash, Tamanho: v.Tamanho,
+		ID: f.ID, TenantID: f.TenantID, BlobKey: v.BlobKey, Hash: v.Hash, Size: v.Size,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.record_failed")
@@ -479,13 +479,13 @@ func (s *Server) handleDownloadVersion(w http.ResponseWriter, r *http.Request) {
 	// Versão antiga: sempre download (nunca inline), com nome sufixado pela versão.
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fmt.Sprintf("v%d-%s", v.Versao, f.Nome)))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fmt.Sprintf("v%d-%s", v.Version, f.Name)))
 	_, _ = io.Copy(w, obj)
 }
 
 type shareReq struct {
 	Principal string `json:"principal"`
-	Nivel     string `json:"nivel"` // owner | editor | leitor | link
+	Level     string `json:"level"` // owner | editor | leitor | link
 }
 
 func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
@@ -498,7 +498,7 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	valid := map[string]bool{"owner": true, "editor": true, "leitor": true, "link": true}
-	if req.Principal == "" || !valid[req.Nivel] {
+	if req.Principal == "" || !valid[req.Level] {
 		writeErr(w, http.StatusBadRequest, "storage.invalid_share")
 		return
 	}
@@ -514,7 +514,7 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sh, err := s.q.CreateShare(r.Context(), db.CreateShareParams{
-		FileID: f.ID, TenantID: f.TenantID, Principal: req.Principal, Nivel: req.Nivel,
+		FileID: f.ID, TenantID: f.TenantID, Principal: req.Principal, Level: req.Level,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.share_failed")
@@ -533,8 +533,8 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 	} else {
 		mu := mailUserFrom(r.Context())
 		s.notifyUser(r.Context(), f.TenantID, target.ID, "file_share",
-			"New shared file", mu.Email+" shared \""+f.Nome+"\" with you", fileLink(f.ID), uuid.Nil,
-			map[string]string{"actor": mu.Email, "file": f.Nome})
+			"New shared file", mu.Email+" shared \""+f.Name+"\" with you", fileLink(f.ID), uuid.Nil,
+			map[string]string{"actor": mu.Email, "file": f.Name})
 	}
 	writeJSON(w, http.StatusCreated, sh)
 }
@@ -702,7 +702,7 @@ func (s *Server) handlePatchFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Name != nil {
-		if _, err := s.q.RenameStorageFile(r.Context(), db.RenameStorageFileParams{ID: id, OwnerUserID: ownerPg(mu), Nome: *req.Name}); err != nil {
+		if _, err := s.q.RenameStorageFile(r.Context(), db.RenameStorageFileParams{ID: id, OwnerUserID: ownerPg(mu), Name: *req.Name}); err != nil {
 			writeErr(w, http.StatusNotFound, "storage.not_found")
 			return
 		}

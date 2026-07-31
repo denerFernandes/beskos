@@ -46,7 +46,7 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	if canWrite && !s.tenantPlanByID(r.Context(), mu.TenantID).OnlyOfficeEdit {
 		canWrite = false
 	}
-	ext := extOf(f.Nome)
+	ext := extOf(f.Name)
 	if !officeExts[ext] {
 		writeErr(w, http.StatusUnprocessableEntity, "files.not_editable")
 		return
@@ -63,7 +63,7 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	})
 	base := s.office.filesHostURL
 	// key: único por versão (alfanumérico) — muda a cada nova versão para o DS recarregar.
-	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Versao)))).String(), "-", "")
+	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Version)))).String(), "-", "")
 
 	// Enxuga o cromo para integrar ao Beskos. A marca do cabeçalho é nossa (applyBranding), o que
 	// exige o patch de branding no Document Server; a atribuição à Ascensio System SIA fica no
@@ -79,7 +79,7 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 		"document": map[string]any{
 			"fileType": ext,
 			"key":      key,
-			"title":    f.Nome,
+			"title":    f.Name,
 			"url":      base + "/doc/files/" + f.ID.String() + "/download?token=" + token,
 			"permissions": map[string]any{
 				"edit": canWrite, "download": true, "print": true,
@@ -109,7 +109,7 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 		"apiJs":    s.office.publicURL + "/web-apps/apps/api/documents/api.js",
 		"config":   config,
 		"canWrite": canWrite,
-		"name":     f.Nome,
+		"name":     f.Name,
 	})
 }
 
@@ -149,7 +149,7 @@ func shareAccess(shares []db.StorageShare, email string) (canWrite, has bool) {
 	for _, sh := range shares {
 		if sh.Principal == email || sh.Principal == orgSharePrincipal {
 			has = true
-			if sh.Nivel == "editor" {
+			if sh.Level == "editor" {
 				canWrite = true
 			}
 		}
@@ -283,10 +283,10 @@ func (s *Server) saveEditedFile(r *http.Request, f db.StorageFile, url string) e
 	}
 	// Histórico: fotografa a versão CORRENTE antes de sobrescrever, para poder listar/restaurar.
 	_ = s.q.SnapshotFileVersion(r.Context(), db.SnapshotFileVersionParams{
-		FileID: f.ID, TenantID: f.TenantID, BlobKey: f.BlobKey, Hash: f.Hash, Tamanho: f.Tamanho, Versao: f.Versao,
+		FileID: f.ID, TenantID: f.TenantID, BlobKey: f.BlobKey, Hash: f.Hash, Size: f.Size, Version: f.Version,
 	})
 	_, err = s.q.UpdateStorageFileContent(r.Context(), db.UpdateStorageFileContentParams{
-		ID: f.ID, TenantID: f.TenantID, BlobKey: blobKey, Hash: hash, Tamanho: int64(len(data)),
+		ID: f.ID, TenantID: f.TenantID, BlobKey: blobKey, Hash: hash, Size: int64(len(data)),
 	})
 	return err
 }

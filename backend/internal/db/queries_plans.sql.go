@@ -98,16 +98,16 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 }
 
 const managerSetTenantPlan = `-- name: ManagerSetTenantPlan :exec
-UPDATE tenants SET plano = $1 WHERE id = $2
+UPDATE tenants SET plan = $1 WHERE id = $2
 `
 
 type ManagerSetTenantPlanParams struct {
-	Plano string    `json:"plano"`
-	ID    uuid.UUID `json:"id"`
+	Plan string    `json:"plan"`
+	ID   uuid.UUID `json:"id"`
 }
 
 func (q *Queries) ManagerSetTenantPlan(ctx context.Context, arg ManagerSetTenantPlanParams) error {
-	_, err := q.db.Exec(ctx, managerSetTenantPlan, arg.Plano, arg.ID)
+	_, err := q.db.Exec(ctx, managerSetTenantPlan, arg.Plan, arg.ID)
 	return err
 }
 

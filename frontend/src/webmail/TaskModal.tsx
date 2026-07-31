@@ -286,9 +286,9 @@ function Attachments({ cardId }: { cardId: string }) {
       {(list.data ?? []).map((a) => (
         <div className="tk-att-item" key={a.id}>
           <span className="ic"><IcPaperclip size={14} /></span>
-          <span className="grow nm">{a.nome}</span>
-          <span className="sz">{fmtSize(a.tamanho)}</span>
-          <button className="ib" title={t("files.download")} onClick={() => triggerDownload(cardAttachmentsApi.downloadUrl(cardId, a.id), a.nome)}><IcDownload size={14} /></button>
+          <span className="grow nm">{a.name}</span>
+          <span className="sz">{fmtSize(a.size)}</span>
+          <button className="ib" title={t("files.download")} onClick={() => triggerDownload(cardAttachmentsApi.downloadUrl(cardId, a.id), a.name)}><IcDownload size={14} /></button>
           <button className="ib" title={t("contacts.remove")} onClick={() => detach.mutate(a.id)}><IcX size={13} /></button>
         </div>
       ))}
@@ -298,7 +298,7 @@ function Attachments({ cardId }: { cardId: string }) {
           <div className="tk-att-sugg">
             {hits.map((f) => (
               <button key={f.id} type="button" onMouseDown={(e) => { e.preventDefault(); attach.mutate(f.id); }}>
-                <IcPaperclip size={13} /> {f.nome}
+                <IcPaperclip size={13} /> {f.name}
               </button>
             ))}
           </div>

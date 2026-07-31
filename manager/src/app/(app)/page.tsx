@@ -169,13 +169,13 @@ export default function DashboardPage() {
                     className="flex items-center gap-3 rounded-md transition-colors hover:bg-muted/60">
                     <Avatar className="h-9 w-9">
                       <AvatarFallback className="text-xs font-medium">
-                        {t.nome.slice(0, 2).toUpperCase()}
+                        {t.name.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium leading-none">{t.nome}</div>
+                      <div className="truncate text-sm font-medium leading-none">{t.name}</div>
                       <div className="mt-1 truncate text-sm text-muted-foreground">
-                        {t.plano} · {formatDate(t.created_at)}
+                        {t.plan} · {formatDate(t.created_at)}
                       </div>
                     </div>
                     <div className="font-medium tabular-nums">
@@ -229,7 +229,7 @@ export default function DashboardPage() {
                     const cp = t.sent_30d > 0 ? (t.complaints_30d * 100) / t.sent_30d : 0;
                     return (
                       <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.nome}</TableCell>
+                        <TableCell className="font-medium">{t.name}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(t.sent_30d)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatNumber(t.bounces_30d)}</TableCell>
                         <TableCell className={`text-right tabular-nums ${bp >= 5 ? "text-destructive font-medium" : ""}`}>
@@ -299,7 +299,7 @@ export default function DashboardPage() {
                   <TableBody>
                     {topCost.map((t) => (
                       <TableRow key={t.id}>
-                        <TableCell className="font-medium">{t.nome}</TableCell>
+                        <TableCell className="font-medium">{t.name}</TableCell>
                         <TableCell className="text-right tabular-nums">
                           {formatMoney(t.cost_cents, fs?.currency ?? "EUR")}
                         </TableCell>

@@ -124,7 +124,7 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   const del = useMutation({ mutationFn: (id: string) => backend.deleteFile(id), onSuccess: () => { invalidate(); toast(t("files.movedToTrash")); } });
   // Duplicar: insere "(cópia)" antes da extensão (o backend reusa o blob — sem recopiar bytes).
   const copyName = (name: string) => { const dot = name.lastIndexOf("."); const suf = " " + t("files.copySuffix"); return dot > 0 ? name.slice(0, dot) + suf + name.slice(dot) : name + suf; };
-  const dup = useMutation({ mutationFn: (f: StorageFile) => backend.copyFile(f.id, copyName(f.nome)), onSuccess: () => { invalidate(); toast(t("files.duplicated")); }, onError: (e) => toast((e as Error).message) });
+  const dup = useMutation({ mutationFn: (f: StorageFile) => backend.copyFile(f.id, copyName(f.name)), onSuccess: () => { invalidate(); toast(t("files.duplicated")); }, onError: (e) => toast((e as Error).message) });
   const star = useMutation({ mutationFn: ({ id, v }: { id: string; v: boolean }) => backend.starFile(id, v), onSuccess: () => invalidate(), onError: (e) => toast((e as Error).message) });
   const [sort, setSort] = useState<"name" | "date" | "size">("name");
   // Seleção múltipla + ação em lote (lixeira com desfazer). Limpa ao trocar de pasta.
@@ -177,14 +177,14 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   const source = withMe ? (sharedWithMe.data?.files ?? []) : searching ? (globalSearch.data?.files ?? []) : (data?.files ?? []);
   const sharedExtra = rootDefault ? (sharedWithMe.data?.files ?? []) : [];
   const files = source.filter((f) =>
-    (typeF === "" || fileCategory(f.nome) === typeF) &&
+    (typeF === "" || fileCategory(f.name) === typeF) &&
     (withMe || peopleF === "" || (peopleF === "shared" ? isShared(f.id) : !isShared(f.id))) &&
     withinMod(f.created_at))
     // Favoritos primeiro; depois pela coluna escolhida (nome/data/tamanho).
     .sort((a, b) => (Number(!!b.starred) - Number(!!a.starred)) ||
-      (sort === "size" ? b.tamanho - a.tamanho
+      (sort === "size" ? b.size - a.size
         : sort === "date" ? b.created_at.localeCompare(a.created_at)
-          : a.nome.localeCompare(b.nome, undefined, { numeric: true })));
+          : a.name.localeCompare(b.name, undefined, { numeric: true })));
   // Ao buscar, as pastas vêm do backend (nome casado em qualquer nível); senão, as da pasta atual.
   const folders = searching ? (globalSearch.data?.folders ?? []) : (filtering ? [] : (data?.folders ?? []));
 
@@ -204,9 +204,9 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   }
   // Office abre no editor; imagem/pdf/áudio/vídeo abrem no visualizador; os demais fazem download.
   function openFile(f: StorageFile) {
-    if (isOfficeFile(f.nome)) openEditor(f.id);
-    else if (viewerKind(f.nome)) setViewing(f);
-    else triggerDownload(backend.downloadFileUrl(f.id), f.nome);
+    if (isOfficeFile(f.name)) openEditor(f.id);
+    else if (viewerKind(f.name)) setViewing(f);
+    else triggerDownload(backend.downloadFileUrl(f.id), f.name);
   }
 
   // /mail/files/file/<id>: destino do aviso "partilharam um ficheiro contigo". Procura-o entre os
@@ -248,12 +248,12 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   const fileActions = (f: StorageFile) => (
     <span className="row-acts">
       <button className={"star-btn" + (f.starred ? " on" : "")} title={t("files.star")} onClick={(e) => { e.stopPropagation(); star.mutate({ id: f.id, v: !f.starred }); }}><IcStar size={15} filled={f.starred} /></button>
-      {isOfficeFile(f.nome) && <button title={t("editor.open")} onClick={(e) => { e.stopPropagation(); openEditor(f.id); }}><IcPencilBox size={15} /></button>}
-      {isOfficeFile(f.nome) && <button title={t("files.versions")} onClick={(e) => { e.stopPropagation(); setVersionsOf(f); }}><IcRefresh size={15} /></button>}
+      {isOfficeFile(f.name) && <button title={t("editor.open")} onClick={(e) => { e.stopPropagation(); openEditor(f.id); }}><IcPencilBox size={15} /></button>}
+      {isOfficeFile(f.name) && <button title={t("files.versions")} onClick={(e) => { e.stopPropagation(); setVersionsOf(f); }}><IcRefresh size={15} /></button>}
       <button title={t("files.share")} onClick={(e) => { e.stopPropagation(); setShare(f); }}><IcShare size={15} /></button>
       <a title={t("files.download")} href={backend.downloadFileUrl(f.id)} onClick={(e) => e.stopPropagation()}><button><IcDownload size={15} /></button></a>
       <button title={t("files.duplicate")} onClick={(e) => { e.stopPropagation(); dup.mutate(f); }}><IcCopy size={15} /></button>
-      <button title={t("contacts.rename")} onClick={(e) => { e.stopPropagation(); setRename({ kind: "file", id: f.id, name: f.nome }); }}><IcPencil size={15} /></button>
+      <button title={t("contacts.rename")} onClick={(e) => { e.stopPropagation(); setRename({ kind: "file", id: f.id, name: f.name }); }}><IcPencil size={15} /></button>
       <button title={t("files.delete")} onClick={(e) => { e.stopPropagation(); del.mutate(f.id); }}><IcTrash size={15} /></button>
     </span>
   );
@@ -298,11 +298,11 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
               </div>
               {items.map((f) => (
                 <div className="dvrow" key={f.id}>
-                  <span className="col-name"><span className="ic"><FileTypeIcon name={f.nome} size={20} /></span><span className="fn">{f.nome}</span></span>
+                  <span className="col-name"><span className="ic"><FileTypeIcon name={f.name} size={20} /></span><span className="fn">{f.name}</span></span>
                   <span className="col-owner" />
                   <span className="col-loc" />
                   <span className="col-mod meta">{f.deleted_at ? fmtDate(f.deleted_at) : "—"}</span>
-                  <span className="col-size meta">{fmtSize(f.tamanho)}</span>
+                  <span className="col-size meta">{fmtSize(f.size)}</span>
                   <span className="col-acts">
                     <span className="row-acts">
                       <button title={t("files.restore")} onClick={() => restore.mutate(f.id)}><IcRefresh size={15} /></button>
@@ -455,8 +455,8 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
                         {f.starred && <span className="star-badge" title={t("files.star")}><IcStar size={12} filled /></span>}
                         {(isShared(f.id) || sharedWithMeIds.has(f.id)) && <span className="shared-badge fl" title={sharedWithMeIds.has(f.id) ? t("files.sharedWithMe") : t("files.sharedBadge")}><IcUsers size={12} /></span>}
                       </span>
-                      <div className="fn">{f.nome}</div>
-                      <div className="meta">{fmtSize(f.tamanho)}{f.versao > 1 ? ` · v${f.versao}` : ""}</div>
+                      <div className="fn">{f.name}</div>
+                      <div className="meta">{fmtSize(f.size)}{f.version > 1 ? ` · v` : ""}</div>
                       {fileActions(f)}
                     </div>
                   ))}
@@ -471,8 +471,8 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
                             <Thumb file={f} size={26} />
                             <span className="shared-badge fl" title={t("files.sharedWithMe")}><IcUsers size={12} /></span>
                           </span>
-                          <div className="fn">{f.nome}</div>
-                          <div className="meta">{fmtSize(f.tamanho)}{f.versao > 1 ? ` · v${f.versao}` : ""}</div>
+                          <div className="fn">{f.name}</div>
+                          <div className="meta">{fmtSize(f.size)}{f.version > 1 ? ` · v` : ""}</div>
                           <span className="row-acts">
                             <a title={t("files.download")} href={backend.downloadFileUrl(f.id)} onClick={(e) => e.stopPropagation()}><button><IcDownload size={15} /></button></a>
                           </span>
@@ -521,12 +521,12 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
                     onClick={() => openFile(f)}>
                     <span className="col-name">
                       <input type="checkbox" className="row-sel" checked={selected.has(f.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSel(f.id)} title={t("files.select")} />
-                      <span className="ic"><FileTypeIcon name={f.nome} size={20} /></span><span className="fn">{f.nome}</span>
+                      <span className="ic"><FileTypeIcon name={f.name} size={20} /></span><span className="fn">{f.name}</span>
                     </span>
                     <span className="col-owner">{ownerCell(f.id)}</span>
                     <span className="col-loc meta">{localName}</span>
                     <span className="col-mod meta">{fmtDate(f.created_at)}</span>
-                    <span className="col-size meta">{fmtSize(f.tamanho)}</span>
+                    <span className="col-size meta">{fmtSize(f.size)}</span>
                     <span className="col-acts">{fileActions(f)}</span>
                   </div>
                 ))}
@@ -537,12 +537,12 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
                       <div className="dvrow" key={"sh" + f.id} onClick={() => openFile(f)}>
                         <span className="col-name">
                           <span className="row-sel-gap" aria-hidden="true" />
-                          <span className="ic"><FileTypeIcon name={f.nome} size={20} /></span><span className="fn">{f.nome}</span>
+                          <span className="ic"><FileTypeIcon name={f.name} size={20} /></span><span className="fn">{f.name}</span>
                         </span>
                         <span className="col-owner">{ownerCell(f.id)}</span>
                         <span className="col-loc meta">{localName}</span>
                         <span className="col-mod meta">{fmtDate(f.created_at)}</span>
-                        <span className="col-size meta">{fmtSize(f.tamanho)}</span>
+                        <span className="col-size meta">{fmtSize(f.size)}</span>
                         <span className="col-acts">
                           <span className="row-acts">
                             <a title={t("files.download")} href={backend.downloadFileUrl(f.id)} onClick={(e) => e.stopPropagation()}><button><IcDownload size={15} /></button></a>
@@ -570,10 +570,10 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
 // ou se a miniatura falhar (ex.: webp/svg que a stdlib não decodifica → 415).
 function Thumb({ file, size }: { file: StorageFile; size: number }) {
   const [failed, setFailed] = useState(false);
-  if (fileCategory(file.nome) === "image" && !failed) {
+  if (fileCategory(file.name) === "image" && !failed) {
     return <img className="fthumb" src={backend.fileThumbUrl(file.id)} alt="" loading="lazy" onError={() => setFailed(true)} />;
   }
-  return <FileTypeIcon name={file.nome} size={size} />;
+  return <FileTypeIcon name={file.name} size={size} />;
 }
 
 function StorageBar({ used, max, label }: { used: number; max: number; fmt: (n: number) => string; label: string }) {

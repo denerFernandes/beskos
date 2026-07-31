@@ -54,7 +54,7 @@ func New(cfg Config) (Sender, error) {
 		}
 		return NewSNS(region, key, secret, os.Getenv("SMS_SENDER_ID")), nil
 	default:
-		return nil, fmt.Errorf("sms: provedor desconhecido %q", cfg.Provider)
+		return nil, fmt.Errorf("sms: unknown provider %q", cfg.Provider)
 	}
 }
 

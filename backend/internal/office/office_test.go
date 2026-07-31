@@ -156,10 +156,10 @@ func TestSheetNamesAreSanitised(t *testing.T) {
 		t.Errorf("sheetName = %q", got)
 	}
 	if got := sheetName("  ", 3); got != "Sheet3" {
-		t.Errorf("nome vazio = %q, quero Sheet3", got)
+		t.Errorf("empty name = %q, want Sheet3", got)
 	}
 	if got := sheetName(strings.Repeat("a", 40), 1); len([]rune(got)) != 31 {
-		t.Errorf("nome longo tem %d runas, quero 31", len([]rune(got)))
+		t.Errorf("long name has %d runes, want 31", len([]rune(got)))
 	}
 }
 
