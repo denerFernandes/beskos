@@ -678,64 +678,9 @@ INSERT INTO processed_webhooks (event_id) VALUES ($1) ON CONFLICT DO NOTHING RET
 
 -- ===== Meet (reuniões + participantes) =====
 
--- name: CreateMeeting :one
-INSERT INTO meetings (tenant_id, owner_user_id, title, room_name, scheduled_start, scheduled_end, event_id, access)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
-
--- name: GetMeetingInTenant :one
-SELECT * FROM meetings WHERE id = $1 AND tenant_id = $2;
-
--- name: GetMeetingByRoom :one
-SELECT * FROM meetings WHERE room_name = $1;
-
--- name: CancelMeeting :exec
-UPDATE meetings SET status = 'canceled' WHERE id = $1 AND tenant_id = $2 AND owner_user_id = $3;
-
--- name: UpdateMeeting :one
--- Editar/reagendar: só o dono, e só reunião não cancelada. Devolve a linha para sincronizar o evento.
-UPDATE meetings SET title = $4, scheduled_start = $5, scheduled_end = $6
-WHERE id = $1 AND tenant_id = $2 AND owner_user_id = $3 AND status <> 'canceled' RETURNING *;
-
--- name: SetMeetingStarted :exec
-UPDATE meetings SET actual_start = COALESCE(actual_start, now()), status = 'live'
-WHERE room_name = $1 AND status <> 'canceled';
-
--- name: SetMeetingEnded :exec
-UPDATE meetings SET actual_end = now(), status = 'ended'
-WHERE room_name = $1 AND status <> 'canceled';
-
--- name: ListMyMeetings :many
-SELECT m.*, COALESCE(p.rsvp, '') AS my_rsvp, (m.owner_user_id = $2) AS is_owner
-FROM meetings m
-LEFT JOIN meeting_participants p ON p.meeting_id = m.id AND p.email = $3
-WHERE m.tenant_id = $1 AND (m.owner_user_id = $2 OR p.id IS NOT NULL)
-ORDER BY COALESCE(m.scheduled_start, m.created_at) DESC;
-
--- name: ListParticipants :many
-SELECT * FROM meeting_participants WHERE meeting_id = $1 ORDER BY role DESC, email;
-
--- name: AddParticipant :one
-INSERT INTO meeting_participants (meeting_id, tenant_id, email, user_id, role)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (meeting_id, email) DO UPDATE SET role = EXCLUDED.role
-RETURNING *;
-
 -- name: SetRSVP :one
 UPDATE meeting_participants SET rsvp = $3
 WHERE meeting_id = $1 AND email = $2 RETURNING *;
-
--- name: MarkParticipantNotified :exec
-UPDATE meeting_participants SET notified_at = now() WHERE meeting_id = $1 AND email = $2;
-
--- name: MarkParticipantJoined :exec
-UPDATE meeting_participants SET joined_at = COALESCE(joined_at, now())
-WHERE meeting_id = (SELECT id FROM meetings WHERE room_name = $1) AND user_id = $2;
-
--- name: MarkParticipantLeft :exec
-UPDATE meeting_participants SET left_at = now()
-WHERE meeting_id = (SELECT id FROM meetings WHERE room_name = $1) AND user_id = $2;
-
--- ===== Notificações in-app =====
 
 -- name: CreateNotification :one
 INSERT INTO notifications (tenant_id, user_id, kind, title, body, link, meeting_id, args)
@@ -817,11 +762,6 @@ SELECT * FROM events WHERE owner_user_id = $1 AND starts_at < $3 AND ends_at > $
 -- name: EventsOverlappingExcept :many
 -- Como EventsOverlapping, mas ignora um evento (o que está sendo editado) para não conflitar consigo.
 SELECT * FROM events WHERE owner_user_id = $1 AND starts_at < $3 AND ends_at > $2 AND id <> $4 ORDER BY starts_at;
-
--- name: SetEventMeetingRoom :exec
-UPDATE events SET meeting_room = $3 WHERE id = $1 AND tenant_id = $2 AND owner_user_id = $4;
-
--- ===== Chat (estilo Slack) =====
 
 -- name: CreateChannel :one
 INSERT INTO channels (tenant_id, kind, name, topic, dm_key, created_by)
@@ -1045,29 +985,6 @@ WHERE m.tenant_id = sqlc.arg(tenant_id) AND m.deleted_at IS NULL
   AND (NOT sqlc.arg(has_before)::boolean OR m.created_at < sqlc.arg(before_ts))
   AND (NOT sqlc.arg(has_after)::boolean OR m.created_at > sqlc.arg(after_ts))
 ORDER BY m.created_at DESC LIMIT sqlc.arg(lim);
-
--- name: UpdateMeetingControls :one
--- Só o dono (organizador) altera; o filtro por owner_user_id é a checagem de permissão.
-UPDATE meetings SET allow_mic = $3, allow_cam = $4, allow_share = $5, allow_chat = $6,
-    lock_until_host = $7, locked = $8
-WHERE id = $1 AND owner_user_id = $2 RETURNING *;
-
--- name: UpdateMeetingAccess :one
-UPDATE meetings SET access = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
-
--- name: GetMeetingOwned :one
--- A reunião, mas só se quem pede for o dono — usado antes de expulsar alguém ou encerrar.
-SELECT * FROM meetings WHERE id = $1 AND owner_user_id = $2;
-
--- name: GetMeetingNotes :one
-SELECT * FROM meeting_notes WHERE meeting_id = $1 AND tenant_id = $2;
-
--- name: UpsertMeetingNotes :one
-INSERT INTO meeting_notes (meeting_id, tenant_id, body, updated_by)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (meeting_id) DO UPDATE
-  SET body = EXCLUDED.body, updated_by = EXCLUDED.updated_by, updated_at = now()
-RETURNING *;
 
 -- name: CreateUserGroup :one
 INSERT INTO user_groups (tenant_id, name, created_by) VALUES ($1, $2, $3) RETURNING *;
@@ -1512,50 +1429,6 @@ DELETE FROM mail_templates WHERE id = @id AND owner_user_id = @owner_user_id AND
 
 -- ===== Co-hosts de reunião =====
 
--- name: AddCohost :exec
-INSERT INTO meeting_cohosts (meeting_id, user_id) VALUES (@meeting_id, @user_id)
-ON CONFLICT DO NOTHING;
-
--- name: RemoveCohost :exec
-DELETE FROM meeting_cohosts WHERE meeting_id = @meeting_id AND user_id = @user_id;
-
--- name: IsCohost :one
-SELECT EXISTS(SELECT 1 FROM meeting_cohosts WHERE meeting_id = @meeting_id AND user_id = @user_id);
-
--- name: ListCohostIDs :many
-SELECT user_id FROM meeting_cohosts WHERE meeting_id = @meeting_id;
-
--- ===== Breakout rooms =====
-
--- name: CreateBreakout :one
-INSERT INTO meeting_breakouts (meeting_id, tenant_id, idx, name, room_name)
-VALUES (@meeting_id, @tenant_id, @idx, @name, @room_name)
-RETURNING *;
-
--- name: ListBreakouts :many
-SELECT * FROM meeting_breakouts WHERE meeting_id = @meeting_id ORDER BY idx;
-
--- name: ListBreakoutAssignments :many
-SELECT user_id, breakout_id FROM breakout_assignments WHERE meeting_id = @meeting_id;
-
--- name: GetBreakout :one
-SELECT * FROM meeting_breakouts WHERE id = @id AND meeting_id = @meeting_id;
-
--- name: AssignBreakout :exec
-INSERT INTO breakout_assignments (meeting_id, user_id, breakout_id)
-VALUES (@meeting_id, @user_id, @breakout_id)
-ON CONFLICT (meeting_id, user_id) DO UPDATE SET breakout_id = EXCLUDED.breakout_id;
-
--- name: GetMyBreakout :one
-SELECT b.* FROM breakout_assignments a
-JOIN meeting_breakouts b ON b.id = a.breakout_id
-WHERE a.meeting_id = @meeting_id AND a.user_id = @user_id;
-
--- name: DeleteBreakouts :exec
-DELETE FROM meeting_breakouts WHERE meeting_id = @meeting_id;
-
--- ===== Assistente de IA =====
-
 -- name: RecordAssistantToolCall :exec
 -- Auditoria de uma chamada de ferramenta (§6.4). Escrita em todos os casos: sucesso e erro.
 -- conversation_id é anulável: a A0 registava execuções sem conversa nenhuma.
@@ -1883,22 +1756,6 @@ JOIN event_invites i ON i.event_id = e.id
 WHERE i.user_id = sqlc.arg(invitee_id) AND e.tenant_id = sqlc.arg(tenant_id) AND e.deleted_at IS NULL
   AND e.kind = '' AND i.status <> 'declined' AND e.starts_at < sqlc.arg(to_ts) AND e.ends_at > sqlc.arg(from_ts)
 ORDER BY 3;
-
--- name: ListMyMeetingsPage :many
--- Página de reuniões do utilizador por balde (upcoming/past), com o total na própria linha
--- (COUNT OVER) — paginação server-side da home do Meet (24/07/2026).
-SELECT m.*, COALESCE(p.rsvp, '') AS my_rsvp, (m.owner_user_id = sqlc.arg(owner_user_id)) AS is_owner,
-       COUNT(*) OVER() AS total
-FROM meetings m
-LEFT JOIN meeting_participants p ON p.meeting_id = m.id AND p.email = sqlc.arg(email)
-WHERE m.tenant_id = sqlc.arg(tenant_id) AND (m.owner_user_id = sqlc.arg(owner_user_id) OR p.id IS NOT NULL)
-  AND CASE WHEN sqlc.arg(bucket)::text = 'upcoming'
-    THEN m.status <> 'canceled' AND NOT (m.status = 'ended' OR (m.scheduled_end IS NOT NULL AND m.scheduled_end < now() AND m.status <> 'live'))
-    ELSE (m.status = 'ended' OR (m.scheduled_end IS NOT NULL AND m.scheduled_end < now() AND m.status <> 'live'))
-  END
-ORDER BY CASE WHEN sqlc.arg(bucket)::text = 'upcoming' THEN COALESCE(m.scheduled_start, m.created_at) END ASC,
-         COALESCE(m.scheduled_start, m.created_at) DESC
-LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
 
 -- name: ListRecordingsPage :many
 SELECT *, COUNT(*) OVER() AS total FROM recordings WHERE tenant_id = $1
