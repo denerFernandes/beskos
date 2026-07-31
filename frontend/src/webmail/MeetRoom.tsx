@@ -2,7 +2,9 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { LiveKitRoom, VideoConference, PreJoin, useRoomContext, type LocalUserChoices } from "@livekit/components-react";
+import { RoomEvent } from "livekit-client";
 import "@livekit/components-styles";
+import { playSound } from "./sounds";
 import { MeetEffects } from "./MeetEffects";
 import { MeetReactions } from "./MeetReactions";
 import { PresentationLayer } from "./MeetPresentation";
@@ -94,6 +96,7 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
         data-lk-theme="default" style={{ height: "100%" }}>
         <VideoConference />
         <LeaveOnWindowClose />
+        <RoomSounds />
 
         {/* Barra de breakout (topo): entrar na tua sala / voltar à principal; some quando não há salas. */}
         {session.meeting_id && session.identity && (
@@ -180,6 +183,30 @@ function LeaveOnWindowClose() {
       })();
     }
     return () => { offHidden(); gone = true; offClose?.(); };
+  }, [room]);
+  return null;
+}
+
+// Sons da sala: entrei, e alguém entrou.
+//
+// PORQUÊ POR EVENTOS DA SALA e não no onConnected do <LiveKitRoom>: trocar de breakout e voltar
+// remonta a sala, e o onConnected dispararia outra vez o som de entrada em cada salto. O evento
+// Connected do room é o mesmo em ambos os casos, mas aqui temos onde guardar que já tocou.
+//
+// O de entrada de outros toca uma vez POR PESSOA. Quem chega a uma reunião a decorrer recebe o
+// ParticipantConnected de quem já lá estava? Não — esse evento é só para quem chega DEPOIS de nós,
+// que é exatamente o que se quer anunciar.
+function RoomSounds() {
+  const room = useRoomContext();
+  useEffect(() => {
+    const entrei = () => playSound("meetJoin");
+    const chegou = () => playSound("meetPeer");
+    // Já ligados quando este componente monta (o caso normal: o LiveKitRoom liga antes dos filhos
+    // montarem). Sem isto o som de entrada nunca tocaria, porque o evento já passou.
+    if (room.state === "connected") entrei();
+    room.on(RoomEvent.Connected, entrei);
+    room.on(RoomEvent.ParticipantConnected, chegou);
+    return () => { room.off(RoomEvent.Connected, entrei); room.off(RoomEvent.ParticipantConnected, chegou); };
   }, [room]);
   return null;
 }
@@ -491,6 +518,18 @@ function HostLobby({ meetingId }: { meetingId: string }) {
   const admit = useMutation({ mutationFn: (id: string) => backend.meetAdmit(id), onSuccess: () => q.refetch() });
   const deny = useMutation({ mutationFn: (id: string) => backend.meetDeny(id), onSuccess: () => q.refetch() });
   const pending = q.data?.pending ?? [];
+
+  // Bate à porta uma vez POR PESSOA. A lista é resondada de 3 em 3 segundos e devolve os mesmos
+  // pedidos enquanto ninguém os despachar — tocar a cada sondagem daria um alarme de 20 batidas
+  // por minuto até o anfitrião reagir, que é a melhor forma de o fazer desligar o som.
+  const anunciados = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const novos = pending.filter((k) => !anunciados.current.has(k.id));
+    if (!novos.length) return;
+    novos.forEach((k) => anunciados.current.add(k.id));
+    playSound("meetKnock");
+  }, [pending]);
+
   if (!pending.length) return null;
   return (
     <div className="host-lobby">

@@ -698,7 +698,15 @@
     "mailSec": {
       "ssl": "SSL/TLS",
       "starttls": "STARTTLS"
-    }
+    },
+    "soundGroup": "Sons",
+    "soundNotify": "Som ao receber avisos",
+    "soundNotifyHintWeb": "Toca quando chega uma mensagem, tarefa ou convite. Novos e-mails não tocam aqui — no navegador seriam demasiados.",
+    "soundNotifyHintApp": "Toca quando chega um aviso ou um e-mail novo.",
+    "soundMeet": "Sons do Meet",
+    "soundMeetHint": "Ao entrar numa sala, quando alguém pede para entrar e quando alguém entra.",
+    "soundTryNotify": "Ouvir o aviso",
+    "soundTryKnock": "Ouvir o pedido de entrada"
   },
   "errors": {
     "generic": "Algo deu errado",

@@ -14,6 +14,7 @@ import { AcceptInvitePage } from "./pages/AcceptInvite";
 import { BookingPage } from "./pages/Booking";
 import { SignupPage } from "./pages/Signup";
 import { isTauri, initTauriNotify } from "./webmail/tauriNotify";
+import { unlockSounds } from "./webmail/sounds";
 import { GlobalTooltip } from "./webmail/GlobalTooltip";
 
 const qc = new QueryClient();
@@ -21,6 +22,10 @@ const qc = new QueryClient();
 // No app nativo (Tauri), lê a permissão de notificações do SO para a cache (a UI lê-a de forma
 // síncrona). Na web é no-op.
 if (isTauri()) void initTauriNotify();
+
+// Destranca o áudio ao primeiro gesto na app. O browser mantém o AudioContext suspenso até haver
+// interação — sem isto, o primeiro aviso da sessão seria engolido em silêncio.
+unlockSounds();
 
 // Janela dedicada da sala (Tauri): abre-se em index.html?wpath=/room/:room (o asset server não faz
 // fallback SPA). Reescreve a URL para a rota real ANTES do BrowserRouter montar, para renderizar a
