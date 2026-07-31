@@ -12,6 +12,20 @@ permissions:
   contents: read
 
 jobs:
+  laws:
+    name: Project laws (language and file size)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the check diffs against an earlier commit; a shallow clone has none
+      - name: check_laws (only the lines this change adds)
+        run: |
+          # On CI the working tree IS the commit, so diffing against HEAD would find nothing.
+          # The base is the PR target branch, or the previous commit on a push.
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          [ -n "$base" ] && [ "$base" != "0000000000000000000000000000000000000000" ] || base="HEAD~1"
+          python3 scripts/check_laws.py --base "$base"
   backend:
     name: Backend (Go)
     runs-on: ubuntu-latest

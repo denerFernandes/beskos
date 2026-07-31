@@ -49,9 +49,22 @@ Complementam — não substituem — as restrições inegociáveis do [project.m
 4.4. **Mensagens de erro da API** voltam com uma **chave** (`error_code`) além do texto, para o
      frontend traduzir. Backend não assume idioma do usuário no texto exibível.
 4.5. Datas/números/moeda via `Intl` conforme o locale — não formate à mão.
-4.6. **Idioma do código:** backend (logs e mensagens de erro/fallback) **sempre em inglês**.
+4.6. **Idioma do código: TUDO em inglês.** Nomes (variáveis, funções, tipos, campos, ficheiros),
+     **comentários**, colunas da base de dados, chaves JSON, flags de CLI, logs e mensagens de erro.
+     Vale para backend e frontend. A **única** exceção é o texto que o utilizador final lê, que vem
+     do i18n — e onde tiver de ficar em código (ex.: SMS), marque a linha com `lang:ok`.
      O `error_code` é o contrato estável; o **frontend traduz** o código via i18n (`server.<code>`)
      e mostra ao usuário no idioma dele. Nunca mostre texto de erro do backend cru na UI.
+
+     > Os comentários eram em português até 31/07/2026. Os que já existem vão sendo migrados; o que
+     > se escreve de novo é em inglês. O verificador só olha para linhas NOVAS, por isso o histórico
+     > não atrapalha.
+
+4.7. **A lei é verificada por máquina, não por boa vontade.** `scripts/check_laws.py` corre
+     automaticamente a cada escrita de ficheiro (hook em `.claude/settings.json`) e valida as leis
+     4.6 e 1.4 nas linhas novas. Corra-o à mão antes de commitar: `make check` ou
+     `python3 scripts/check_laws.py`. Ele existe porque estas leis já estavam escritas e foram
+     quebradas na mesma — um documento não obriga a nada; um comando que falha, sim.
 
 ## 5. Segurança e multi-tenancy (reforço do project.md)
 

@@ -70,3 +70,6 @@ doctor: ## Verifica pré-requisitos (tauri info)
 clean: ## Limpa artefactos de build (dist + target Rust)
 	rm -rf $(FRONTEND)/dist
 	cd $(FRONTEND)/src-tauri && cargo clean
+
+check: ## Verifica as leis do CLAUDE.md nas linhas novas (idioma e tamanho de ficheiro)
+	@python3 scripts/check_laws.py && echo "leis: ok"
