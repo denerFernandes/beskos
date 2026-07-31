@@ -9,7 +9,10 @@ import { ExtractTasksModal } from "./ExtractTasksModal";
 import { Spinner } from "./Spinner";
 import { toast } from "./toast";
 import { shortTime } from "./util";
-import { IcPlus, IcPin, IcUsers, IcSparkle, IcTrash, IcVideo } from "../panel/icons";
+import { IcPlus, IcPin, IcUsers, IcSparkle, IcTrash, IcVideo, IcChat } from "../panel/icons";
+import { ForwardModal } from "./ChatModals";
+import { backend } from "./backend";
+import { publicUrl } from "../apiBase";
 
 // Notes: personal by default, shared on purpose. A meeting note is the same object with a meeting
 // attached, which is why there is one list and not two.
@@ -24,6 +27,7 @@ export function NotesView({ noteParam, onNote }: { noteParam?: string; onNote: (
   const qc = useQueryClient();
   const [share, setShare] = useState<string | null>(null);
   const [extract, setExtract] = useState<Note | null>(null);
+  const [toChat, setToChat] = useState<Note | null>(null);
 
   const listQ = useQuery({ queryKey: ["notes"], queryFn: () => notesApi.list(), retry: false });
   const notes = listQ.data?.notes ?? [];
@@ -39,6 +43,17 @@ export function NotesView({ noteParam, onNote }: { noteParam?: string; onNote: (
     onSuccess: () => qc.invalidateQueries({ queryKey: ["notes"] }),
     onError: (e) => toast((e as Error).message),
   });
+  // Sharing to chat posts the LINK, never the content. Whoever reads the channel and already has
+  // access sees the note's card; whoever does not sees a plain link and no hint of what is behind
+  // it. Pasting a link is not a way to widen who may read a note.
+  const chans = useQuery({ queryKey: ["chat-channels"], queryFn: () => backend.chatChannels(), retry: false });
+  const sendToChat = useMutation({
+    mutationFn: ({ note, channelId }: { note: Note; channelId: string }) =>
+      backend.chatSend(channelId, publicUrl(`/mail/notes/${note.id}`)),
+    onSuccess: () => { setToChat(null); toast(t("notes.sentToChat")); },
+    onError: (e) => toast((e as Error).message),
+  });
+
   const del = useMutation({
     mutationFn: (id: string) => notesApi.remove(id),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["notes"] }); onNote(""); },
@@ -76,11 +91,16 @@ export function NotesView({ noteParam, onNote }: { noteParam?: string; onNote: (
             onPin={() => pin.mutate({ id: current.id, on: !current.pinned })}
             onShare={() => setShare(current.id)}
             onExtract={() => setExtract(current)}
+            onToChat={() => setToChat(current)}
             onDelete={() => del.mutate(current.id)} />
         )}
       </section>
 
       {share && <NoteShareDrawer noteId={share} onClose={() => setShare(null)} />}
+      {toChat && (
+        <ForwardModal channels={chans.data?.channels ?? []} title={t("notes.toChat")} onClose={() => setToChat(null)}
+          onPick={(channelId) => sendToChat.mutate({ note: toChat, channelId })} />
+      )}
       {/* The same AI extraction the mail and the chat use -- one flow, one result screen. */}
       {extract && (
         <ExtractTasksModal subject={noteTitle(extract, t)} body={extract.body_text} sourceEmailId=""
@@ -96,8 +116,9 @@ function noteTitle(n: Note, t: (k: string) => string): string {
   return n.title || n.meeting_title || t("notes.untitled");
 }
 
-function NoteEditor({ note, onPin, onShare, onExtract, onDelete }: {
-  note: Note; onPin: () => void; onShare: () => void; onExtract: () => void; onDelete: () => void;
+function NoteEditor({ note, onPin, onShare, onExtract, onToChat, onDelete }: {
+  note: Note; onPin: () => void; onShare: () => void; onExtract: () => void; onToChat: () => void;
+  onDelete: () => void;
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -134,6 +155,7 @@ function NoteEditor({ note, onPin, onShare, onExtract, onDelete }: {
           onClick={onPin}><IcPin size={15} /></button>
         <button className="ib" title={t("notes.extractTasks")} onClick={onExtract}><IcSparkle size={15} /></button>
         <button className="ib" title={t("notes.share")} onClick={onShare}><IcUsers size={15} /></button>
+        <button className="ib" title={t("notes.toChat")} onClick={onToChat}><IcChat size={15} /></button>
         <button className="ib" title={t("notes.delete")} onClick={() => setConfirmDel(true)}><IcTrash size={15} /></button>
       </header>
       {/* Inline confirmation, never a native dialog (project convention). */}

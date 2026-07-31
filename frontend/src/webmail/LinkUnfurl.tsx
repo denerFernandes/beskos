@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { backend } from "./backend";
 import { href as linkHref } from "./links";
-import { IcColumns } from "../panel/icons";
+import { IcColumns, IcPencilBox } from "../panel/icons";
 
 // LinkUnfurl fetches a URL's metadata once (cached) and shows a preview card.
 export function LinkUnfurl({ url }: { url: string }) {
@@ -14,13 +14,13 @@ export function LinkUnfurl({ url }: { url: string }) {
 
   // One of ours: opens INSIDE the app. A plain href would reload the whole bundle, and in the
   // desktop build it leaves the app entirely -- the asset server has no SPA fallback.
-  if (d.kind === "task") {
+  if (d.kind === "task" || d.kind === "note") {
     const path = new URL(d.url).pathname;
     return (
-      <a className="unfurl unfurl-task" href={path}
+      <a className={"unfurl unfurl-" + d.kind} href={path}
         onClick={(e) => { if (!e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) { e.preventDefault(); window.history.pushState({}, "", path); window.dispatchEvent(new PopStateEvent("popstate")); } }}>
         <div className="unfurl-txt">
-          {d.site && <div className="unfurl-site"><IcColumns size={12} /> {d.site}</div>}
+          {d.site && <div className="unfurl-site">{d.kind === "note" ? <IcPencilBox size={12} /> : <IcColumns size={12} />} {d.site}</div>}
           <div className="unfurl-title">{d.title}</div>
           {d.description && <div className="unfurl-desc">{d.description}</div>}
         </div>

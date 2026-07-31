@@ -104,3 +104,36 @@ func TestTaskSummaryTrimsALongDescription(t *testing.T) {
 		t.Errorf("a trimmed summary should say so, got %q", got[len(got)-10:])
 	}
 }
+
+func TestNotePathAcceptsOnlyTheRealShape(t *testing.T) {
+	const note = "33333333-3333-3333-3333-333333333333"
+	if notePath.FindStringSubmatch("/mail/notes/"+note) == nil {
+		t.Error("the plain note link should match")
+	}
+	if notePath.FindStringSubmatch("/mail/notes/"+note+"/") == nil {
+		t.Error("a trailing slash is the same link")
+	}
+	for _, p := range []string{
+		"/mail/notes",                   // the list, not a note
+		"/mail/notes/" + note + "/edit", // a deeper route
+		"/mail/notes/nope",              // not a uuid
+		"/mail/kanban/" + note,          // another app
+	} {
+		if notePath.FindStringSubmatch(p) != nil {
+			t.Errorf("%q should NOT match", p)
+		}
+	}
+}
+
+// The two internal shapes must not overlap: a note link resolved as a task (or the reverse) would
+// run the wrong permission check, which is the only mistake here that matters.
+func TestNoteAndTaskPathsDoNotOverlap(t *testing.T) {
+	const a = "11111111-1111-1111-1111-111111111111"
+	const b = "22222222-2222-2222-2222-222222222222"
+	if taskPath.MatchString("/mail/notes/" + a) {
+		t.Error("a note link must not match the task shape")
+	}
+	if notePath.MatchString("/mail/kanban/" + a + "/" + b) {
+		t.Error("a task link must not match the note shape")
+	}
+}

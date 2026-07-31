@@ -2723,6 +2723,8 @@
     "shareHint": "Uma nota é privada até ser partilhada. Escolha pessoas, equipas ou toda a organização.",
     "extractTasks": "Criar tarefas com IA",
     "delete": "Apagar",
-    "deleteConfirm": "Apagar esta nota?"
+    "deleteConfirm": "Apagar esta nota?",
+    "toChat": "Partilhar no chat",
+    "sentToChat": "Nota partilhada no chat."
   }
 }
