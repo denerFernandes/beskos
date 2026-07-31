@@ -1490,19 +1490,19 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		// Filtrado AQUI e não na interface porque é o único evento que não interessa à própria
 		// pessoa: os restantes (mensagem nova, edição) têm de chegar a todos os aparelhos dela para
 		// se manterem sincronizados. É por isso que channelRecipients continua a incluir toda a gente.
-		eu := mu.ID.String()
-		todos := s.channelRecipients(ctx, cid)
-		outros := make([]string, 0, len(todos))
-		for _, id := range todos {
-			if id != eu {
-				outros = append(outros, id)
+		self := mu.ID.String()
+		all := s.channelRecipients(ctx, cid)
+		others := make([]string, 0, len(all))
+		for _, id := range all {
+			if id != self {
+				others = append(others, id)
 			}
 		}
-		if len(outros) == 0 {
+		if len(others) == 0 {
 			return // canal só comigo (notas pessoais): não há a quem anunciar
 		}
-		s.publish(ctx, "typing", cid, outros,
-			map[string]any{"user_id": eu, "author": author})
+		s.publish(ctx, "typing", cid, others,
+			map[string]any{"user_id": self, "author": author})
 	}
 	s.hub.Serve(ctx, mu.ID, ws, onClient)
 }
