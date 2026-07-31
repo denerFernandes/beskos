@@ -103,3 +103,27 @@ RETURNING *;
 
 -- name: DeleteNoteGrant :exec
 DELETE FROM note_grants WHERE id = @id AND tenant_id = @tenant_id;
+
+-- name: GetOrCreateMeetingNote :one
+-- The meeting's note, created on first use. Owned by the meeting's owner, not by whoever happened to
+-- open the panel: the note outlives the session, and its owner is the one who can delete it.
+INSERT INTO notes (tenant_id, owner_user_id, title, meeting_id, updated_by)
+SELECT m.tenant_id, m.owner_user_id, m.title, m.id, m.owner_user_id
+FROM meetings m WHERE m.id = @meeting_id AND m.tenant_id = @tenant_id
+ON CONFLICT (meeting_id) WHERE meeting_id IS NOT NULL DO UPDATE SET updated_at = notes.updated_at
+RETURNING *;
+
+-- name: SyncMeetingNoteGrants :exec
+-- Shares the meeting's note with everyone in meeting_participants who belongs to this organisation
+-- -- invited or simply present, since the webhook now records both.
+--
+-- DO NOTHING on conflict, deliberately: if the owner later changed someone to viewer, or removed
+-- them, re-running this must not quietly hand the access back. It adds people; it never re-decides.
+INSERT INTO note_grants (tenant_id, note_id, subject_type, subject_id, role)
+SELECT n.tenant_id, n.id, 'user', p.user_id, 'editor'
+FROM notes n
+JOIN meeting_participants p ON p.meeting_id = n.meeting_id
+WHERE n.id = @note_id AND n.tenant_id = @tenant_id
+  AND p.user_id IS NOT NULL AND p.user_id <> n.owner_user_id
+ON CONFLICT (note_id, subject_type, COALESCE(subject_id, '00000000-0000-0000-0000-000000000000'::uuid))
+DO NOTHING;

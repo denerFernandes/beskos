@@ -23,6 +23,10 @@ export interface NoteGrant {
 }
 
 export const notesApi = {
+  // The meeting's note. Created on first use and shared with everyone who was in the meeting --
+  // invited or simply present. Fetching it again re-runs the sharing, so whoever arrives late is
+  // added too.
+  forMeeting: (meetingId: string) => req<Note>(`/api/meet/meetings/${meetingId}/note`),
   list: () => req<{ notes: Note[] }>("/api/notes"),
   get: (id: string) => req<Note>(`/api/notes/${id}`),
   create: (body: NoteInput) => req<Note>("/api/notes", { method: "POST", body: JSON.stringify(body) }),

@@ -161,6 +161,39 @@ func (q *Queries) GetNoteByMeeting(ctx context.Context, arg GetNoteByMeetingPara
 	return i, err
 }
 
+const getOrCreateMeetingNote = `-- name: GetOrCreateMeetingNote :one
+INSERT INTO notes (tenant_id, owner_user_id, title, meeting_id, updated_by)
+SELECT m.tenant_id, m.owner_user_id, m.title, m.id, m.owner_user_id
+FROM meetings m WHERE m.id = $1 AND m.tenant_id = $2
+ON CONFLICT (meeting_id) WHERE meeting_id IS NOT NULL DO UPDATE SET updated_at = notes.updated_at
+RETURNING id, tenant_id, owner_user_id, title, body_json, body_text, meeting_id, created_at, updated_at, updated_by
+`
+
+type GetOrCreateMeetingNoteParams struct {
+	MeetingID uuid.UUID `json:"meeting_id"`
+	TenantID  uuid.UUID `json:"tenant_id"`
+}
+
+// The meeting's note, created on first use. Owned by the meeting's owner, not by whoever happened to
+// open the panel: the note outlives the session, and its owner is the one who can delete it.
+func (q *Queries) GetOrCreateMeetingNote(ctx context.Context, arg GetOrCreateMeetingNoteParams) (Note, error) {
+	row := q.db.QueryRow(ctx, getOrCreateMeetingNote, arg.MeetingID, arg.TenantID)
+	var i Note
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.OwnerUserID,
+		&i.Title,
+		&i.BodyJson,
+		&i.BodyText,
+		&i.MeetingID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const listNoteGrants = `-- name: ListNoteGrants :many
 SELECT g.id, g.tenant_id, g.note_id, g.subject_type, g.subject_id, g.role, g.created_at, u.name AS user_name, u.email AS user_email, gr.name AS group_name
 FROM note_grants g
@@ -357,6 +390,32 @@ type PinNoteParams struct {
 // Pinning twice is pinning once: the click can arrive from two windows.
 func (q *Queries) PinNote(ctx context.Context, arg PinNoteParams) error {
 	_, err := q.db.Exec(ctx, pinNote, arg.TenantID, arg.NoteID, arg.UserID)
+	return err
+}
+
+const syncMeetingNoteGrants = `-- name: SyncMeetingNoteGrants :exec
+INSERT INTO note_grants (tenant_id, note_id, subject_type, subject_id, role)
+SELECT n.tenant_id, n.id, 'user', p.user_id, 'editor'
+FROM notes n
+JOIN meeting_participants p ON p.meeting_id = n.meeting_id
+WHERE n.id = $1 AND n.tenant_id = $2
+  AND p.user_id IS NOT NULL AND p.user_id <> n.owner_user_id
+ON CONFLICT (note_id, subject_type, COALESCE(subject_id, '00000000-0000-0000-0000-000000000000'::uuid))
+DO NOTHING
+`
+
+type SyncMeetingNoteGrantsParams struct {
+	NoteID   uuid.UUID `json:"note_id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+}
+
+// Shares the meeting's note with everyone in meeting_participants who belongs to this organisation
+// -- invited or simply present, since the webhook now records both.
+//
+// DO NOTHING on conflict, deliberately: if the owner later changed someone to viewer, or removed
+// them, re-running this must not quietly hand the access back. It adds people; it never re-decides.
+func (q *Queries) SyncMeetingNoteGrants(ctx context.Context, arg SyncMeetingNoteGrantsParams) error {
+	_, err := q.db.Exec(ctx, syncMeetingNoteGrants, arg.NoteID, arg.TenantID)
 	return err
 }
 

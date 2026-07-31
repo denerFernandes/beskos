@@ -476,7 +476,7 @@ func (s *Server) handleMeetWebhook(w http.ResponseWriter, r *http.Request) {
 		_ = s.q.SetMeetingEnded(ctx, ev.Room.Name)
 	case "participant_joined":
 		if id, err := uuid.Parse(ev.Participant.Identity); err == nil {
-			_ = s.q.MarkParticipantJoined(ctx, db.MarkParticipantJoinedParams{RoomName: ev.Room.Name, UserID: pgtype.UUID{Bytes: id, Valid: true}})
+			_ = s.q.MarkParticipantJoined(ctx, db.MarkParticipantJoinedParams{RoomName: ev.Room.Name, UserID: id})
 		}
 	case "participant_left":
 		if id, err := uuid.Parse(ev.Participant.Identity); err == nil {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { backend, type Board } from "./backend";
+import { notesApi } from "./notesApi";
 import { useChatSocket } from "./useChatSocket";
 import { useBoards } from "./BoardPicker";
 import { ExtractTasksModal } from "./ExtractTasksModal";
@@ -9,6 +10,16 @@ import { TaskModal } from "./TaskModal";
 import { Spinner } from "./Spinner";
 import { toast } from "./toast";
 import { IcColumns, IcSparkle, IcMail } from "../panel/icons";
+
+// Turns the textarea's text into BlockNote paragraphs -- the format the Notes app and the wiki
+// editor both read. One block per line, because a blank line between two thoughts is the only
+// structure a textarea can express.
+function paragraphs(text: string): unknown[] {
+  return text.split("\n").map((line) => ({
+    type: "paragraph",
+    content: line ? [{ type: "text", text: line, styles: {} }] : [],
+  }));
+}
 
 // Conteúdo do painel de notas (o frame/cabeçalho vem do MeetRoom). Documento compartilhado da
 // reunião: autosave + sincronização ao vivo. Daqui as notas viram tarefas no Kanban via IA.
@@ -22,8 +33,12 @@ export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; ti
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const typing = useRef(false);
 
-  const notes = useQuery({ queryKey: ["meet-notes", meetingId], queryFn: () => backend.meetNotes(meetingId), retry: false });
-  useEffect(() => { if (notes.data && !typing.current) setBody(notes.data.body); }, [notes.data]);
+  // The meeting's note IS a Note (migration 00133): same object the Notes app lists, same sharing,
+  // same "turn into tasks". Fetching it creates it on first use and shares it with everyone who was
+  // in the meeting -- which is why the panel asks for it rather than for a body of text.
+  const notes = useQuery({ queryKey: ["meeting-note", meetingId], queryFn: () => notesApi.forMeeting(meetingId), retry: false });
+  const noteId = notes.data?.id ?? null;
+  useEffect(() => { if (notes.data && !typing.current) setBody(notes.data.body_text); }, [notes.data]);
 
   // Chega edição de outro participante: aplica só se eu não estiver digitando (last-write-wins).
   useChatSocket((ev) => {
@@ -39,7 +54,10 @@ export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; ti
     clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       setSaving(true);
-      try { await backend.meetSaveNotes(meetingId, v); }
+      // The panel is a plain textarea, so it writes a plain paragraph. Someone who opens the same
+      // note in the Notes app gets the rich editor; whoever saves last wins, exactly as two people
+      // typing in this panel already did.
+      try { if (noteId) await notesApi.update(noteId, { title: title, body_json: paragraphs(v) }); }
       catch (e) { toast((e as Error).message); }
       finally { setSaving(false); typing.current = false; }
     }, 700);
