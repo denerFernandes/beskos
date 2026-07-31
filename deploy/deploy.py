@@ -67,7 +67,14 @@ APPS = {
     "backup": "deploy/backup",
 }
 
-EXCLUIR = ["node_modules", ".next", ".git", "dist", "target", "tsconfig.tsbuildinfo", ".turbo"]
+# What does NOT travel to the server. Build artefacts, and the LOCAL environment files: this tar is
+# of the working directory, not of the git tree, so a gitignored `.env.local` rides along anyway --
+# and Vite reads it in EVERY mode, production included. That is how the dev
+# VITE_PUBLIC_BASE=http://localhost:5173 ended up inside the production bundle, pointing every
+# shareable link at the machine that ran the deploy. `.env.example` stays: it holds no values.
+EXCLUIR = ["node_modules", ".next", ".git", "dist", "target", "tsconfig.tsbuildinfo", ".turbo",
+           ".env", ".env.local", ".env.tauri", ".env.development", ".env.production",
+           ".env.development.local", ".env.production.local"]
 
 # Máquinas de build alternativas. O VPS-1 é o líder e corre o correio e a base de dados — é o que
 # se quer poupar. O VPS-3 (média) é o mais folgado: só trabalha durante reuniões.
