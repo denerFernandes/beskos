@@ -22,6 +22,9 @@ import (
 //   - cache em memória com TTL para não refazer nem martelar o alvo.
 
 type unfurlData struct {
+	// Kind tells the client how to draw it: "" is a plain web page, "task" is one of ours and gets
+	// the task card instead of a generic link preview.
+	Kind        string `json:"kind,omitempty"`
 	URL         string `json:"url"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
@@ -108,6 +111,20 @@ func (s *Server) handleUnfurl(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "chat.invalid")
 		return
 	}
+	// OUR OWN LINK: resolved from the database, for THIS viewer, and never cached. The cache is keyed
+	// by URL alone, so one person with access would fill it and the next person without access would
+	// be served their answer. A task title is not public inside the tenant.
+	if s.ownHost(u) {
+		if data, ok := s.internalUnfurl(r.Context(), u); ok {
+			writeJSON(w, http.StatusOK, map[string]any{"unfurl": data})
+			return
+		}
+		// No access, no such task, or a Beskos link we do not preview: answer "nothing to show".
+		// Fetching our own SPA instead would cost a round trip to read a page with no metadata.
+		writeJSON(w, http.StatusOK, map[string]any{"unfurl": nil})
+		return
+	}
+
 	unfurlMu.Lock()
 	if e, ok := unfurlCache[raw]; ok && time.Now().Before(e.exp) {
 		unfurlMu.Unlock()

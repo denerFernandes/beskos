@@ -474,7 +474,7 @@ export interface ChatWebhook { id: string; channel_id: string; token: string; na
 export interface OutboxItem { id: string; email_id: string; from_email: string; rcpts: string[]; subject: string; send_at: string; status: string; created_at: string }
 export interface MailTemplate { id: string; name: string; subject: string; body_html: string; created_at: string; updated_at: string }
 export interface ChatSavedItem { id: string; channel_id: string; channel_name: string; channel_kind: string; author: string; body: string; created_at: string; saved_at: string }
-export interface UnfurlData { url: string; title: string; description: string; image: string; site: string }
+export interface UnfurlData { kind?: "task"; url: string; title: string; description: string; image: string; site: string }
 export interface ChatMember { user_id: string; email: string; name: string; role: string; status_emoji?: string; status_text?: string; last_read_at?: string }
 export interface ChatPin { id: string; body: string; author: string; created_at: string; pinned_at: string }
 export interface ChatBookmark { id: string; kind: "link" | "file"; title: string; url: string; file_name: string; file_size: number; created_at: string }

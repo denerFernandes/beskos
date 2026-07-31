@@ -3258,3 +3258,8 @@ html[data-theme="dark"] .wm .kcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.5);}
 
 /* Etiqueta "equipa" nas sugestões de destinatário (colega da organização) */
 .wm .rcpt-sugg .rcpt-team{margin-left:auto;font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface-2);border-radius:999px;padding:2px 8px;flex:none;}
+
+/* Task preview in chat: same card as a link preview, but marked as ours — a left accent instead of
+   a thumbnail, because a task has no image and an empty image slot reads as a broken one. */
+.unfurl.unfurl-task { border-left: 3px solid var(--accent, #4c8dff); cursor: pointer; }
+.unfurl.unfurl-task .unfurl-site { display: flex; align-items: center; gap: 5px; }

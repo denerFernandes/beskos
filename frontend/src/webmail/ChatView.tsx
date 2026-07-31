@@ -5,6 +5,8 @@ import type { WebmailSession } from "./auth";
 import { backend, colleaguesApi, viewerKind, type ChatChannel, type ChatMessage, type ChatMember, type ChatAttachment, type CardHit } from "./backend";
 import { useChatSocket } from "./useChatSocket";
 import { renderRich } from "./richtext";
+import { URL_RE, splitTrailing } from "./links";
+import { LinkUnfurl } from "./LinkUnfurl";
 import { setCustomEmoji } from "./customEmoji";
 import { sanitizeRich } from "./mailHtml";
 import { ChatAttachmentViewer } from "./ChatAttachmentViewer";
@@ -565,25 +567,6 @@ function ChannelPane({ channel, channels, session, locale, typingAuthor, onTypin
   );
 }
 
-const URL_RE = /(https?:\/\/[^\s<>"']+)/;
-
-// LinkUnfurl busca (uma vez, cacheado) os metadados de uma URL e mostra um cartão de preview.
-function LinkUnfurl({ url }: { url: string }) {
-  const q = useQuery({ queryKey: ["unfurl", url], queryFn: () => backend.chatUnfurl(url), retry: false, staleTime: 3600_000 });
-  const d = q.data?.unfurl;
-  if (!d) return null;
-  return (
-    <a className="unfurl" href={d.url} target="_blank" rel="noopener noreferrer nofollow">
-      {d.image && <img className="unfurl-img" src={d.image} alt="" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
-      <div className="unfurl-txt">
-        {d.site && <div className="unfurl-site">{d.site}</div>}
-        <div className="unfurl-title">{d.title}</div>
-        {d.description && <div className="unfurl-desc">{d.description}</div>}
-      </div>
-    </a>
-  );
-}
-
 // Opções rápidas de horário (agendar envio / lembrar-me), estilo Slack.
 function quickTimes(t: (k: string) => string): { label: string; date: Date }[] {
   const now = Date.now();
@@ -624,7 +607,9 @@ function MessageRow({ m, prev, locale, mine, canManage, highlighted, onReact, on
   const [draft, setDraft] = useState(m.body);
   const [viewAtt, setViewAtt] = useState<ChatAttachment | null>(null);
   const call = m.deleted ? null : parseCall(m.body);
-  const firstUrl = !m.deleted && !call ? (m.body.match(URL_RE)?.[1] ?? null) : null;
+  // Same detection the renderer uses (links.ts), so what is linked and what is previewed can never
+  // disagree again -- they used to keep separate regexes and drifted apart.
+  const firstUrl = !m.deleted && !call ? (splitTrailing(m.body.match(URL_RE)?.[0] ?? "")[0] || null) : null;
   const grouped = !call && prev && prev.user_id === m.user_id && (new Date(m.created_at).getTime() - new Date(prev.created_at).getTime() < 5 * 60000);
 
   return (
