@@ -42,7 +42,7 @@ func (s *Service) IsEncrypted(ctx context.Context, key string) (bool, error) {
 	}
 	obj, err := s.client.GetObject(ctx, s.bucket, key, opts)
 	if err != nil {
-		if curtoDemais(err) {
+		if tooShort(err) {
 			return false, nil
 		}
 		return false, err
@@ -52,7 +52,7 @@ func (s *Service) IsEncrypted(ctx context.Context, key string) (bool, error) {
 	buf := make([]byte, filecrypt.FixedHeaderSize)
 	n, err := io.ReadFull(obj, buf)
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		if curtoDemais(err) {
+		if tooShort(err) {
 			return false, nil
 		}
 		return false, err
@@ -65,7 +65,7 @@ func (s *Service) IsEncrypted(ctx context.Context, key string) (bool, error) {
 }
 
 // curtoDemais reconhece o 416 do armazenamento: pediu-se um intervalo que o objeto não tem.
-func curtoDemais(err error) bool {
+func tooShort(err error) bool {
 	var resp minio.ErrorResponse
 	if errors.As(err, &resp) {
 		return resp.StatusCode == http.StatusRequestedRangeNotSatisfiable ||
@@ -82,7 +82,7 @@ func curtoDemais(err error) bool {
 // memória.
 func (s *Service) Seal(ctx context.Context, key string) error {
 	if s.keys == nil {
-		return errors.New("storage: selagem pedida com a cifra desligada")
+		return errors.New("storage: sealing requested with encryption off")
 	}
 	cifrado, err := s.IsEncrypted(ctx, key)
 	if err != nil {
@@ -107,7 +107,7 @@ func (s *Service) Seal(ctx context.Context, key string) error {
 		os.Remove(tmp.Name())
 	}()
 
-	tamanho, err := io.Copy(tmp, obj)
+	size, err := io.Copy(tmp, obj)
 	if err != nil {
 		return fmt.Errorf("selar %q: descarregar: %w", key, err)
 	}
@@ -121,7 +121,7 @@ func (s *Service) Seal(ctx context.Context, key string) error {
 	// cifra. Dizer ao fornecedor que aquele objeto opaco é um `video/mp4` seria entregar-lhe de
 	// volta parte do que a cifra acabou de esconder — e quem serve o ficheiro tira o tipo do nome
 	// guardado na nossa base de dados, não do armazenamento.
-	if err := s.Put(ctx, key, tmp, tamanho, ""); err != nil {
+	if err := s.Put(ctx, key, tmp, size, ""); err != nil {
 		return fmt.Errorf("selar %q: reenviar: %w", key, err)
 	}
 	return nil
@@ -149,15 +149,15 @@ type Object struct {
 //
 // Fica de fora também o que não é conteúdo: os marcadores de pasta do Drive têm zero bytes, e
 // cifrá-los trocava zero bytes por noventa sem esconder nada.
-func (o Object) Selavel() bool {
+func (o Object) Sealable() bool {
 	if o.Size == 0 || strings.HasSuffix(o.Key, "/") {
 		return false
 	}
 	if strings.HasPrefix(o.Key, "recordings/") {
 		return true
 	}
-	_, temTenant := tenantFromKey(o.Key)
-	return temTenant
+	_, hasTenant := tenantFromKey(o.Key)
+	return hasTenant
 }
 
 // ListObjects percorre o balde. `prefix` vazio percorre tudo.

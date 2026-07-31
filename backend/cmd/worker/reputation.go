@@ -31,18 +31,18 @@ import (
 // mas exige o cabeçalho X-SES-TENANT em cada mensagem, o que obriga a mexer no caminho do correio.
 
 const (
-	intervaloReputacao = time.Hour
+	reputationInterval = time.Hour
 	// Janela de análise. Vinte e quatro horas alisa o ruído de um envio pequeno: com dez mensagens,
 	// uma devolução dá 10% e suspenderia um cliente por nada.
-	janelaReputacao = 24 * time.Hour
+	reputationWindow = 24 * time.Hour
 	// Mínimo de envios para a taxa significar alguma coisa.
-	minimoEnvios = 100
+	minSends = 100
 
-	limiteDevolucao = 0.05  // 5%
-	limiteQueixa    = 0.001 // 0,1%
+	bounceLimit    = 0.05  // 5%
+	complaintLimit = 0.001 // 0,1%
 )
 
-func startReputacao(q *db.Queries, relay *ses.Client) {
+func startReputation(q *db.Queries, relay *ses.Client) {
 	if relay == nil {
 		log.Printf("reputation watchdog disabled (SES off)")
 		return
@@ -50,49 +50,49 @@ func startReputacao(q *db.Queries, relay *ses.Client) {
 	go func() {
 		time.Sleep(2 * time.Minute) // deixa o arranque respirar
 		for {
-			verificarReputacao(context.Background(), q, relay)
-			time.Sleep(intervaloReputacao)
+			checkReputation(context.Background(), q, relay)
+			time.Sleep(reputationInterval)
 		}
 	}()
 	log.Printf("reputation watchdog started (every %s, bounces>%.0f%% or complaints>%.1f%% suspend the customer)",
-		intervaloReputacao, limiteDevolucao*100, limiteQueixa*100)
+		reputationInterval, bounceLimit*100, complaintLimit*100)
 }
 
-func verificarReputacao(ctx context.Context, q *db.Queries, relay *ses.Client) {
+func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
-	dominios, err := q.ListAllDomains(ctx)
+	domains, err := q.ListAllDomains(ctx)
 	if err != nil {
-		log.Printf("reputation: listar domínios: %v", err)
+		log.Printf("reputation: list domains: %v", err)
 		return
 	}
 
-	ate := time.Now()
-	de := ate.Add(-janelaReputacao)
+	until := time.Now()
+	from := until.Add(-reputationWindow)
 
-	for _, d := range dominios {
-		conjunto := ses.TenantName(d.Dominio)
-		rep, err := relay.ReputacaoDoConjunto(ctx, conjunto, de, ate)
+	for _, d := range domains {
+		configSet := ses.TenantName(d.Dominio)
+		rep, err := relay.ConfigSetReputation(ctx, configSet, from, until)
 		if err != nil {
 			// Não suspende por não conseguir medir: um erro de leitura não é prova de nada, e
 			// suspender um cliente por engano é o mesmo estrago pelo motivo errado.
 			log.Printf("reputation: %s: %v", d.Dominio, err)
 			continue
 		}
-		if rep.Enviadas < minimoEnvios {
+		if rep.Sent < minSends {
 			continue
 		}
 
-		devolucao, queixa := rep.TaxaDevolucao(), rep.TaxaQueixa()
-		if devolucao <= limiteDevolucao && queixa <= limiteQueixa {
+		bounceRate, complaintRate := rep.BounceRate(), rep.ComplaintRate()
+		if bounceRate <= bounceLimit && complaintRate <= complaintLimit {
 			continue
 		}
 
 		log.Printf("reputation: SUSPENDING %s — %.0f sent, %.2f%% bounced (limit %.0f%%), %.3f%% complained (limit %.1f%%)",
-			d.Dominio, rep.Enviadas, devolucao*100, limiteDevolucao*100, queixa*100, limiteQueixa*100)
+			d.Dominio, rep.Sent, bounceRate*100, bounceLimit*100, complaintRate*100, complaintLimit*100)
 
-		if err := relay.SetSendingEnabled(ctx, conjunto, false); err != nil {
+		if err := relay.SetSendingEnabled(ctx, configSet, false); err != nil {
 			log.Printf("reputation: %s: SUSPENSION FAILED, the account is still exposed: %v", d.Dominio, err)
 			continue
 		}

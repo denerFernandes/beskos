@@ -10,7 +10,7 @@
 // registo. Se a alteração correr mal, a reversão está no registo e não na memória de alguém.
 //
 //	--ver     mostra a configuração atual e não toca em nada (por omissão)
-//	--aplicar escreve a alteração
+//	--apply escreve a alteração
 package main
 
 import (
@@ -26,7 +26,7 @@ import (
 
 func main() {
 	log.SetFlags(0)
-	aplicar := flag.Bool("aplicar", false, "escreve a alteração; sem isto só mostra")
+	apply := flag.Bool("apply", false, "write the change; without this it only reports")
 	flag.Parse()
 
 	log.Printf("=== corrida %s ===", time.Now().UTC().Format(time.RFC3339))
@@ -35,56 +35,56 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	atual, err := c.GetBlobStore(ctx)
+	current, err := c.GetBlobStore(ctx)
 	if err != nil {
-		log.Fatalf("ler a configuração atual: %v", err)
+		log.Fatalf("read the current configuration: %v", err)
 	}
-	log.Printf("id do singleton: %s", atual.ID)
-	log.Printf("CONFIGURAÇÃO ATUAL (guardar isto — é a reversão):\n%s", identar(atual.Config))
+	log.Printf("singleton id: %s", current.ID)
+	log.Printf("CURRENT CONFIGURATION (keep this — it is the rollback):\n%s", indent(current.Config))
 
-	novo := stalwart.S3BlobStore{
+	target := stalwart.S3BlobStore{
 		Bucket:    env("BLOBGW_S3_BUCKET"),
 		Endpoint:  env("BLOBGW_ENDPOINT"),
-		Region:    envOu("BLOBGW_REGION", "auto"),
+		Region:    envOr("BLOBGW_REGION", "auto"),
 		AccessKey: env("BLOBGW_ACCESS_KEY"),
 		SecretKey: env("BLOBGW_SECRET_KEY"),
-		KeyPrefix: envOu("BLOBGW_KEY_PREFIX", "mail/"),
+		KeyPrefix: envOr("BLOBGW_KEY_PREFIX", "mail/"),
 	}
-	log.Printf("DESTINO: %s, balde %s, prefixo %s", novo.Endpoint, novo.Bucket, novo.KeyPrefix)
+	log.Printf("TARGET: %s, bucket %s, prefix %s", target.Endpoint, target.Bucket, target.KeyPrefix)
 
-	if !*aplicar {
-		log.Printf("nada foi alterado (faltou --aplicar)")
-		esperar()
+	if !*apply {
+		log.Printf("nothing was changed (--apply was not given)")
+		wait()
 		return
 	}
 
-	if err := c.SetBlobStoreS3(ctx, atual.ID, novo); err != nil {
+	if err := c.SetBlobStoreS3(ctx, current.ID, target); err != nil {
 		log.Fatalf("aplicar: %v", err)
 	}
-	log.Printf("aplicado")
+	log.Printf("applied")
 
 	// Sem isto o Stalwart continua a usar o armazenamento antigo até reiniciar — e o correio novo
 	// ia para o sítio antigo sem dar erro nenhum.
 	if err := c.ReloadSettings(ctx); err != nil {
-		log.Fatalf("recarregar a configuração: %v", err)
+		log.Fatalf("reload the configuration: %v", err)
 	}
-	log.Printf("configuração recarregada")
+	log.Printf("configuration reloaded")
 
 	// Ler de volta. "Escrevi" não é o mesmo que "está lá": um `set` aceite e um estado por
 	// confirmar são coisas diferentes, e esta é fácil de conferir.
-	depois, err := c.GetBlobStore(ctx)
+	after, err := c.GetBlobStore(ctx)
 	if err != nil {
-		log.Fatalf("reler: %v", err)
+		log.Fatalf("re-read: %v", err)
 	}
-	log.Printf("CONFIGURAÇÃO AGORA:\n%s", identar(depois.Config))
-	esperar()
+	log.Printf("CONFIGURATION NOW:\n%s", indent(after.Config))
+	wait()
 }
 
 // esperar mantém o contentor vivo depois do trabalho feito. Sem isto o CapRover vê o processo sair,
 // dá-o como caído e reinicia-o em ciclo — e o registo, que é o resultado deste comando, perdia-se
 // no meio das repetições.
-func esperar() {
-	log.Printf("terminado; a app pode ser apagada")
+func wait() {
+	log.Printf("done; the app can be deleted")
 	// Dormir em ciclo, e não `select {}`: sem casos, o Go deteta impasse e aborta o processo — o
 	// que faz o CapRover reiniciar em ciclo e mistura o registo de várias corridas, que é
 	// exatamente o que este comando não pode fazer, porque o registo É o resultado.
@@ -93,29 +93,29 @@ func esperar() {
 	}
 }
 
-func identar(b []byte) string {
+func indent(b []byte) string {
 	var v any
 	if err := json.Unmarshal(b, &v); err != nil {
 		return string(b)
 	}
-	bonito, err := json.MarshalIndent(v, "", "  ")
+	pretty, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return string(b)
 	}
-	return string(bonito)
+	return string(pretty)
 }
 
-func env(nome string) string {
-	v := os.Getenv(nome)
+func env(name string) string {
+	v := os.Getenv(name)
 	if v == "" {
-		log.Fatalf("%s em falta", nome)
+		log.Fatalf("%s missing", name)
 	}
 	return v
 }
 
-func envOu(nome, omissao string) string {
-	if v := os.Getenv(nome); v != "" {
+func envOr(name, fallback string) string {
+	if v := os.Getenv(name); v != "" {
 		return v
 	}
-	return omissao
+	return fallback
 }

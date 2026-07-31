@@ -20,142 +20,142 @@ import (
 // O que se confere: a chave de acesso, a data (contra repetições), e o HMAC sobre o pedido
 // canónico. O corpo é conferido à parte, em passagem — ver corpoConferido.
 
-const algoritmo = "AWS4-HMAC-SHA256"
+const algorithm = "AWS4-HMAC-SHA256"
 
 // desvioMaximo é a janela de aceitação do relógio. Quinze minutos é o que a AWS usa.
-const desvioMaximo = 15 * time.Minute
+const maxSkew = 15 * time.Minute
 
-type credencial struct {
-	acesso  string
-	segredo string
-	regiao  string
+type credential struct {
+	access string
+	secret string
+	region string
 }
 
-func (c credencial) verificar(r *http.Request) error {
+func (c credential) check(r *http.Request) error {
 	auth := r.Header.Get("Authorization")
-	if !strings.HasPrefix(auth, algoritmo+" ") {
-		return errf("falta a autorização %s", algoritmo)
+	if !strings.HasPrefix(auth, algorithm+" ") {
+		return errf("falta a autorização %s", algorithm)
 	}
-	partes := map[string]string{}
-	for _, p := range strings.Split(strings.TrimPrefix(auth, algoritmo+" "), ",") {
-		chave, valor, ok := strings.Cut(strings.TrimSpace(p), "=")
+	parts := map[string]string{}
+	for _, p := range strings.Split(strings.TrimPrefix(auth, algorithm+" "), ",") {
+		key, value, ok := strings.Cut(strings.TrimSpace(p), "=")
 		if ok {
-			partes[chave] = valor
+			parts[key] = value
 		}
 	}
 
-	credencialBruta := partes["Credential"]
-	assinatura := partes["Signature"]
-	assinados := partes["SignedHeaders"]
-	if credencialBruta == "" || assinatura == "" || assinados == "" {
+	rawCredential := parts["Credential"]
+	signature := parts["Signature"]
+	signed := parts["SignedHeaders"]
+	if rawCredential == "" || signature == "" || signed == "" {
 		return errf("autorização incompleta")
 	}
 
-	campos := strings.Split(credencialBruta, "/")
-	if len(campos) != 5 {
+	fields := strings.Split(rawCredential, "/")
+	if len(fields) != 5 {
 		return errf("credencial malformada")
 	}
-	if !hmac.Equal([]byte(campos[0]), []byte(c.acesso)) {
+	if !hmac.Equal([]byte(fields[0]), []byte(c.access)) {
 		return errf("chave de acesso desconhecida")
 	}
-	dataCurta, regiao, servico := campos[1], campos[2], campos[3]
+	shortDate, region, service := fields[1], fields[2], fields[3]
 
-	quando := r.Header.Get("X-Amz-Date")
-	if quando == "" {
+	when := r.Header.Get("X-Amz-Date")
+	if when == "" {
 		return errf("falta o X-Amz-Date")
 	}
-	t, err := time.Parse("20060102T150405Z", quando)
+	t, err := time.Parse("20060102T150405Z", when)
 	if err != nil {
 		return errf("X-Amz-Date inválido: %w", err)
 	}
 	// Sem esta janela, um pedido assinado capturado servia para sempre.
-	if d := time.Since(t); d > desvioMaximo || d < -desvioMaximo {
-		return errf("pedido fora da janela de %s (desvio %s)", desvioMaximo, d.Round(time.Second))
+	if d := time.Since(t); d > maxSkew || d < -maxSkew {
+		return errf("pedido fora da janela de %s (desvio %s)", maxSkew, d.Round(time.Second))
 	}
 
-	hashCorpo := r.Header.Get("X-Amz-Content-Sha256")
-	if hashCorpo == "" {
+	bodyHash := r.Header.Get("X-Amz-Content-Sha256")
+	if bodyHash == "" {
 		return errf("falta o X-Amz-Content-Sha256")
 	}
-	if strings.HasPrefix(hashCorpo, "STREAMING-") {
+	if strings.HasPrefix(bodyHash, "STREAMING-") {
 		return errf("corpo assinado em fluxo não é suportado")
 	}
 
-	canonico := pedidoCanonico(r, strings.Split(assinados, ";"), hashCorpo)
-	escopo := strings.Join([]string{dataCurta, regiao, servico, "aws4_request"}, "/")
-	paraAssinar := strings.Join([]string{
-		algoritmo, quando, escopo, hexSHA256([]byte(canonico)),
+	canonical := canonicalRequest(r, strings.Split(signed, ";"), bodyHash)
+	scope := strings.Join([]string{shortDate, region, service, "aws4_request"}, "/")
+	toSign := strings.Join([]string{
+		algorithm, when, scope, hexSHA256([]byte(canonical)),
 	}, "\n")
 
-	esperada := hex.EncodeToString(hmacSHA256(chaveDeAssinatura(c.segredo, dataCurta, regiao, servico), paraAssinar))
-	if !hmac.Equal([]byte(esperada), []byte(assinatura)) {
+	want := hex.EncodeToString(hmacSHA256(signingKey(c.secret, shortDate, region, service), toSign))
+	if !hmac.Equal([]byte(want), []byte(signature)) {
 		return errf("assinatura não confere")
 	}
 	return nil
 }
 
 // pedidoCanonico monta a forma canónica do pedido, tal como a especificação manda.
-func pedidoCanonico(r *http.Request, assinados []string, hashCorpo string) string {
-	sort.Strings(assinados)
+func canonicalRequest(r *http.Request, signed []string, bodyHash string) string {
+	sort.Strings(signed)
 
-	var cabecalhos strings.Builder
-	for _, nome := range assinados {
-		cabecalhos.WriteString(nome)
-		cabecalhos.WriteByte(':')
-		cabecalhos.WriteString(valorCabecalho(r, nome))
-		cabecalhos.WriteByte('\n')
+	var headers strings.Builder
+	for _, name := range signed {
+		headers.WriteString(name)
+		headers.WriteByte(':')
+		headers.WriteString(headerValue(r, name))
+		headers.WriteByte('\n')
 	}
 
 	return strings.Join([]string{
 		r.Method,
-		caminhoCanonico(r.URL),
-		consultaCanonica(r.URL),
-		cabecalhos.String(),
-		strings.Join(assinados, ";"),
-		hashCorpo,
+		canonicalPath(r.URL),
+		canonicalQuery(r.URL),
+		headers.String(),
+		strings.Join(signed, ";"),
+		bodyHash,
 	}, "\n")
 }
 
 // valorCabecalho: o Host não vem no mapa de cabeçalhos do Go, vem no campo próprio.
-func valorCabecalho(r *http.Request, nome string) string {
-	if nome == "host" {
+func headerValue(r *http.Request, name string) string {
+	if name == "host" {
 		return strings.TrimSpace(r.Host)
 	}
-	valores := r.Header.Values(http.CanonicalHeaderKey(nome))
-	for i, v := range valores {
-		valores[i] = strings.Join(strings.Fields(v), " ")
+	values := r.Header.Values(http.CanonicalHeaderKey(name))
+	for i, v := range values {
+		values[i] = strings.Join(strings.Fields(v), " ")
 	}
-	return strings.Join(valores, ",")
+	return strings.Join(values, ",")
 }
 
 // caminhoCanonico usa o caminho tal como veio no pedido, sem descodificar: o cliente assinou o que
 // escreveu, e normalizar aqui daria assinaturas diferentes para o mesmo pedido.
-func caminhoCanonico(u *url.URL) string {
+func canonicalPath(u *url.URL) string {
 	if p := u.EscapedPath(); p != "" {
 		return p
 	}
 	return "/"
 }
 
-func consultaCanonica(u *url.URL) string {
-	valores := u.Query()
-	chaves := make([]string, 0, len(valores))
-	for k := range valores {
-		chaves = append(chaves, k)
+func canonicalQuery(u *url.URL) string {
+	values := u.Query()
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
 	}
-	sort.Strings(chaves)
+	sort.Strings(keys)
 
 	var b strings.Builder
-	for _, k := range chaves {
-		vs := valores[k]
+	for _, k := range keys {
+		vs := values[k]
 		sort.Strings(vs)
 		for _, v := range vs {
 			if b.Len() > 0 {
 				b.WriteByte('&')
 			}
-			b.WriteString(escapar(k))
+			b.WriteString(escape(k))
 			b.WriteByte('=')
-			b.WriteString(escapar(v))
+			b.WriteString(escape(v))
 		}
 	}
 	return b.String()
@@ -163,22 +163,22 @@ func consultaCanonica(u *url.URL) string {
 
 // escapar segue a codificação da AWS, que difere do url.QueryEscape em dois pontos: o espaço vai
 // como %20 (e não +) e o til não é escapado.
-func escapar(s string) string {
+func escape(s string) string {
 	e := url.QueryEscape(s)
 	e = strings.ReplaceAll(e, "+", "%20")
 	return strings.ReplaceAll(e, "%7E", "~")
 }
 
-func chaveDeAssinatura(segredo, data, regiao, servico string) []byte {
-	k := hmacSHA256([]byte("AWS4"+segredo), data)
-	k = hmacSHA256(k, regiao)
-	k = hmacSHA256(k, servico)
+func signingKey(secret, data, region, service string) []byte {
+	k := hmacSHA256([]byte("AWS4"+secret), data)
+	k = hmacSHA256(k, region)
+	k = hmacSHA256(k, service)
 	return hmacSHA256(k, "aws4_request")
 }
 
-func hmacSHA256(chave []byte, dados string) []byte {
-	m := hmac.New(sha256.New, chave)
-	m.Write([]byte(dados))
+func hmacSHA256(key []byte, data string) []byte {
+	m := hmac.New(sha256.New, key)
+	m.Write([]byte(data))
 	return m.Sum(nil)
 }
 

@@ -11,16 +11,16 @@ import (
 
 // wrapExemplo simula uma chave embrulhada: os testes deste pacote não precisam de a saber abrir,
 // só de a ver viajar no cabeçalho com o tamanho certo.
-var wrapExemplo = bytes.Repeat([]byte{0xAB}, 60)
+var wrapExample = bytes.Repeat([]byte{0xAB}, 60)
 
-func hdr(bloco int) Header {
-	return Header{ChunkSize: bloco, TenantWrapped: true, WrappedKey: wrapExemplo}
+func hdr(block int) Header {
+	return Header{ChunkSize: block, TenantWrapped: true, WrappedKey: wrapExample}
 }
 
-func hdrLen() int64 { return int64(FixedHeaderSize + len(wrapExemplo)) }
+func hdrLen() int64 { return int64(FixedHeaderSize + len(wrapExample)) }
 
 // leHeader lê a parte fixa e a chave embrulhada de um objeto cifrado em memória.
-func leHeader(t *testing.T, b []byte) (Header, error) {
+func parseHeader(t *testing.T, b []byte) (Header, error) {
 	t.Helper()
 	h, err := ParseHeader(b[:FixedHeaderSize])
 	if err != nil {
@@ -30,7 +30,7 @@ func leHeader(t *testing.T, b []byte) (Header, error) {
 	return h, nil
 }
 
-func chave(t *testing.T) []byte {
+func key(t *testing.T) []byte {
 	t.Helper()
 	k, err := NewKey()
 	if err != nil {
@@ -41,68 +41,68 @@ func chave(t *testing.T) []byte {
 
 // idaEVolta é o teste que mais importa: o que sai tem de ser byte a byte o que entrou, em vários
 // tamanhos à volta da fronteira do bloco — é aí que os erros de índice se escondem.
-func TestIdaEVolta(t *testing.T) {
-	k := chave(t)
-	const bloco = 1024
-	tamanhos := []int{0, 1, 100, bloco - 1, bloco, bloco + 1, 3*bloco - 1, 3 * bloco, 3*bloco + 7}
+func TestRoundTrip(t *testing.T) {
+	k := key(t)
+	const block = 1024
+	sizes := []int{0, 1, 100, block - 1, block, block + 1, 3*block - 1, 3 * block, 3*block + 7}
 
-	for _, n := range tamanhos {
-		claro := make([]byte, n)
-		if _, err := rand.Read(claro); err != nil {
+	for _, n := range sizes {
+		plain := make([]byte, n)
+		if _, err := rand.Read(plain); err != nil {
 			t.Fatal(err)
 		}
 		var cifrado bytes.Buffer
-		if err := EncryptTo(&cifrado, bytes.NewReader(claro), int64(n), k, hdr(bloco)); err != nil {
-			t.Fatalf("tamanho %d: cifrar: %v", n, err)
+		if err := EncryptTo(&cifrado, bytes.NewReader(plain), int64(n), k, hdr(block)); err != nil {
+			t.Fatalf("size %d: encrypt: %v", n, err)
 		}
-		if got, want := int64(cifrado.Len()), EncryptedSize(int64(n), bloco, len(wrapExemplo)); got != want {
-			t.Errorf("tamanho %d: cifrado tem %d bytes, EncryptedSize dizia %d", n, got, want)
+		if got, want := int64(cifrado.Len()), EncryptedSize(int64(n), block, len(wrapExample)); got != want {
+			t.Errorf("size %d: ciphertext has %d bytes, EncryptedSize said %d", n, got, want)
 		}
 
-		h, err := leHeader(t, cifrado.Bytes())
+		h, err := parseHeader(t, cifrado.Bytes())
 		if err != nil {
-			t.Fatalf("tamanho %d: cabeçalho: %v", n, err)
+			t.Fatalf("size %d: header: %v", n, err)
 		}
 		if h.PlainSize != int64(n) {
-			t.Errorf("tamanho %d: cabeçalho diz %d", n, h.PlainSize)
+			t.Errorf("size %d: header says %d", n, h.PlainSize)
 		}
 		r, err := DecryptReader(bytes.NewReader(cifrado.Bytes()[h.DataOffset():]), h, k)
 		if err != nil {
 			t.Fatal(err)
 		}
-		volta, err := io.ReadAll(r)
+		back, err := io.ReadAll(r)
 		if err != nil {
-			t.Fatalf("tamanho %d: decifrar: %v", n, err)
+			t.Fatalf("size %d: decrypt: %v", n, err)
 		}
-		if !bytes.Equal(volta, claro) {
-			t.Errorf("tamanho %d: conteúdo diferente na volta", n)
+		if !bytes.Equal(back, plain) {
+			t.Errorf("size %d: content differs on the way back", n)
 		}
 	}
 }
 
 // Um objeto antigo, em claro, tem de ser reconhecido como tal — é o que mantém a migração segura
 // quando falha a meio (docs/cifra-ficheiros.md §2d).
-func TestObjetoEmClaroNaoEConfundido(t *testing.T) {
+func TestPlaintextObjectIsNotMistaken(t *testing.T) {
 	_, err := ParseHeader([]byte("PK\x03\x04 isto é um zip, não nosso......."))
 	if !errors.Is(err, ErrNotEncrypted) {
-		t.Fatalf("esperava ErrNotEncrypted, veio %v", err)
+		t.Fatalf("want ErrNotEncrypted, got %v", err)
 	}
 }
 
 // Seek: o ponto de todo o formato em blocos. Cada leitura a partir de uma posição arbitrária tem de
 // devolver exatamente a cauda do conteúdo.
-func TestSeekLeDeQualquerPosicao(t *testing.T) {
-	k := chave(t)
-	const bloco = 256
-	claro := make([]byte, 5*bloco+33)
-	if _, err := rand.Read(claro); err != nil {
+func TestSeekReadsFromAnyPosition(t *testing.T) {
+	k := key(t)
+	const block = 256
+	plain := make([]byte, 5*block+33)
+	if _, err := rand.Read(plain); err != nil {
 		t.Fatal(err)
 	}
 	var cifrado bytes.Buffer
-	if err := EncryptTo(&cifrado, bytes.NewReader(claro), int64(len(claro)), k, hdr(bloco)); err != nil {
+	if err := EncryptTo(&cifrado, bytes.NewReader(plain), int64(len(plain)), k, hdr(block)); err != nil {
 		t.Fatal(err)
 	}
-	h, err := leHeader(t, cifrado.Bytes())
+	h, err := parseHeader(t, cifrado.Bytes())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,91 +110,91 @@ func TestSeekLeDeQualquerPosicao(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if sr.Size() != int64(len(claro)) {
-		t.Fatalf("Size() = %d, esperava %d", sr.Size(), len(claro))
+	if sr.Size() != int64(len(plain)) {
+		t.Fatalf("Size() = %d, want %d", sr.Size(), len(plain))
 	}
 
 	// Posições escolhidas nas fronteiras e no meio dos blocos, que é onde se erra.
-	for _, off := range []int64{0, 1, bloco - 1, bloco, bloco + 1, 3 * bloco, int64(len(claro)) - 1} {
+	for _, off := range []int64{0, 1, block - 1, block, block + 1, 3 * block, int64(len(plain)) - 1} {
 		if _, err := sr.Seek(off, io.SeekStart); err != nil {
 			t.Fatalf("off %d: seek: %v", off, err)
 		}
 		got, err := io.ReadAll(sr)
 		if err != nil {
-			t.Fatalf("off %d: ler: %v", off, err)
+			t.Fatalf("off %d: read: %v", off, err)
 		}
-		if !bytes.Equal(got, claro[off:]) {
-			t.Errorf("off %d: leu %d bytes, esperava %d", off, len(got), len(claro)-int(off))
+		if !bytes.Equal(got, plain[off:]) {
+			t.Errorf("off %d: read %d bytes, want %d", off, len(got), len(plain)-int(off))
 		}
 	}
 
 	// SeekEnd é o que o http.ServeContent usa para descobrir o tamanho.
-	if p, err := sr.Seek(0, io.SeekEnd); err != nil || p != int64(len(claro)) {
+	if p, err := sr.Seek(0, io.SeekEnd); err != nil || p != int64(len(plain)) {
 		t.Fatalf("SeekEnd = %d, %v", p, err)
 	}
 }
 
 // Adulterar um byte tem de dar erro, não conteúdo silenciosamente errado.
-func TestAdulteracaoEDetetada(t *testing.T) {
-	k := chave(t)
-	claro := bytes.Repeat([]byte("a"), 3000)
+func TestTamperingIsDetected(t *testing.T) {
+	k := key(t)
+	plain := bytes.Repeat([]byte("a"), 3000)
 	var cifrado bytes.Buffer
-	if err := EncryptTo(&cifrado, bytes.NewReader(claro), int64(len(claro)), k, hdr(1024)); err != nil {
+	if err := EncryptTo(&cifrado, bytes.NewReader(plain), int64(len(plain)), k, hdr(1024)); err != nil {
 		t.Fatal(err)
 	}
 	b := cifrado.Bytes()
 	b[int(hdrLen())+10] ^= 0xff
 
-	h, _ := leHeader(t, b)
+	h, _ := parseHeader(t, b)
 	r, err := DecryptReader(bytes.NewReader(b[h.DataOffset():]), h, k)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := io.ReadAll(r); !errors.Is(err, ErrCorrupt) {
-		t.Fatalf("esperava ErrCorrupt, veio %v", err)
+		t.Fatalf("want ErrCorrupt, got %v", err)
 	}
 }
 
 // Truncar o fim tem de dar erro. Sem a marca de último bloco nos dados associados, um ficheiro
 // cortado passaria como válido — cada bloco restante continua individualmente bem selado.
-func TestTruncarEDetetado(t *testing.T) {
-	k := chave(t)
-	claro := bytes.Repeat([]byte("b"), 3000)
+func TestTruncationIsDetected(t *testing.T) {
+	k := key(t)
+	plain := bytes.Repeat([]byte("b"), 3000)
 	var cifrado bytes.Buffer
-	if err := EncryptTo(&cifrado, bytes.NewReader(claro), int64(len(claro)), k, hdr(1024)); err != nil {
+	if err := EncryptTo(&cifrado, bytes.NewReader(plain), int64(len(plain)), k, hdr(1024)); err != nil {
 		t.Fatal(err)
 	}
 	b := cifrado.Bytes()
-	cortado := b[:len(b)-(1024+TagSize)] // menos um bloco
+	truncated := b[:len(b)-(1024+TagSize)] // menos um bloco
 
-	h, _ := leHeader(t, cortado)
-	r, err := DecryptReader(bytes.NewReader(cortado[h.DataOffset():]), h, k)
+	h, _ := parseHeader(t, truncated)
+	r, err := DecryptReader(bytes.NewReader(truncated[h.DataOffset():]), h, k)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := io.ReadAll(r); err == nil {
-		t.Fatal("um ficheiro truncado foi aceite como completo")
+		t.Fatal("a truncated file was accepted as complete")
 	}
 }
 
 // Chave errada não pode devolver conteúdo.
-func TestChaveErrada(t *testing.T) {
-	k1, k2 := chave(t), chave(t)
+func TestWrongKey(t *testing.T) {
+	k1, k2 := key(t), key(t)
 	var cifrado bytes.Buffer
 	if err := EncryptTo(&cifrado, strings.NewReader("segredo"), 7, k1, hdr(1024)); err != nil {
 		t.Fatal(err)
 	}
-	h, _ := leHeader(t, cifrado.Bytes())
+	h, _ := parseHeader(t, cifrado.Bytes())
 	r, err := DecryptReader(bytes.NewReader(cifrado.Bytes()[h.DataOffset():]), h, k2)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := io.ReadAll(r); !errors.Is(err, ErrCorrupt) {
-		t.Fatalf("chave errada devia dar ErrCorrupt, deu %v", err)
+		t.Fatalf("a wrong key should give ErrCorrupt, gave %v", err)
 	}
 }
 
-func TestKEKEmbrulhaEAbre(t *testing.T) {
+func TestKEKWrapsAndUnwraps(t *testing.T) {
 	k1 := strings.Repeat("11", KeySize)
 	k2 := strings.Repeat("22", KeySize)
 	kek, err := ParseKEK("1:" + k1 + ",2:" + k2)
@@ -202,95 +202,95 @@ func TestKEKEmbrulhaEAbre(t *testing.T) {
 		t.Fatal(err)
 	}
 	if kek.CurrentVersion() != 2 {
-		t.Fatalf("a corrente devia ser a mais alta, veio %d", kek.CurrentVersion())
+		t.Fatalf("the current one should be the highest, got %d", kek.CurrentVersion())
 	}
 
-	material := chave(t)
-	wrapped, versao, err := kek.Wrap(material)
+	material := key(t)
+	wrapped, version, err := kek.Wrap(material)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if versao != 2 {
-		t.Fatalf("embrulhou com v%d", versao)
+	if version != 2 {
+		t.Fatalf("wrapped with v%d", version)
 	}
-	aberto, err := kek.Unwrap(wrapped, versao)
-	if err != nil || !bytes.Equal(aberto, material) {
-		t.Fatalf("não voltou igual: %v", err)
+	opened, err := kek.Unwrap(wrapped, version)
+	if err != nil || !bytes.Equal(opened, material) {
+		t.Fatalf("did not come back the same: %v", err)
 	}
 
 	// Material antigo continua a abrir-se enquanto a KEK antiga estiver configurada — é o que
 	// permite rodar em fundo sem parar o serviço.
-	antigo, err := kek.WrapWithVersion(material, 1)
+	old, err := kek.WrapWithVersion(material, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if aberto, err := kek.Unwrap(antigo, 1); err != nil || !bytes.Equal(aberto, material) {
-		t.Fatalf("v1 não abriu: %v", err)
+	if opened, err := kek.Unwrap(old, 1); err != nil || !bytes.Equal(opened, material) {
+		t.Fatalf("v1 did not unwrap: %v", err)
 	}
 }
 
-func TestKEKRecusaConfiguracaoInvalida(t *testing.T) {
-	casos := map[string]string{
+func TestKEKRejectsInvalidConfig(t *testing.T) {
+	cases := map[string]string{
 		"hex curto":       "1:abcd",
 		"não hex":         "1:" + strings.Repeat("zz", KeySize),
 		"versão inválida": "x:" + strings.Repeat("11", KeySize),
 	}
-	for nome, valor := range casos {
-		if _, err := ParseKEK(valor); err == nil {
-			t.Errorf("%s: devia recusar", nome)
+	for name, value := range cases {
+		if _, err := ParseKEK(value); err == nil {
+			t.Errorf("%s: should reject", name)
 		}
 	}
 	// Vazio é legítimo: significa cifra desligada.
 	if k, err := ParseKEK(""); err != nil || k != nil {
-		t.Errorf("vazio devia dar (nil, nil), deu (%v, %v)", k, err)
+		t.Errorf("empty should give (nil, nil), gave (%v, %v)", k, err)
 	}
 }
 
-func TestDEKPassaPelaChaveDoTenant(t *testing.T) {
-	tenant, dek := chave(t), chave(t)
+func TestDEKIsWrappedByTenantKey(t *testing.T) {
+	tenant, dek := key(t), key(t)
 	wrapped, err := WrapDEK(tenant, dek)
 	if err != nil {
 		t.Fatal(err)
 	}
-	aberto, err := UnwrapDEK(tenant, wrapped)
-	if err != nil || !bytes.Equal(aberto, dek) {
-		t.Fatalf("DEK não voltou: %v", err)
+	opened, err := UnwrapDEK(tenant, wrapped)
+	if err != nil || !bytes.Equal(opened, dek) {
+		t.Fatalf("DEK did not come back: %v", err)
 	}
 	// A chave de outro tenant não abre — é isto que sustenta a promessa de eliminação por tenant.
-	if _, err := UnwrapDEK(chave(t), wrapped); !errors.Is(err, ErrCorrupt) {
-		t.Fatal("a chave de outro tenant abriu a DEK")
+	if _, err := UnwrapDEK(key(t), wrapped); !errors.Is(err, ErrCorrupt) {
+		t.Fatal("another tenant's key unwrapped the DEK")
 	}
 }
 
 func TestHeaderRoundTrip(t *testing.T) {
-	var prefixo [prefixSize]byte
-	copy(prefixo[:], []byte{1, 2, 3, 4})
+	var prefix [prefixSize]byte
+	copy(prefix[:], []byte{1, 2, 3, 4})
 	h := Header{
-		ChunkSize: 4096, PlainSize: 123456789, NoncePrefix: prefixo,
-		TenantWrapped: true, WrappedKey: wrapExemplo,
+		ChunkSize: 4096, PlainSize: 123456789, NoncePrefix: prefix,
+		TenantWrapped: true, WrappedKey: wrapExample,
 	}
-	bruto := MarshalHeader(h)
-	volta, err := ParseHeader(bruto[:FixedHeaderSize])
+	raw := MarshalHeader(h)
+	back, err := ParseHeader(raw[:FixedHeaderSize])
 	if err != nil {
 		t.Fatal(err)
 	}
-	copy(volta.WrappedKey, bruto[FixedHeaderSize:])
+	copy(back.WrappedKey, raw[FixedHeaderSize:])
 
-	if volta.ChunkSize != h.ChunkSize || volta.PlainSize != h.PlainSize ||
-		volta.NoncePrefix != h.NoncePrefix || !volta.TenantWrapped {
-		t.Fatalf("cabeçalho mudou: %+v vs %+v", volta, h)
+	if back.ChunkSize != h.ChunkSize || back.PlainSize != h.PlainSize ||
+		back.NoncePrefix != h.NoncePrefix || !back.TenantWrapped {
+		t.Fatalf("header changed: %+v vs %+v", back, h)
 	}
 	// A chave embrulhada tem de voltar byte a byte: é ela que abre o objeto.
-	if !bytes.Equal(volta.WrappedKey, h.WrappedKey) {
-		t.Fatal("a chave embrulhada não sobreviveu à ida e volta")
+	if !bytes.Equal(back.WrappedKey, h.WrappedKey) {
+		t.Fatal("the wrapped key did not survive the round trip")
 	}
 	// Objeto de sistema: sem tenant, a versão da KEK é que conta.
-	sis := MarshalHeader(Header{ChunkSize: 4096, KEKVersion: 7, WrappedKey: wrapExemplo})
-	v2, err := ParseHeader(sis[:FixedHeaderSize])
+	hdr := MarshalHeader(Header{ChunkSize: 4096, KEKVersion: 7, WrappedKey: wrapExample})
+	v2, err := ParseHeader(hdr[:FixedHeaderSize])
 	if err != nil {
 		t.Fatal(err)
 	}
 	if v2.TenantWrapped || v2.KEKVersion != 7 {
-		t.Fatalf("objeto de sistema: %+v", v2)
+		t.Fatalf("system object: %+v", v2)
 	}
 }

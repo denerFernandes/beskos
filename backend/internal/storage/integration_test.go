@@ -34,7 +34,7 @@ func testService(t *testing.T) (*Service, *db.Queries, uuid.UUID) {
 	t.Helper()
 	endpoint := os.Getenv("STORAGE_TEST_ENDPOINT")
 	if endpoint == "" {
-		t.Skip("STORAGE_TEST_ENDPOINT não definido; a saltar o teste de integração")
+		t.Skip("STORAGE_TEST_ENDPOINT not set; skipping the integration test")
 	}
 
 	s, err := New(endpoint, os.Getenv("STORAGE_TEST_KEY"), os.Getenv("STORAGE_TEST_SECRET"),
@@ -45,13 +45,13 @@ func testService(t *testing.T) (*Service, *db.Queries, uuid.UUID) {
 
 	pool, err := pgxpool.New(context.Background(), os.Getenv("STORAGE_TEST_DB"))
 	if err != nil {
-		t.Fatalf("ligar à base de dados: %v", err)
+		t.Fatalf("connect to the database: %v", err)
 	}
 	t.Cleanup(pool.Close)
 	q := db.New(pool)
 
 	// Um tenant que existe mesmo: a chave do tenant tem uma referência para `tenants`.
-	tenant := tenantDeTeste(t, pool)
+	tenant := testTenant(t, pool)
 
 	kek := make([]byte, filecrypt.KeySize)
 	if _, err := rand.Read(kek); err != nil {
@@ -61,12 +61,12 @@ func testService(t *testing.T) (*Service, *db.Queries, uuid.UUID) {
 		t.Fatalf("ligar a cifra: %v", err)
 	}
 	if !s.Encrypting() {
-		t.Fatal("a cifra devia estar ligada")
+		t.Fatal("encryption should be on")
 	}
 	return s, q, tenant
 }
 
-func tenantDeTeste(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+func testTenant(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 	id := uuid.New()
@@ -82,42 +82,42 @@ func tenantDeTeste(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	return id
 }
 
-func TestIntegrationCifraNoBalde(t *testing.T) {
+func TestIntegrationEncryptsInBucket(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
 	// Maior do que um bloco, para exercitar mais de um bloco de verdade.
-	claro := bytes.Repeat([]byte("conteudo confidencial do cliente. "), 40_000)
+	plain := bytes.Repeat([]byte("conteudo confidencial do cliente. "), 40_000)
 	key := fmt.Sprintf("%s/teste-%s", tenant, uuid.NewString())
 	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
 
-	if err := s.Put(ctx, key, bytes.NewReader(claro), int64(len(claro)), "application/octet-stream"); err != nil {
+	if err := s.Put(ctx, key, bytes.NewReader(plain), int64(len(plain)), "application/octet-stream"); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 
 	// 1. O que está NO BALDE não é o que foi enviado.
-	bruto := lerCru(t, s, key)
-	if bytes.Contains(bruto, []byte("conteudo confidencial")) {
-		t.Fatal("o objeto no balde contém o texto em claro")
+	raw := readRaw(t, s, key)
+	if bytes.Contains(raw, []byte("conteudo confidencial")) {
+		t.Fatal("the object in the bucket contains the plaintext")
 	}
-	if string(bruto[:4]) != filecrypt.Magic {
-		t.Fatalf("o objeto no balde não tem a magia %q, começa por %q", filecrypt.Magic, bruto[:4])
+	if string(raw[:4]) != filecrypt.Magic {
+		t.Fatalf("the object in the bucket lacks the %q magic, it starts with %q", filecrypt.Magic, raw[:4])
 	}
 
 	// 2. A chave do objeto viaja lá dentro — é o que torna a escrita uma operação só.
-	h, err := filecrypt.ParseHeader(bruto[:filecrypt.FixedHeaderSize])
+	h, err := filecrypt.ParseHeader(raw[:filecrypt.FixedHeaderSize])
 	if err != nil {
-		t.Fatalf("cabeçalho: %v", err)
+		t.Fatalf("header: %v", err)
 	}
 	if !h.TenantWrapped {
-		t.Fatal("a chave devia estar embrulhada pela chave do tenant")
+		t.Fatal("the key should be wrapped by the tenant key")
 	}
 	if h.WrappedKeyLen() == 0 {
-		t.Fatal("o cabeçalho não traz chave embrulhada")
+		t.Fatal("the header carries no wrapped key")
 	}
-	if h.PlainSize != int64(len(claro)) {
-		t.Fatalf("tamanho em claro %d, esperava %d", h.PlainSize, len(claro))
+	if h.PlainSize != int64(len(plain)) {
+		t.Fatalf("plaintext size %d, want %d", h.PlainSize, len(plain))
 	}
 
 	// 3. E volta inteiro pelo Get.
@@ -126,30 +126,30 @@ func TestIntegrationCifraNoBalde(t *testing.T) {
 		t.Fatalf("Get: %v", err)
 	}
 	defer r.Close()
-	volta, err := io.ReadAll(r)
+	back, err := io.ReadAll(r)
 	if err != nil {
-		t.Fatalf("ler: %v", err)
+		t.Fatalf("read: %v", err)
 	}
-	if !bytes.Equal(volta, claro) {
-		t.Fatalf("voltou diferente: %d bytes vs %d", len(volta), len(claro))
+	if !bytes.Equal(back, plain) {
+		t.Fatalf("came back different: %d bytes vs %d", len(back), len(plain))
 	}
 }
 
-func TestIntegrationSeekNoMeio(t *testing.T) {
+func TestIntegrationSeekInTheMiddle(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
 	// 5 MiB: o salto cai no meio de um bloco que não é o primeiro nem o último, que é o caso em que
 	// um erro de aritmética de blocos aparece.
-	claro := make([]byte, 5<<20)
-	if _, err := rand.Read(claro); err != nil {
+	plain := make([]byte, 5<<20)
+	if _, err := rand.Read(plain); err != nil {
 		t.Fatal(err)
 	}
 	key := fmt.Sprintf("%s/seek-%s", tenant, uuid.NewString())
 	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
 
-	if err := s.Put(ctx, key, bytes.NewReader(claro), int64(len(claro)), "video/mp4"); err != nil {
+	if err := s.Put(ctx, key, bytes.NewReader(plain), int64(len(plain)), "video/mp4"); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 
@@ -159,33 +159,33 @@ func TestIntegrationSeekNoMeio(t *testing.T) {
 	}
 	defer sr.Close()
 
-	const salto = 3<<20 + 12345 // no meio do quarto bloco
-	if _, err := sr.Seek(salto, io.SeekStart); err != nil {
+	const skip = 3<<20 + 12345 // no meio do quarto bloco
+	if _, err := sr.Seek(skip, io.SeekStart); err != nil {
 		t.Fatalf("Seek: %v", err)
 	}
-	pedaco := make([]byte, 4096)
-	if _, err := io.ReadFull(sr, pedaco); err != nil {
-		t.Fatalf("ler depois do salto: %v", err)
+	chunk := make([]byte, 4096)
+	if _, err := io.ReadFull(sr, chunk); err != nil {
+		t.Fatalf("read after the seek: %v", err)
 	}
-	if !bytes.Equal(pedaco, claro[salto:salto+4096]) {
-		t.Fatal("o conteúdo depois do salto não é o do ficheiro original")
+	if !bytes.Equal(chunk, plain[skip:skip+4096]) {
+		t.Fatal("the content after the seek is not the original file's")
 	}
 }
 
 // TestIntegracaoSelagem prova o caminho por onde entram as gravações compostas e o conteúdo
 // anterior à cifra: um objeto que chegou ao balde em claro é selado sem mudar de sítio nem de nome.
-func TestIntegrationSelagem(t *testing.T) {
+func TestIntegrationSealing(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	claro := []byte("gravação escrita pelo egress, direto no balde, sem passar por nós")
+	plain := []byte("gravação escrita pelo egress, direto no balde, sem passar por nós")
 	key := fmt.Sprintf("%s/recordings/selar-%s.mp4", tenant, uuid.NewString())
 	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
 
 	// Escreve à socapa da cifra, como o LiveKit faz com as credenciais S3.
-	semCifra := &Service{client: s.client, bucket: s.bucket}
-	if err := semCifra.Put(ctx, key, bytes.NewReader(claro), int64(len(claro)), "video/mp4"); err != nil {
+	unencrypted := &Service{client: s.client, bucket: s.bucket}
+	if err := unencrypted.Put(ctx, key, bytes.NewReader(plain), int64(len(plain)), "video/mp4"); err != nil {
 		t.Fatalf("Put em claro: %v", err)
 	}
 
@@ -194,23 +194,23 @@ func TestIntegrationSelagem(t *testing.T) {
 		t.Fatalf("IsEncrypted: %v", err)
 	}
 	if cifrado {
-		t.Fatal("acabou de ser escrito em claro e diz estar cifrado")
+		t.Fatal("it was just written in the clear and claims to be encrypted")
 	}
 
 	// Antes de selar, o objeto em claro TEM de continuar a ler-se — é o que permite migrar sem
 	// paragem.
-	if lido := lerTudo(t, s, ctx, key); !bytes.Equal(lido, claro) {
-		t.Fatal("um objeto anterior à cifra deixou de se ler")
+	if read := readAll(t, s, ctx, key); !bytes.Equal(read, plain) {
+		t.Fatal("an object predating encryption stopped being readable")
 	}
 
 	if err := s.Seal(ctx, key); err != nil {
 		t.Fatalf("Seal: %v", err)
 	}
-	if bruto := lerCru(t, s, key); string(bruto[:4]) != filecrypt.Magic {
-		t.Fatal("depois da selagem o objeto continua em claro no balde")
+	if raw := readRaw(t, s, key); string(raw[:4]) != filecrypt.Magic {
+		t.Fatal("after sealing the object is still in the clear in the bucket")
 	}
-	if lido := lerTudo(t, s, ctx, key); !bytes.Equal(lido, claro) {
-		t.Fatal("o conteúdo mudou com a selagem")
+	if read := readAll(t, s, ctx, key); !bytes.Equal(read, plain) {
+		t.Fatal("the content changed with sealing")
 	}
 
 	// Selar outra vez não pode cifrar o cifrado: a passagem em fundo repete-se de dez em dez
@@ -218,15 +218,15 @@ func TestIntegrationSelagem(t *testing.T) {
 	if err := s.Seal(ctx, key); err != nil {
 		t.Fatalf("segunda selagem: %v", err)
 	}
-	if lido := lerTudo(t, s, ctx, key); !bytes.Equal(lido, claro) {
-		t.Fatal("selar duas vezes estragou o objeto")
+	if read := readAll(t, s, ctx, key); !bytes.Equal(read, plain) {
+		t.Fatal("sealing twice broke the object")
 	}
 }
 
 // TestIntegrationObjetoVazio cobre o caso que apareceu no primeiro dia em produção: os marcadores
 // de pasta do Drive têm zero bytes, o pedido do cabeçalho responde 416, e a passagem de selagem
 // enchia o registo de erros que não eram erros.
-func TestIntegrationObjetoVazio(t *testing.T) {
+func TestIntegrationEmptyObject(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -234,20 +234,20 @@ func TestIntegrationObjetoVazio(t *testing.T) {
 	key := fmt.Sprintf("%s/pasta-%s/", tenant, uuid.NewString())
 	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
 
-	semCifra := &Service{client: s.client, bucket: s.bucket}
-	if err := semCifra.Put(ctx, key, bytes.NewReader(nil), 0, "application/x-directory"); err != nil {
-		t.Fatalf("criar marcador: %v", err)
+	unencrypted := &Service{client: s.client, bucket: s.bucket}
+	if err := unencrypted.Put(ctx, key, bytes.NewReader(nil), 0, "application/x-directory"); err != nil {
+		t.Fatalf("create marker: %v", err)
 	}
 
 	cifrado, err := s.IsEncrypted(ctx, key)
 	if err != nil {
-		t.Fatalf("IsEncrypted num objeto vazio devia ser silencioso, deu: %v", err)
+		t.Fatalf("IsEncrypted on an empty object should be silent, gave: %v", err)
 	}
 	if cifrado {
-		t.Fatal("um objeto de zero bytes não pode estar cifrado")
+		t.Fatal("a zero-byte object cannot be encrypted")
 	}
-	if (Object{Key: key, Size: 0}).Selavel() {
-		t.Fatal("um marcador de pasta não devia ser selado")
+	if (Object{Key: key, Size: 0}).Sealable() {
+		t.Fatal("a folder marker should not be sealed")
 	}
 }
 
@@ -255,7 +255,7 @@ func TestIntegrationObjetoVazio(t *testing.T) {
 // vídeo. O tipo é metadado sobre o conteúdo, e o conteúdo passou a ser opaco — dizer-lhe que é um
 // `video/mp4` devolvia-lhe parte do que a cifra escondeu. Quem serve o ficheiro tira o tipo do nome
 // na nossa base de dados (`mime.TypeByExtension`), nunca do armazenamento.
-func TestIntegrationSelagemNaoRevelaTipo(t *testing.T) {
+func TestIntegrationSealingHidesContentType(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -263,8 +263,8 @@ func TestIntegrationSelagemNaoRevelaTipo(t *testing.T) {
 	key := fmt.Sprintf("%s/recordings/tipo-%s.mp4", tenant, uuid.NewString())
 	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
 
-	semCifra := &Service{client: s.client, bucket: s.bucket}
-	if err := semCifra.Put(ctx, key, bytes.NewReader([]byte("filme")), 5, "video/mp4"); err != nil {
+	unencrypted := &Service{client: s.client, bucket: s.bucket}
+	if err := unencrypted.Put(ctx, key, bytes.NewReader([]byte("filme")), 5, "video/mp4"); err != nil {
 		t.Fatalf("Put: %v", err)
 	}
 	if err := s.Seal(ctx, key); err != nil {
@@ -276,7 +276,7 @@ func TestIntegrationSelagemNaoRevelaTipo(t *testing.T) {
 		t.Fatal(err)
 	}
 	if info.ContentType == "video/mp4" {
-		t.Fatal("o armazenamento continua a saber que o objeto cifrado é um vídeo")
+		t.Fatal("storage still knows the encrypted object is a video")
 	}
 }
 
@@ -284,21 +284,21 @@ func TestIntegrationSelagemNaoRevelaTipo(t *testing.T) {
 // fornecedor de armazenamento tem. Não dá para reutilizar um Service sem chaves: esse recusa-se a
 // servir um objeto cifrado, e ainda bem (devolver bytes cifrados como se fossem o ficheiro seria
 // pior do que falhar).
-func lerCru(t *testing.T, s *Service, key string) []byte {
+func readRaw(t *testing.T, s *Service, key string) []byte {
 	t.Helper()
 	r, err := s.client.GetObject(context.Background(), s.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
-		t.Fatalf("ler cru: %v", err)
+		t.Fatalf("raw read: %v", err)
 	}
 	defer r.Close()
 	b, err := io.ReadAll(r)
 	if err != nil {
-		t.Fatalf("ler cru: %v", err)
+		t.Fatalf("raw read: %v", err)
 	}
 	return b
 }
 
-func lerTudo(t *testing.T, s *Service, ctx context.Context, key string) []byte {
+func readAll(t *testing.T, s *Service, ctx context.Context, key string) []byte {
 	t.Helper()
 	r, err := s.Get(ctx, key)
 	if err != nil {
@@ -307,7 +307,7 @@ func lerTudo(t *testing.T, s *Service, ctx context.Context, key string) []byte {
 	defer r.Close()
 	b, err := io.ReadAll(r)
 	if err != nil {
-		t.Fatalf("ler: %v", err)
+		t.Fatalf("read: %v", err)
 	}
 	return b
 }

@@ -8,7 +8,7 @@
 // vizinho do balde, quer-se a reversão pronta e não um programa escrito à pressa durante a avaria.
 //
 //	FILE_ENC_KEYS=… MINIO_… go run ./cmd/unseal <prefixo>          # mostra o que faria
-//	FILE_ENC_KEYS=… MINIO_… go run ./cmd/unseal --fazer <prefixo>  # faz
+//	FILE_ENC_KEYS=… MINIO_… go run ./cmd/unseal --apply <prefixo>  # faz
 //
 // Não corre sem prefixo: o comando que desfaz a cifra de tudo não deve existir por engano.
 package main
@@ -26,12 +26,12 @@ import (
 )
 
 func main() {
-	fazer := flag.Bool("fazer", false, "escreve mesmo; sem isto só mostra")
+	apply := flag.Bool("apply", false, "actually write; without this it only reports")
 	flag.Parse()
 
-	prefixo := flag.Arg(0)
-	if prefixo == "" {
-		log.Fatal("uso: unseal [--fazer] <prefixo>")
+	prefix := flag.Arg(0)
+	if prefix == "" {
+		log.Fatal("usage: unseal [--apply] <prefix>")
 	}
 
 	ssl, _ := strconv.ParseBool(os.Getenv("MINIO_SSL"))
@@ -47,9 +47,9 @@ func main() {
 	}
 
 	ctx := context.Background()
-	var vistos, feitos int
-	for obj := range st.ListObjects(ctx, prefixo) {
-		vistos++
+	var seen, done int
+	for obj := range st.ListObjects(ctx, prefix) {
+		seen++
 		cifrado, err := st.IsEncrypted(ctx, obj.Key)
 		if err != nil {
 			log.Printf("%s: %v", obj.Key, err)
@@ -58,32 +58,32 @@ func main() {
 		if !cifrado {
 			continue
 		}
-		if !*fazer {
+		if !*apply {
 			fmt.Printf("  decifraria %s (%d bytes)\n", obj.Key, obj.Size)
-			feitos++
+			done++
 			continue
 		}
-		if err := desfazer(ctx, st, obj.Key); err != nil {
+		if err := undo(ctx, st, obj.Key); err != nil {
 			log.Printf("%s: %v", obj.Key, err)
 			continue
 		}
-		feitos++
+		done++
 		fmt.Printf("  %s reposto em claro\n", obj.Key)
 	}
 
-	verbo := "por decifrar"
-	if *fazer {
-		verbo = "repostos em claro"
+	verb := "por decifrar"
+	if *apply {
+		verb = "repostos em claro"
 	}
-	fmt.Printf("%d objetos vistos em %q, %d %s\n", vistos, prefixo, feitos, verbo)
+	fmt.Printf("%d objetos vistos em %q, %d %s\n", seen, prefix, done, verb)
 }
 
 // desfazer lê o objeto decifrado e reescreve-o em claro na mesma chave. Uma escrita, como a
 // selagem: o PUT ou acontece por inteiro ou não acontece.
-func desfazer(ctx context.Context, st *storage.Service, key string) error {
+func undo(ctx context.Context, st *storage.Service, key string) error {
 	r, err := st.Get(ctx, key)
 	if err != nil {
-		return fmt.Errorf("ler: %w", err)
+		return fmt.Errorf("read: %w", err)
 	}
 	defer r.Close()
 

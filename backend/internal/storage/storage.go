@@ -102,7 +102,7 @@ func (s *Service) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return s.abre(ctx, key, obj)
+	return s.decrypt(ctx, key, obj)
 }
 
 // GetSeek devolve o objeto como ReadSeekCloser (o *minio.Object busca por Range/StatObject). Serve
@@ -117,7 +117,7 @@ func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) 
 		return nil, err
 	}
 
-	h, _, perr := lerCabecalho(obj)
+	h, _, perr := readHeader(obj)
 	if errors.Is(perr, filecrypt.ErrNotEncrypted) {
 		// Objeto anterior à cifra: rebobina e devolve-o tal como está.
 		if _, serr := obj.Seek(0, io.SeekStart); serr != nil {

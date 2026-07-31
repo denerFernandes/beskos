@@ -32,20 +32,20 @@ import (
 //	STORAGE_TEST_BUCKET=mailin go test ./cmd/blobgw -v
 
 const (
-	acessoTeste  = "stalwart-teste"
-	segredoTeste = "segredo-do-stalwart-para-o-teste"
+	testAccess = "stalwart-teste"
+	testSecret = "segredo-do-stalwart-para-o-teste"
 )
 
-func montar(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
+func build(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 	t.Helper()
 	endpoint := os.Getenv("STORAGE_TEST_ENDPOINT")
 	if endpoint == "" {
-		t.Skip("STORAGE_TEST_ENDPOINT não definido; a saltar")
+		t.Skip("STORAGE_TEST_ENDPOINT not set; skipping")
 	}
-	balde := os.Getenv("STORAGE_TEST_BUCKET")
+	bucket := os.Getenv("STORAGE_TEST_BUCKET")
 
 	st, err := storage.New(endpoint, os.Getenv("STORAGE_TEST_KEY"), os.Getenv("STORAGE_TEST_SECRET"),
-		balde, "", false)
+		bucket, "", false)
 	if err != nil {
 		t.Fatalf("armazenamento: %v", err)
 	}
@@ -58,8 +58,8 @@ func montar(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 	}
 
 	g := &gateway{
-		st: st, bucket: balde, prefixos: []string{"mail/"},
-		cred: credencial{acesso: acessoTeste, segredo: segredoTeste, regiao: "auto"},
+		st: st, bucket: bucket, prefixes: []string{"mail/"},
+		cred: credential{access: testAccess, secret: testSecret, region: "auto"},
 	}
 	// Servidor TLS de propósito: sobre HTTP simples o minio-go assina o corpo EM FLUXO
 	// (`aws-chunked`), que o Stalwart não usa e este gateway recusa. Sobre TLS ele assina como o
@@ -69,7 +69,7 @@ func montar(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 
 	u, _ := url.Parse(srv.URL)
 	cli, err := minio.New(u.Host, &minio.Options{
-		Creds:        credentials.NewStaticV4(acessoTeste, segredoTeste, ""),
+		Creds:        credentials.NewStaticV4(testAccess, testSecret, ""),
 		Secure:       true,
 		Transport:    srv.Client().Transport,
 		Region:       "auto",
@@ -85,85 +85,85 @@ func montar(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 // corpo no X-Amz-Content-Sha256, em vez do UNSIGNED-PAYLOAD que o minio-go usa. A assinatura é
 // feita pelo assinador do minio — independente do nosso verificador, senão o teste provaria apenas
 // que o nosso código concorda consigo próprio.
-func TestIntegrationGatewayComoORustS3(t *testing.T) {
-	g, srv, _ := montar(t)
-	claro := []byte("mensagem crua, assinada com o resumo do corpo")
-	key := "mail/" + hexAleatorio(t)
+func TestIntegrationGatewayLikeRustS3(t *testing.T) {
+	g, srv, _ := build(t)
+	plain := []byte("mensagem crua, assinada com o resumo do corpo")
+	key := "mail/" + randomHex(t)
 	t.Cleanup(func() { _ = g.st.Remove(context.Background(), key) })
 
-	resp := porRustS3(t, srv, key, claro, hexSHA256(claro))
+	resp := byRustS3(t, srv, key, plain, hexSHA256(plain))
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		corpo, _ := io.ReadAll(resp.Body)
-		t.Fatalf("PUT assinado como o Stalwart deu %d: %s", resp.StatusCode, corpo)
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("PUT signed the way Stalwart does returned %d: %s", resp.StatusCode, body)
 	}
-	if bruto := lerCru(t, g, key); string(bruto[:4]) != filecrypt.Magic {
-		t.Fatal("o objeto não foi cifrado")
+	if raw := readRaw(t, g, key); string(raw[:4]) != filecrypt.Magic {
+		t.Fatal("the object was not encrypted")
 	}
 }
 
 // TestIntegrationGatewayCorpoTrocado: a assinatura cobre o resumo DECLARADO, não o corpo. Se os
 // dois não baterem certo, o objeto não pode ficar no armazenamento.
-func TestIntegrationGatewayCorpoTrocado(t *testing.T) {
-	g, srv, _ := montar(t)
-	key := "mail/" + hexAleatorio(t)
+func TestIntegrationGatewaySwappedBody(t *testing.T) {
+	g, srv, _ := build(t)
+	key := "mail/" + randomHex(t)
 	t.Cleanup(func() { _ = g.st.Remove(context.Background(), key) })
 
 	// Assina o resumo de um conteúdo e envia outro.
-	resp := porRustS3(t, srv, key, []byte("o corpo que vai"), hexSHA256([]byte("o corpo assinado")))
+	resp := byRustS3(t, srv, key, []byte("o corpo que vai"), hexSHA256([]byte("o corpo assinado")))
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
-		t.Fatalf("um corpo diferente do assinado devia dar 400, deu %d", resp.StatusCode)
+		t.Fatalf("a body different from the signed one should give 400, gave %d", resp.StatusCode)
 	}
 	if _, err := g.st.Get(context.Background(), key); err == nil {
-		t.Fatal("o objeto recusado ficou no armazenamento")
+		t.Fatal("the rejected object stayed in storage")
 	}
 }
 
 // porRustS3 monta e assina um PUT como o cliente do Stalwart o faz.
-func porRustS3(t *testing.T, srv *httptest.Server, key string, corpo []byte, resumo string) *http.Response {
+func byRustS3(t *testing.T, srv *httptest.Server, key string, body []byte, summary string) *http.Response {
 	t.Helper()
 	u, _ := url.Parse(srv.URL)
 	req, err := http.NewRequest(http.MethodPut,
-		fmt.Sprintf("%s/%s/%s", srv.URL, os.Getenv("STORAGE_TEST_BUCKET"), key), bytes.NewReader(corpo))
+		fmt.Sprintf("%s/%s/%s", srv.URL, os.Getenv("STORAGE_TEST_BUCKET"), key), bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
 	req.Host = u.Host
-	req.ContentLength = int64(len(corpo))
-	req.Header.Set("X-Amz-Content-Sha256", resumo)
-	assinado := signer.SignV4(*req, acessoTeste, segredoTeste, "", "auto")
-	assinado.Body = io.NopCloser(bytes.NewReader(corpo))
+	req.ContentLength = int64(len(body))
+	req.Header.Set("X-Amz-Content-Sha256", summary)
+	signed := signer.SignV4(*req, testAccess, testSecret, "", "auto")
+	signed.Body = io.NopCloser(bytes.NewReader(body))
 
-	resp, err := srv.Client().Do(assinado)
+	resp, err := srv.Client().Do(signed)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return resp
 }
 
-func TestIntegrationGatewayIdaEVolta(t *testing.T) {
-	g, _, cli := montar(t)
+func TestIntegrationGatewayRoundTrip(t *testing.T) {
+	g, _, cli := build(t)
 	ctx := context.Background()
 
 	// Maior do que um bloco: obriga a cifra a partir em pedaços de verdade.
-	claro := bytes.Repeat([]byte("mensagem de correio com anexo. "), 50_000)
-	key := "mail/" + hexAleatorio(t)
+	plain := bytes.Repeat([]byte("mensagem de correio com anexo. "), 50_000)
+	key := "mail/" + randomHex(t)
 	t.Cleanup(func() { _ = g.st.Remove(context.Background(), key) })
 
-	_, err := cli.PutObject(ctx, g.bucket, key, bytes.NewReader(claro), int64(len(claro)),
+	_, err := cli.PutObject(ctx, g.bucket, key, bytes.NewReader(plain), int64(len(plain)),
 		minio.PutObjectOptions{DisableMultipart: true})
 	if err != nil {
 		t.Fatalf("PutObject: %v", err)
 	}
 
 	// 1. O que ficou no balde não é o que foi enviado.
-	bruto := lerCru(t, g, key)
-	if bytes.Contains(bruto, []byte("mensagem de correio")) {
-		t.Fatal("o objeto no balde tem o texto do correio em claro")
+	raw := readRaw(t, g, key)
+	if bytes.Contains(raw, []byte("mensagem de correio")) {
+		t.Fatal("the object in the bucket holds the mail text in the clear")
 	}
-	if string(bruto[:4]) != filecrypt.Magic {
-		t.Fatalf("o objeto no balde não está cifrado, começa por %q", bruto[:4])
+	if string(raw[:4]) != filecrypt.Magic {
+		t.Fatalf("the object in the bucket is not encrypted, it starts with %q", raw[:4])
 	}
 
 	// 2. E o cliente recebe-o de volta inteiro, sem saber de nada disto.
@@ -172,68 +172,68 @@ func TestIntegrationGatewayIdaEVolta(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer obj.Close()
-	volta, err := io.ReadAll(obj)
+	back, err := io.ReadAll(obj)
 	if err != nil {
-		t.Fatalf("ler: %v", err)
+		t.Fatalf("read: %v", err)
 	}
-	if !bytes.Equal(volta, claro) {
-		t.Fatalf("voltou diferente: %d bytes vs %d", len(volta), len(claro))
+	if !bytes.Equal(back, plain) {
+		t.Fatalf("came back different: %d bytes vs %d", len(back), len(plain))
 	}
 }
 
 // TestIntegrationGatewayRange é a razão de o formato ser em blocos: o Stalwart pede pedaços de uma
 // mensagem para servir uma parte MIME, e não pode ter de decifrar o anexo todo para isso.
 func TestIntegrationGatewayRange(t *testing.T) {
-	g, _, cli := montar(t)
+	g, _, cli := build(t)
 	ctx := context.Background()
 
-	claro := make([]byte, 3<<20)
-	if _, err := rand.Read(claro); err != nil {
+	plain := make([]byte, 3<<20)
+	if _, err := rand.Read(plain); err != nil {
 		t.Fatal(err)
 	}
-	key := "mail/" + hexAleatorio(t)
+	key := "mail/" + randomHex(t)
 	t.Cleanup(func() { _ = g.st.Remove(context.Background(), key) })
 
-	if _, err := cli.PutObject(ctx, g.bucket, key, bytes.NewReader(claro), int64(len(claro)),
+	if _, err := cli.PutObject(ctx, g.bucket, key, bytes.NewReader(plain), int64(len(plain)),
 		minio.PutObjectOptions{DisableMultipart: true}); err != nil {
 		t.Fatal(err)
 	}
 
-	for _, caso := range []struct{ de, ate int64 }{
+	for _, caso := range []struct{ from, until int64 }{
 		{0, 99},                     // início
 		{1<<20 + 500, 1<<20 + 1499}, // a cavalo entre dois blocos
-		{int64(len(claro)) - 10, int64(len(claro)) - 1}, // o fim
+		{int64(len(plain)) - 10, int64(len(plain)) - 1}, // o fim
 	} {
 		opts := minio.GetObjectOptions{}
-		if err := opts.SetRange(caso.de, caso.ate); err != nil {
+		if err := opts.SetRange(caso.from, caso.until); err != nil {
 			t.Fatal(err)
 		}
 		obj, err := cli.GetObject(ctx, g.bucket, key, opts)
 		if err != nil {
 			t.Fatal(err)
 		}
-		lido, err := io.ReadAll(obj)
+		read, err := io.ReadAll(obj)
 		obj.Close()
 		if err != nil {
-			t.Fatalf("[%d-%d] ler: %v", caso.de, caso.ate, err)
+			t.Fatalf("[%d-%d] read: %v", caso.from, caso.until, err)
 		}
-		if !bytes.Equal(lido, claro[caso.de:caso.ate+1]) {
-			t.Fatalf("[%d-%d] devolveu %d bytes errados", caso.de, caso.ate, len(lido))
+		if !bytes.Equal(read, plain[caso.from:caso.until+1]) {
+			t.Fatalf("[%d-%d] returned %d wrong bytes", caso.from, caso.until, len(read))
 		}
 	}
 }
 
 // TestIntegrationGatewayHeadDepoisDoPut cobre o verify_after_write do Stalwart: ele faz HEAD logo a
 // seguir a cada escrita para se defender de armazenamentos que confirmam antes de tornar visível.
-func TestIntegrationGatewayHeadDepoisDoPut(t *testing.T) {
-	g, _, cli := montar(t)
+func TestIntegrationGatewayHeadAfterPut(t *testing.T) {
+	g, _, cli := build(t)
 	ctx := context.Background()
 
-	claro := []byte("uma mensagem curta")
-	key := "mail/" + hexAleatorio(t)
+	plain := []byte("uma mensagem curta")
+	key := "mail/" + randomHex(t)
 	t.Cleanup(func() { _ = g.st.Remove(context.Background(), key) })
 
-	if _, err := cli.PutObject(ctx, g.bucket, key, bytes.NewReader(claro), int64(len(claro)),
+	if _, err := cli.PutObject(ctx, g.bucket, key, bytes.NewReader(plain), int64(len(plain)),
 		minio.PutObjectOptions{DisableMultipart: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -244,76 +244,76 @@ func TestIntegrationGatewayHeadDepoisDoPut(t *testing.T) {
 	}
 	// O tamanho tem de ser o do texto em claro. Devolver o do cifrado faria o cliente pedir bytes
 	// que não existem.
-	if info.Size != int64(len(claro)) {
-		t.Fatalf("HEAD diz %d bytes, o claro tem %d", info.Size, len(claro))
+	if info.Size != int64(len(plain)) {
+		t.Fatalf("HEAD diz %d bytes, o claro tem %d", info.Size, len(plain))
 	}
 
 	if err := cli.RemoveObject(ctx, g.bucket, key, minio.RemoveObjectOptions{}); err != nil {
 		t.Fatalf("RemoveObject: %v", err)
 	}
 	if _, err := cli.StatObject(ctx, g.bucket, key, minio.StatObjectOptions{}); err == nil {
-		t.Fatal("o objeto continua lá depois do DELETE")
+		t.Fatal("the object is still there after DELETE")
 	}
 }
 
 // TestIntegrationGatewayNaoExiste: o 404 tem de passar como 404. O Stalwart distingue "não existe"
 // (resposta legítima, devolve None) de "avariou" (que ele repete com recuo) — trocar os dois faria
 // uma caixa vazia parecer uma avaria, ou pior.
-func TestIntegrationGatewayNaoExiste(t *testing.T) {
-	g, _, cli := montar(t)
-	_, err := cli.GetObject(context.Background(), g.bucket, "mail/"+hexAleatorio(t), minio.GetObjectOptions{})
+func TestIntegrationGatewayNotFound(t *testing.T) {
+	g, _, cli := build(t)
+	_, err := cli.GetObject(context.Background(), g.bucket, "mail/"+randomHex(t), minio.GetObjectOptions{})
 	if err == nil {
 		// o minio-go só falha na primeira leitura
 		obj, _ := cli.GetObject(context.Background(), g.bucket, "mail/nao-existe", minio.GetObjectOptions{})
 		if _, err = io.ReadAll(obj); err == nil {
-			t.Fatal("ler um objeto que não existe devia falhar")
+			t.Fatal("reading an object that does not exist should fail")
 		}
 	}
 	if resp := minio.ToErrorResponse(err); resp.StatusCode != http.StatusNotFound && resp.Code != "NoSuchKey" {
-		t.Fatalf("esperava 404/NoSuchKey, veio %+v", resp)
+		t.Fatalf("want 404/NoSuchKey, got %+v", resp)
 	}
 }
 
 // TestGatewayRecusaSemAssinatura e os seguintes não precisam de armazenamento: param antes.
-func TestGatewayRecusaSemAssinatura(t *testing.T) {
-	g := &gateway{bucket: "b", prefixos: []string{"mail/"},
-		cred: credencial{acesso: acessoTeste, segredo: segredoTeste, regiao: "auto"}}
+func TestGatewayRejectsUnsignedRequest(t *testing.T) {
+	g := &gateway{bucket: "b", prefixes: []string{"mail/"},
+		cred: credential{access: testAccess, secret: testSecret, region: "auto"}}
 	w := httptest.NewRecorder()
 	g.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/b/mail/x", nil))
 	if w.Code != http.StatusForbidden {
-		t.Fatalf("sem assinatura devia dar 403, deu %d", w.Code)
+		t.Fatalf("without a signature it should give 403, gave %d", w.Code)
 	}
 }
 
-func TestGatewayRecusaForaDoPrefixo(t *testing.T) {
-	g := &gateway{bucket: "b", prefixos: []string{"mail/"},
-		cred: credencial{acesso: acessoTeste, segredo: segredoTeste, regiao: "auto"}}
-	for _, caminho := range []string{"/b/recordings/x.mp4", "/b/outro/x", "/outro-balde/mail/x"} {
+func TestGatewayRejectsOutsidePrefix(t *testing.T) {
+	g := &gateway{bucket: "b", prefixes: []string{"mail/"},
+		cred: credential{access: testAccess, secret: testSecret, region: "auto"}}
+	for _, path := range []string{"/b/recordings/x.mp4", "/b/outro/x", "/outro-balde/mail/x"} {
 		w := httptest.NewRecorder()
-		g.ServeHTTP(w, httptest.NewRequest(http.MethodGet, caminho, nil))
+		g.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
 		if w.Code != http.StatusForbidden {
-			t.Fatalf("%s devia dar 403, deu %d", caminho, w.Code)
+			t.Fatalf("%s should give 403, gave %d", path, w.Code)
 		}
 	}
 }
 
-func TestGatewayRecusaOperacaoNaoSuportada(t *testing.T) {
-	g, _, cli := montar(t)
+func TestGatewayRejectsUnsupportedOperation(t *testing.T) {
+	g, _, cli := build(t)
 	// ListObjects é das operações que este gateway NÃO implementa, de propósito.
 	for obj := range cli.ListObjects(context.Background(), g.bucket, minio.ListObjectsOptions{Prefix: "mail/"}) {
 		if obj.Err == nil {
-			t.Fatal("a listagem devia ser recusada")
+			t.Fatal("listing should be rejected")
 		}
 		return
 	}
 }
 
-func TestLerRange(t *testing.T) {
-	casos := []struct {
-		cabecalho string
-		total     int64
-		de, ate   int64
-		erro      bool
+func TestReadRange(t *testing.T) {
+	cases := []struct {
+		header      string
+		total       int64
+		from, until int64
+		failure     bool
 	}{
 		{"bytes=0-99", 1000, 0, 99, false},
 		{"bytes=100-", 1000, 100, 999, false},
@@ -325,46 +325,46 @@ func TestLerRange(t *testing.T) {
 		{"bytes=0-10,20-30", 1000, 0, 0, true}, // múltiplos
 		{"itens=0-10", 1000, 0, 0, true},
 	}
-	for _, c := range casos {
-		de, ate, err := lerRange(c.cabecalho, c.total)
-		if c.erro {
+	for _, c := range cases {
+		from, until, err := readRange(c.header, c.total)
+		if c.failure {
 			if err == nil {
-				t.Errorf("%q devia falhar", c.cabecalho)
+				t.Errorf("%q should fail", c.header)
 			}
 			continue
 		}
 		if err != nil {
-			t.Errorf("%q: %v", c.cabecalho, err)
+			t.Errorf("%q: %v", c.header, err)
 			continue
 		}
-		if de != c.de || ate != c.ate {
-			t.Errorf("%q deu [%d-%d], esperava [%d-%d]", c.cabecalho, de, ate, c.de, c.ate)
+		if from != c.from || until != c.until {
+			t.Errorf("%q gave [%d-%d], want [%d-%d]", c.header, from, until, c.from, c.until)
 		}
 	}
 }
 
-func TestConferidorApanhaCorpoTrocado(t *testing.T) {
-	c := conferente(strings.NewReader("o corpo verdadeiro"), hexSHA256([]byte("outro corpo")))
+func TestCheckerCatchesSwappedBody(t *testing.T) {
+	c := newChecker(strings.NewReader("o corpo verdadeiro"), hexSHA256([]byte("outro corpo")))
 	if _, err := io.ReadAll(c); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.confere(); err == nil {
-		t.Fatal("um corpo diferente do assinado tinha de ser recusado")
+	if err := c.verify(); err == nil {
+		t.Fatal("a body different from the signed one had to be rejected")
 	}
 
-	ok := conferente(strings.NewReader("o corpo verdadeiro"), hexSHA256([]byte("o corpo verdadeiro")))
+	ok := newChecker(strings.NewReader("o corpo verdadeiro"), hexSHA256([]byte("o corpo verdadeiro")))
 	if _, err := io.ReadAll(ok); err != nil {
 		t.Fatal(err)
 	}
-	if err := ok.confere(); err != nil {
-		t.Fatalf("o corpo certo foi recusado: %v", err)
+	if err := ok.verify(); err != nil {
+		t.Fatalf("the correct body was rejected: %v", err)
 	}
 }
 
 // lerCru vai buscar os bytes DIRETAMENTE ao armazenamento, sem passar pelo gateway — é o que a
 // Cloudflare tem. Não serve um Service sem cifra: esse recusa-se a servir um objeto cifrado, e ainda
 // bem.
-func lerCru(t *testing.T, g *gateway, key string) []byte {
+func readRaw(t *testing.T, g *gateway, key string) []byte {
 	t.Helper()
 	cli, err := minio.New(os.Getenv("STORAGE_TEST_ENDPOINT"), &minio.Options{
 		Creds:  credentials.NewStaticV4(os.Getenv("STORAGE_TEST_KEY"), os.Getenv("STORAGE_TEST_SECRET"), ""),
@@ -375,17 +375,17 @@ func lerCru(t *testing.T, g *gateway, key string) []byte {
 	}
 	r, err := cli.GetObject(context.Background(), g.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
-		t.Fatalf("ler cru: %v", err)
+		t.Fatalf("raw read: %v", err)
 	}
 	defer r.Close()
 	b, err := io.ReadAll(r)
 	if err != nil {
-		t.Fatalf("ler cru: %v", err)
+		t.Fatalf("raw read: %v", err)
 	}
 	return b
 }
 
-func hexAleatorio(t *testing.T) string {
+func randomHex(t *testing.T) string {
 	t.Helper()
 	b := make([]byte, 12)
 	if _, err := rand.Read(b); err != nil {

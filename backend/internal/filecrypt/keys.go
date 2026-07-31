@@ -38,30 +38,30 @@ func ParseKEK(s string) (*KEK, error) {
 		if parte == "" {
 			continue
 		}
-		versao, hexa := 1, parte
+		version, encoded := 1, parte
 		if i := strings.Index(parte, ":"); i > 0 {
 			n, err := strconv.Atoi(parte[:i])
 			if err != nil {
 				return nil, fmt.Errorf("filecrypt: versão de KEK inválida em %q", parte)
 			}
-			versao, hexa = n, parte[i+1:]
+			version, encoded = n, parte[i+1:]
 		}
-		bruto, err := hex.DecodeString(strings.TrimSpace(hexa))
+		raw, err := hex.DecodeString(strings.TrimSpace(encoded))
 		if err != nil {
-			return nil, fmt.Errorf("filecrypt: KEK v%d não é hexadecimal: %w", versao, err)
+			return nil, fmt.Errorf("filecrypt: KEK v%d is not hexadecimal: %w", version, err)
 		}
-		if len(bruto) != KeySize {
-			return nil, fmt.Errorf("filecrypt: KEK v%d tem %d bytes, precisa de %d", versao, len(bruto), KeySize)
+		if len(raw) != KeySize {
+			return nil, fmt.Errorf("filecrypt: KEK v%d has %d bytes, needs %d", version, len(raw), KeySize)
 		}
-		var chave [KeySize]byte
-		copy(chave[:], bruto)
-		k.byVersion[versao] = chave
-		if versao > k.current {
-			k.current = versao
+		var key [KeySize]byte
+		copy(key[:], raw)
+		k.byVersion[version] = key
+		if version > k.current {
+			k.current = version
 		}
 	}
 	if len(k.byVersion) == 0 {
-		return nil, fmt.Errorf("filecrypt: FILE_ENC_KEYS definida mas sem nenhuma chave válida")
+		return nil, fmt.Errorf("filecrypt: FILE_ENC_KEYS is set but holds no valid key")
 	}
 	return k, nil
 }
@@ -80,33 +80,33 @@ func NewKey() ([]byte, error) {
 
 // Wrap embrulha `key` com a KEK da versão corrente.
 func (k *KEK) Wrap(key []byte) ([]byte, int, error) {
-	mestra, ok := k.byVersion[k.current]
+	master, ok := k.byVersion[k.current]
 	if !ok {
 		return nil, 0, fmt.Errorf("filecrypt: KEK v%d desconhecida", k.current)
 	}
-	out, err := wrapWith(mestra[:], key)
+	out, err := wrapWith(master[:], key)
 	return out, k.current, err
 }
 
 // WrapWithVersion embrulha com uma versão específica. Serve à rotação, que precisa de re-embrulhar
 // para a versão nova sabendo qual era a antiga.
-func (k *KEK) WrapWithVersion(key []byte, versao int) ([]byte, error) {
-	mestra, ok := k.byVersion[versao]
+func (k *KEK) WrapWithVersion(key []byte, version int) ([]byte, error) {
+	master, ok := k.byVersion[version]
 	if !ok {
-		return nil, fmt.Errorf("filecrypt: KEK v%d desconhecida", versao)
+		return nil, fmt.Errorf("filecrypt: KEK v%d desconhecida", version)
 	}
-	return wrapWith(mestra[:], key)
+	return wrapWith(master[:], key)
 }
 
 // Unwrap abre material embrulhado por uma dada versão da KEK.
-func (k *KEK) Unwrap(wrapped []byte, versao int) ([]byte, error) {
-	mestra, ok := k.byVersion[versao]
+func (k *KEK) Unwrap(wrapped []byte, version int) ([]byte, error) {
+	master, ok := k.byVersion[version]
 	if !ok {
 		// Acontece se a KEK antiga for retirada do ambiente antes de a rotação acabar. É um erro
 		// de operação, não de dados — e é melhor falhar alto do que servir lixo.
-		return nil, fmt.Errorf("filecrypt: KEK v%d não está configurada; material antigo fica ilegível sem ela", versao)
+		return nil, fmt.Errorf("filecrypt: KEK v%d is not configured; older material stays unreadable without it", version)
 	}
-	return unwrapWith(mestra[:], wrapped)
+	return unwrapWith(master[:], wrapped)
 }
 
 // WrapDEK embrulha uma DEK com a chave do tenant (não com a KEK): é o degrau do meio que permite
@@ -117,8 +117,8 @@ func WrapDEK(tenantKey, dek []byte) ([]byte, error) { return wrapWith(tenantKey,
 func UnwrapDEK(tenantKey, wrapped []byte) ([]byte, error) { return unwrapWith(tenantKey, wrapped) }
 
 // wrapWith cifra material de chave com AES-256-GCM: nonce ‖ cifrado ‖ selo.
-func wrapWith(chave, material []byte) ([]byte, error) {
-	gcm, err := newGCM(normaliza(chave))
+func wrapWith(key, material []byte) ([]byte, error) {
+	gcm, err := newGCM(normalize(key))
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +129,8 @@ func wrapWith(chave, material []byte) ([]byte, error) {
 	return gcm.Seal(n, n, material, nil), nil
 }
 
-func unwrapWith(chave, wrapped []byte) ([]byte, error) {
-	gcm, err := newGCM(normaliza(chave))
+func unwrapWith(key, wrapped []byte) ([]byte, error) {
+	gcm, err := newGCM(normalize(key))
 	if err != nil {
 		return nil, err
 	}
@@ -147,10 +147,10 @@ func unwrapWith(chave, wrapped []byte) ([]byte, error) {
 
 // normaliza aceita chaves que não tenham exatamente 32 bytes, derivando por SHA-256 — o mesmo que
 // o secretbox faz para o TOTP. Chaves geradas por nós já vêm com 32 e passam intactas.
-func normaliza(chave []byte) []byte {
-	if len(chave) == KeySize {
-		return chave
+func normalize(key []byte) []byte {
+	if len(key) == KeySize {
+		return key
 	}
-	soma := sha256.Sum256(chave)
-	return soma[:]
+	sum := sha256.Sum256(key)
+	return sum[:]
 }

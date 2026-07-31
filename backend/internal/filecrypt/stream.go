@@ -37,17 +37,17 @@ func EncryptTo(dst io.Writer, src io.Reader, plainSize int64, key []byte, h Head
 
 	buf := make([]byte, chunkSize)
 	out := make([]byte, 0, chunkSize+TagSize)
-	var lidos int64
+	var readCount int64
 	for i := int64(0); ; i++ {
 		n, rerr := io.ReadFull(src, buf)
 		if n > 0 {
-			lidos += int64(n)
-			ultimo := lidos >= plainSize
-			out = gcm.Seal(out[:0], nonce(prefix, i), buf[:n], aad(i, ultimo))
+			readCount += int64(n)
+			last := readCount >= plainSize
+			out = gcm.Seal(out[:0], nonce(prefix, i), buf[:n], aad(i, last))
 			if _, werr := dst.Write(out); werr != nil {
 				return werr
 			}
-			if ultimo {
+			if last {
 				break
 			}
 		}
@@ -58,8 +58,8 @@ func EncryptTo(dst io.Writer, src io.Reader, plainSize int64, key []byte, h Head
 			return rerr
 		}
 	}
-	if lidos != plainSize {
-		return fmt.Errorf("filecrypt: esperava %d bytes, li %d", plainSize, lidos)
+	if readCount != plainSize {
+		return fmt.Errorf("filecrypt: wanted %d bytes, read %d", plainSize, readCount)
 	}
 	return nil
 }
@@ -83,40 +83,40 @@ type decryptor struct {
 	gcm interface {
 		Open([]byte, []byte, []byte, []byte) ([]byte, error)
 	}
-	buf   []byte // bloco cifrado lido do armazenamento
-	plain []byte // sobra em claro do bloco atual, ainda por entregar
-	index int64
-	lidos int64 // bytes em claro já entregues
-	fim   bool
+	buf       []byte // bloco cifrado lido do armazenamento
+	plain     []byte // sobra em claro do bloco atual, ainda por entregar
+	index     int64
+	readCount int64 // bytes em claro já entregues
+	end       bool
 }
 
 func (d *decryptor) Read(p []byte) (int, error) {
 	for len(d.plain) == 0 {
-		if d.fim || d.lidos >= d.h.PlainSize {
+		if d.end || d.readCount >= d.h.PlainSize {
 			return 0, io.EOF
 		}
 		// Quanto falta em claro decide o tamanho deste bloco: o último é mais curto.
-		restam := d.h.PlainSize - d.lidos
-		tamanho := int64(d.h.ChunkSize)
-		ultimo := false
-		if restam <= tamanho {
-			tamanho, ultimo = restam, true
+		remaining := d.h.PlainSize - d.readCount
+		size := int64(d.h.ChunkSize)
+		last := false
+		if remaining <= size {
+			size, last = remaining, true
 		}
-		n, err := io.ReadFull(d.src, d.buf[:tamanho+TagSize])
+		n, err := io.ReadFull(d.src, d.buf[:size+TagSize])
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				return 0, ErrCorrupt // o cabeçalho prometia mais bytes do que existem
 			}
 			return 0, err
 		}
-		aberto, err := d.gcm.Open(nil, nonce(d.h.NoncePrefix, d.index), d.buf[:n], aad(d.index, ultimo))
+		opened, err := d.gcm.Open(nil, nonce(d.h.NoncePrefix, d.index), d.buf[:n], aad(d.index, last))
 		if err != nil {
 			return 0, ErrCorrupt
 		}
-		d.plain = aberto
-		d.lidos += int64(len(aberto))
+		d.plain = opened
+		d.readCount += int64(len(opened))
 		d.index++
-		d.fim = ultimo
+		d.end = last
 	}
 	n := copy(p, d.plain)
 	d.plain = d.plain[n:]

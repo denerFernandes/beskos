@@ -41,8 +41,8 @@ type gateway struct {
 	// vem da configuração do storage.
 	bucket string
 	// prefixos que este gateway aceita servir.
-	prefixos []string
-	cred     credencial
+	prefixes []string
+	cred     credential
 }
 
 func main() {
@@ -50,8 +50,8 @@ func main() {
 
 	st, err := storage.New(
 		env("BLOBGW_S3_ENDPOINT"), env("BLOBGW_S3_ACCESS_KEY"), env("BLOBGW_S3_SECRET_KEY"),
-		env("BLOBGW_S3_BUCKET"), envOu("BLOBGW_S3_REGION", "auto"),
-		envOu("BLOBGW_S3_SSL", "true") == "true",
+		env("BLOBGW_S3_BUCKET"), envOr("BLOBGW_S3_REGION", "auto"),
+		envOr("BLOBGW_S3_SSL", "true") == "true",
 	)
 	if err != nil {
 		log.Fatalf("armazenamento: %v", err)
@@ -65,17 +65,17 @@ func main() {
 		log.Fatalf("cifra: %v", err)
 	}
 	if !st.Encrypting() {
-		log.Fatal("blobgw: FILE_ENC_KEYS em falta — este serviço existe para cifrar, arrancar sem chave seria pior do que não arrancar")
+		log.Fatal("blobgw: FILE_ENC_KEYS missing — this service exists to encrypt; starting without a key would be worse than not starting")
 	}
 
 	g := &gateway{
 		st:       st,
 		bucket:   env("BLOBGW_S3_BUCKET"),
-		prefixos: strings.Split(envOu("BLOBGW_PREFIXES", "mail/"), ","),
-		cred: credencial{
-			acesso:  env("BLOBGW_ACCESS_KEY"),
-			segredo: env("BLOBGW_SECRET_KEY"),
-			regiao:  envOu("BLOBGW_REGION", "auto"),
+		prefixes: strings.Split(envOr("BLOBGW_PREFIXES", "mail/"), ","),
+		cred: credential{
+			access: env("BLOBGW_ACCESS_KEY"),
+			secret: env("BLOBGW_SECRET_KEY"),
+			region: envOr("BLOBGW_REGION", "auto"),
 		},
 	}
 
@@ -83,83 +83,83 @@ func main() {
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 	mux.Handle("/", g)
 
-	porta := envOu("PORT", "8090")
+	port := envOr("PORT", "8090")
 	srv := &http.Server{
-		Addr:    ":" + porta,
+		Addr:    ":" + port,
 		Handler: mux,
 		// Generosos: um anexo grande a subir por uma ligação lenta não pode ser cortado a meio.
 		ReadTimeout:       10 * time.Minute,
 		WriteTimeout:      10 * time.Minute,
 		ReadHeaderTimeout: 30 * time.Second,
 	}
-	log.Printf("blobgw a escutar em :%s, balde %s, prefixos %v", porta, g.bucket, g.prefixos)
+	log.Printf("blobgw listening on :%s, bucket %s, prefixes %v", port, g.bucket, g.prefixes)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func env(nome string) string {
-	v := os.Getenv(nome)
+func env(name string) string {
+	v := os.Getenv(name)
 	if v == "" {
-		log.Fatalf("blobgw: %s em falta", nome)
+		log.Fatalf("blobgw: %s missing", name)
 	}
 	return v
 }
 
-func envOu(nome, omissao string) string {
-	if v := os.Getenv(nome); v != "" {
+func envOr(name, fallback string) string {
+	if v := os.Getenv(name); v != "" {
 		return v
 	}
-	return omissao
+	return fallback
 }
 
 // ServeHTTP encaminha. Tudo o que não seja uma das quatro operações que o Stalwart usa responde 501
 // — é mais honesto do que fingir que se implementou o S3 inteiro.
 func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	inicio := time.Now()
-	key, err := g.chave(r.URL.Path)
+	start := time.Now()
+	key, err := g.key(r.URL.Path)
 	if err != nil {
 		// COM registo: um pedido recusado que não deixa rasto é indistinguível de um pedido que
 		// nunca chegou. Custou uma diagnose inteira a perceber que o cliente mandava o nome de
 		// balde antigo e nós respondíamos 403 em silêncio.
-		log.Printf("%s %s -> 403 recusado: %v", r.Method, r.URL.Path, err)
-		erroS3(w, http.StatusForbidden, "AccessDenied", err.Error())
+		log.Printf("%s %s -> 403 rejected: %v", r.Method, r.URL.Path, err)
+		s3Err(w, http.StatusForbidden, "AccessDenied", err.Error())
 		return
 	}
-	if err := g.cred.verificar(r); err != nil {
-		log.Printf("blobgw: assinatura recusada em %s %s: %v", r.Method, key, err)
-		erroS3(w, http.StatusForbidden, "SignatureDoesNotMatch", "assinatura inválida")
+	if err := g.cred.check(r); err != nil {
+		log.Printf("blobgw: signature rejected on %s %s: %v", r.Method, key, err)
+		s3Err(w, http.StatusForbidden, "SignatureDoesNotMatch", "assinatura inválida")
 		return
 	}
 
 	ctx := r.Context()
-	var estado int
+	var status int
 	switch r.Method {
 	case http.MethodPut:
-		estado = g.put(ctx, w, r, key)
+		status = g.put(ctx, w, r, key)
 	case http.MethodGet:
-		estado = g.get(ctx, w, r, key)
+		status = g.get(ctx, w, r, key)
 	case http.MethodHead:
-		estado = g.head(ctx, w, key)
+		status = g.head(ctx, w, key)
 	case http.MethodDelete:
-		estado = g.delete(ctx, w, key)
+		status = g.delete(ctx, w, key)
 	default:
-		erroS3(w, http.StatusNotImplemented, "NotImplemented", "operação não suportada por este gateway")
-		estado = http.StatusNotImplemented
+		s3Err(w, http.StatusNotImplemented, "NotImplemented", "operação não suportada por este gateway")
+		status = http.StatusNotImplemented
 	}
-	log.Printf("%s %s -> %d (%s)", r.Method, key, estado, time.Since(inicio).Round(time.Millisecond))
+	log.Printf("%s %s -> %d (%s)", r.Method, key, status, time.Since(start).Round(time.Millisecond))
 }
 
 // chave extrai a chave do objeto do caminho e confirma que está num prefixo nosso.
 //
 // O cliente usa estilo de caminho (`/<balde>/<chave>`), que é o que o Stalwart configura.
-func (g *gateway) chave(caminho string) (string, error) {
-	p := strings.TrimPrefix(caminho, "/")
-	balde, key, ok := strings.Cut(p, "/")
-	if !ok || balde != g.bucket {
-		return "", errf("balde %q desconhecido", balde)
+func (g *gateway) key(path string) (string, error) {
+	p := strings.TrimPrefix(path, "/")
+	bucket, key, ok := strings.Cut(p, "/")
+	if !ok || bucket != g.bucket {
+		return "", errf("balde %q desconhecido", bucket)
 	}
-	for _, pre := range g.prefixos {
+	for _, pre := range g.prefixes {
 		if pre != "" && strings.HasPrefix(key, pre) {
 			return key, nil
 		}
