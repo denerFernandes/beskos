@@ -29,6 +29,16 @@ Complementam — não substituem — as restrições inegociáveis do [project.m
 2.6. Config e segredos **só via ambiente** (`internal/config`). Segredo no código = bug.
 2.7. **Testes junto com o código** (brief §11). Todo pacote com lógica tem `_test.go`.
      Testes de integração são pulados sem as envs (não quebram CI sem container).
+2.8. **Laço que engole erro tem de ESCALAR.** Um trabalhador periódico que faz
+     `log.Printf(...); continue` está certo para uma falha passageira — e cego para uma permanente.
+     Conte as falhas **consecutivas** e grite a partir de um limiar (`consecutive >= N`), avisando
+     também quando recuperar. Ver [`watchdog.go`](backend/cmd/worker/watchdog.go) como referência.
+
+     > Escrita a 31/07/2026 porque o vigia de reputação falhou **100% das passagens** durante dias
+     > sem que ninguém soubesse: a SES devolvia `HTTP 400` de hora a hora, o `continue` seguia para o
+     > domínio seguinte e a linha perdia-se no meio do registo. É a defesa que impede um cliente de
+     > queimar a reputação da conta inteira — esteve desligada e parecia ligada. Um erro que se
+     > repete sempre não é um erro: é uma avaria.
 
 ## 3. Padrões Frontend (React/TS)
 

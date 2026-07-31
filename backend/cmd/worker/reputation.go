@@ -40,6 +40,10 @@ const (
 
 	bounceLimit    = 0.05  // 5%
 	complaintLimit = 0.001 // 0,1%
+
+	// Three blind passes is three hours. Long enough that a one-off AWS hiccup stays quiet, short
+	// enough that a broken watchdog is caught the same working day instead of the same week.
+	blindPassesBeforeAlarm = 3
 )
 
 func startReputation(q *db.Queries, relay *ses.Client) {
@@ -49,8 +53,24 @@ func startReputation(q *db.Queries, relay *ses.Client) {
 	}
 	go func() {
 		time.Sleep(2 * time.Minute) // deixa o arranque respirar
+		// Consecutive passes where NOT ONE domain could be measured. Law 2.8: a single failing
+		// domain is ordinary noise, but every read failing, pass after pass, means the watchdog is
+		// blind -- and a blind watchdog looks exactly like a happy one.
+		var blind int
 		for {
-			checkReputation(context.Background(), q, relay)
+			measured, failed := checkReputation(context.Background(), q, relay)
+			was := blind
+			blind = blindAfter(blind, measured, failed)
+			switch {
+			case blind == 0 && was >= blindPassesBeforeAlarm:
+				log.Printf("reputation: RECOVERED, measuring again after %d blind passes", was)
+			case blind == blindPassesBeforeAlarm:
+				log.Printf("reputation: BLIND for %d passes — not one domain could be measured. "+
+					"Nobody is being watched; a customer can burn the account's reputation unnoticed. "+
+					"Check the SES credentials and the metrics window.", blind)
+			case blind > blindPassesBeforeAlarm && blind%6 == 0:
+				log.Printf("reputation: still blind after %d passes", blind)
+			}
 			time.Sleep(reputationInterval)
 		}
 	}()
@@ -58,14 +78,31 @@ func startReputation(q *db.Queries, relay *ses.Client) {
 		reputationInterval, bounceLimit*100, complaintLimit*100)
 }
 
-func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) {
+// blindAfter folds one pass into the blind-pass counter.
+//
+// Blind means NOT ONE domain could be read while at least one read was attempted. A single failing
+// domain is ordinary noise; measuring nothing at all, pass after pass, means the watchdog is down
+// and looks exactly like a watchdog with nothing to report. Zero attempts (no domains, SES off) is
+// not blindness -- there was nothing to see.
+func blindAfter(blind, measured, failed int) int {
+	if measured > 0 || failed == 0 {
+		return 0
+	}
+	return blind + 1
+}
+
+// checkReputation runs one pass and reports how many domains it could read and how many it could
+// not. The caller needs both to tell "one flaky domain" from "the whole thing is broken" (law 2.8).
+func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) (measured, failed int) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	domains, err := q.ListAllDomains(ctx)
 	if err != nil {
 		log.Printf("reputation: list domains: %v", err)
-		return
+		// Not blindness: without the list there was nothing to measure, so it does not count as a
+		// failed read. Saying otherwise would raise the alarm for an empty database.
+		return 0, 0
 	}
 
 	// ALINHADO À MEIA-NOITE UTC, e não a rolar a partir de agora. A SES só devolve os dados diários
@@ -86,8 +123,10 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) {
 			// Não suspende por não conseguir medir: um erro de leitura não é prova de nada, e
 			// suspender um cliente por engano é o mesmo estrago pelo motivo errado.
 			log.Printf("reputation: %s: %v", d.Domain, err)
+			failed++
 			continue
 		}
+		measured++
 		if rep.Sent < minSends {
 			continue
 		}
@@ -107,4 +146,5 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) {
 		log.Printf("reputation: %s suspended; reinstating is a manual decision (ses-tenants has no --reativar on purpose)",
 			d.Domain)
 	}
+	return measured, failed
 }
