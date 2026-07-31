@@ -23,35 +23,6 @@ func (q *Queries) AcceptInvite(ctx context.Context, token string) error {
 	return err
 }
 
-const addCardAssignee = `-- name: AddCardAssignee :exec
-INSERT INTO card_assignees (card_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
-`
-
-type AddCardAssigneeParams struct {
-	CardID uuid.UUID `json:"card_id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) AddCardAssignee(ctx context.Context, arg AddCardAssigneeParams) error {
-	_, err := q.db.Exec(ctx, addCardAssignee, arg.CardID, arg.UserID)
-	return err
-}
-
-const addCardDep = `-- name: AddCardDep :exec
-INSERT INTO card_deps (card_id, depends_on_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
-`
-
-type AddCardDepParams struct {
-	CardID      uuid.UUID `json:"card_id"`
-	DependsOnID uuid.UUID `json:"depends_on_id"`
-}
-
-// Só depende de card do mesmo quadro/tenant (o handler valida).
-func (q *Queries) AddCardDep(ctx context.Context, arg AddCardDepParams) error {
-	_, err := q.db.Exec(ctx, addCardDep, arg.CardID, arg.DependsOnID)
-	return err
-}
-
 const addChannelMember = `-- name: AddChannelMember :exec
 INSERT INTO channel_members (channel_id, tenant_id, user_id, role)
 VALUES ($1, $2, $3, $4)
@@ -343,97 +314,6 @@ func (q *Queries) AssignBreakout(ctx context.Context, arg AssignBreakoutParams) 
 	return err
 }
 
-const attachFileToCard = `-- name: AttachFileToCard :exec
-INSERT INTO card_attachments (tenant_id, card_id, file_id, added_by)
-VALUES ($1, $2, $3, $4) ON CONFLICT (card_id, file_id) DO NOTHING
-`
-
-type AttachFileToCardParams struct {
-	TenantID uuid.UUID   `json:"tenant_id"`
-	CardID   uuid.UUID   `json:"card_id"`
-	FileID   uuid.UUID   `json:"file_id"`
-	AddedBy  pgtype.UUID `json:"added_by"`
-}
-
-func (q *Queries) AttachFileToCard(ctx context.Context, arg AttachFileToCardParams) error {
-	_, err := q.db.Exec(ctx, attachFileToCard,
-		arg.TenantID,
-		arg.CardID,
-		arg.FileID,
-		arg.AddedBy,
-	)
-	return err
-}
-
-const automationsForColumn = `-- name: AutomationsForColumn :many
-SELECT id, board_id, tenant_id, trigger_column_id, action, action_value, created_at FROM board_automations WHERE trigger_column_id = $1
-`
-
-// Regras cujo gatilho é entrar nesta coluna (aplicadas quando um card se move para cá).
-func (q *Queries) AutomationsForColumn(ctx context.Context, triggerColumnID uuid.UUID) ([]BoardAutomation, error) {
-	rows, err := q.db.Query(ctx, automationsForColumn, triggerColumnID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BoardAutomation
-	for rows.Next() {
-		var i BoardAutomation
-		if err := rows.Scan(
-			&i.ID,
-			&i.BoardID,
-			&i.TenantID,
-			&i.TriggerColumnID,
-			&i.Action,
-			&i.ActionValue,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const boardRole = `-- name: BoardRole :one
-SELECT COALESCE(MAX(rank), 0)::int AS role_rank FROM (
-    SELECT CASE WHEN b.owner_user_id = $1 THEN 4
-                WHEN b.owner_user_id IS NULL AND NOT EXISTS (
-                    SELECT 1 FROM board_grants g WHERE g.board_id = b.id) THEN 3
-                ELSE 0 END AS rank
-    FROM boards b WHERE b.id = $2 AND b.tenant_id = $3
-    UNION ALL
-    SELECT CASE g.role WHEN 'manager' THEN 4 WHEN 'editor' THEN 3 ELSE 1 END
-    FROM board_grants g
-    WHERE g.board_id = $2 AND g.tenant_id = $3 AND (
-        g.subject_type = 'org'
-        OR (g.subject_type = 'user' AND g.subject_id = $1)
-        OR (g.subject_type = 'group' AND EXISTS (
-            SELECT 1 FROM user_group_members ugm
-            WHERE ugm.group_id = g.subject_id AND ugm.user_id = $1)))
-    UNION ALL
-    SELECT 3 FROM cards c
-    WHERE c.board_id = $2 AND c.tenant_id = $3 AND c.assignee_id = $1 LIMIT 1
-) t
-`
-
-type BoardRoleParams struct {
-	UserID   pgtype.UUID `json:"user_id"`
-	BoardID  uuid.UUID   `json:"board_id"`
-	TenantID uuid.UUID   `json:"tenant_id"`
-}
-
-// Papel efetivo (rank) no quadro: 0=sem acesso, 1=viewer, 3=editor, 4=manager. Card atribuído = 3.
-func (q *Queries) BoardRole(ctx context.Context, arg BoardRoleParams) (int32, error) {
-	row := q.db.QueryRow(ctx, boardRole, arg.UserID, arg.BoardID, arg.TenantID)
-	var role_rank int32
-	err := row.Scan(&role_rank)
-	return role_rank, err
-}
-
 const bookingBusy = `-- name: BookingBusy :many
 SELECT ev.starts_at, ev.ends_at FROM events ev
 WHERE ev.owner_user_id = $1 AND ev.tenant_id = $2 AND ev.deleted_at IS NULL
@@ -519,72 +399,6 @@ func (q *Queries) CancelOutbox(ctx context.Context, arg CancelOutboxParams) (int
 		return 0, err
 	}
 	return result.RowsAffected(), nil
-}
-
-const cardBoard = `-- name: CardBoard :one
-SELECT board_id FROM cards WHERE id = $1 AND tenant_id = $2
-`
-
-type CardBoardParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) CardBoard(ctx context.Context, arg CardBoardParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, cardBoard, arg.ID, arg.TenantID)
-	var board_id uuid.UUID
-	err := row.Scan(&board_id)
-	return board_id, err
-}
-
-const cardsDueForNotify = `-- name: CardsDueForNotify :many
-SELECT id, tenant_id, board_id, column_id, title, description, label, assignee, due, source_email_id, position, created_at, contact_id, assignee_id, created_by, number, priority, due_notified_for, archived_at, start_date, color FROM cards
-WHERE due <> '' AND due <= $1 AND assignee_id IS NOT NULL AND due_notified_for <> due
-ORDER BY due LIMIT 200
-`
-
-// Cards com prazo (due 'YYYY-MM-DD') até a data limite, com responsável, ainda não avisados para
-// ESTE due. Datas ISO comparam lexicograficamente, então <= $1 pega vencidos e o que vence até lá.
-func (q *Queries) CardsDueForNotify(ctx context.Context, due string) ([]Card, error) {
-	rows, err := q.db.Query(ctx, cardsDueForNotify, due)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Card
-	for rows.Next() {
-		var i Card
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.BoardID,
-			&i.ColumnID,
-			&i.Title,
-			&i.Description,
-			&i.Label,
-			&i.Assignee,
-			&i.Due,
-			&i.SourceEmailID,
-			&i.Position,
-			&i.CreatedAt,
-			&i.ContactID,
-			&i.AssigneeID,
-			&i.CreatedBy,
-			&i.Number,
-			&i.Priority,
-			&i.DueNotifiedFor,
-			&i.ArchivedAt,
-			&i.StartDate,
-			&i.Color,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const claimAssistantTask = `-- name: ClaimAssistantTask :one
@@ -743,29 +557,6 @@ func (q *Queries) CountBlobRefsAll(ctx context.Context, arg CountBlobRefsAllPara
 	var total int32
 	err := row.Scan(&total)
 	return total, err
-}
-
-const countBoards = `-- name: CountBoards :one
-SELECT count(*) FROM boards WHERE tenant_id = $1
-`
-
-func (q *Queries) CountBoards(ctx context.Context, tenantID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countBoards, tenantID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countCardsInColumn = `-- name: CountCardsInColumn :one
-SELECT count(*) FROM cards WHERE column_id = $1 AND archived_at IS NULL
-`
-
-// ===== Kanban planning: WIP, múltiplos responsáveis, dependências =====
-func (q *Queries) CountCardsInColumn(ctx context.Context, columnID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countCardsInColumn, columnID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
 }
 
 const countChannelMembers = `-- name: CountChannelMembers :one
@@ -1130,32 +921,6 @@ func (q *Queries) CreateAutomation(ctx context.Context, arg CreateAutomationPara
 	return i, err
 }
 
-const createBoard = `-- name: CreateBoard :one
-INSERT INTO boards (tenant_id, name, owner_user_id) VALUES ($1, $2, $3) RETURNING id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id
-`
-
-type CreateBoardParams struct {
-	TenantID    uuid.UUID   `json:"tenant_id"`
-	Name        string      `json:"name"`
-	OwnerUserID pgtype.UUID `json:"owner_user_id"`
-}
-
-func (q *Queries) CreateBoard(ctx context.Context, arg CreateBoardParams) (Board, error) {
-	row := q.db.QueryRow(ctx, createBoard, arg.TenantID, arg.Name, arg.OwnerUserID)
-	var i Board
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.Prefix,
-		&i.CardSeq,
-		&i.ArchivedAt,
-		&i.OwnerUserID,
-	)
-	return i, err
-}
-
 const createBooking = `-- name: CreateBooking :one
 INSERT INTO bookings (tenant_id, page_id, user_id, name, email, phone, company, note, starts_at, ends_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, tenant_id, page_id, user_id, name, email, phone, company, note, starts_at, ends_at, created_at
@@ -1312,114 +1077,6 @@ func (q *Queries) CreateCalendar(ctx context.Context, arg CreateCalendarParams) 
 	return i, err
 }
 
-const createCard = `-- name: CreateCard :one
-INSERT INTO cards (tenant_id, board_id, column_id, title, description, label, assignee, due,
-                   source_email_id, position, contact_id, assignee_id, created_by, number, priority, start_date)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id, tenant_id, board_id, column_id, title, description, label, assignee, due, source_email_id, position, created_at, contact_id, assignee_id, created_by, number, priority, due_notified_for, archived_at, start_date, color
-`
-
-type CreateCardParams struct {
-	TenantID      uuid.UUID   `json:"tenant_id"`
-	BoardID       uuid.UUID   `json:"board_id"`
-	ColumnID      uuid.UUID   `json:"column_id"`
-	Title         string      `json:"title"`
-	Description   string      `json:"description"`
-	Label         string      `json:"label"`
-	Assignee      string      `json:"assignee"`
-	Due           string      `json:"due"`
-	SourceEmailID string      `json:"source_email_id"`
-	Position      int32       `json:"position"`
-	ContactID     pgtype.UUID `json:"contact_id"`
-	AssigneeID    pgtype.UUID `json:"assignee_id"`
-	CreatedBy     pgtype.UUID `json:"created_by"`
-	Number        int64       `json:"number"`
-	Priority      string      `json:"priority"`
-	StartDate     string      `json:"start_date"`
-}
-
-func (q *Queries) CreateCard(ctx context.Context, arg CreateCardParams) (Card, error) {
-	row := q.db.QueryRow(ctx, createCard,
-		arg.TenantID,
-		arg.BoardID,
-		arg.ColumnID,
-		arg.Title,
-		arg.Description,
-		arg.Label,
-		arg.Assignee,
-		arg.Due,
-		arg.SourceEmailID,
-		arg.Position,
-		arg.ContactID,
-		arg.AssigneeID,
-		arg.CreatedBy,
-		arg.Number,
-		arg.Priority,
-		arg.StartDate,
-	)
-	var i Card
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.BoardID,
-		&i.ColumnID,
-		&i.Title,
-		&i.Description,
-		&i.Label,
-		&i.Assignee,
-		&i.Due,
-		&i.SourceEmailID,
-		&i.Position,
-		&i.CreatedAt,
-		&i.ContactID,
-		&i.AssigneeID,
-		&i.CreatedBy,
-		&i.Number,
-		&i.Priority,
-		&i.DueNotifiedFor,
-		&i.ArchivedAt,
-		&i.StartDate,
-		&i.Color,
-	)
-	return i, err
-}
-
-const createCardComment = `-- name: CreateCardComment :one
-INSERT INTO card_comments (tenant_id, card_id, author_id, parent_id, body, mentions)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, tenant_id, card_id, author_id, parent_id, body, mentions, created_at
-`
-
-type CreateCardCommentParams struct {
-	TenantID uuid.UUID   `json:"tenant_id"`
-	CardID   uuid.UUID   `json:"card_id"`
-	AuthorID uuid.UUID   `json:"author_id"`
-	ParentID pgtype.UUID `json:"parent_id"`
-	Body     string      `json:"body"`
-	Mentions []uuid.UUID `json:"mentions"`
-}
-
-func (q *Queries) CreateCardComment(ctx context.Context, arg CreateCardCommentParams) (CardComment, error) {
-	row := q.db.QueryRow(ctx, createCardComment,
-		arg.TenantID,
-		arg.CardID,
-		arg.AuthorID,
-		arg.ParentID,
-		arg.Body,
-		arg.Mentions,
-	)
-	var i CardComment
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.CardID,
-		&i.AuthorID,
-		&i.ParentID,
-		&i.Body,
-		&i.Mentions,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createChannel = `-- name: CreateChannel :one
 
 INSERT INTO channels (tenant_id, kind, name, topic, dm_key, created_by)
@@ -1511,38 +1168,6 @@ func (q *Queries) CreateChannelBookmark(ctx context.Context, arg CreateChannelBo
 	return i, err
 }
 
-const createChecklistItem = `-- name: CreateChecklistItem :one
-INSERT INTO card_checklist_items (tenant_id, card_id, text, position)
-VALUES ($1, $2, $3, $4) RETURNING id, tenant_id, card_id, text, done, position, created_at
-`
-
-type CreateChecklistItemParams struct {
-	TenantID uuid.UUID `json:"tenant_id"`
-	CardID   uuid.UUID `json:"card_id"`
-	Text     string    `json:"text"`
-	Position int32     `json:"position"`
-}
-
-func (q *Queries) CreateChecklistItem(ctx context.Context, arg CreateChecklistItemParams) (CardChecklistItem, error) {
-	row := q.db.QueryRow(ctx, createChecklistItem,
-		arg.TenantID,
-		arg.CardID,
-		arg.Text,
-		arg.Position,
-	)
-	var i CardChecklistItem
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.CardID,
-		&i.Text,
-		&i.Done,
-		&i.Position,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const createClientAgent = `-- name: CreateClientAgent :one
 INSERT INTO assistant_agents (tenant_id, name, purpose, instructions, tools)
 VALUES ($1, $2, $3, $4, $5)
@@ -1575,40 +1200,6 @@ func (q *Queries) CreateClientAgent(ctx context.Context, arg CreateClientAgentPa
 		&i.Tools,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const createColumn = `-- name: CreateColumn :one
-INSERT INTO board_columns (board_id, tenant_id, name, color, position)
-VALUES ($1, $2, $3, $4, $5) RETURNING id, board_id, tenant_id, name, color, position, wip_limit
-`
-
-type CreateColumnParams struct {
-	BoardID  uuid.UUID `json:"board_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Name     string    `json:"name"`
-	Color    string    `json:"color"`
-	Position int32     `json:"position"`
-}
-
-func (q *Queries) CreateColumn(ctx context.Context, arg CreateColumnParams) (BoardColumn, error) {
-	row := q.db.QueryRow(ctx, createColumn,
-		arg.BoardID,
-		arg.TenantID,
-		arg.Name,
-		arg.Color,
-		arg.Position,
-	)
-	var i BoardColumn
-	err := row.Scan(
-		&i.ID,
-		&i.BoardID,
-		&i.TenantID,
-		&i.Name,
-		&i.Color,
-		&i.Position,
-		&i.WipLimit,
 	)
 	return i, err
 }
@@ -2726,7 +2317,6 @@ func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Ten
 }
 
 const createUserGroup = `-- name: CreateUserGroup :one
-
 INSERT INTO user_groups (tenant_id, name, created_by) VALUES ($1, $2, $3) RETURNING id, tenant_id, name, channel_id, created_by, created_at
 `
 
@@ -2736,7 +2326,6 @@ type CreateUserGroupParams struct {
 	CreatedBy uuid.UUID `json:"created_by"`
 }
 
-// ===== Grupos de utilizadores =====
 func (q *Queries) CreateUserGroup(ctx context.Context, arg CreateUserGroupParams) (UserGroup, error) {
 	row := q.db.QueryRow(ctx, createUserGroup, arg.TenantID, arg.Name, arg.CreatedBy)
 	var i UserGroup
@@ -2953,56 +2542,6 @@ func (q *Queries) DeleteAutomation(ctx context.Context, arg DeleteAutomationPara
 	return err
 }
 
-const deleteBoard = `-- name: DeleteBoard :exec
-DELETE FROM boards WHERE id = $1 AND tenant_id = $2
-`
-
-type DeleteBoardParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) DeleteBoard(ctx context.Context, arg DeleteBoardParams) error {
-	_, err := q.db.Exec(ctx, deleteBoard, arg.ID, arg.TenantID)
-	return err
-}
-
-const deleteBoardGrant = `-- name: DeleteBoardGrant :exec
-DELETE FROM board_grants WHERE id = $1 AND tenant_id = $2
-`
-
-type DeleteBoardGrantParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) DeleteBoardGrant(ctx context.Context, arg DeleteBoardGrantParams) error {
-	_, err := q.db.Exec(ctx, deleteBoardGrant, arg.ID, arg.TenantID)
-	return err
-}
-
-const deleteBoardGrantSubject = `-- name: DeleteBoardGrantSubject :exec
-DELETE FROM board_grants WHERE tenant_id = $1 AND board_id = $2
-  AND subject_type = $3 AND subject_id IS NOT DISTINCT FROM $4
-`
-
-type DeleteBoardGrantSubjectParams struct {
-	TenantID    uuid.UUID   `json:"tenant_id"`
-	BoardID     uuid.UUID   `json:"board_id"`
-	SubjectType string      `json:"subject_type"`
-	SubjectID   pgtype.UUID `json:"subject_id"`
-}
-
-func (q *Queries) DeleteBoardGrantSubject(ctx context.Context, arg DeleteBoardGrantSubjectParams) error {
-	_, err := q.db.Exec(ctx, deleteBoardGrantSubject,
-		arg.TenantID,
-		arg.BoardID,
-		arg.SubjectType,
-		arg.SubjectID,
-	)
-	return err
-}
-
 const deleteBreakouts = `-- name: DeleteBreakouts :exec
 DELETE FROM meeting_breakouts WHERE meeting_id = $1
 `
@@ -3023,35 +2562,6 @@ type DeleteCalendarParams struct {
 
 func (q *Queries) DeleteCalendar(ctx context.Context, arg DeleteCalendarParams) error {
 	_, err := q.db.Exec(ctx, deleteCalendar, arg.ID, arg.OwnerUserID)
-	return err
-}
-
-const deleteCard = `-- name: DeleteCard :exec
-DELETE FROM cards WHERE id = $1 AND tenant_id = $2
-`
-
-type DeleteCardParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) DeleteCard(ctx context.Context, arg DeleteCardParams) error {
-	_, err := q.db.Exec(ctx, deleteCard, arg.ID, arg.TenantID)
-	return err
-}
-
-const deleteCardComment = `-- name: DeleteCardComment :exec
-DELETE FROM card_comments WHERE id = $1 AND author_id = $2
-`
-
-type DeleteCardCommentParams struct {
-	ID       uuid.UUID `json:"id"`
-	AuthorID uuid.UUID `json:"author_id"`
-}
-
-// Só o autor apaga o próprio comentário.
-func (q *Queries) DeleteCardComment(ctx context.Context, arg DeleteCardCommentParams) error {
-	_, err := q.db.Exec(ctx, deleteCardComment, arg.ID, arg.AuthorID)
 	return err
 }
 
@@ -3084,20 +2594,6 @@ func (q *Queries) DeleteChannelBookmark(ctx context.Context, arg DeleteChannelBo
 	return err
 }
 
-const deleteChecklistItem = `-- name: DeleteChecklistItem :exec
-DELETE FROM card_checklist_items WHERE id = $1 AND tenant_id = $2
-`
-
-type DeleteChecklistItemParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) DeleteChecklistItem(ctx context.Context, arg DeleteChecklistItemParams) error {
-	_, err := q.db.Exec(ctx, deleteChecklistItem, arg.ID, arg.TenantID)
-	return err
-}
-
 const deleteClientAgent = `-- name: DeleteClientAgent :exec
 DELETE FROM assistant_agents WHERE id = $1 AND tenant_id = $2
 `
@@ -3109,20 +2605,6 @@ type DeleteClientAgentParams struct {
 
 func (q *Queries) DeleteClientAgent(ctx context.Context, arg DeleteClientAgentParams) error {
 	_, err := q.db.Exec(ctx, deleteClientAgent, arg.ID, arg.TenantID)
-	return err
-}
-
-const deleteColumn = `-- name: DeleteColumn :exec
-DELETE FROM board_columns WHERE id = $1 AND tenant_id = $2
-`
-
-type DeleteColumnParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) DeleteColumn(ctx context.Context, arg DeleteColumnParams) error {
-	_, err := q.db.Exec(ctx, deleteColumn, arg.ID, arg.TenantID)
 	return err
 }
 
@@ -3763,33 +3245,6 @@ func (q *Queries) DueSnoozes(ctx context.Context) ([]DueSnoozesRow, error) {
 	return items, nil
 }
 
-const editCardComment = `-- name: EditCardComment :one
-UPDATE card_comments SET body = $3 WHERE id = $1 AND author_id = $2 RETURNING id, tenant_id, card_id, author_id, parent_id, body, mentions, created_at
-`
-
-type EditCardCommentParams struct {
-	ID       uuid.UUID `json:"id"`
-	AuthorID uuid.UUID `json:"author_id"`
-	Body     string    `json:"body"`
-}
-
-// Só o autor edita o próprio comentário.
-func (q *Queries) EditCardComment(ctx context.Context, arg EditCardCommentParams) (CardComment, error) {
-	row := q.db.QueryRow(ctx, editCardComment, arg.ID, arg.AuthorID, arg.Body)
-	var i CardComment
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.CardID,
-		&i.AuthorID,
-		&i.ParentID,
-		&i.Body,
-		&i.Mentions,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const editCrmNote = `-- name: EditCrmNote :one
 UPDATE crm_notes SET body = $3 WHERE id = $1 AND author_id = $2 RETURNING id, tenant_id, author_id, body, created_at, contact_id
 `
@@ -4336,31 +3791,6 @@ func (q *Queries) GetBillingProfile(ctx context.Context, tenantID uuid.UUID) (Bi
 	return i, err
 }
 
-const getBoard = `-- name: GetBoard :one
-SELECT id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id FROM boards WHERE id = $1 AND tenant_id = $2
-`
-
-type GetBoardParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) GetBoard(ctx context.Context, arg GetBoardParams) (Board, error) {
-	row := q.db.QueryRow(ctx, getBoard, arg.ID, arg.TenantID)
-	var i Board
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.Prefix,
-		&i.CardSeq,
-		&i.ArchivedAt,
-		&i.OwnerUserID,
-	)
-	return i, err
-}
-
 const getBookingPageBySlugs = `-- name: GetBookingPageBySlugs :one
 SELECT id, tenant_id, user_id, org_slug, user_slug, enabled, title, duration_min, phone_field, company_field, windows, created_at FROM booking_pages WHERE org_slug = $1 AND user_slug = $2
 `
@@ -4456,101 +3886,6 @@ func (q *Queries) GetCalendar(ctx context.Context, arg GetCalendarParams) (Calen
 		&i.OwnerUserID,
 		&i.Name,
 		&i.Color,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const getCard = `-- name: GetCard :one
-SELECT id, tenant_id, board_id, column_id, title, description, label, assignee, due, source_email_id, position, created_at, contact_id, assignee_id, created_by, number, priority, due_notified_for, archived_at, start_date, color FROM cards WHERE id = $1 AND tenant_id = $2
-`
-
-type GetCardParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) GetCard(ctx context.Context, arg GetCardParams) (Card, error) {
-	row := q.db.QueryRow(ctx, getCard, arg.ID, arg.TenantID)
-	var i Card
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.BoardID,
-		&i.ColumnID,
-		&i.Title,
-		&i.Description,
-		&i.Label,
-		&i.Assignee,
-		&i.Due,
-		&i.SourceEmailID,
-		&i.Position,
-		&i.CreatedAt,
-		&i.ContactID,
-		&i.AssigneeID,
-		&i.CreatedBy,
-		&i.Number,
-		&i.Priority,
-		&i.DueNotifiedFor,
-		&i.ArchivedAt,
-		&i.StartDate,
-		&i.Color,
-	)
-	return i, err
-}
-
-const getCardAttachmentBlob = `-- name: GetCardAttachmentBlob :one
-SELECT f.id, f.tenant_id, f.owner_user_id, f.name, f.blob_key, f.hash, f.size, f.version, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at FROM card_attachments ca JOIN storage_files f ON f.id = ca.file_id
-WHERE ca.id = $1 AND ca.tenant_id = $2
-`
-
-type GetCardAttachmentBlobParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-// Download tenant-scoped: o anexo tem de ser do tenant. Devolve o ficheiro para servir o blob.
-func (q *Queries) GetCardAttachmentBlob(ctx context.Context, arg GetCardAttachmentBlobParams) (StorageFile, error) {
-	row := q.db.QueryRow(ctx, getCardAttachmentBlob, arg.ID, arg.TenantID)
-	var i StorageFile
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.OwnerUserID,
-		&i.Name,
-		&i.BlobKey,
-		&i.Hash,
-		&i.Size,
-		&i.Version,
-		&i.CreatedAt,
-		&i.FolderID,
-		&i.DeletedAt,
-		&i.Starred,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getCardComment = `-- name: GetCardComment :one
-SELECT id, tenant_id, card_id, author_id, parent_id, body, mentions, created_at FROM card_comments WHERE id = $1 AND tenant_id = $2
-`
-
-type GetCardCommentParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) GetCardComment(ctx context.Context, arg GetCardCommentParams) (CardComment, error) {
-	row := q.db.QueryRow(ctx, getCardComment, arg.ID, arg.TenantID)
-	var i CardComment
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.CardID,
-		&i.AuthorID,
-		&i.ParentID,
-		&i.Body,
-		&i.Mentions,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -4698,30 +4033,6 @@ func (q *Queries) GetClientAgent(ctx context.Context, arg GetClientAgentParams) 
 		&i.Tools,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getColumn = `-- name: GetColumn :one
-SELECT id, board_id, tenant_id, name, color, position, wip_limit FROM board_columns WHERE id = $1 AND tenant_id = $2
-`
-
-type GetColumnParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) GetColumn(ctx context.Context, arg GetColumnParams) (BoardColumn, error) {
-	row := q.db.QueryRow(ctx, getColumn, arg.ID, arg.TenantID)
-	var i BoardColumn
-	err := row.Scan(
-		&i.ID,
-		&i.BoardID,
-		&i.TenantID,
-		&i.Name,
-		&i.Color,
-		&i.Position,
-		&i.WipLimit,
 	)
 	return i, err
 }
@@ -6129,40 +5440,6 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error 
 	return err
 }
 
-const insertBoardGrant = `-- name: InsertBoardGrant :one
-INSERT INTO board_grants (tenant_id, board_id, subject_type, subject_id, role)
-VALUES ($1, $2, $3, $4, $5) RETURNING id, tenant_id, board_id, subject_type, subject_id, role, created_at
-`
-
-type InsertBoardGrantParams struct {
-	TenantID    uuid.UUID   `json:"tenant_id"`
-	BoardID     uuid.UUID   `json:"board_id"`
-	SubjectType string      `json:"subject_type"`
-	SubjectID   pgtype.UUID `json:"subject_id"`
-	Role        string      `json:"role"`
-}
-
-func (q *Queries) InsertBoardGrant(ctx context.Context, arg InsertBoardGrantParams) (BoardGrant, error) {
-	row := q.db.QueryRow(ctx, insertBoardGrant,
-		arg.TenantID,
-		arg.BoardID,
-		arg.SubjectType,
-		arg.SubjectID,
-		arg.Role,
-	)
-	var i BoardGrant
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.BoardID,
-		&i.SubjectType,
-		&i.SubjectID,
-		&i.Role,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const insertMemberPermission = `-- name: InsertMemberPermission :exec
 INSERT INTO member_permissions (tenant_id, user_id, permission, allow, created_by)
 VALUES ($1, $2, $3, $4, $5)
@@ -6451,90 +5728,6 @@ func (q *Queries) ListAnnouncements(ctx context.Context, arg ListAnnouncementsPa
 			&i.Body,
 			&i.Published,
 			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listArchivedBoards = `-- name: ListArchivedBoards :many
-SELECT id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id FROM boards WHERE tenant_id = $1 AND archived_at IS NOT NULL ORDER BY archived_at DESC
-`
-
-func (q *Queries) ListArchivedBoards(ctx context.Context, tenantID uuid.UUID) ([]Board, error) {
-	rows, err := q.db.Query(ctx, listArchivedBoards, tenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Board
-	for rows.Next() {
-		var i Board
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.Name,
-			&i.CreatedAt,
-			&i.Prefix,
-			&i.CardSeq,
-			&i.ArchivedAt,
-			&i.OwnerUserID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listArchivedCards = `-- name: ListArchivedCards :many
-SELECT id, tenant_id, board_id, column_id, title, description, label, assignee, due, source_email_id, position, created_at, contact_id, assignee_id, created_by, number, priority, due_notified_for, archived_at, start_date, color FROM cards WHERE board_id = $1 AND tenant_id = $2 AND archived_at IS NOT NULL ORDER BY archived_at DESC
-`
-
-type ListArchivedCardsParams struct {
-	BoardID  uuid.UUID `json:"board_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) ListArchivedCards(ctx context.Context, arg ListArchivedCardsParams) ([]Card, error) {
-	rows, err := q.db.Query(ctx, listArchivedCards, arg.BoardID, arg.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Card
-	for rows.Next() {
-		var i Card
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.BoardID,
-			&i.ColumnID,
-			&i.Title,
-			&i.Description,
-			&i.Label,
-			&i.Assignee,
-			&i.Due,
-			&i.SourceEmailID,
-			&i.Position,
-			&i.CreatedAt,
-			&i.ContactID,
-			&i.AssigneeID,
-			&i.CreatedBy,
-			&i.Number,
-			&i.Priority,
-			&i.DueNotifiedFor,
-			&i.ArchivedAt,
-			&i.StartDate,
-			&i.Color,
 		); err != nil {
 			return nil, err
 		}
@@ -6996,167 +6189,6 @@ func (q *Queries) ListAutomations(ctx context.Context, boardID uuid.UUID) ([]Boa
 	return items, nil
 }
 
-const listBoardAssignees = `-- name: ListBoardAssignees :many
-SELECT ca.card_id, u.id AS user_id, COALESCE(NULLIF(u.name, ''), u.email) AS name
-FROM card_assignees ca JOIN cards c ON c.id = ca.card_id JOIN mail_users u ON u.id = ca.user_id
-WHERE c.board_id = $1
-`
-
-type ListBoardAssigneesRow struct {
-	CardID uuid.UUID `json:"card_id"`
-	UserID uuid.UUID `json:"user_id"`
-	Name   string    `json:"name"`
-}
-
-func (q *Queries) ListBoardAssignees(ctx context.Context, boardID uuid.UUID) ([]ListBoardAssigneesRow, error) {
-	rows, err := q.db.Query(ctx, listBoardAssignees, boardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListBoardAssigneesRow
-	for rows.Next() {
-		var i ListBoardAssigneesRow
-		if err := rows.Scan(&i.CardID, &i.UserID, &i.Name); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBoardDeps = `-- name: ListBoardDeps :many
-SELECT cd.card_id, cd.depends_on_id, dc.title AS dep_title, dc.column_id AS dep_column
-FROM card_deps cd JOIN cards c ON c.id = cd.card_id JOIN cards dc ON dc.id = cd.depends_on_id
-WHERE c.board_id = $1
-`
-
-type ListBoardDepsRow struct {
-	CardID      uuid.UUID `json:"card_id"`
-	DependsOnID uuid.UUID `json:"depends_on_id"`
-	DepTitle    string    `json:"dep_title"`
-	DepColumn   uuid.UUID `json:"dep_column"`
-}
-
-func (q *Queries) ListBoardDeps(ctx context.Context, boardID uuid.UUID) ([]ListBoardDepsRow, error) {
-	rows, err := q.db.Query(ctx, listBoardDeps, boardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListBoardDepsRow
-	for rows.Next() {
-		var i ListBoardDepsRow
-		if err := rows.Scan(
-			&i.CardID,
-			&i.DependsOnID,
-			&i.DepTitle,
-			&i.DepColumn,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBoardGrants = `-- name: ListBoardGrants :many
-SELECT id, tenant_id, board_id, subject_type, subject_id, role, created_at FROM board_grants WHERE tenant_id = $1 AND board_id = $2
-ORDER BY subject_type, created_at
-`
-
-type ListBoardGrantsParams struct {
-	TenantID uuid.UUID `json:"tenant_id"`
-	BoardID  uuid.UUID `json:"board_id"`
-}
-
-func (q *Queries) ListBoardGrants(ctx context.Context, arg ListBoardGrantsParams) ([]BoardGrant, error) {
-	rows, err := q.db.Query(ctx, listBoardGrants, arg.TenantID, arg.BoardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BoardGrant
-	for rows.Next() {
-		var i BoardGrant
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.BoardID,
-			&i.SubjectType,
-			&i.SubjectID,
-			&i.Role,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBoards = `-- name: ListBoards :many
-
-SELECT b.id, b.tenant_id, b.name, b.created_at, b.prefix, b.card_seq, b.archived_at, b.owner_user_id FROM boards b WHERE b.tenant_id = $1 AND b.archived_at IS NULL AND (
-    b.owner_user_id = $2
-    OR (b.owner_user_id IS NULL AND NOT EXISTS (SELECT 1 FROM board_grants g WHERE g.board_id = b.id))
-    OR EXISTS (
-        SELECT 1 FROM board_grants g WHERE g.board_id = b.id AND (
-            g.subject_type = 'org'
-            OR (g.subject_type = 'user' AND g.subject_id = $2)
-            OR (g.subject_type = 'group' AND EXISTS (
-                SELECT 1 FROM user_group_members ugm
-                WHERE ugm.group_id = g.subject_id AND ugm.user_id = $2))))
-    OR EXISTS (SELECT 1 FROM cards c WHERE c.board_id = b.id AND c.assignee_id = $2)
-) ORDER BY b.created_at
-`
-
-type ListBoardsParams struct {
-	TenantID uuid.UUID   `json:"tenant_id"`
-	UserID   pgtype.UUID `json:"user_id"`
-}
-
-// ===== Kanban =====
-// Visibilidade por utilizador: dono, legado (sem dono nem grants = org toda), grant (org/user/grupo)
-// ou card atribuído no quadro (acesso automático).
-func (q *Queries) ListBoards(ctx context.Context, arg ListBoardsParams) ([]Board, error) {
-	rows, err := q.db.Query(ctx, listBoards, arg.TenantID, arg.UserID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Board
-	for rows.Next() {
-		var i Board
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.Name,
-			&i.CreatedAt,
-			&i.Prefix,
-			&i.CardSeq,
-			&i.ArchivedAt,
-			&i.OwnerUserID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listBreakoutAssignments = `-- name: ListBreakoutAssignments :many
 SELECT user_id, breakout_id FROM breakout_assignments WHERE meeting_id = $1
 `
@@ -7239,243 +6271,6 @@ func (q *Queries) ListCalendars(ctx context.Context, ownerUserID uuid.UUID) ([]C
 			&i.Name,
 			&i.Color,
 			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCardActivity = `-- name: ListCardActivity :many
-SELECT a.id, a.tenant_id, a.card_id, a.actor_id, a.kind, a.detail, a.created_at, COALESCE(u.name, NULLIF(u.email, ''), '') AS actor_name
-FROM card_activity a LEFT JOIN mail_users u ON u.id = a.actor_id
-WHERE a.card_id = $1 AND a.tenant_id = $2 ORDER BY a.created_at DESC LIMIT 100
-`
-
-type ListCardActivityParams struct {
-	CardID   uuid.UUID `json:"card_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-type ListCardActivityRow struct {
-	ID        uuid.UUID   `json:"id"`
-	TenantID  uuid.UUID   `json:"tenant_id"`
-	CardID    uuid.UUID   `json:"card_id"`
-	ActorID   pgtype.UUID `json:"actor_id"`
-	Kind      string      `json:"kind"`
-	Detail    string      `json:"detail"`
-	CreatedAt time.Time   `json:"created_at"`
-	ActorName string      `json:"actor_name"`
-}
-
-func (q *Queries) ListCardActivity(ctx context.Context, arg ListCardActivityParams) ([]ListCardActivityRow, error) {
-	rows, err := q.db.Query(ctx, listCardActivity, arg.CardID, arg.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCardActivityRow
-	for rows.Next() {
-		var i ListCardActivityRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.CardID,
-			&i.ActorID,
-			&i.Kind,
-			&i.Detail,
-			&i.CreatedAt,
-			&i.ActorName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCardAttachments = `-- name: ListCardAttachments :many
-SELECT ca.id, ca.file_id, f.name, f.size, ca.created_at
-FROM card_attachments ca JOIN storage_files f ON f.id = ca.file_id
-WHERE ca.card_id = $1 AND ca.tenant_id = $2 ORDER BY ca.created_at
-`
-
-type ListCardAttachmentsParams struct {
-	CardID   uuid.UUID `json:"card_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-type ListCardAttachmentsRow struct {
-	ID        uuid.UUID `json:"id"`
-	FileID    uuid.UUID `json:"file_id"`
-	Name      string    `json:"name"`
-	Size      int64     `json:"size"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-func (q *Queries) ListCardAttachments(ctx context.Context, arg ListCardAttachmentsParams) ([]ListCardAttachmentsRow, error) {
-	rows, err := q.db.Query(ctx, listCardAttachments, arg.CardID, arg.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCardAttachmentsRow
-	for rows.Next() {
-		var i ListCardAttachmentsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.FileID,
-			&i.Name,
-			&i.Size,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCardComments = `-- name: ListCardComments :many
-
-SELECT c.id, c.tenant_id, c.card_id, c.author_id, c.parent_id, c.body, c.mentions, c.created_at, u.name AS author_name, u.email AS author_email
-FROM card_comments c JOIN mail_users u ON u.id = c.author_id
-WHERE c.card_id = $1 AND c.tenant_id = $2 ORDER BY c.created_at
-`
-
-type ListCardCommentsParams struct {
-	CardID   uuid.UUID `json:"card_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-type ListCardCommentsRow struct {
-	ID          uuid.UUID   `json:"id"`
-	TenantID    uuid.UUID   `json:"tenant_id"`
-	CardID      uuid.UUID   `json:"card_id"`
-	AuthorID    uuid.UUID   `json:"author_id"`
-	ParentID    pgtype.UUID `json:"parent_id"`
-	Body        string      `json:"body"`
-	Mentions    []uuid.UUID `json:"mentions"`
-	CreatedAt   time.Time   `json:"created_at"`
-	AuthorName  string      `json:"author_name"`
-	AuthorEmail string      `json:"author_email"`
-}
-
-// ---- Comentários da tarefa ----
-func (q *Queries) ListCardComments(ctx context.Context, arg ListCardCommentsParams) ([]ListCardCommentsRow, error) {
-	rows, err := q.db.Query(ctx, listCardComments, arg.CardID, arg.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCardCommentsRow
-	for rows.Next() {
-		var i ListCardCommentsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.CardID,
-			&i.AuthorID,
-			&i.ParentID,
-			&i.Body,
-			&i.Mentions,
-			&i.CreatedAt,
-			&i.AuthorName,
-			&i.AuthorEmail,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCardsByBoard = `-- name: ListCardsByBoard :many
-SELECT c.id, c.tenant_id, c.board_id, c.column_id, c.title, c.description, c.label, c.assignee, c.due, c.source_email_id, c.position, c.created_at, c.contact_id, c.assignee_id, c.created_by, c.number, c.priority, c.due_notified_for, c.archived_at, c.start_date, c.color, COALESCE(u.name, NULLIF(u.email, ''), c.assignee) AS assignee_name,
-       (SELECT count(*) FROM card_comments cc WHERE cc.card_id = c.id) AS comment_count,
-       b.prefix || '-' || c.number AS card_key
-FROM cards c
-JOIN boards b ON b.id = c.board_id
-LEFT JOIN mail_users u ON u.id = c.assignee_id
-WHERE c.board_id = $1 AND c.archived_at IS NULL ORDER BY c.column_id, c.position
-`
-
-type ListCardsByBoardRow struct {
-	ID             uuid.UUID          `json:"id"`
-	TenantID       uuid.UUID          `json:"tenant_id"`
-	BoardID        uuid.UUID          `json:"board_id"`
-	ColumnID       uuid.UUID          `json:"column_id"`
-	Title          string             `json:"title"`
-	Description    string             `json:"description"`
-	Label          string             `json:"label"`
-	Assignee       string             `json:"assignee"`
-	Due            string             `json:"due"`
-	SourceEmailID  string             `json:"source_email_id"`
-	Position       int32              `json:"position"`
-	CreatedAt      time.Time          `json:"created_at"`
-	ContactID      pgtype.UUID        `json:"contact_id"`
-	AssigneeID     pgtype.UUID        `json:"assignee_id"`
-	CreatedBy      pgtype.UUID        `json:"created_by"`
-	Number         int64              `json:"number"`
-	Priority       string             `json:"priority"`
-	DueNotifiedFor string             `json:"due_notified_for"`
-	ArchivedAt     pgtype.Timestamptz `json:"archived_at"`
-	StartDate      string             `json:"start_date"`
-	Color          string             `json:"color"`
-	AssigneeName   string             `json:"assignee_name"`
-	CommentCount   int64              `json:"comment_count"`
-	CardKey        interface{}        `json:"card_key"`
-}
-
-// assignee_name: o nome do utilizador responsável, ou o texto legado de quem nunca casou com um
-// utilizador (a migração 00026 preservou-o). A UI mostra um ou outro sem saber a diferença.
-func (q *Queries) ListCardsByBoard(ctx context.Context, boardID uuid.UUID) ([]ListCardsByBoardRow, error) {
-	rows, err := q.db.Query(ctx, listCardsByBoard, boardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCardsByBoardRow
-	for rows.Next() {
-		var i ListCardsByBoardRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.BoardID,
-			&i.ColumnID,
-			&i.Title,
-			&i.Description,
-			&i.Label,
-			&i.Assignee,
-			&i.Due,
-			&i.SourceEmailID,
-			&i.Position,
-			&i.CreatedAt,
-			&i.ContactID,
-			&i.AssigneeID,
-			&i.CreatedBy,
-			&i.Number,
-			&i.Priority,
-			&i.DueNotifiedFor,
-			&i.ArchivedAt,
-			&i.StartDate,
-			&i.Color,
-			&i.AssigneeName,
-			&i.CommentCount,
-			&i.CardKey,
 		); err != nil {
 			return nil, err
 		}
@@ -7668,43 +6463,6 @@ func (q *Queries) ListChannelsForUser(ctx context.Context, arg ListChannelsForUs
 	return items, nil
 }
 
-const listChecklist = `-- name: ListChecklist :many
-SELECT id, tenant_id, card_id, text, done, position, created_at FROM card_checklist_items WHERE card_id = $1 AND tenant_id = $2 ORDER BY position, created_at
-`
-
-type ListChecklistParams struct {
-	CardID   uuid.UUID `json:"card_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) ListChecklist(ctx context.Context, arg ListChecklistParams) ([]CardChecklistItem, error) {
-	rows, err := q.db.Query(ctx, listChecklist, arg.CardID, arg.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []CardChecklistItem
-	for rows.Next() {
-		var i CardChecklistItem
-		if err := rows.Scan(
-			&i.ID,
-			&i.TenantID,
-			&i.CardID,
-			&i.Text,
-			&i.Done,
-			&i.Position,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listClientAgents = `-- name: ListClientAgents :many
 SELECT id, tenant_id, name, purpose, instructions, tools, created_at, updated_at FROM assistant_agents WHERE tenant_id = $1 ORDER BY name
 `
@@ -7801,39 +6559,8 @@ func (q *Queries) ListColleagues(ctx context.Context, tenantID uuid.UUID) ([]Lis
 	return items, nil
 }
 
-const listColumns = `-- name: ListColumns :many
-SELECT id, board_id, tenant_id, name, color, position, wip_limit FROM board_columns WHERE board_id = $1 ORDER BY position
-`
-
-func (q *Queries) ListColumns(ctx context.Context, boardID uuid.UUID) ([]BoardColumn, error) {
-	rows, err := q.db.Query(ctx, listColumns, boardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BoardColumn
-	for rows.Next() {
-		var i BoardColumn
-		if err := rows.Scan(
-			&i.ID,
-			&i.BoardID,
-			&i.TenantID,
-			&i.Name,
-			&i.Color,
-			&i.Position,
-			&i.WipLimit,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listCommentAuthors = `-- name: ListCommentAuthors :many
+
 SELECT DISTINCT author_id FROM card_comments WHERE card_id = $1 AND tenant_id = $2
 `
 
@@ -7842,6 +6569,7 @@ type ListCommentAuthorsParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
+// ---- Comentários da tarefa ----
 // Quem já comentou nesta tarefa — são os interessados na conversa.
 func (q *Queries) ListCommentAuthors(ctx context.Context, arg ListCommentAuthorsParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listCommentAuthors, arg.CardID, arg.TenantID)
@@ -7906,61 +6634,6 @@ func (q *Queries) ListCompanyPeople(ctx context.Context, arg ListCompanyPeoplePa
 			&i.ExtraPhones,
 			&i.CustomFields,
 			&i.AvatarFileID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listContactCards = `-- name: ListContactCards :many
-SELECT c.id, c.title, c.description, c.assignee, c.due, c.column_id, c.board_id,
-       b.name AS board_name, col.name AS column_name
-FROM cards c JOIN boards b ON b.id = c.board_id JOIN board_columns col ON col.id = c.column_id
-WHERE c.contact_id = $1 AND c.tenant_id = $2 ORDER BY c.created_at DESC
-`
-
-type ListContactCardsParams struct {
-	ContactID pgtype.UUID `json:"contact_id"`
-	TenantID  uuid.UUID   `json:"tenant_id"`
-}
-
-type ListContactCardsRow struct {
-	ID          uuid.UUID `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description"`
-	Assignee    string    `json:"assignee"`
-	Due         string    `json:"due"`
-	ColumnID    uuid.UUID `json:"column_id"`
-	BoardID     uuid.UUID `json:"board_id"`
-	BoardName   string    `json:"board_name"`
-	ColumnName  string    `json:"column_name"`
-}
-
-// Tarefas do contato = cards do Kanban ligados a ele. board_id serve para o link "abrir a tarefa".
-func (q *Queries) ListContactCards(ctx context.Context, arg ListContactCardsParams) ([]ListContactCardsRow, error) {
-	rows, err := q.db.Query(ctx, listContactCards, arg.ContactID, arg.TenantID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListContactCardsRow
-	for rows.Next() {
-		var i ListContactCardsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Description,
-			&i.Assignee,
-			&i.Due,
-			&i.ColumnID,
-			&i.BoardID,
-			&i.BoardName,
-			&i.ColumnName,
 		); err != nil {
 			return nil, err
 		}
@@ -8614,7 +7287,7 @@ type ListEventsRangeParams struct {
 	StartsAt    time.Time   `json:"starts_at"`
 }
 
-// ===== Calendário =====
+// ===== Kanban =====
 func (q *Queries) ListEventsRange(ctx context.Context, arg ListEventsRangeParams) ([]Event, error) {
 	rows, err := q.db.Query(ctx, listEventsRange, arg.OwnerUserID, arg.EndsAt, arg.StartsAt)
 	if err != nil {
@@ -8944,7 +7617,6 @@ func (q *Queries) ListFolders(ctx context.Context, arg ListFoldersParams) ([]Sto
 }
 
 const listGifs = `-- name: ListGifs :many
-
 SELECT g.id, g.file_id, g.created_at,
        COALESCE(NULLIF(g.name, ''), f.name) AS name, f.size AS size
 FROM gif_library g JOIN storage_files f ON f.id = g.file_id
@@ -8959,7 +7631,6 @@ type ListGifsRow struct {
 	Size      int64     `json:"size"`
 }
 
-// ---- Biblioteca de GIFs (pessoal) ----
 func (q *Queries) ListGifs(ctx context.Context, ownerUserID uuid.UUID) ([]ListGifsRow, error) {
 	rows, err := q.db.Query(ctx, listGifs, ownerUserID)
 	if err != nil {
@@ -10803,44 +9474,12 @@ func (q *Queries) ListWorkspaceEmojis(ctx context.Context, tenantID uuid.UUID) (
 	return items, nil
 }
 
-const logCardActivity = `-- name: LogCardActivity :exec
-INSERT INTO card_activity (tenant_id, card_id, actor_id, kind, detail) VALUES ($1, $2, $3, $4, $5)
-`
-
-type LogCardActivityParams struct {
-	TenantID uuid.UUID   `json:"tenant_id"`
-	CardID   uuid.UUID   `json:"card_id"`
-	ActorID  pgtype.UUID `json:"actor_id"`
-	Kind     string      `json:"kind"`
-	Detail   string      `json:"detail"`
-}
-
-func (q *Queries) LogCardActivity(ctx context.Context, arg LogCardActivityParams) error {
-	_, err := q.db.Exec(ctx, logCardActivity,
-		arg.TenantID,
-		arg.CardID,
-		arg.ActorID,
-		arg.Kind,
-		arg.Detail,
-	)
-	return err
-}
-
 const markAllNotificationsRead = `-- name: MarkAllNotificationsRead :exec
 UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL
 `
 
 func (q *Queries) MarkAllNotificationsRead(ctx context.Context, userID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markAllNotificationsRead, userID)
-	return err
-}
-
-const markCardDueNotified = `-- name: MarkCardDueNotified :exec
-UPDATE cards SET due_notified_for = due WHERE id = $1
-`
-
-func (q *Queries) MarkCardDueNotified(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, markCardDueNotified, id)
 	return err
 }
 
@@ -10979,22 +9618,6 @@ func (q *Queries) MaxVersionByName(ctx context.Context, arg MaxVersionByNamePara
 	return column_1, err
 }
 
-const mergeReassignCards = `-- name: MergeReassignCards :exec
-UPDATE cards SET contact_id = $1 WHERE contact_id = $2 AND tenant_id = $3
-`
-
-type MergeReassignCardsParams struct {
-	Keep   pgtype.UUID `json:"keep"`
-	Merge  pgtype.UUID `json:"merge"`
-	Tenant uuid.UUID   `json:"tenant"`
-}
-
-// ---- Fusão de duplicados: reatribui referências do contato "merge" para o "keep" ----
-func (q *Queries) MergeReassignCards(ctx context.Context, arg MergeReassignCardsParams) error {
-	_, err := q.db.Exec(ctx, mergeReassignCards, arg.Keep, arg.Merge, arg.Tenant)
-	return err
-}
-
 const mergeReassignGroups = `-- name: MergeReassignGroups :exec
 INSERT INTO contact_group_members (contact_id, group_id)
 SELECT $1, m.group_id FROM contact_group_members m WHERE m.contact_id = $2
@@ -11025,51 +9648,6 @@ type MergeReassignNotesParams struct {
 func (q *Queries) MergeReassignNotes(ctx context.Context, arg MergeReassignNotesParams) error {
 	_, err := q.db.Exec(ctx, mergeReassignNotes, arg.Keep, arg.Merge, arg.Tenant)
 	return err
-}
-
-const moveCard = `-- name: MoveCard :one
-UPDATE cards SET column_id = $3, position = $4 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, board_id, column_id, title, description, label, assignee, due, source_email_id, position, created_at, contact_id, assignee_id, created_by, number, priority, due_notified_for, archived_at, start_date, color
-`
-
-type MoveCardParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	ColumnID uuid.UUID `json:"column_id"`
-	Position int32     `json:"position"`
-}
-
-func (q *Queries) MoveCard(ctx context.Context, arg MoveCardParams) (Card, error) {
-	row := q.db.QueryRow(ctx, moveCard,
-		arg.ID,
-		arg.TenantID,
-		arg.ColumnID,
-		arg.Position,
-	)
-	var i Card
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.BoardID,
-		&i.ColumnID,
-		&i.Title,
-		&i.Description,
-		&i.Label,
-		&i.Assignee,
-		&i.Due,
-		&i.SourceEmailID,
-		&i.Position,
-		&i.CreatedAt,
-		&i.ContactID,
-		&i.AssigneeID,
-		&i.CreatedBy,
-		&i.Number,
-		&i.Priority,
-		&i.DueNotifiedFor,
-		&i.ArchivedAt,
-		&i.StartDate,
-		&i.Color,
-	)
-	return i, err
 }
 
 const moveFolder = `-- name: MoveFolder :one
@@ -11164,39 +9742,6 @@ func (q *Queries) MoveStorageFile(ctx context.Context, arg MoveStorageFileParams
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const nextCardNumber = `-- name: NextCardNumber :one
-UPDATE boards SET card_seq = card_seq + 1 WHERE id = $1 RETURNING card_seq, prefix
-`
-
-type NextCardNumberRow struct {
-	CardSeq int64  `json:"card_seq"`
-	Prefix  string `json:"prefix"`
-}
-
-// Trava a linha do quadro: dois cards criados ao mesmo tempo nunca pegam o mesmo número.
-func (q *Queries) NextCardNumber(ctx context.Context, id uuid.UUID) (NextCardNumberRow, error) {
-	row := q.db.QueryRow(ctx, nextCardNumber, id)
-	var i NextCardNumberRow
-	err := row.Scan(&i.CardSeq, &i.Prefix)
-	return i, err
-}
-
-const nextChecklistPos = `-- name: NextChecklistPos :one
-SELECT COALESCE(max(position), -1) + 1 FROM card_checklist_items WHERE card_id = $1 AND tenant_id = $2
-`
-
-type NextChecklistPosParams struct {
-	CardID   uuid.UUID `json:"card_id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-}
-
-func (q *Queries) NextChecklistPos(ctx context.Context, arg NextChecklistPosParams) (int32, error) {
-	row := q.db.QueryRow(ctx, nextChecklistPos, arg.CardID, arg.TenantID)
-	var column_1 int32
-	err := row.Scan(&column_1)
-	return column_1, err
 }
 
 const nextOutboxDue = `-- name: NextOutboxDue :one
@@ -11338,34 +9883,6 @@ func (q *Queries) RecordAssistantUsage(ctx context.Context, arg RecordAssistantU
 	return err
 }
 
-const removeCardAssignee = `-- name: RemoveCardAssignee :exec
-DELETE FROM card_assignees WHERE card_id = $1 AND user_id = $2
-`
-
-type RemoveCardAssigneeParams struct {
-	CardID uuid.UUID `json:"card_id"`
-	UserID uuid.UUID `json:"user_id"`
-}
-
-func (q *Queries) RemoveCardAssignee(ctx context.Context, arg RemoveCardAssigneeParams) error {
-	_, err := q.db.Exec(ctx, removeCardAssignee, arg.CardID, arg.UserID)
-	return err
-}
-
-const removeCardDep = `-- name: RemoveCardDep :exec
-DELETE FROM card_deps WHERE card_id = $1 AND depends_on_id = $2
-`
-
-type RemoveCardDepParams struct {
-	CardID      uuid.UUID `json:"card_id"`
-	DependsOnID uuid.UUID `json:"depends_on_id"`
-}
-
-func (q *Queries) RemoveCardDep(ctx context.Context, arg RemoveCardDepParams) error {
-	_, err := q.db.Exec(ctx, removeCardDep, arg.CardID, arg.DependsOnID)
-	return err
-}
-
 const removeChannelMember = `-- name: RemoveChannelMember :exec
 DELETE FROM channel_members WHERE channel_id = $1 AND user_id = $2
 `
@@ -11490,46 +10007,6 @@ func (q *Queries) RenameStorageFile(ctx context.Context, arg RenameStorageFilePa
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const reorderColumn = `-- name: ReorderColumn :exec
-UPDATE cards AS c
-SET column_id = $1, position = t.ord::int
-FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)
-WHERE c.id = t.id AND c.tenant_id = $2
-`
-
-type ReorderColumnParams struct {
-	ColumnID uuid.UUID   `json:"column_id"`
-	TenantID uuid.UUID   `json:"tenant_id"`
-	CardIds  []uuid.UUID `json:"card_ids"`
-}
-
-// Reordena os cards de uma coluna e move para ela os de fora: define column_id e position (1..N) na
-// ordem exata do array, num único UPDATE atômico. Ordena por position em ListCardsByBoard.
-func (q *Queries) ReorderColumn(ctx context.Context, arg ReorderColumnParams) error {
-	_, err := q.db.Exec(ctx, reorderColumn, arg.ColumnID, arg.TenantID, arg.CardIds)
-	return err
-}
-
-const reorderColumns = `-- name: ReorderColumns :exec
-UPDATE board_columns AS bc
-SET position = t.ord::int
-FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)
-WHERE bc.id = t.id AND bc.board_id = $1 AND bc.tenant_id = $2
-`
-
-type ReorderColumnsParams struct {
-	BoardID   uuid.UUID   `json:"board_id"`
-	TenantID  uuid.UUID   `json:"tenant_id"`
-	ColumnIds []uuid.UUID `json:"column_ids"`
-}
-
-// Reordena as colunas do quadro: define position (1..N) na ordem exata do array, num único UPDATE
-// atômico. Preso ao board_id e ao tenant para não mover coluna alheia. Lê-se por position em ListColumns.
-func (q *Queries) ReorderColumns(ctx context.Context, arg ReorderColumnsParams) error {
-	_, err := q.db.Exec(ctx, reorderColumns, arg.BoardID, arg.TenantID, arg.ColumnIds)
-	return err
 }
 
 const requestAssistantTaskCancel = `-- name: RequestAssistantTaskCancel :exec
@@ -11682,91 +10159,6 @@ type SaveMessageParams struct {
 func (q *Queries) SaveMessage(ctx context.Context, arg SaveMessageParams) error {
 	_, err := q.db.Exec(ctx, saveMessage, arg.UserID, arg.MessageID, arg.TenantID)
 	return err
-}
-
-const searchCards = `-- name: SearchCards :many
-SELECT c.id, c.board_id, c.title, c.label, c.due, c.priority,
-       b.prefix || '-' || c.number AS card_key, b.name AS board_name,
-       col.name AS column_name,
-       COALESCE(u.name, NULLIF(u.email, ''), c.assignee) AS assignee_name
-FROM cards c
-JOIN boards b ON b.id = c.board_id
-JOIN board_columns col ON col.id = c.column_id
-LEFT JOIN mail_users u ON u.id = c.assignee_id
-WHERE c.tenant_id = $1 AND c.archived_at IS NULL AND b.archived_at IS NULL
-  AND (
-      upper(b.prefix || '-' || c.number) = upper($2::text)
-      OR c.number::text = $2::text
-      OR c.title ILIKE '%' || $2::text || '%'
-  )
-  AND (
-      b.owner_user_id = $3
-      OR (b.owner_user_id IS NULL AND NOT EXISTS (SELECT 1 FROM board_grants g WHERE g.board_id = b.id))
-      OR EXISTS (
-          SELECT 1 FROM board_grants g WHERE g.board_id = b.id AND (
-              g.subject_type = 'org'
-              OR (g.subject_type = 'user' AND g.subject_id = $3)
-              OR (g.subject_type = 'group' AND EXISTS (
-                  SELECT 1 FROM user_group_members ugm
-                  WHERE ugm.group_id = g.subject_id AND ugm.user_id = $3))))
-      OR EXISTS (SELECT 1 FROM cards c2 WHERE c2.board_id = b.id AND c2.assignee_id = $3)
-  )
-ORDER BY (upper(b.prefix || '-' || c.number) = upper($2::text)) DESC, c.created_at DESC
-LIMIT 20
-`
-
-type SearchCardsParams struct {
-	TenantID uuid.UUID   `json:"tenant_id"`
-	Q        string      `json:"q"`
-	UserID   pgtype.UUID `json:"user_id"`
-}
-
-type SearchCardsRow struct {
-	ID           uuid.UUID   `json:"id"`
-	BoardID      uuid.UUID   `json:"board_id"`
-	Title        string      `json:"title"`
-	Label        string      `json:"label"`
-	Due          string      `json:"due"`
-	Priority     string      `json:"priority"`
-	CardKey      interface{} `json:"card_key"`
-	BoardName    string      `json:"board_name"`
-	ColumnName   string      `json:"column_name"`
-	AssigneeName string      `json:"assignee_name"`
-}
-
-// Busca de tarefas para referenciar noutro sítio (o `/task` do chat). Casa pela chave (QUA-12),
-// pelo número solto (12) ou por texto do título. A visibilidade é a MESMA do ListBoards — sem
-// isso, o chat viraria uma janela para quadros a que a pessoa não tem acesso (lei §5.1/§5.2).
-// Chave exata primeiro (quem escreve "QUA-12" quer aquela tarefa), depois as mais recentes.
-func (q *Queries) SearchCards(ctx context.Context, arg SearchCardsParams) ([]SearchCardsRow, error) {
-	rows, err := q.db.Query(ctx, searchCards, arg.TenantID, arg.Q, arg.UserID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []SearchCardsRow
-	for rows.Next() {
-		var i SearchCardsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.BoardID,
-			&i.Title,
-			&i.Label,
-			&i.Due,
-			&i.Priority,
-			&i.CardKey,
-			&i.BoardName,
-			&i.ColumnName,
-			&i.AssigneeName,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const searchChannelMembers = `-- name: SearchChannelMembers :many
@@ -12086,33 +10478,6 @@ func (q *Queries) SetBillingStripeCustomer(ctx context.Context, arg SetBillingSt
 	return err
 }
 
-const setBoardArchived = `-- name: SetBoardArchived :one
-UPDATE boards SET archived_at = CASE WHEN $3::boolean THEN now() ELSE NULL END WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id
-`
-
-type SetBoardArchivedParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Archived bool      `json:"archived"`
-}
-
-// Arquiva (true) ou restaura (false) um quadro. Só no próprio tenant.
-func (q *Queries) SetBoardArchived(ctx context.Context, arg SetBoardArchivedParams) (Board, error) {
-	row := q.db.QueryRow(ctx, setBoardArchived, arg.ID, arg.TenantID, arg.Archived)
-	var i Board
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.Prefix,
-		&i.CardSeq,
-		&i.ArchivedAt,
-		&i.OwnerUserID,
-	)
-	return i, err
-}
-
 const setBuiltinAgentEnabled = `-- name: SetBuiltinAgentEnabled :exec
 INSERT INTO assistant_builtin_settings (tenant_id, agent_key, enabled)
 VALUES ($1, $2, $3)
@@ -12129,76 +10494,6 @@ type SetBuiltinAgentEnabledParams struct {
 // comportamento: as instruções e as ferramentas continuam a ser nossas (§3.2).
 func (q *Queries) SetBuiltinAgentEnabled(ctx context.Context, arg SetBuiltinAgentEnabledParams) error {
 	_, err := q.db.Exec(ctx, setBuiltinAgentEnabled, arg.TenantID, arg.AgentKey, arg.Enabled)
-	return err
-}
-
-const setCardArchived = `-- name: SetCardArchived :one
-UPDATE cards SET archived_at = CASE WHEN $3::boolean THEN now() ELSE NULL END WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, board_id, column_id, title, description, label, assignee, due, source_email_id, position, created_at, contact_id, assignee_id, created_by, number, priority, due_notified_for, archived_at, start_date, color
-`
-
-type SetCardArchivedParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Archived bool      `json:"archived"`
-}
-
-// Arquiva (true) ou restaura (false) um card. Só no próprio tenant.
-func (q *Queries) SetCardArchived(ctx context.Context, arg SetCardArchivedParams) (Card, error) {
-	row := q.db.QueryRow(ctx, setCardArchived, arg.ID, arg.TenantID, arg.Archived)
-	var i Card
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.BoardID,
-		&i.ColumnID,
-		&i.Title,
-		&i.Description,
-		&i.Label,
-		&i.Assignee,
-		&i.Due,
-		&i.SourceEmailID,
-		&i.Position,
-		&i.CreatedAt,
-		&i.ContactID,
-		&i.AssigneeID,
-		&i.CreatedBy,
-		&i.Number,
-		&i.Priority,
-		&i.DueNotifiedFor,
-		&i.ArchivedAt,
-		&i.StartDate,
-		&i.Color,
-	)
-	return i, err
-}
-
-const setCardAssigneeOnly = `-- name: SetCardAssigneeOnly :exec
-UPDATE cards SET assignee_id = $3 WHERE id = $1 AND tenant_id = $2
-`
-
-type SetCardAssigneeOnlyParams struct {
-	ID         uuid.UUID   `json:"id"`
-	TenantID   uuid.UUID   `json:"tenant_id"`
-	AssigneeID pgtype.UUID `json:"assignee_id"`
-}
-
-func (q *Queries) SetCardAssigneeOnly(ctx context.Context, arg SetCardAssigneeOnlyParams) error {
-	_, err := q.db.Exec(ctx, setCardAssigneeOnly, arg.ID, arg.TenantID, arg.AssigneeID)
-	return err
-}
-
-const setCardLabelOnly = `-- name: SetCardLabelOnly :exec
-UPDATE cards SET label = $3 WHERE id = $1 AND tenant_id = $2
-`
-
-type SetCardLabelOnlyParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Label    string    `json:"label"`
-}
-
-func (q *Queries) SetCardLabelOnly(ctx context.Context, arg SetCardLabelOnlyParams) error {
-	_, err := q.db.Exec(ctx, setCardLabelOnly, arg.ID, arg.TenantID, arg.Label)
 	return err
 }
 
@@ -12250,31 +10545,6 @@ type SetChannelNotifPrefParams struct {
 func (q *Queries) SetChannelNotifPref(ctx context.Context, arg SetChannelNotifPrefParams) error {
 	_, err := q.db.Exec(ctx, setChannelNotifPref, arg.ChannelID, arg.UserID, arg.NotifPref)
 	return err
-}
-
-const setChecklistDone = `-- name: SetChecklistDone :one
-UPDATE card_checklist_items SET done = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, card_id, text, done, position, created_at
-`
-
-type SetChecklistDoneParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Done     bool      `json:"done"`
-}
-
-func (q *Queries) SetChecklistDone(ctx context.Context, arg SetChecklistDoneParams) (CardChecklistItem, error) {
-	row := q.db.QueryRow(ctx, setChecklistDone, arg.ID, arg.TenantID, arg.Done)
-	var i CardChecklistItem
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.CardID,
-		&i.Text,
-		&i.Done,
-		&i.Position,
-		&i.CreatedAt,
-	)
-	return i, err
 }
 
 const setContactAvatar = `-- name: SetContactAvatar :one
@@ -13044,59 +11314,6 @@ func (q *Queries) UpdateAssistantMemory(ctx context.Context, arg UpdateAssistant
 	return i, err
 }
 
-const updateBoard = `-- name: UpdateBoard :one
-UPDATE boards SET name = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id
-`
-
-type UpdateBoardParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Name     string    `json:"name"`
-}
-
-func (q *Queries) UpdateBoard(ctx context.Context, arg UpdateBoardParams) (Board, error) {
-	row := q.db.QueryRow(ctx, updateBoard, arg.ID, arg.TenantID, arg.Name)
-	var i Board
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.Prefix,
-		&i.CardSeq,
-		&i.ArchivedAt,
-		&i.OwnerUserID,
-	)
-	return i, err
-}
-
-const updateBoardPrefix = `-- name: UpdateBoardPrefix :one
-UPDATE boards SET prefix = $3 WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, name, created_at, prefix, card_seq, archived_at, owner_user_id
-`
-
-type UpdateBoardPrefixParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Prefix   string    `json:"prefix"`
-}
-
-// Prefixo em maiúsculas, sem espaços, até 6 — o resto é decisão de quem gere o quadro.
-func (q *Queries) UpdateBoardPrefix(ctx context.Context, arg UpdateBoardPrefixParams) (Board, error) {
-	row := q.db.QueryRow(ctx, updateBoardPrefix, arg.ID, arg.TenantID, arg.Prefix)
-	var i Board
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.Name,
-		&i.CreatedAt,
-		&i.Prefix,
-		&i.CardSeq,
-		&i.ArchivedAt,
-		&i.OwnerUserID,
-	)
-	return i, err
-}
-
 const updateCalendar = `-- name: UpdateCalendar :one
 UPDATE calendars SET name = $3, color = $4 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, name, color, created_at
 `
@@ -13123,72 +11340,6 @@ func (q *Queries) UpdateCalendar(ctx context.Context, arg UpdateCalendarParams) 
 		&i.Name,
 		&i.Color,
 		&i.CreatedAt,
-	)
-	return i, err
-}
-
-const updateCard = `-- name: UpdateCard :one
-UPDATE cards SET title = $3, description = $4, label = $5, due = $6, assignee_id = $7,
-    priority = $8, start_date = $9, color = $10,
-    contact_id = CASE WHEN $11::boolean THEN $12 ELSE contact_id END
-WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, board_id, column_id, title, description, label, assignee, due, source_email_id, position, created_at, contact_id, assignee_id, created_by, number, priority, due_notified_for, archived_at, start_date, color
-`
-
-type UpdateCardParams struct {
-	ID          uuid.UUID   `json:"id"`
-	TenantID    uuid.UUID   `json:"tenant_id"`
-	Title       string      `json:"title"`
-	Description string      `json:"description"`
-	Label       string      `json:"label"`
-	Due         string      `json:"due"`
-	AssigneeID  pgtype.UUID `json:"assignee_id"`
-	Priority    string      `json:"priority"`
-	StartDate   string      `json:"start_date"`
-	Color       string      `json:"color"`
-	SetContact  bool        `json:"set_contact"`
-	ContactID   pgtype.UUID `json:"contact_id"`
-}
-
-// contact_id só muda se o pedido trouxer o campo: quem edita a tarefa sem falar do contato não
-// pode desfazer o vínculo por omissão.
-func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, error) {
-	row := q.db.QueryRow(ctx, updateCard,
-		arg.ID,
-		arg.TenantID,
-		arg.Title,
-		arg.Description,
-		arg.Label,
-		arg.Due,
-		arg.AssigneeID,
-		arg.Priority,
-		arg.StartDate,
-		arg.Color,
-		arg.SetContact,
-		arg.ContactID,
-	)
-	var i Card
-	err := row.Scan(
-		&i.ID,
-		&i.TenantID,
-		&i.BoardID,
-		&i.ColumnID,
-		&i.Title,
-		&i.Description,
-		&i.Label,
-		&i.Assignee,
-		&i.Due,
-		&i.SourceEmailID,
-		&i.Position,
-		&i.CreatedAt,
-		&i.ContactID,
-		&i.AssigneeID,
-		&i.CreatedBy,
-		&i.Number,
-		&i.Priority,
-		&i.DueNotifiedFor,
-		&i.ArchivedAt,
-		&i.StartDate,
-		&i.Color,
 	)
 	return i, err
 }
@@ -13321,39 +11472,6 @@ func (q *Queries) UpdateClientAgent(ctx context.Context, arg UpdateClientAgentPa
 		&i.Tools,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const updateColumn = `-- name: UpdateColumn :one
-UPDATE board_columns SET name = $3, color = $4, wip_limit = $5 WHERE id = $1 AND tenant_id = $2 RETURNING id, board_id, tenant_id, name, color, position, wip_limit
-`
-
-type UpdateColumnParams struct {
-	ID       uuid.UUID `json:"id"`
-	TenantID uuid.UUID `json:"tenant_id"`
-	Name     string    `json:"name"`
-	Color    string    `json:"color"`
-	WipLimit int32     `json:"wip_limit"`
-}
-
-func (q *Queries) UpdateColumn(ctx context.Context, arg UpdateColumnParams) (BoardColumn, error) {
-	row := q.db.QueryRow(ctx, updateColumn,
-		arg.ID,
-		arg.TenantID,
-		arg.Name,
-		arg.Color,
-		arg.WipLimit,
-	)
-	var i BoardColumn
-	err := row.Scan(
-		&i.ID,
-		&i.BoardID,
-		&i.TenantID,
-		&i.Name,
-		&i.Color,
-		&i.Position,
-		&i.WipLimit,
 	)
 	return i, err
 }
