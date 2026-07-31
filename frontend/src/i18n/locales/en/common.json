@@ -321,7 +321,8 @@
       "contacts": "Contacts",
       "meet": "Meet",
       "wiki": "Wiki",
-      "admin": "Admin"
+      "admin": "Admin",
+      "notes": "Notes"
     },
     "cancel": "Cancel",
     "undo": "Undo",
@@ -978,7 +979,16 @@
     "signup.provision_failed": "Could not set up the domain and mailbox. Try again in a few minutes.",
     "mailbox.password_weak": "That password is too weak. Avoid repeats and sequences — add another word, preferably an uncommon one.",
     "signup.closed": "Sign-ups are closed at the moment.",
-    "boards.prefix_taken": "That prefix is already used by another board."
+    "boards.prefix_taken": "That prefix is already used by another board.",
+    "notes.not_found": "Note not found.",
+    "notes.forbidden": "You do not have permission on this note.",
+    "notes.invalid_id": "Invalid note.",
+    "notes.invalid_subject": "Invalid recipient.",
+    "notes.failed": "Could not load the notes.",
+    "notes.create_failed": "Could not create the note.",
+    "notes.save_failed": "Could not save the note.",
+    "notes.delete_failed": "Could not delete the note.",
+    "notes.share_failed": "Could not share the note."
   },
   "members": {
     "title": "Members",
@@ -2700,5 +2710,19 @@
     "skip": "Not now",
     "errPwShort": "The password needs at least 10 characters.",
     "errPwMatch": "The passwords don't match."
+  },
+  "notes": {
+    "new": "New note",
+    "none": "No notes yet.",
+    "pick": "Pick a note, or create one.",
+    "untitled": "Untitled note",
+    "titlePh": "Title",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "share": "Share",
+    "shareHint": "A note is private until it is shared. Choose people, teams or the whole organisation.",
+    "extractTasks": "Create tasks with AI",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this note?"
   }
 }

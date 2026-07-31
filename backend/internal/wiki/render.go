@@ -27,6 +27,11 @@ type pmMark struct {
 	Attrs map[string]any `json:"attrs"`
 }
 
+// Derive is derive, exported for callers outside the wiki -- Notes stores the same BlockNote array
+// and needs the same plain-text projection for AI extraction and search. One implementation, so the
+// two features can never disagree about what a note says.
+func Derive(bodyJSON []byte) (text, html string) { return derive(bodyJSON) }
+
 // derive parses body_json and returns (body_text, body_html). Invalid JSON yields empty derivations
 // rather than an error — the caller keeps body_json as the source of truth regardless.
 // Dois formatos: ARRAY de blocos = BlockNote (o atual, B2); objeto {type:"doc"} = ProseMirror/TipTap

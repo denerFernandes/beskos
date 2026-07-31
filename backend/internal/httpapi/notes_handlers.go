@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/wiki"
 )
 
 // Notes: personal notes and meeting notes (migration 00133).
@@ -87,7 +88,6 @@ func (s *Server) handleGetNote(w http.ResponseWriter, r *http.Request) {
 type noteBody struct {
 	Title    string          `json:"title"`
 	BodyJSON json.RawMessage `json:"body_json"`
-	BodyText string          `json:"body_text"`
 }
 
 // blocksOrEmpty keeps the column valid whatever the client sends. An absent or malformed body is an
@@ -100,6 +100,15 @@ func blocksOrEmpty(raw json.RawMessage) json.RawMessage {
 	return raw
 }
 
+// noteText projects the blocks to plain text with the wiki's renderer, on the SERVER. The client
+// could send its own copy and save a little work, but then a bug or a stale field there would leave
+// a note whose searchable text and whose AI-extracted tasks describe something the note does not
+// say. The blocks are the truth; this is derived from them, in one place, on every write.
+func noteText(blocks json.RawMessage) string {
+	text, _ := wiki.Derive(blocks)
+	return text
+}
+
 func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req noteBody
@@ -110,7 +119,7 @@ func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 		TenantID: mu.TenantID, OwnerUserID: mu.ID,
 		Title:    strings.TrimSpace(req.Title),
 		BodyJson: blocksOrEmpty(req.BodyJSON),
-		BodyText: req.BodyText,
+		BodyText: noteText(blocksOrEmpty(req.BodyJSON)),
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "notes.create_failed")
@@ -133,7 +142,7 @@ func (s *Server) handleUpdateNote(w http.ResponseWriter, r *http.Request) {
 		NoteID: id, TenantID: mu.TenantID,
 		Title:     strings.TrimSpace(req.Title),
 		BodyJson:  blocksOrEmpty(req.BodyJSON),
-		BodyText:  req.BodyText,
+		BodyText:  noteText(blocksOrEmpty(req.BodyJSON)),
 		UpdatedBy: pgtype.UUID{Bytes: mu.ID, Valid: true},
 	})
 	if err != nil {

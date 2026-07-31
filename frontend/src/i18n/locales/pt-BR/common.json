@@ -321,7 +321,8 @@
       "contacts": "Contatos",
       "meet": "Meet",
       "wiki": "Wiki",
-      "admin": "Administração"
+      "admin": "Administração",
+      "notes": "Notas"
     },
     "cancel": "Cancelar",
     "undo": "Desfazer",
@@ -978,7 +979,16 @@
     "signup.provision_failed": "Não foi possível preparar o domínio e a caixa. Tente de novo dentro de minutos.",
     "mailbox.password_weak": "A palavra-passe é demasiado fraca. Evite repetições e sequências — junte outra palavra, de preferência pouco comum.",
     "signup.closed": "As inscrições estão fechadas de momento.",
-    "boards.prefix_taken": "Esse prefixo já está em uso noutro quadro."
+    "boards.prefix_taken": "Esse prefixo já está em uso noutro quadro.",
+    "notes.not_found": "Nota não encontrada.",
+    "notes.forbidden": "Sem permissão nesta nota.",
+    "notes.invalid_id": "Nota inválida.",
+    "notes.invalid_subject": "Destinatário inválido.",
+    "notes.failed": "Não foi possível carregar as notas.",
+    "notes.create_failed": "Não foi possível criar a nota.",
+    "notes.save_failed": "Não foi possível guardar a nota.",
+    "notes.delete_failed": "Não foi possível apagar a nota.",
+    "notes.share_failed": "Não foi possível partilhar a nota."
   },
   "members": {
     "title": "Membros",
@@ -2700,5 +2710,19 @@
     "skip": "Agora não",
     "errPwShort": "A palavra-passe precisa de pelo menos 10 caracteres.",
     "errPwMatch": "As palavras-passe não coincidem."
+  },
+  "notes": {
+    "new": "Nova nota",
+    "none": "Sem notas ainda.",
+    "pick": "Escolha uma nota, ou crie uma.",
+    "untitled": "Nota sem título",
+    "titlePh": "Título",
+    "pin": "Fixar",
+    "unpin": "Desafixar",
+    "share": "Partilhar",
+    "shareHint": "Uma nota é privada até ser partilhada. Escolha pessoas, equipas ou toda a organização.",
+    "extractTasks": "Criar tarefas com IA",
+    "delete": "Apagar",
+    "deleteConfirm": "Apagar esta nota?"
   }
 }

@@ -26,6 +26,7 @@ import { FilesView } from "./FilesView";
 import { ContactsView } from "./ContactsView";
 import { MeetView } from "./MeetView";
 import { WikiView } from "./WikiView";
+import { NotesView } from "./NotesView";
 import { useChatSocket } from "./useChatSocket";
 import { toastAction } from "./toast";
 import { ChatView } from "./ChatView";
@@ -33,12 +34,12 @@ import { AdminView, useAdminEnabled, useAssistantEnabled, useDisabledApps } from
 import { SettingsView } from "./SettingsView";
 import { NotificationsBell } from "./NotificationsBell";
 import { AssistantBubble } from "./assistant/AssistantBubble";
-import { IcSun, IcMail, IcColumns, IcCalendar, IcFolder, IcUsers, IcSearch, IcMoon, IcLogout, IcVideo, IcChat, IcShield, IcGear, IcChevron, IcBook } from "../panel/icons";
+import { IcSun, IcMail, IcColumns, IcCalendar, IcFolder, IcUsers, IcSearch, IcMoon, IcLogout, IcVideo, IcChat, IcShield, IcGear, IcChevron, IcBook, IcPencilBox } from "../panel/icons";
 
-type View = "today" | "mail" | "chat" | "kanban" | "cal" | "files" | "contacts" | "meet" | "wiki" | "admin" | "settings" | "profile";
+type View = "today" | "mail" | "chat" | "kanban" | "cal" | "files" | "contacts" | "meet" | "notes" | "wiki" | "admin" | "settings" | "profile";
 // Áreas com o que buscar. "today" e "admin" ficam de fora: não têm lista para filtrar.
 const SEARCHABLE: View[] = ["mail", "chat", "kanban", "cal", "files", "contacts", "meet"];
-const VIEWS: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "wiki", "admin", "settings", "profile"];
+const VIEWS: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "notes", "wiki", "admin", "settings", "profile"];
 
 // Shell do app de e-mail: barra superior + rail de apps + view ativa. A view ativa fica na URL
 // (/mail/<view>), então links são navegáveis e recarregáveis. "Hoje" é o padrão.
@@ -156,7 +157,7 @@ export function App({ session }: { session: WebmailSession }) {
   // ligada (o Correio já não é garantido — também se pode desligar).
   useEffect(() => {
     if (!disabledApps.includes(view)) return;
-    const order: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "wiki"];
+    const order: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "notes", "wiki"];
     setView(order.find((v) => !disabledApps.includes(v)) ?? "settings");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabledApps, view]);
@@ -230,6 +231,7 @@ export function App({ session }: { session: WebmailSession }) {
     { id: "files", label: t("webmail.apps.files"), icon: <IcFolder size={20} /> },
     { id: "contacts", label: t("webmail.apps.contacts"), icon: <IcUsers size={20} /> },
     { id: "meet", label: t("webmail.apps.meet"), icon: <IcVideo size={20} /> },
+    { id: "notes", label: t("webmail.apps.notes"), icon: <IcPencilBox size={20} /> },
     { id: "wiki", label: t("webmail.apps.wiki"), icon: <IcBook size={20} /> },
   ];
   const apps = allApps.filter((a) => !off.has(a.id));
@@ -316,6 +318,7 @@ export function App({ session }: { session: WebmailSession }) {
           {view === "files" && <FilesView search={search} folderParam={sub === "file" ? undefined : sub} fileParam={sub === "file" ? sub2 : undefined} onFolder={(id) => nav(id ? `/mail/files/${id}` : "/mail/files")} />}
           {view === "contacts" && <ContactsView search={search} sub={sub} sub2={sub2} />}
           {view === "meet" && <MeetView roomParam={sub === "m" ? undefined : sub} meetingParam={sub === "m" ? sub2 : undefined} />}
+          {view === "notes" && <NotesView noteParam={sub} onNote={(id) => nav(id ? `/mail/notes/${id}` : "/mail/notes")} />}
           {view === "wiki" && <WikiView sub={sub} sub2={sub2} onNav={(s, p) => nav(p ? `/mail/wiki/${s}/${p}` : s ? `/mail/wiki/${s}` : "/mail/wiki")} />}
           {/* sec vazio = voltar à raiz (lista de secções no telemóvel); senão entra na secção. */}
           {view === "admin" && canAdmin && (
