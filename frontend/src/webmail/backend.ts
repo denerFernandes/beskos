@@ -26,7 +26,9 @@ export class ApiError extends Error {
   }
 }
 
-async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
+// Exported so a feature can keep its own API module (see notesApi.ts) instead of growing this
+// file, which is long past the 600 lines the project allows.
+export async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(apiUrl(path), {
     ...opts,
     credentials: "include",
@@ -638,8 +640,6 @@ export const contactsApi = {
     return res.json();
   },
 };
-
-
 
 export interface Colleague { id: string; email: string; name: string; avatar?: string }
 

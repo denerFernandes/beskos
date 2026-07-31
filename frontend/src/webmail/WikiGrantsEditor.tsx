@@ -13,11 +13,16 @@ export type GrantRow = { id: string; subject_type: "user" | "group" | "org"; sub
 
 const ROLES = ["viewer", "editor", "manager"] as const;
 
-export function WikiGrantsEditor({ grants, onAdd, onRemove, busy }: {
+// Shared by the wiki and by Notes, which has two roles instead of four: there is nothing to comment
+// on in a note, and a 'manager' that cannot do anything a wiki manager can would be a lie in a
+// dropdown. Callers that pass nothing keep the wiki's set.
+
+export function WikiGrantsEditor({ grants, onAdd, onRemove, busy, roles = ROLES }: {
   grants: GrantRow[];
   onAdd: (subjectType: string, subjectId: string | null, role: string) => void;
   onRemove: (grantId: string) => void;
   busy?: boolean;
+  roles?: readonly string[];
 }) {
   const { t } = useTranslation();
   const [subjectType, setSubjectType] = useState<"org" | "user" | "group">("user");
@@ -77,7 +82,7 @@ export function WikiGrantsEditor({ grants, onAdd, onRemove, busy }: {
         )}
         <label className="wiki-field"><span>{t("wiki.accessLevel")}</span>
           <select value={role} onChange={(e) => setRole(e.target.value)}>
-            {ROLES.map((rr) => <option key={rr} value={rr}>{t(`wiki.role.${rr}`)}</option>)}
+            {roles.map((rr) => <option key={rr} value={rr}>{t(`wiki.role.${rr}`)}</option>)}
           </select>
         </label>
         <button className="add" disabled={!canAdd}
