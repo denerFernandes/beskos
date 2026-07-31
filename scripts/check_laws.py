@@ -10,7 +10,14 @@ What it checks, comparing against git HEAD:
   1. Language (law 4.6) -- code, comments, logs and error strings must be English, on ADDED lines.
   2. File size (law 1.4) -- 600 lines maximum, and a file already over it may not grow.
 
-REGRESSIONS, NOT THE BACKLOG, is the whole design. The repository still holds thousands of
+MOVED IS NOT NEW. Splitting a legacy file makes every line of the new files look added, and the
+language rule would then demand translating the whole backlog in the middle of a refactor -- which
+is how a check gets a reputation for blocking honest work. A line that already existed at `base`,
+anywhere in the set of files this change touches, counts as moved and is not read for language.
+The cost is that a genuinely new line which happens to duplicate an old one slips through; the
+alternative is that nobody may ever move code again.
+
+REGRESSIONS, NOT THE BACKLOG, is the rest of the design. The repository still holds thousands of
 Portuguese comments from before the rule changed, and a handful of files that were oversized long
 before anyone wrote this. Reporting those on every edit would make the check noise, and noise gets
 switched off within a day. So: only lines you just added are read for language, and an oversized
@@ -101,8 +108,12 @@ def is_checkable(path: str) -> bool:
 
 
 def git(*args: str) -> str:
+    # errors="replace": a change set can contain a compiled artefact or an image, and `git show` on
+    # one returns bytes that are not text. Undecodable output is useless here but must not crash the
+    # check -- refusing to run is the same as not existing.
     try:
-        return subprocess.run(["git", *args], capture_output=True, text=True, check=False).stdout
+        out = subprocess.run(["git", *args], capture_output=True, check=False)
+        return out.stdout.decode("utf-8", errors="replace")
     except OSError:
         return ""
 
@@ -150,8 +161,30 @@ def portuguese_in(line: str) -> str | None:
     return None
 
 
-def check(paths: list[str], base: str = "HEAD") -> list[str]:
+def moved_pool(paths: list[str], base: str) -> set[str]:
+    """Every line these files already had at `base`. Used to tell a moved line from a written one."""
+    pool: set[str] = set()
+    for path in paths:
+        for line in git("show", f"{base}:{path}").splitlines():
+            s = line.strip()
+            if s:
+                pool.add(s)
+    return pool
+
+
+def changed_files(base: str) -> list[str]:
+    """Everything this working tree changes against `base`, tracked and not."""
+    out = [p for p in git("diff", "--name-only", base).split() if p]
+    out += [p for p in git("ls-files", "--others", "--exclude-standard").split() if p]
+    return out
+
+
+def check(paths: list[str], base: str = "HEAD", pool_paths: list[str] | None = None) -> list[str]:
     problems: list[str] = []
+    # The moved-line pool is built from the WHOLE change, never from the one file being checked. The
+    # hook is called per file, and a file created by a split does not exist at `base` -- its own pool
+    # would be empty and every moved line would read as newly written.
+    pool = moved_pool(pool_paths if pool_paths is not None else paths, base)
     for path in paths:
         if not is_checkable(path):
             continue
@@ -169,6 +202,8 @@ def check(paths: list[str], base: str = "HEAD") -> list[str]:
                 f"Split it by responsibility, or at least do not make it longer."
             )
         for lineno, text in added_lines(path, base):
+            if text.strip() in pool:
+                continue  # moved from another file in this same change, not written now
             found = portuguese_in(text)
             if found:
                 problems.append(
@@ -193,11 +228,17 @@ def main() -> int:
             return 0
         path = (payload.get("tool_input") or {}).get("file_path")
         paths = [path] if path else []
+        problems = check(paths, base, pool_paths=changed_files(base))
+        if not problems:
+            return 0
+        print("LAW VIOLATION (CLAUDE.md) -- fix before continuing:\n", file=sys.stderr)
+        for p in problems:
+            print("  " + p, file=sys.stderr)
+        return 2
     elif [a for a in args if not a.startswith("--")]:
         paths = [a for a in args if not a.startswith("--")]
     else:
-        paths = [p for p in git("diff", "--name-only", base).split() if p]
-        paths += [p for p in git("ls-files", "--others", "--exclude-standard").split() if p]
+        paths = changed_files(base)
 
     problems = check(paths, base)
     if not problems:
