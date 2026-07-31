@@ -19,16 +19,30 @@ export function ExtractTasksModal({
   const [checked, setChecked] = useState<Record<number, boolean>>({});
   const [boardId, setBoardId] = useState("");
 
-  // Colegas do tenant para casar o responsável SUGERIDO pela IA (texto) com um utilizador real →
-  // assignee_id. Sem isto o responsável era descartado (o backend só aceita id, não nome).
+  // Matches the assignee the AI suggested to a real user -> assignee_id (the backend takes ids only).
+  //
+  // The server now sends the roster to the model and demands an E-MAIL from it, so the normal path is
+  // an exact match. The two passes below are for the free text still arriving from older flows: a
+  // bare first name. "Dener" never matched somebody displayed as "D Fernandes" -- not by equality and
+  // not by prefix of the whole name -- and the assignment was lost without a word. Comparing TOKEN by
+  // TOKEN fixes that, and the local part of the address catches "@dfernandes".
   const colleaguesQ = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list() });
-  const resolveAssignee = (name: string): string => {
-    const n = name.trim().toLowerCase();
+  const resolveAssignee = (raw: string): string => {
+    const n = raw.trim().toLowerCase().replace(/^@/, "");
     if (!n) return "";
     const list: Colleague[] = colleaguesQ.data ?? [];
-    const hit = list.find((c) => c.name.toLowerCase() === n || c.email.toLowerCase() === n)
-      ?? list.find((c) => c.name.toLowerCase().startsWith(n) || c.email.toLowerCase().startsWith(n));
-    return hit?.id ?? "";
+    const exact = list.find((c) => c.email.toLowerCase() === n || c.name.toLowerCase() === n);
+    if (exact) return exact.id;
+    // One word of the name, or the local part of the address. Only counts when ONE person matches:
+    // with two people called "Ana", picking the first is a decision nobody reviews -- an owner
+    // already filled in is not something anyone goes back to check.
+    const token = list.filter((c) =>
+      c.name.toLowerCase().split(/\s+/).includes(n) || c.email.toLowerCase().split("@")[0] === n);
+    if (token.length === 1) return token[0].id;
+    // Last resort: a prefix, and only when a SINGLE colleague matches. Assigning to the first of
+    // two would be worse than assigning to nobody, for the same reason as above.
+    const starts = list.filter((c) => c.name.toLowerCase().startsWith(n) || c.email.toLowerCase().startsWith(n));
+    return starts.length === 1 ? starts[0].id : "";
   };
 
   // Extração é uma AÇÃO (gera tarefas), não dado cacheável: não guardamos o resultado entre

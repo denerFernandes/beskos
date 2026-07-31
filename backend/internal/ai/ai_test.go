@@ -42,21 +42,50 @@ func TestAssistantSummarize(t *testing.T) {
 }
 
 func TestAssistantExtractTasks(t *testing.T) {
-	fp := &fakeProvider{reply: "```json\n[{\"title\":\"Revisar contrato\",\"due\":\"hoje\",\"assignee\":\"Ana\"}]\n```"}
+	fp := &fakeProvider{reply: "```json\n[{\"title\":\"Revisar contrato\",\"due\":\"hoje\",\"assignee\":\"ana@acme.com\"}]\n```"}
 	a := NewAssistant(fp, "pt-BR")
-	tasks, err := a.ExtractTasks(context.Background(), "Contrato", "Revisar até hoje")
+	people := []Person{{Name: "Ana Silva", Email: "ana@acme.com"}}
+	tasks, err := a.ExtractTasks(context.Background(), "Contract", "Review by today", people)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(tasks) != 1 || tasks[0].Title != "Revisar contrato" || tasks[0].Due != "hoje" {
 		t.Errorf("tarefas inesperadas: %+v", tasks)
 	}
+	if tasks[0].Assignee != "ana@acme.com" {
+		t.Errorf("assignee = %q, want the address from the roster", tasks[0].Assignee)
+	}
+}
+
+// An address the model made up assigns the work to nobody while the screen claims it was assigned.
+// Blank is the honest answer, and the one that makes someone pick an owner.
+func TestExtractTasksDropsInventedAssignee(t *testing.T) {
+	fp := &fakeProvider{reply: `[{"title":"X","due":"","assignee":"quemquer@outra.com"}]`}
+	a := NewAssistant(fp, "pt-BR")
+	tasks, err := a.ExtractTasks(context.Background(), "s", "b", []Person{{Name: "Ana", Email: "ana@acme.com"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tasks[0].Assignee != "" {
+		t.Errorf("assignee = %q, want it blank", tasks[0].Assignee)
+	}
+}
+
+// The roster has to reach the model, or it can only echo the name written in the text -- which is
+// the whole reason "Dener" never matched a user displayed as "D Fernandes".
+func TestExtractTasksSendsTheRoster(t *testing.T) {
+	fp := &fakeProvider{reply: "[]"}
+	a := NewAssistant(fp, "pt-BR")
+	_, _ = a.ExtractTasks(context.Background(), "s", "b", []Person{{Name: "D Fernandes", Email: "df@acme.com"}})
+	if !strings.Contains(fp.last.Messages[0].Content, "df@acme.com") {
+		t.Errorf("the prompt does not carry the roster: %q", fp.last.Messages[0].Content)
+	}
 }
 
 func TestAssistantExtractTasksBadJSON(t *testing.T) {
 	fp := &fakeProvider{reply: "desculpe, não consegui"}
 	a := NewAssistant(fp, "pt-BR")
-	if _, err := a.ExtractTasks(context.Background(), "x", "y"); err == nil {
+	if _, err := a.ExtractTasks(context.Background(), "x", "y", nil); err == nil {
 		t.Errorf("esperava erro para resposta não-JSON")
 	}
 }

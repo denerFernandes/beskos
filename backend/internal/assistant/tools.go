@@ -30,6 +30,11 @@ const (
 	ToolWikiRead       = "wiki.read"
 	ToolWikiCreatePage = "wiki.create_page"
 	ToolWikiEditPage   = "wiki.edit_page"
+
+	ToolNotesSearch = "notes.search"
+	ToolNotesRead   = "notes.read"
+	ToolNotesCreate = "notes.create"
+	ToolNotesEdit   = "notes.edit"
 )
 
 // Result é o que uma ferramenta devolve.

@@ -37,6 +37,16 @@ function goInternal(e: React.MouseEvent, href: string): void {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
+// internalPath returns the path when the target is this app, otherwise null. Compared by ORIGIN: a
+// host that merely starts the same ("app.beskos.com.evil.com") is not ours.
+function internalPath(href: string): string | null {
+  if (href.startsWith("/")) return href;
+  try {
+    const u = new URL(href);
+    return u.origin === window.location.origin ? u.pathname + u.search + u.hash : null;
+  } catch { return null; }
+}
+
 function TaskRef({ href, label }: { href: string; label: string }): ReactNode {
   // O texto do link vem como "QUA-12 — Título" (é assim que o partilhar e o /task o escrevem);
   // quando não vier, mostramos o rótulo inteiro sem inventar uma chave.
@@ -68,7 +78,13 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
     else if (tok.startsWith("[")) {
       const mm = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(tok);
       if (mm && TASK_HREF.test(mm[2])) out.push(<TaskRef key={key} href={mm[2]} label={mm[1]} />);
-      else if (mm && mm[2].startsWith("/")) out.push(<a key={key} href={mm[2]} onClick={(e) => goInternal(e, mm[2])}>{mm[1]}</a>);
+      // One of OUR links navigates inside the app, whether it arrives as a path or as an absolute
+      // URL. Sharing a note produces the second form (the link has to work for whoever copies it
+      // out), and without this it opened a new tab for a page that was already open.
+      else if (mm && internalPath(mm[2])) {
+        const path = internalPath(mm[2])!;
+        out.push(<a key={key} href={path} onClick={(e) => goInternal(e, path)}>{mm[1]}</a>);
+      }
       else if (mm) out.push(<a key={key} href={mm[2]} target="_blank" rel="noreferrer">{mm[1]}</a>);
       else out.push(tok);
     } else if (IS_URL.test(tok)) {

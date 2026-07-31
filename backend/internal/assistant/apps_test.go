@@ -62,3 +62,22 @@ func TestWithoutToolsSoRemove(t *testing.T) {
 		t.Error("sem bloqueios, a lista tem de ficar igual")
 	}
 }
+
+// Turning off the Notes app has to take the note tools away from the assistant too. The admin
+// toggle says "the AI assistant loses access"; a tool that survived it would make that a lie, and
+// the person who switched the app off would have no way of knowing.
+func TestNotesAppGatesItsTools(t *testing.T) {
+	all := []string{ToolNotesSearch, ToolNotesRead, ToolNotesCreate, ToolNotesEdit, ToolMailSearch}
+	got := AllowedTools(all, []string{"notes"})
+	if len(got) != 1 || got[0] != ToolMailSearch {
+		t.Errorf("with Notes off, %v survived; only the mail tool should have", got)
+	}
+}
+
+// And with the app on, nothing is removed.
+func TestNotesToolsSurviveWhenTheAppIsOn(t *testing.T) {
+	all := []string{ToolNotesSearch, ToolNotesEdit}
+	if got := AllowedTools(all, []string{"wiki"}); len(got) != 2 {
+		t.Errorf("switching the wiki off must not remove note tools: %v", got)
+	}
+}

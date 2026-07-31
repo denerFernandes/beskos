@@ -162,7 +162,17 @@ func (s *Server) handleAIExtractTasks(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	tasks, err := a.ExtractTasks(r.Context(), req.Subject, req.Body)
+	// The roster goes with the request so the model can answer with a real e-mail instead of echoing
+	// whatever name appeared in the text. THIS tenant only: suggesting someone from another
+	// organisation would reveal that they exist.
+	mu := mailUserFrom(r.Context())
+	people := []ai.Person{}
+	if rows, err := s.q.ListColleagues(r.Context(), mu.TenantID); err == nil {
+		for _, c := range rows {
+			people = append(people, ai.Person{Name: c.Name, Email: c.Email})
+		}
+	}
+	tasks, err := a.ExtractTasks(r.Context(), req.Subject, req.Body, people)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "ai.failed")
 		return
