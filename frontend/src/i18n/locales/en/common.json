@@ -279,7 +279,8 @@
       "expand": "Expand",
       "maximize": "Full screen",
       "restore": "Restore",
-      "bigNoDrive": "“{{name}}” is too large to attach and Drive is disabled — this file can’t be sent."
+      "bigNoDrive": "“{{name}}” is too large to attach and Drive is disabled — this file can’t be sent.",
+      "dropHere": "Drop to attach"
     },
     "reader": {
       "none": "Select a message to read.",

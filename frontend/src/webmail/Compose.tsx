@@ -6,6 +6,7 @@ import type { MailService } from "../jmap/mail";
 import type { UploadedBlob } from "../jmap/types";
 import { backend, contactsApi } from "./backend";
 import { publicUrl } from "../apiBase";
+import { useFileDrop } from "./useFileDrop";
 import { RecipientField } from "./RecipientField";
 import { Spinner } from "./Spinner";
 import { outboundBcc, parse } from "./rules";
@@ -54,6 +55,10 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   const [atts, setAtts] = useState<UploadedBlob[]>(initial?.attachments ?? []);
   const [bigAtts, setBigAtts] = useState<BigAttachment[]>([]);
   const [pendingBig, setPendingBig] = useState<File[]>([]); // grandes à espera de confirmação
+  // Dropping files on the window attaches them. `onFiles` is a function declaration and therefore
+  // hoisted, so it can be referenced here, above where it is written -- and it already decides
+  // between a normal attachment and a large file that goes up to the Drive instead.
+  const { over: dropOver, handlers: dropHandlers } = useFileDrop((files) => void onFiles(files));
   const [uploading, setUploading] = useState(0);
   const [aiOpen, setAiOpen] = useState(false);
   const [draftId, setDraftId] = useState<string | undefined>(initial?.draftId);
@@ -363,7 +368,14 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   const dockStyle = maxed ? undefined : { right: 24 + dockIndex * 736 };
   return (
     <div className="cmp-bg open">
-      <div className={"cmp" + (maxed ? " maxed" : "") + (min ? " min" : "")} style={dockStyle}>
+      {/* Dropping files anywhere on the window attaches them, which is where people aim -- not at
+          the paperclip. The handlers go on the window and not on the body so that a file let go
+          over the header or the address fields lands too, instead of falling through to the page
+          behind and making the browser navigate away from the draft. */}
+      <div className={"cmp" + (maxed ? " maxed" : "") + (min ? " min" : "")} style={dockStyle} {...dropHandlers}>
+        {dropOver && !min && (
+          <div className="drop-overlay"><div className="drop-card"><IcPaperclip size={22} /> {t("webmail.compose.dropHere")}</div></div>
+        )}
         <header
           onClick={(e) => { if (min && !(e.target as HTMLElement).closest(".cmp-hdr-actions")) setMin(false); }}
           onDoubleClick={() => { if (!min) setMaxed((v) => !v); }}>
