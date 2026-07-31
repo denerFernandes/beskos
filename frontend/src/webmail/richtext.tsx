@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { customEmojiUrl } from "./customEmoji";
+import { URL_TOKEN, splitTrailing, href as linkHref } from "./links";
 
 // Renderizador de markdown leve (subconjunto estilo Slack), sem dependência externa. Constrói
 // nós React (o React já escapa texto → sem risco de XSS). Suporta: **negrito**, _itálico_,
@@ -8,7 +9,18 @@ import { customEmojiUrl } from "./customEmoji";
 
 // `__sublinhado__` vem ANTES de `_itálico_`: em alternância a primeira que casa ganha, e com a
 // ordem trocada o sublinhado seria lido como itálico com underscores a mais.
-const INLINE = /(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(__[^_]+__)|(_[^_]+_)|(\[[^\]]+\]\([^)]+\))|(https?:\/\/[^\s]+)|(@[\w.\-]+)|(:[a-z0-9_]{2,32}:)/g;
+// The URL alternative comes from links.ts so the renderer and the unfurl preview agree on what a
+// link is. They used to carry a copy each, both demanding "https://", and a link pasted the way
+// people paste them ("meet.google.com/abc") was neither linked nor previewed.
+const INLINE = new RegExp(
+  "(`[^`]+`)|(\\*\\*[^*]+\\*\\*)|(~~[^~]+~~)|(__[^_]+__)|(_[^_]+_)|(\\[[^\\]]+\\]\\([^)]+\\))" +
+  `|(${URL_TOKEN})|(@[\\w.\\-]+)|(:[a-z0-9_]{2,32}:)`,
+  "gi",
+);
+
+// Which alternative fired. Testing the token against the URL pattern is the only reliable way now
+// that a link need not start with "http" -- `tok.startsWith("http")` would miss every bare host.
+const IS_URL = new RegExp(`^(?:${URL_TOKEN})$`, "i");
 
 
 // Link para uma tarefa (/mail/kanban/<quadro>/<tarefa>): em vez de um link azul no meio da frase,
@@ -59,8 +71,13 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
       else if (mm && mm[2].startsWith("/")) out.push(<a key={key} href={mm[2]} onClick={(e) => goInternal(e, mm[2])}>{mm[1]}</a>);
       else if (mm) out.push(<a key={key} href={mm[2]} target="_blank" rel="noreferrer">{mm[1]}</a>);
       else out.push(tok);
-    } else if (tok.startsWith("http")) out.push(<a key={key} href={tok} target="_blank" rel="noreferrer">{tok}</a>);
-    else if (tok.startsWith("@")) out.push(<span key={key} className="md-mention">{tok}</span>);
+    } else if (IS_URL.test(tok)) {
+      // The sentence's punctuation is not part of the address: "see beskos.com." must not link to a
+      // host ending in a dot. Whatever gets trimmed goes back as plain text so the line still reads.
+      const [url, tail] = splitTrailing(tok);
+      out.push(<a key={key} href={linkHref(url)} target="_blank" rel="noreferrer noopener">{url}</a>);
+      if (tail) out.push(tail);
+    } else if (tok.startsWith("@")) out.push(<span key={key} className="md-mention">{tok}</span>);
     else if (tok.startsWith(":")) {
       const url = customEmojiUrl(tok.slice(1, -1));
       out.push(url ? <img key={key} className="cemoji" src={url} alt={tok} title={tok} /> : tok);

@@ -5,15 +5,17 @@ Why this exists: the laws were written down and still broken, twice in one day, 
 had just finished fixing the same violation. A document does not enforce anything -- it only tells
 you what you should have done, after you did not. This runs.
 
-What it checks, on ADDED lines only (compared to git HEAD):
+What it checks, comparing against git HEAD:
 
-  1. Language (law 4.6) -- code, comments, logs and error strings must be English.
-  2. File size (law 1.4) -- 600 lines maximum.
+  1. Language (law 4.6) -- code, comments, logs and error strings must be English, on ADDED lines.
+  2. File size (law 1.4) -- 600 lines maximum, and a file already over it may not grow.
 
-ADDED LINES ONLY is the whole design. The repository still holds thousands of Portuguese comments
-from before the rule changed; checking whole files would report them forever and the check would be
-switched off within a day. Checking only what you just wrote makes the backlog irrelevant and the
-signal exact.
+REGRESSIONS, NOT THE BACKLOG, is the whole design. The repository still holds thousands of
+Portuguese comments from before the rule changed, and a handful of files that were oversized long
+before anyone wrote this. Reporting those on every edit would make the check noise, and noise gets
+switched off within a day. So: only lines you just added are read for language, and an oversized
+file is only reported when your change made it bigger. The backlog stays visible in `make check`
+output the moment you touch a file to grow it, and invisible otherwise.
 
 Usage:
     scripts/check_laws.py                 # every file changed against HEAD (working tree)
@@ -24,8 +26,13 @@ Usage:
 On CI the working tree IS the commit, so the default HEAD comparison would find nothing and the
 job would pass while proving nothing. Pass --base with the branch you are merging into.
 
-Escape hatch: a line ending in `lang:ok` is skipped. It is for the one legitimate case -- product
-copy shown to end users in Portuguese (SMS text, pt-BR fallbacks). Anything else, fix the line.
+Escape hatch: a line ending in `lang:ok` is skipped. Two legitimate uses, and no others:
+
+  - product copy shown to end users in Portuguese (SMS text, pt-BR fallbacks);
+  - data that only looks like Portuguese, such as a list of TLDs where "com" is a top-level domain
+    and not the preposition.
+
+If you reach for it for anything else, fix the line instead.
 """
 
 import json
@@ -121,6 +128,12 @@ def added_lines(path: str, base: str = "HEAD") -> list[tuple[int, str]]:
     return result
 
 
+def base_line_count(path: str, base: str) -> int:
+    """How long the file was at `base`. Zero for a file that did not exist there."""
+    out = git("show", f"{base}:{path}")
+    return len(out.splitlines()) if out else 0
+
+
 def portuguese_in(line: str) -> str | None:
     """The first Portuguese marker in the line, or None. Ignores URLs and import paths, which are
     identifiers of other people's things and not ours to rename."""
@@ -146,10 +159,14 @@ def check(paths: list[str], base: str = "HEAD") -> list[str]:
             total = len(Path(path).read_text(errors="replace").splitlines())
         except OSError:
             continue
-        if total > MAX_LINES:
+        before = base_line_count(path, base)
+        # A file that was already too big is somebody else's debt until you make it worse. Growing
+        # one past the limit, or growing one that was already past it, is your change to answer for.
+        if total > MAX_LINES and total > before:
+            grew = f" (was {before})" if before else ""
             problems.append(
-                f"{path}: {total} lines, the limit is {MAX_LINES} (law 1.4). "
-                f"Split it by responsibility."
+                f"{path}: {total} lines{grew}, the limit is {MAX_LINES} (law 1.4). "
+                f"Split it by responsibility, or at least do not make it longer."
             )
         for lineno, text in added_lines(path, base):
             found = portuguese_in(text)
