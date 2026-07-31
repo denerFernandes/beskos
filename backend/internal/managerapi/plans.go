@@ -222,12 +222,12 @@ func (s *Server) handleSetTenantPlan(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "manager.plan_not_found")
 		return
 	}
-	if err := s.q.ManagerSetTenantPlan(r.Context(), db.ManagerSetTenantPlanParams{ID: id, Plano: plan.Key}); err != nil {
+	if err := s.q.ManagerSetTenantPlan(r.Context(), db.ManagerSetTenantPlanParams{ID: id, Plan: plan.Key}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "manager.failed")
 		return
 	}
 	s.audit(r.Context(), managerUserFrom(r.Context()), "tenant_plan_set", id.String(),
-		map[string]any{"tenant": tenant.Nome, "from": tenant.Plano, "to": plan.Key})
+		map[string]any{"tenant": tenant.Name, "from": tenant.Plan, "to": plan.Key})
 	writeJSON(w, http.StatusOK, map[string]any{"tenant_id": id, "plan": plan.Key})
 }
 

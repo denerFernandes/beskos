@@ -90,7 +90,7 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   // Trocar a permissão de quem já tem acesso: é o mesmo pedido de partilhar (o servidor faz upsert
   // por ficheiro+pessoa), por isso não duplica nem dispara e-mail a quem já foi avisado.
   const setPerm = useMutation({
-    mutationFn: (v: { principal: string; nivel: string }) => backend.shareFile(file.id, v.principal, v.nivel),
+    mutationFn: (v: { principal: string; level: string }) => backend.shareFile(file.id, v.principal, v.level),
     onSuccess: () => { refresh(); toast(t("files.permChanged")); },
     onError: (e) => toast((e as Error).message),
   });
@@ -107,7 +107,7 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   const shares = sharesQ.data ?? [];
   // Partilha de organização = principal sentinela "@org"; não é uma pessoa, não entra na lista.
   const orgShare = shares.find((s) => s.principal === ORG);
-  const people = shares.filter((s) => s.principal !== ORG && s.nivel !== "link");
+  const people = shares.filter((s) => s.principal !== ORG && s.level !== "link");
 
   // Partilha com alguém de FORA: não há conta para notificar, por isso vai um link por e-mail. Se o
   // envio estiver desligado no servidor, dizemo-lo — dar por concluído o que não saiu é mentir.
@@ -145,7 +145,7 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
 
   // Âmbito do "acesso geral": um de cada vez (estilo Google). Escolher um limpa os outros.
   const scope: Scope = pubToken ? "public" : orgShare ? "org" : "restricted";
-  const orgPerm: "view" | "edit" = orgShare?.nivel === "editor" ? "edit" : "view";
+  const orgPerm: "view" | "edit" = orgShare?.level === "editor" ? "edit" : "view";
   const setScope = useMutation({
     mutationFn: async (next: Scope) => {
       if (next !== "public" && pubToken) await backend.revokeFileLink(file.id);
@@ -169,7 +169,7 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   return (
     <div className="tk-bg open" onMouseDown={onClose}>
       <div className="tk" onMouseDown={(e) => e.stopPropagation()} style={{ width: 500 }}>
-        <header><span>{t("files.shareTitle", { name: file.nome })}</span><button className="ib" title={t("common.close")} onClick={onClose}>✕</button></header>
+        <header><span>{t("files.shareTitle", { name: file.name })}</span><button className="ib" title={t("common.close")} onClick={onClose}>✕</button></header>
         <div className="body">
           <div className="share-add">
             <PeopleSearch disabled={add.isPending} onAdd={(email) => add.mutate(email)} />
@@ -202,9 +202,9 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
               <div className="grow"><div className="who">{s.principal}</div></div>
               {/* A permissão é EDITÁVEL: mudar de leitor para editor obrigava a remover e voltar a
                   partilhar, e quem o fizesse com alguém de fora mandava-lhe um segundo e-mail. */}
-              <select className="share-perm" value={s.nivel === "editor" ? "editor" : "leitor"}
+              <select className="share-perm" value={s.level === "editor" ? "editor" : "leitor"}
                 disabled={setPerm.isPending}
-                onChange={(e) => setPerm.mutate({ principal: s.principal, nivel: e.target.value })}>
+                onChange={(e) => setPerm.mutate({ principal: s.principal, level: e.target.value })}>
                 <option value="leitor">{t("files.roleViewer")}</option>
                 <option value="editor">{t("files.roleEditor")}</option>
               </select>

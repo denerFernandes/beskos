@@ -60,7 +60,7 @@ func (s *Server) handleThumbnail(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !isThumbable(f.Nome) {
+	if !isThumbable(f.Name) {
 		writeErr(w, http.StatusUnsupportedMediaType, "storage.not_image")
 		return
 	}

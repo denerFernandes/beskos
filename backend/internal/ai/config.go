@@ -55,7 +55,7 @@ func New(cfg Config) (Provider, error) {
 	// case "claude": return NewClaude(...), nil   // futuro
 	// case "openai": return NewOpenAI(...), nil   // futuro
 	default:
-		return nil, fmt.Errorf("ai: provider desconhecido %q", cfg.Provider)
+		return nil, fmt.Errorf("ai: unknown provider %q", cfg.Provider)
 	}
 }
 

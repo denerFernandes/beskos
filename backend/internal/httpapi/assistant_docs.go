@@ -34,9 +34,9 @@ func (s *Server) assistantDocsRead(ctx context.Context, id assistant.Identity, f
 		return assistant.FileContent{}, fmt.Errorf("file not found")
 	}
 
-	kind, editable := office.KindFromName(f.Nome)
+	kind, editable := office.KindFromName(f.Name)
 	fc := assistant.FileContent{
-		ID: f.ID.String(), Name: f.Nome, Version: f.Versao, Hash: f.Hash, Editable: editable,
+		ID: f.ID.String(), Name: f.Name, Version: f.Version, Hash: f.Hash, Editable: editable,
 	}
 	if !editable {
 		// Binários (imagens, PDF) não se editam às cegas — só se substituem por um envio novo
@@ -89,12 +89,12 @@ func (s *Server) assistantDocsEdit(ctx context.Context, id assistant.Identity, f
 	}
 	// Ficheiros que não são Office não se editam por aqui (§5.1): reescrever um binário às cegas é
 	// perder o ficheiro.
-	if _, ok := office.KindFromName(f.Nome); !ok {
+	if _, ok := office.KindFromName(f.Name); !ok {
 		return assistant.DriveHit{}, fmt.Errorf("this file type cannot be edited")
 	}
 	// A guarda de concorrência, primeiro barato: se a versão já não bate, nem se constrói o
 	// ficheiro. A verificação real e atómica é a da consulta condicional, mais abaixo.
-	if f.Versao != expectVersion {
+	if f.Version != expectVersion {
 		return assistant.DriveHit{}, fmt.Errorf("the file changed since you read it; read it again")
 	}
 
@@ -122,23 +122,23 @@ func (s *Server) assistantDocsEdit(ctx context.Context, id assistant.Identity, f
 	// REGRA 2: a versão corrente é fotografada ANTES de se sobrepor. É o que torna o engano
 	// reversível — um clique a repor, não o ficheiro.
 	_ = s.q.SnapshotFileVersion(ctx, db.SnapshotFileVersionParams{
-		FileID: f.ID, TenantID: f.TenantID, BlobKey: f.BlobKey, Hash: f.Hash, Tamanho: f.Tamanho, Versao: f.Versao,
+		FileID: f.ID, TenantID: f.TenantID, BlobKey: f.BlobKey, Hash: f.Hash, Size: f.Size, Version: f.Version,
 	})
 	// REGRA 3: a escrita é CONDICIONAL à versão. Entre o GetStorageFile e aqui outra escrita pode
 	// ter entrado; se entrou, esta não atualiza nada e recusa-se, em vez de perder o trabalho dela.
 	updated, err := s.q.UpdateStorageFileContentIfVersion(ctx, db.UpdateStorageFileContentIfVersionParams{
 		ID: f.ID, TenantID: f.TenantID, OwnerUserID: owner,
-		BlobKey: blobKey, Hash: hash, Tamanho: int64(len(data)), ExpectedVersion: expectVersion,
+		BlobKey: blobKey, Hash: hash, Size: int64(len(data)), ExpectedVersion: expectVersion,
 	})
 	if err != nil {
 		return assistant.DriveHit{}, fmt.Errorf("the file changed since you read it; read it again")
 	}
 	_ = s.q.InsertAudit(ctx, db.InsertAuditParams{
 		TenantID: pgtype.UUID{Bytes: id.TenantID, Valid: true},
-		Actor:    id.Email, Acao: "file.edit", Alvo: f.Nome,
+		Actor:    id.Email, Action: "file.edit", Target: f.Name,
 	})
 	return assistant.DriveHit{
-		ID: updated.ID.String(), Name: updated.Nome, Kind: "file",
-		Size: updated.Tamanho, Version: updated.Versao,
+		ID: updated.ID.String(), Name: updated.Name, Kind: "file",
+		Size: updated.Size, Version: updated.Version,
 	}, nil
 }

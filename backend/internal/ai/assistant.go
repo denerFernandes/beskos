@@ -109,7 +109,7 @@ func (a *Assistant) ExtractTasks(ctx context.Context, subject, body string) ([]T
 	}
 	var tasks []Task
 	if err := json.Unmarshal([]byte(stripJSONFence(out)), &tasks); err != nil {
-		return nil, fmt.Errorf("resposta da IA não é JSON de tarefas válido: %w", err)
+		return nil, fmt.Errorf("the AI reply is not valid task JSON: %w", err)
 	}
 	return tasks, nil
 }
@@ -191,7 +191,7 @@ func (a *Assistant) ParseEvent(ctx context.Context, text, nowISO, tz string) (Ev
 	}
 	var d EventDraft
 	if err := json.Unmarshal([]byte(stripJSONFence(out)), &d); err != nil {
-		return EventDraft{}, fmt.Errorf("resposta da IA não é JSON de evento válido: %w", err)
+		return EventDraft{}, fmt.Errorf("the AI reply is not valid event JSON: %w", err)
 	}
 	return d, nil
 }
@@ -215,7 +215,7 @@ func (a *Assistant) PlanTask(ctx context.Context, idea string) (TaskDraft, error
 	}
 	var d TaskDraft
 	if err := json.Unmarshal([]byte(stripJSONFence(out)), &d); err != nil {
-		return TaskDraft{}, fmt.Errorf("resposta da IA não é JSON de tarefa válido: %w", err)
+		return TaskDraft{}, fmt.Errorf("the AI reply is not valid task JSON: %w", err)
 	}
 	return d, nil
 }
@@ -236,7 +236,7 @@ func (a *Assistant) SuggestSlots(ctx context.Context, busyJSON, fromISO, toISO s
 	}
 	var slots []Slot
 	if err := json.Unmarshal([]byte(stripJSONFence(out)), &slots); err != nil {
-		return nil, fmt.Errorf("resposta da IA não é JSON de horários válido: %w", err)
+		return nil, fmt.Errorf("the AI reply is not valid schedule JSON: %w", err)
 	}
 	return slots, nil
 }

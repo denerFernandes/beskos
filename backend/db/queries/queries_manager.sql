@@ -88,31 +88,31 @@ SELECT
     (SELECT count(*) FROM tenants WHERE status = 'active')                      AS tenants_active,
     (SELECT count(*) FROM mail_users)                                           AS users,
     (SELECT count(*) FROM mail_users WHERE mail_seen_at > now() - interval '7 days')  AS users_active_7d,
-    (SELECT coalesce(sum(tamanho), 0)::bigint FROM storage_files WHERE deleted_at IS NULL)    AS storage_bytes,
+    (SELECT coalesce(sum(size), 0)::bigint FROM storage_files WHERE deleted_at IS NULL)    AS storage_bytes,
     (SELECT count(*) FROM domains)                                              AS domains;
 
 -- name: ManagerListTenants :many
 -- Lista de tenants com contagens (query direta; rollup diário chega na M3).
-SELECT t.id, t.nome, t.plano, t.status, t.created_at,
+SELECT t.id, t.name, t.plan, t.status, t.created_at,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)                      AS users,
     (SELECT count(*) FROM domains d WHERE d.tenant_id = t.id)                         AS domains,
-    (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0)::bigint FROM storage_files f
       WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)                              AS storage_bytes
 FROM tenants t
 ORDER BY t.created_at DESC;
 
 -- name: ManagerGetTenant :one
-SELECT t.id, t.nome, t.plano, t.status, t.created_at, t.disabled_apps,
+SELECT t.id, t.name, t.plan, t.status, t.created_at, t.disabled_apps,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)                      AS users,
     (SELECT count(*) FROM domains d WHERE d.tenant_id = t.id)                         AS domains,
-    (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0)::bigint FROM storage_files f
       WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)                              AS storage_bytes
 FROM tenants t WHERE t.id = @id;
 
 -- name: ManagerListTenantUsers :many
 SELECT u.id, u.email, u.name, u.role, u.created_at, u.mail_seen_at, u.quota_bytes,
     (u.mfa_totp_enabled OR u.mfa_sms_enabled)::boolean AS mfa_enabled,
-    (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0)::bigint FROM storage_files f
       WHERE f.owner_user_id = u.id AND f.deleted_at IS NULL)                          AS storage_bytes
 FROM mail_users u
 WHERE u.tenant_id = @tenant_id
@@ -129,7 +129,7 @@ ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 -- name: ManagerFinanceRows :many
 -- Base da margem por tenant: users atuais + storage do último rollup + fluxos de 30 dias.
-SELECT t.id, t.nome, t.plano, t.status,
+SELECT t.id, t.name, t.plan, t.status,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)::int AS users,
     COALESCE(lu.storage_bytes, 0)::bigint    AS storage_bytes,
     COALESCE(lu.recordings_bytes, 0)::bigint AS recordings_bytes,

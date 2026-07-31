@@ -105,12 +105,12 @@ func (s *Server) storeUserFile(ctx context.Context, mu db.MailUser, name string,
 	}
 	rec, err := s.q.CreateStorageFile(ctx, db.CreateStorageFileParams{
 		TenantID: mu.TenantID, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
-		Nome: name, BlobKey: blobKey, Hash: hash, Tamanho: int64(len(data)), Versao: 1, FolderID: folderID,
+		Name: name, BlobKey: blobKey, Hash: hash, Size: int64(len(data)), Version: 1, FolderID: folderID,
 	})
 	if err != nil {
 		return db.StorageFile{}, "storage.record_failed"
 	}
-	_ = s.q.InsertAudit(ctx, db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Acao: "file.create", Alvo: name})
+	_ = s.q.InsertAudit(ctx, db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Action: "file.create", Target: name})
 	return rec, ""
 }
 

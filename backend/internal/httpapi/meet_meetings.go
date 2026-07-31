@@ -109,7 +109,7 @@ func (s *Server) handleCreateMeeting(w http.ResponseWriter, r *http.Request) {
 			MeetingID: m.ID, TenantID: mu.TenantID, Email: email, UserID: uid, Role: "guest",
 		})
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Acao: "meet.create", Alvo: title})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Action: "meet.create", Target: title})
 
 	// Notificação dos convidados (e-mail + in-app) fica na M3; aqui já marcamos como enviada
 	// para o rastreio de "notificado" avançar quando o worker de notificações entrar.

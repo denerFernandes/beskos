@@ -105,7 +105,7 @@ func (s *Server) handleChangeMyPassword(w http.ResponseWriter, r *http.Request) 
 	})
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
 		TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email,
-		Acao: "user.password_change_self", Alvo: "",
+		Action: "user.password_change_self", Target: "",
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }

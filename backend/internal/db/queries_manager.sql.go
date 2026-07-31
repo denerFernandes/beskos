@@ -337,7 +337,7 @@ func (q *Queries) ListManagerUsers(ctx context.Context) ([]ListManagerUsersRow, 
 }
 
 const managerFinanceRows = `-- name: ManagerFinanceRows :many
-SELECT t.id, t.nome, t.plano, t.status,
+SELECT t.id, t.name, t.plan, t.status,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)::int AS users,
     COALESCE(lu.storage_bytes, 0)::bigint    AS storage_bytes,
     COALESCE(lu.recordings_bytes, 0)::bigint AS recordings_bytes,
@@ -355,8 +355,8 @@ ORDER BY t.created_at
 
 type ManagerFinanceRowsRow struct {
 	ID              uuid.UUID `json:"id"`
-	Nome            string    `json:"nome"`
-	Plano           string    `json:"plano"`
+	Name            string    `json:"name"`
+	Plan            string    `json:"plan"`
 	Status          string    `json:"status"`
 	Users           int32     `json:"users"`
 	StorageBytes    int64     `json:"storage_bytes"`
@@ -377,8 +377,8 @@ func (q *Queries) ManagerFinanceRows(ctx context.Context) ([]ManagerFinanceRowsR
 		var i ManagerFinanceRowsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Nome,
-			&i.Plano,
+			&i.Name,
+			&i.Plan,
 			&i.Status,
 			&i.Users,
 			&i.StorageBytes,
@@ -397,18 +397,18 @@ func (q *Queries) ManagerFinanceRows(ctx context.Context) ([]ManagerFinanceRowsR
 }
 
 const managerGetTenant = `-- name: ManagerGetTenant :one
-SELECT t.id, t.nome, t.plano, t.status, t.created_at, t.disabled_apps,
+SELECT t.id, t.name, t.plan, t.status, t.created_at, t.disabled_apps,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)                      AS users,
     (SELECT count(*) FROM domains d WHERE d.tenant_id = t.id)                         AS domains,
-    (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0)::bigint FROM storage_files f
       WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)                              AS storage_bytes
 FROM tenants t WHERE t.id = $1
 `
 
 type ManagerGetTenantRow struct {
 	ID           uuid.UUID `json:"id"`
-	Nome         string    `json:"nome"`
-	Plano        string    `json:"plano"`
+	Name         string    `json:"name"`
+	Plan         string    `json:"plan"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	DisabledApps []string  `json:"disabled_apps"`
@@ -422,8 +422,8 @@ func (q *Queries) ManagerGetTenant(ctx context.Context, id uuid.UUID) (ManagerGe
 	var i ManagerGetTenantRow
 	err := row.Scan(
 		&i.ID,
-		&i.Nome,
-		&i.Plano,
+		&i.Name,
+		&i.Plan,
 		&i.Status,
 		&i.CreatedAt,
 		&i.DisabledApps,
@@ -486,7 +486,7 @@ func (q *Queries) ManagerGrowth(ctx context.Context) ([]ManagerGrowthRow, error)
 const managerListTenantUsers = `-- name: ManagerListTenantUsers :many
 SELECT u.id, u.email, u.name, u.role, u.created_at, u.mail_seen_at, u.quota_bytes,
     (u.mfa_totp_enabled OR u.mfa_sms_enabled)::boolean AS mfa_enabled,
-    (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0)::bigint FROM storage_files f
       WHERE f.owner_user_id = u.id AND f.deleted_at IS NULL)                          AS storage_bytes
 FROM mail_users u
 WHERE u.tenant_id = $1
@@ -536,10 +536,10 @@ func (q *Queries) ManagerListTenantUsers(ctx context.Context, tenantID uuid.UUID
 }
 
 const managerListTenants = `-- name: ManagerListTenants :many
-SELECT t.id, t.nome, t.plano, t.status, t.created_at,
+SELECT t.id, t.name, t.plan, t.status, t.created_at,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)                      AS users,
     (SELECT count(*) FROM domains d WHERE d.tenant_id = t.id)                         AS domains,
-    (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0)::bigint FROM storage_files f
       WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)                              AS storage_bytes
 FROM tenants t
 ORDER BY t.created_at DESC
@@ -547,8 +547,8 @@ ORDER BY t.created_at DESC
 
 type ManagerListTenantsRow struct {
 	ID           uuid.UUID `json:"id"`
-	Nome         string    `json:"nome"`
-	Plano        string    `json:"plano"`
+	Name         string    `json:"name"`
+	Plan         string    `json:"plan"`
 	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	Users        int64     `json:"users"`
@@ -568,8 +568,8 @@ func (q *Queries) ManagerListTenants(ctx context.Context) ([]ManagerListTenantsR
 		var i ManagerListTenantsRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Nome,
-			&i.Plano,
+			&i.Name,
+			&i.Plan,
 			&i.Status,
 			&i.CreatedAt,
 			&i.Users,
@@ -593,7 +593,7 @@ SELECT
     (SELECT count(*) FROM tenants WHERE status = 'active')                      AS tenants_active,
     (SELECT count(*) FROM mail_users)                                           AS users,
     (SELECT count(*) FROM mail_users WHERE mail_seen_at > now() - interval '7 days')  AS users_active_7d,
-    (SELECT coalesce(sum(tamanho), 0)::bigint FROM storage_files WHERE deleted_at IS NULL)    AS storage_bytes,
+    (SELECT coalesce(sum(size), 0)::bigint FROM storage_files WHERE deleted_at IS NULL)    AS storage_bytes,
     (SELECT count(*) FROM domains)                                              AS domains
 `
 

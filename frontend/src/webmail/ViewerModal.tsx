@@ -10,26 +10,26 @@ import { ViewerBar } from "./ViewerBar";
 // fazendo download direto (o Drive decide antes de abrir isto).
 export function ViewerModal({ file, onClose }: { file: StorageFile; onClose: () => void }) {
   const { t } = useTranslation();
-  const kind = viewerKind(file.nome);
+  const kind = viewerKind(file.name);
   // src autenticado: URL direta na web (cookie), blob no app nativo (ver useAuthedMedia).
   const url = useAuthedMedia(`/api/files/${file.id}/download?inline=1`);
   const loading = !url && kind !== "text";
 
   return (
     <div className="viewer-full">
-      <ViewerBar title={file.nome} onClose={onClose}>
-        <button className="chipbtn" onClick={() => triggerDownload(backend.downloadFileUrl(file.id), file.nome)}>
+      <ViewerBar title={file.name} onClose={onClose}>
+        <button className="chipbtn" onClick={() => triggerDownload(backend.downloadFileUrl(file.id), file.name)}>
           <IcDownload size={15} /> {t("files.download")}
         </button>
       </ViewerBar>
       <div className="viewer-stage">
         {loading && <div className="editor-msg">{t("editor.loading")}</div>}
-        {!loading && kind === "image" && <img className="viewer-img" src={url} alt={file.nome} />}
-        {!loading && kind === "pdf" && <iframe className="viewer-frame" title={file.nome} src={url} />}
+        {!loading && kind === "image" && <img className="viewer-img" src={url} alt={file.name} />}
+        {!loading && kind === "pdf" && <iframe className="viewer-frame" title={file.name} src={url} />}
         {!loading && kind === "video" && <video className="viewer-media" src={url} controls autoPlay />}
         {!loading && kind === "audio" && (
           <div className="viewer-audio">
-            <div className="va-name">{file.nome}</div>
+            <div className="va-name">{file.name}</div>
             <audio src={url} controls autoPlay />
           </div>
         )}
@@ -43,7 +43,7 @@ export function ViewerModal({ file, onClose }: { file: StorageFile; onClose: () 
 function TextView({ file }: { file: StorageFile }) {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["text", file.id], queryFn: () => fetchText(file.id), retry: false });
-  const ext = file.nome.split(".").pop()?.toLowerCase() ?? "";
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   let body = q.data ?? "";
   if (ext === "json" && body) { try { body = JSON.stringify(JSON.parse(body), null, 2); } catch { /* mantém cru */ } }
   return (

@@ -834,7 +834,7 @@ const Composer = forwardRef<ComposerHandle, {
     if (!files) return;
     for (const f of Array.from(files)) {
       setUploading((n) => n + 1);
-      try { const sf = await backend.uploadFile(f); setAtts((a) => [...a, { file_id: sf.id, name: sf.nome, size: sf.tamanho }]); }
+      try { const sf = await backend.uploadFile(f); setAtts((a) => [...a, { file_id: sf.id, name: sf.name, size: sf.size }]); }
       catch (e) { toast((e as Error).message); }
       finally { setUploading((n) => n - 1); }
     }
@@ -1087,7 +1087,7 @@ const Composer = forwardRef<ComposerHandle, {
             {gif && <GifPicker anchor={gif} onClose={() => setGif(null)}
               onPick={(g) => { setAtts((a) => [...a, { file_id: g.file_id, name: g.name, size: g.size }]); setGif(null); }} />}
             {drivePick && <DrivePickerDrawer onClose={() => setDrivePick(false)}
-              onPick={(f) => setAtts((a) => [...a, { file_id: f.id, name: f.nome, size: f.tamanho }])} />}
+              onPick={(f) => setAtts((a) => [...a, { file_id: f.id, name: f.name, size: f.size }])} />}
           </span>
           <button title={t("chat.commands")} onMouseDown={(e) => { e.preventDefault(); insertAt("/"); }}><IcSlash size={17} /></button>
           <span className="grow" />

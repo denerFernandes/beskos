@@ -226,7 +226,7 @@ VALUES (@tenant_id, @page_id, @file_id, @added_by)
 ON CONFLICT (page_id, file_id) DO NOTHING;
 
 -- name: ListWikiAttachments :many
-SELECT a.id, a.file_id, f.nome, f.tamanho, a.created_at
+SELECT a.id, a.file_id, f.name, f.size, a.created_at
 FROM wiki_attachments a JOIN storage_files f ON f.id = a.file_id
 WHERE a.page_id = @page_id AND a.tenant_id = @tenant_id ORDER BY a.created_at;
 

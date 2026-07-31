@@ -46,8 +46,8 @@ export type Overview = {
 
 export type TenantRow = {
   id: string;
-  nome: string;
-  plano: string;
+  name: string;
+  plan: string;
   status: string;
   created_at: string;
   users: number;
@@ -111,7 +111,7 @@ export type TopAIUser = { email: string; name: string; tenant: string; tokens: n
 
 export type Deliverability = {
   id: string;
-  nome: string;
+  name: string;
   sent_30d: number;
   bounces_30d: number;
   complaints_30d: number;
@@ -146,8 +146,8 @@ export type CostModel = {
 
 export type TenantFinance = {
   id: string;
-  nome: string;
-  plano: string;
+  name: string;
+  plan: string;
   status: string;
   users: number;
   mrr_cents: number;

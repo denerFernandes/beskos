@@ -69,7 +69,7 @@ func (q *Queries) MailSentToday(ctx context.Context, tenantID uuid.UUID) (int32,
 }
 
 const managerDeliverability = `-- name: ManagerDeliverability :many
-SELECT t.id, t.nome,
+SELECT t.id, t.name,
     (SELECT COALESCE(sum(m.sent), 0) FROM tenant_mail_sent m
       WHERE m.tenant_id = t.id AND m.day >= current_date - 30)::bigint AS sent_30d,
     (SELECT count(*) FROM mail_events e WHERE e.tenant_id = t.id
@@ -78,12 +78,12 @@ SELECT t.id, t.nome,
       AND e.type = 'complaint' AND e.created_at > now() - interval '30 days')::bigint AS complaints_30d
 FROM tenants t
 WHERE t.status = 'active'
-ORDER BY t.nome
+ORDER BY t.name
 `
 
 type ManagerDeliverabilityRow struct {
 	ID            uuid.UUID `json:"id"`
-	Nome          string    `json:"nome"`
+	Name          string    `json:"name"`
 	Sent30d       int64     `json:"sent_30d"`
 	Bounces30d    int64     `json:"bounces_30d"`
 	Complaints30d int64     `json:"complaints_30d"`
@@ -101,7 +101,7 @@ func (q *Queries) ManagerDeliverability(ctx context.Context) ([]ManagerDeliverab
 		var i ManagerDeliverabilityRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Nome,
+			&i.Name,
 			&i.Sent30d,
 			&i.Bounces30d,
 			&i.Complaints30d,
@@ -117,12 +117,12 @@ func (q *Queries) ManagerDeliverability(ctx context.Context) ([]ManagerDeliverab
 }
 
 const tenantByEmailDomain = `-- name: TenantByEmailDomain :one
-SELECT tenant_id FROM domains WHERE dominio = $1 LIMIT 1
+SELECT tenant_id FROM domains WHERE domain = $1 LIMIT 1
 `
 
 // Resolve o tenant dono do domínio do remetente (mail.source do evento SES).
-func (q *Queries) TenantByEmailDomain(ctx context.Context, dominio string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, tenantByEmailDomain, dominio)
+func (q *Queries) TenantByEmailDomain(ctx context.Context, domain string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, tenantByEmailDomain, domain)
 	var tenant_id uuid.UUID
 	err := row.Scan(&tenant_id)
 	return tenant_id, err
@@ -130,7 +130,7 @@ func (q *Queries) TenantByEmailDomain(ctx context.Context, dominio string) (uuid
 
 const tenantDailySendLimit = `-- name: TenantDailySendLimit :one
 SELECT COALESCE(p.max_daily_send, 0)::int
-FROM tenants t LEFT JOIN plans p ON p.key = t.plano
+FROM tenants t LEFT JOIN plans p ON p.key = t.plan
 WHERE t.id = $1
 `
 

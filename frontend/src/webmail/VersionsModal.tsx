@@ -25,12 +25,12 @@ export function VersionsModal({ file, onClose }: { file: StorageFile; onClose: (
   return (
     <div className="tk-bg open" onMouseDown={onClose}>
       <div className="tk" onMouseDown={(e) => e.stopPropagation()} style={{ width: 480 }}>
-        <header><span>{t("files.versionsTitle", { name: file.nome })}</span><button className="ib" title={t("common.close")} onClick={onClose}>✕</button></header>
+        <header><span>{t("files.versionsTitle", { name: file.name })}</span><button className="ib" title={t("common.close")} onClick={onClose}>✕</button></header>
         <div className="body">
           {q.isLoading ? <div className="loading">…</div> : (
             <div className="dv-list">
               <div className="share-row" style={{ borderTop: "none" }}>
-                <div className="grow"><div className="who">{t("files.versionCurrent", { n: cur ?? file.versao })}</div></div>
+                <div className="grow"><div className="who">{t("files.versionCurrent", { n: cur ?? file.version })}</div></div>
                 <span className="tx" style={{ color: "var(--faint)", fontSize: 12 }}>{t("files.versionNow")}</span>
               </div>
               {versions.length === 0 ? (
@@ -38,10 +38,10 @@ export function VersionsModal({ file, onClose }: { file: StorageFile; onClose: (
               ) : versions.map((v) => (
                 <div className="share-row" key={v.id}>
                   <div className="grow">
-                    <div className="who">{t("files.versionN", { n: v.versao })}</div>
-                    <div className="tx" style={{ fontSize: 12, color: "var(--faint)" }}>{fmtWhen(v.created_at)}{v.author ? ` · ${v.author}` : ""} · {fmtSize(v.tamanho)}</div>
+                    <div className="who">{t("files.versionN", { n: v.version })}</div>
+                    <div className="tx" style={{ fontSize: 12, color: "var(--faint)" }}>{fmtWhen(v.created_at)}{v.author ? ` · ${v.author}` : ""} · {fmtSize(v.size)}</div>
                   </div>
-                  <button className="ib" title={t("files.download")} onClick={() => triggerDownload(backend.versionDownloadUrl(file.id, v.id), `v${v.versao}-${file.nome}`)}><IcDownload size={15} /></button>
+                  <button className="ib" title={t("files.download")} onClick={() => triggerDownload(backend.versionDownloadUrl(file.id, v.id), `v-`)}><IcDownload size={15} /></button>
                   <button className="ib" title={t("files.restore")} disabled={restore.isPending} onClick={() => restore.mutate(v.id)}><IcRefresh size={15} /></button>
                 </div>
               ))}

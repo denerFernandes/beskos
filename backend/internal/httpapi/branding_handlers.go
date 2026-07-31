@@ -24,7 +24,7 @@ func (s *Server) handleGetBranding(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "branding.load_failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, brandingResp{Name: t.Nome, Color: t.BrandColor, Logo: t.BrandLogo, LogoWhiteDark: t.BrandLogoWhiteDark})
+	writeJSON(w, http.StatusOK, brandingResp{Name: t.Name, Color: t.BrandColor, Logo: t.BrandLogo, LogoWhiteDark: t.BrandLogoWhiteDark})
 }
 
 type updateBrandingReq struct {
@@ -76,7 +76,7 @@ func (s *Server) handleResolveBranding(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, brandingResp{}) // desconhecido → default, sem vazar existência
 		return
 	}
-	writeJSON(w, http.StatusOK, brandingResp{Name: b.Nome, Color: b.BrandColor, Logo: b.BrandLogo})
+	writeJSON(w, http.StatusOK, brandingResp{Name: b.Name, Color: b.BrandColor, Logo: b.BrandLogo})
 }
 
 func isHexColor(s string) bool {

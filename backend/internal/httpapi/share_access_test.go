@@ -9,8 +9,8 @@ import (
 // shareAccess decide o acesso pelo MELHOR entre a partilha direta e a de organização. É a peça que
 // torna "qualquer pessoa na organização" um acesso real, não só um rótulo — por isso tem teste.
 func TestShareAccess(t *testing.T) {
-	sh := func(principal, nivel string) db.StorageShare {
-		return db.StorageShare{Principal: principal, Nivel: nivel}
+	sh := func(principal, level string) db.StorageShare {
+		return db.StorageShare{Principal: principal, Level: level}
 	}
 	cases := []struct {
 		name               string

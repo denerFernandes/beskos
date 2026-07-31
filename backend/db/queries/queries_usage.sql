@@ -12,7 +12,7 @@ SELECT t.id, cast(@day as date),
         + (SELECT count(*) FROM email_aliases al WHERE al.tenant_id = t.id),
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id
         AND u.mail_seen_at >= cast(@day as date) AND u.mail_seen_at < (cast(@day as date) + 1)),
-    (SELECT coalesce(sum(f.tamanho), 0)::bigint FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0)::bigint FROM storage_files f
         WHERE f.tenant_id = t.id AND f.deleted_at IS NULL),
     (SELECT count(*) FROM storage_files f WHERE f.tenant_id = t.id AND f.deleted_at IS NULL),
     (SELECT coalesce(sum(a.tokens), 0)::bigint FROM assistant_usage a
@@ -56,10 +56,10 @@ GROUP BY day ORDER BY day;
 -- name: ManagerAlertRows :many
 -- Base dos ALERTAS de uso exagerado (por tenant): números de HOJE (contadores ao vivo) + a média
 -- de tokens IA dos 7 dias anteriores (baseline do spike) + os limites do plano.
-SELECT t.id, t.nome, t.plano,
+SELECT t.id, t.name, t.plan,
     ((SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)
       + (SELECT count(*) FROM email_aliases al WHERE al.tenant_id = t.id))::int AS users,
-    (SELECT coalesce(sum(f.tamanho), 0) FROM storage_files f
+    (SELECT coalesce(sum(f.size), 0) FROM storage_files f
       WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)::bigint AS storage_bytes,
     (SELECT coalesce(sum(a.tokens), 0) FROM assistant_usage a
       WHERE a.tenant_id = t.id AND a.created_at >= current_date)::bigint AS ai_today,
@@ -71,34 +71,34 @@ SELECT t.id, t.nome, t.plano,
     COALESCE(p.max_storage_gb, 0)::int AS max_storage_gb,
     COALESCE(p.max_daily_send, 0)::int AS max_daily_send
 FROM tenants t
-LEFT JOIN plans p ON p.key = t.plano
+LEFT JOIN plans p ON p.key = t.plan
 WHERE t.status = 'active'
-ORDER BY t.nome;
+ORDER BY t.name;
 
 -- name: ManagerTopAIUsers :many
 -- Top utilizadores por tokens de IA nas últimas 24h (alerta de uso exagerado POR PESSOA).
-SELECT u.email, u.name, t.nome AS tenant, sum(a.tokens)::bigint AS tokens
+SELECT u.email, u.name, t.name AS tenant, sum(a.tokens)::bigint AS tokens
 FROM assistant_usage a
 JOIN mail_users u ON u.id = a.mail_user_id
 JOIN tenants t ON t.id = a.tenant_id
 WHERE a.created_at > now() - interval '24 hours'
-GROUP BY u.email, u.name, t.nome
+GROUP BY u.email, u.name, t.name
 ORDER BY sum(a.tokens) DESC
 LIMIT 10;
 
 -- name: ManagerUsageAllRows :many
 -- Export CSV (M5): rollup cru de todos os tenants no período, com o nome da organização.
-SELECT t.nome, u.* FROM tenant_daily_usage u
+SELECT t.name, u.* FROM tenant_daily_usage u
 JOIN tenants t ON t.id = u.tenant_id
 WHERE u.day >= cast(@since as date)
-ORDER BY u.day DESC, t.nome;
+ORDER BY u.day DESC, t.name;
 
 -- name: ExpiredRecordings :many
 -- Gravações além da retenção do PLANO do tenant (fallback 30 dias sem plano na tabela).
 SELECT r.id, r.tenant_id, r.blob_key
 FROM recordings r
 JOIN tenants t ON t.id = r.tenant_id
-LEFT JOIN plans p ON p.key = t.plano
+LEFT JOIN plans p ON p.key = t.plan
 WHERE r.started_at < now() - make_interval(days => COALESCE(p.recording_retention_days, 30))
 LIMIT 100;
 

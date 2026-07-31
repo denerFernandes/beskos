@@ -100,7 +100,7 @@ func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "aliases.invalid_owner")
 		return
 	}
-	address := local + "@" + dom.Dominio
+	address := local + "@" + dom.Domain
 	// Um alias não pode roubar o endereço de uma caixa existente: o correio deixaria de chegar a quem
 	// de direito, e o Stalwart aceitaria a criação sem dizer nada.
 	if _, err := s.q.GetMailUserByEmail(r.Context(), address); err == nil {
@@ -124,7 +124,7 @@ func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
-		TenantID: pgUUID(actor.TenantID), Actor: actor.Email, Acao: "alias.create", Alvo: address,
+		TenantID: pgUUID(actor.TenantID), Actor: actor.Email, Action: "alias.create", Target: address,
 	})
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"id": alias.ID, "address": alias.Address, "owner_id": owner.ID, "owner_email": owner.Email,
@@ -152,7 +152,7 @@ func (s *Server) handleDeleteAlias(w http.ResponseWriter, r *http.Request) {
 		_ = s.syncAliasesToStalwart(r.Context(), actor.TenantID, owner)
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
-		TenantID: pgUUID(actor.TenantID), Actor: actor.Email, Acao: "alias.delete", Alvo: alias.Address,
+		TenantID: pgUUID(actor.TenantID), Actor: actor.Email, Action: "alias.delete", Target: alias.Address,
 	})
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 }

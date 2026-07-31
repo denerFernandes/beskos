@@ -114,10 +114,10 @@ func (s *Server) handleSyncUpdateFile(w http.ResponseWriter, r *http.Request) {
 	// Fotografa o estado corrente antes de sobrescrever (histórico navegável, nunca perde).
 	_ = s.q.SnapshotFileVersion(r.Context(), db.SnapshotFileVersionParams{
 		FileID: cur.ID, TenantID: mu.TenantID, BlobKey: cur.BlobKey, Hash: cur.Hash,
-		Tamanho: cur.Tamanho, Versao: cur.Versao, CreatedBy: pgtype.UUID{Bytes: mu.ID, Valid: true},
+		Size: cur.Size, Version: cur.Version, CreatedBy: pgtype.UUID{Bytes: mu.ID, Valid: true},
 	})
 	rec, err := s.q.UpdateStorageFileContent(r.Context(), db.UpdateStorageFileContentParams{
-		ID: cur.ID, TenantID: mu.TenantID, BlobKey: blobKey, Hash: hash, Tamanho: size,
+		ID: cur.ID, TenantID: mu.TenantID, BlobKey: blobKey, Hash: hash, Size: size,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.record_failed")
@@ -159,10 +159,10 @@ func (s *Server) handleSyncCreateFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, code, ecode)
 		return
 	}
-	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Nome: name})
+	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Name: name})
 	rec, err := s.q.CreateStorageFile(r.Context(), db.CreateStorageFileParams{
 		TenantID: mu.TenantID, OwnerUserID: ownerPg(mu),
-		Nome: name, BlobKey: blobKey, Hash: hash, Tamanho: size, Versao: prevMax + 1, FolderID: folderID,
+		Name: name, BlobKey: blobKey, Hash: hash, Size: size, Version: prevMax + 1, FolderID: folderID,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.record_failed")

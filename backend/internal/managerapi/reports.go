@@ -38,7 +38,7 @@ func (s *Server) handleExportTenants(w http.ResponseWriter, r *http.Request) {
 	cw := csvOut(w, "tenants.csv")
 	_ = cw.Write([]string{"id", "name", "plan", "status", "users", "domains", "storage_bytes", "created_at"})
 	for _, t := range rows {
-		_ = cw.Write([]string{t.ID.String(), t.Nome, t.Plano, t.Status,
+		_ = cw.Write([]string{t.ID.String(), t.Name, t.Plan, t.Status,
 			strconv.FormatInt(t.Users, 10), strconv.FormatInt(t.Domains, 10),
 			strconv.FormatInt(t.StorageBytes, 10), t.CreatedAt.Format(time.RFC3339)})
 	}
@@ -60,7 +60,7 @@ func (s *Server) handleExportUsage(w http.ResponseWriter, r *http.Request) {
 	_ = cw.Write([]string{"day", "tenant", "users", "users_active", "storage_bytes", "files",
 		"ai_tokens", "meet_minutes", "recordings", "recordings_bytes", "wiki_pages", "cards", "mail_sent"})
 	for _, u := range rows {
-		_ = cw.Write([]string{u.Day.Time.Format("2006-01-02"), u.Nome,
+		_ = cw.Write([]string{u.Day.Time.Format("2006-01-02"), u.Name,
 			strconv.Itoa(int(u.Users)), strconv.Itoa(int(u.UsersActive)),
 			strconv.FormatInt(u.StorageBytes, 10), strconv.Itoa(int(u.Files)),
 			strconv.FormatInt(u.AiTokens, 10), strconv.Itoa(int(u.MeetMinutes)),
@@ -79,7 +79,7 @@ func (s *Server) handleExportFinance(w http.ResponseWriter, r *http.Request) {
 	cw := csvOut(w, "finance.csv")
 	_ = cw.Write([]string{"tenant", "plan", "status", "users", "mrr_cents", "cost_cents", "margin_cents"})
 	for _, t := range tenants {
-		_ = cw.Write([]string{t.Nome, t.Plano, t.Status, strconv.Itoa(int(t.Users)),
+		_ = cw.Write([]string{t.Name, t.Plan, t.Status, strconv.Itoa(int(t.Users)),
 			fmt.Sprint(t.MrrCents), fmt.Sprint(t.CostCents), fmt.Sprint(t.MarginCents)})
 	}
 	cw.Flush()

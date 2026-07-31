@@ -146,14 +146,14 @@ func (s *Server) shareWithOutsider(r *http.Request, f db.StorageFile, actor db.M
 	}
 	link = s.appURL("/p/" + token)
 	if s.email == nil {
-		log.Printf("partilha de %q com %s: link criado, mas o envio de e-mail está desligado", f.Nome, email)
+		log.Printf("share of %q with %s: link created, but e-mail sending is off", f.Name, email)
 		return link, false
 	}
 	who := actor.Name
 	if who == "" {
 		who = actor.Email
 	}
-	s.sendMsg(email, notify.FileShared(actor.Language, who, f.Nome, link, ""))
+	s.sendMsg(email, notify.FileShared(actor.Language, who, f.Name, link, ""))
 	return link, true
 }
 
@@ -172,7 +172,7 @@ func (s *Server) ensureFileLink(r *http.Request, f db.StorageFile, actor db.Mail
 		ExpiresAt: linkExpiry(nil), PasswordHash: "", Permission: "view", AllowDownload: true,
 	})
 	if err != nil {
-		log.Printf("share: criar link público de %s: %v", f.ID, err)
+		log.Printf("share: create public link for %s: %v", f.ID, err)
 		return ""
 	}
 	return link.Token

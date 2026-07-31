@@ -72,12 +72,12 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) {
 	from := until.Add(-reputationWindow)
 
 	for _, d := range domains {
-		configSet := ses.TenantName(d.Dominio)
+		configSet := ses.TenantName(d.Domain)
 		rep, err := relay.ConfigSetReputation(ctx, configSet, from, until)
 		if err != nil {
 			// Não suspende por não conseguir medir: um erro de leitura não é prova de nada, e
 			// suspender um cliente por engano é o mesmo estrago pelo motivo errado.
-			log.Printf("reputation: %s: %v", d.Dominio, err)
+			log.Printf("reputation: %s: %v", d.Domain, err)
 			continue
 		}
 		if rep.Sent < minSends {
@@ -90,13 +90,13 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) {
 		}
 
 		log.Printf("reputation: SUSPENDING %s — %.0f sent, %.2f%% bounced (limit %.0f%%), %.3f%% complained (limit %.1f%%)",
-			d.Dominio, rep.Sent, bounceRate*100, bounceLimit*100, complaintRate*100, complaintLimit*100)
+			d.Domain, rep.Sent, bounceRate*100, bounceLimit*100, complaintRate*100, complaintLimit*100)
 
 		if err := relay.SetSendingEnabled(ctx, configSet, false); err != nil {
-			log.Printf("reputation: %s: SUSPENSION FAILED, the account is still exposed: %v", d.Dominio, err)
+			log.Printf("reputation: %s: SUSPENSION FAILED, the account is still exposed: %v", d.Domain, err)
 			continue
 		}
 		log.Printf("reputation: %s suspended; reinstating is a manual decision (ses-tenants has no --reativar on purpose)",
-			d.Dominio)
+			d.Domain)
 	}
 }

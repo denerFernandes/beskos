@@ -176,7 +176,7 @@ func (s *Server) handleTOTPEnable(w http.ResponseWriter, r *http.Request) {
 	if codes == nil {
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "mfa.totp_enabled", Alvo: ""})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "mfa.totp_enabled", Target: ""})
 	writeJSON(w, http.StatusOK, map[string]any{"enabled": true, "recovery_codes": codes})
 }
 
@@ -236,7 +236,7 @@ func (s *Server) handleSMSEnable(w http.ResponseWriter, r *http.Request) {
 	if codes == nil {
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "mfa.sms_enabled", Alvo: ""})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "mfa.sms_enabled", Target: ""})
 	writeJSON(w, http.StatusOK, map[string]any{"enabled": true, "recovery_codes": codes})
 }
 
@@ -265,7 +265,7 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.q.DisableMFA(r.Context(), u.ID)
 	_ = s.q.DeleteRecoveryCodes(r.Context(), u.ID)
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "mfa.disabled", Alvo: ""})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "mfa.disabled", Target: ""})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "disabled"})
 }
 

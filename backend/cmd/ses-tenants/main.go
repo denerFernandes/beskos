@@ -53,14 +53,14 @@ func main() {
 
 	var done, failures int
 	for _, d := range domains {
-		name := ses.TenantName(d.Dominio)
+		name := ses.TenantName(d.Domain)
 
 		if !*create {
 			status, err := relay.TenantSendingStatus(ctx, name)
 			if err == nil {
-				log.Printf("  %-24s %-24s tenant existe (envio: %s)", d.Dominio, name, status)
+				log.Printf("  %-24s %-24s tenant existe (envio: %s)", d.Domain, name, status)
 			} else {
-				log.Printf("  %-24s %-24s MISSING", d.Dominio, name)
+				log.Printf("  %-24s %-24s MISSING", d.Domain, name)
 				done++
 			}
 			continue
@@ -68,26 +68,26 @@ func main() {
 
 		// O conjunto de configuração primeiro: é o que produz efeito sem depender de mais nada.
 		if err := relay.CreateConfigurationSet(ctx, name); err != nil {
-			log.Printf("  %-24s create configuration set: %v", d.Dominio, err)
+			log.Printf("  %-24s create configuration set: %v", d.Domain, err)
 			failures++
 			continue
 		}
-		if err := relay.SetIdentityConfigurationSet(ctx, d.Dominio, name); err != nil {
-			log.Printf("  %-24s set default configuration set: %v", d.Dominio, err)
+		if err := relay.SetIdentityConfigurationSet(ctx, d.Domain, name); err != nil {
+			log.Printf("  %-24s set default configuration set: %v", d.Domain, err)
 			failures++
 			continue
 		}
 		if err := relay.CreateTenant(ctx, name); err != nil {
-			log.Printf("  %-24s criar tenant: %v", d.Dominio, err)
+			log.Printf("  %-24s create tenant: %v", d.Domain, err)
 			failures++
 			continue
 		}
-		if err := relay.AssociateIdentity(ctx, name, d.Dominio); err != nil {
-			log.Printf("  %-24s associar identidade: %v", d.Dominio, err)
+		if err := relay.AssociateIdentity(ctx, name, d.Domain); err != nil {
+			log.Printf("  %-24s associar identidade: %v", d.Domain, err)
 			failures++
 			continue
 		}
-		log.Printf("  %-24s %-24s default configuration set + tenant associated", d.Dominio, name)
+		log.Printf("  %-24s %-24s default configuration set + tenant associated", d.Domain, name)
 		done++
 	}
 

@@ -25,7 +25,7 @@ export default function TenantsPage() {
   }, []);
 
   const term = q.trim().toLowerCase();
-  const rows = (tenants.data ?? []).filter((t) => !term || t.nome.toLowerCase().includes(term));
+  const rows = (tenants.data ?? []).filter((t) => !term || t.name.toLowerCase().includes(term));
 
   return (
     <div className="flex flex-col gap-4">
@@ -52,10 +52,10 @@ export default function TenantsPage() {
               <TableRow key={t.id}>
                 <TableCell>
                   <Link href={`/tenants/${t.id}`} className="font-medium hover:underline">
-                    {t.nome}
+                    {t.name}
                   </Link>
                 </TableCell>
-                <TableCell><Badge variant="outline">{t.plano}</Badge></TableCell>
+                <TableCell><Badge variant="outline">{t.plan}</Badge></TableCell>
                 <TableCell>
                   <Badge variant={t.status === "active" ? "default" : "secondary"}>{t.status}</Badge>
                 </TableCell>

@@ -203,7 +203,7 @@ func (s *Server) handleStartPresentationDrive(w http.ResponseWriter, r *http.Req
 		writeErr(w, http.StatusNotFound, "files.not_found")
 		return
 	}
-	ext := extOf(f.Nome)
+	ext := extOf(f.Name)
 	if !presentableExt(ext) {
 		writeErr(w, http.StatusBadRequest, "meet.presentation_bad_type")
 		return
@@ -214,12 +214,12 @@ func (s *Server) handleStartPresentationDrive(w http.ResponseWriter, r *http.Req
 		return
 	}
 	defer rc.Close()
-	pdfKey, err := s.buildPresentationPDF(r.Context(), mu.TenantID, f.Nome, ext, f.Tamanho, rc)
+	pdfKey, err := s.buildPresentationPDF(r.Context(), mu.TenantID, f.Name, ext, f.Size, rc)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "meet.presentation_convert_failed")
 		return
 	}
-	s.finishStart(w, r, in.Room, f.Nome, pdfKey, mu.TenantID, mu.ID)
+	s.finishStart(w, r, in.Room, f.Name, pdfKey, mu.TenantID, mu.ID)
 }
 
 // GET /api/meet/presentation?room=... — apresentação ativa da sala (para quem entra a meio).

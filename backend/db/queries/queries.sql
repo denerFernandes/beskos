@@ -2,7 +2,7 @@
 -- REGRA: toda query que toca dados de cliente filtra por tenant_id (brief §5/§10).
 
 -- name: CreateTenant :one
-INSERT INTO tenants (nome, plano) VALUES ($1, $2) RETURNING *;
+INSERT INTO tenants (name, plan) VALUES ($1, $2) RETURNING *;
 
 -- name: GetTenant :one
 SELECT * FROM tenants WHERE id = $1;
@@ -34,7 +34,7 @@ WHERE sessions.token = $1 AND sessions.expires_at > now();
 DELETE FROM sessions WHERE token = $1;
 
 -- name: CreateDomain :one
-INSERT INTO domains (tenant_id, dominio, provision_state)
+INSERT INTO domains (tenant_id, domain, provision_state)
 VALUES ($1, $2, 'pending') RETURNING *;
 
 -- name: ListDomainsByTenant :many
@@ -42,7 +42,7 @@ SELECT * FROM domains WHERE tenant_id = $1 ORDER BY created_at DESC;
 
 -- name: CountMailUsersOnDomain :one
 -- Utilizadores/caixas cujo e-mail pertence ao domínio (não há FK; o vínculo é o sufixo do e-mail).
-SELECT count(*) FROM mail_users WHERE tenant_id = @tenant_id AND email LIKE '%@' || @dominio;
+SELECT count(*) FROM mail_users WHERE tenant_id = @tenant_id AND email LIKE '%@' || @domain;
 
 -- name: DeleteDomainRow :exec
 DELETE FROM domains WHERE id = @id AND tenant_id = @tenant_id;
@@ -70,7 +70,7 @@ DELETE FROM webmail_sessions WHERE mail_user_id = @mail_user_id AND token <> @ke
 
 -- name: GetDomainByName :one
 -- Um domínio só pode existir uma vez na plataforma (é a caixa de correio de alguém).
-SELECT * FROM domains WHERE dominio = $1;
+SELECT * FROM domains WHERE domain = $1;
 
 -- name: DeleteTenant :exec
 -- Só o registo self-service usa isto, para desfazer um signup que falhou a meio (o resto cai em
@@ -107,7 +107,7 @@ SELECT * FROM mail_users WHERE email = $1;
 SELECT * FROM mail_users WHERE id = $1 AND tenant_id = $2;
 
 -- name: InsertAudit :exec
-INSERT INTO audit_log (tenant_id, actor, acao, alvo) VALUES ($1, $2, $3, $4);
+INSERT INTO audit_log (tenant_id, actor, action, target) VALUES ($1, $2, $3, $4);
 
 -- ===== Webmail session (usuário final na nossa API) =====
 
@@ -457,14 +457,14 @@ DELETE FROM mfa_challenges WHERE token = $1;
 -- ===== Armazenamento (MinIO) =====
 
 -- name: CreateStorageFile :one
-INSERT INTO storage_files (tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, folder_id)
+INSERT INTO storage_files (tenant_id, owner_user_id, name, blob_key, hash, size, version, folder_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *;
 
 -- name: ListStorageFilesByTenant :many
 SELECT * FROM storage_files WHERE tenant_id = $1 ORDER BY created_at DESC;
 
 -- name: ListFilesInFolder :many
-SELECT * FROM storage_files WHERE owner_user_id = $1 AND folder_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL ORDER BY nome;
+SELECT * FROM storage_files WHERE owner_user_id = $1 AND folder_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL ORDER BY name;
 
 -- name: ListTrashedFiles :many
 -- Lixeira do dono: só os soft-deleted, mais recentes primeiro.
@@ -504,7 +504,7 @@ WHERE id = $1 AND mail_user_id = $2 AND revoked_at IS NULL;
 -- Inclui os MEUS ficheiros e os que me foram PARTILHADOS (principal = o meu e-mail), num único
 -- keyset — assim o cursor continua a ser um só. `owned` diz ao cliente se pode escrever: um
 -- partilhado é só-leitura no sync (vai para uma pasta reservada e não sobe alterações).
-SELECT f.id, f.folder_id, f.nome, f.hash, f.tamanho, f.versao, f.deleted_at, f.updated_at,
+SELECT f.id, f.folder_id, f.name, f.hash, f.size, f.version, f.deleted_at, f.updated_at,
        (f.owner_user_id = $2) AS owned
 FROM storage_files f
 WHERE f.tenant_id = $1
@@ -533,13 +533,13 @@ UPDATE storage_files SET starred = $3 WHERE id = $1 AND owner_user_id = $2 RETUR
 -- name: SearchStorageFiles :many
 -- Busca global (recursiva): casa o nome em TODAS as pastas do dono, não só na atual. LIMIT p/ teto.
 -- Ignora a lixeira (deleted_at IS NULL).
-SELECT * FROM storage_files WHERE owner_user_id = $1 AND nome ILIKE $2 AND deleted_at IS NULL ORDER BY nome LIMIT 200;
+SELECT * FROM storage_files WHERE owner_user_id = $1 AND name ILIKE $2 AND deleted_at IS NULL ORDER BY name LIMIT 200;
 
 -- name: GetStorageFileInTenant :one
 SELECT * FROM storage_files WHERE id = $1 AND tenant_id = $2;
 
 -- name: UpdateStorageFileContent :one
-UPDATE storage_files SET blob_key = $3, hash = $4, tamanho = $5, versao = versao + 1
+UPDATE storage_files SET blob_key = $3, hash = $4, size = $5, version = version + 1
 WHERE id = $1 AND tenant_id = $2 RETURNING *;
 
 -- name: DeleteStorageFile :exec
@@ -549,11 +549,11 @@ DELETE FROM storage_files WHERE id = $1 AND owner_user_id = $2;
 UPDATE storage_files SET folder_id = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
 
 -- name: RenameStorageFile :one
-UPDATE storage_files SET nome = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
+UPDATE storage_files SET name = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
 
 -- name: MoveRenameStorageFile :one
 -- Move E renomeia num só UPDATE (o daemon de sync trata mover/renomear local como uma operação).
-UPDATE storage_files SET folder_id = $3, nome = $4 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
+UPDATE storage_files SET folder_id = $3, name = $4 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
 
 -- ===== Pastas =====
 
@@ -598,13 +598,13 @@ SELECT (SELECT count(*) FROM storage_files WHERE storage_files.tenant_id = $1 AN
 
 -- name: SnapshotFileVersion :exec
 -- Fotografa uma versão no histórico (o estado corrente, antes de sobrescrever).
-INSERT INTO file_versions (file_id, tenant_id, blob_key, hash, tamanho, versao, created_by)
+INSERT INTO file_versions (file_id, tenant_id, blob_key, hash, size, version, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: ListFileVersions :many
 SELECT v.*, COALESCE(u.name, NULLIF(u.email, ''), '') AS author
 FROM file_versions v LEFT JOIN mail_users u ON u.id = v.created_by
-WHERE v.file_id = $1 AND v.tenant_id = $2 ORDER BY v.versao DESC;
+WHERE v.file_id = $1 AND v.tenant_id = $2 ORDER BY v.version DESC;
 
 -- name: GetFileVersion :one
 SELECT * FROM file_versions WHERE id = $1 AND file_id = $2 AND tenant_id = $3;
@@ -613,13 +613,13 @@ SELECT * FROM file_versions WHERE id = $1 AND file_id = $2 AND tenant_id = $3;
 SELECT DISTINCT blob_key FROM file_versions WHERE file_id = $1 AND tenant_id = $2;
 
 -- name: MaxVersionByName :one
-SELECT COALESCE(max(versao), 0)::int FROM storage_files WHERE tenant_id = $1 AND nome = $2;
+SELECT COALESCE(max(version), 0)::int FROM storage_files WHERE tenant_id = $1 AND name = $2;
 
 -- name: CreateShare :one
 -- Upsert: voltar a partilhar com a mesma pessoa MUDA a permissão em vez de criar outra linha — é
 -- assim que se troca "leitor" por "editor" sem apagar e refazer a partilha.
-INSERT INTO storage_shares (file_id, tenant_id, principal, nivel) VALUES ($1, $2, $3, $4)
-ON CONFLICT (file_id, principal) DO UPDATE SET nivel = EXCLUDED.nivel
+INSERT INTO storage_shares (file_id, tenant_id, principal, level) VALUES ($1, $2, $3, $4)
+ON CONFLICT (file_id, principal) DO UPDATE SET level = EXCLUDED.level
 RETURNING *;
 
 -- name: ListSharesByFile :many
@@ -830,16 +830,16 @@ SELECT (SELECT count(*) FROM mail_users u WHERE u.tenant_id = $1)
      + (SELECT count(*) FROM email_aliases a WHERE a.tenant_id = $1);
 
 -- name: SumStorageBytes :one
-SELECT COALESCE(sum(tamanho), 0)::bigint
-FROM (SELECT DISTINCT ON (blob_key) tamanho FROM storage_files WHERE tenant_id = $1) t;
+SELECT COALESCE(sum(size), 0)::bigint
+FROM (SELECT DISTINCT ON (blob_key) size FROM storage_files WHERE tenant_id = $1) t;
 
 -- name: UpdateTenantPlan :exec
-UPDATE tenants SET plano = $2 WHERE id = $1;
+UPDATE tenants SET plan = $2 WHERE id = $1;
 
 -- name: UpsertSubscription :exec
-INSERT INTO subscriptions (tenant_id, stripe_id, faixa_de_caixas, status)
+INSERT INTO subscriptions (tenant_id, stripe_id, mailbox_range, status)
 VALUES ($1, $2, $3, $4)
-ON CONFLICT (tenant_id) DO UPDATE SET stripe_id = EXCLUDED.stripe_id, faixa_de_caixas = EXCLUDED.faixa_de_caixas, status = EXCLUDED.status;
+ON CONFLICT (tenant_id) DO UPDATE SET stripe_id = EXCLUDED.stripe_id, mailbox_range = EXCLUDED.mailbox_range, status = EXCLUDED.status;
 
 -- name: GetSubscription :one
 SELECT * FROM subscriptions WHERE tenant_id = $1;
@@ -1380,7 +1380,7 @@ INSERT INTO card_attachments (tenant_id, card_id, file_id, added_by)
 VALUES ($1, $2, $3, $4) ON CONFLICT (card_id, file_id) DO NOTHING;
 
 -- name: ListCardAttachments :many
-SELECT ca.id, ca.file_id, f.nome, f.tamanho, ca.created_at
+SELECT ca.id, ca.file_id, f.name, f.size, ca.created_at
 FROM card_attachments ca JOIN storage_files f ON f.id = ca.file_id
 WHERE ca.card_id = $1 AND ca.tenant_id = $2 ORDER BY ca.created_at;
 
@@ -1404,7 +1404,7 @@ SELECT * FROM cards WHERE id = $1 AND tenant_id = $2;
 
 -- name: ListGifs :many
 SELECT g.id, g.file_id, g.created_at,
-       COALESCE(NULLIF(g.name, ''), f.nome) AS name, f.tamanho AS size
+       COALESCE(NULLIF(g.name, ''), f.name) AS name, f.size AS size
 FROM gif_library g JOIN storage_files f ON f.id = g.file_id
 WHERE g.owner_user_id = $1 ORDER BY g.created_at DESC LIMIT 60;
 
@@ -1487,7 +1487,7 @@ UPDATE tenants SET disabled_apps = $2 WHERE id = $1;
 
 -- name: GetTenantBrandingByEmail :one
 -- Marca da organização a partir do e-mail de um utilizador (para o ecrã de login, pré-auth).
-SELECT t.nome, t.brand_color, t.brand_logo
+SELECT t.name, t.brand_color, t.brand_logo
 FROM mail_users u JOIN tenants t ON t.id = u.tenant_id
 WHERE u.email = $1;
 
@@ -2063,8 +2063,8 @@ ON CONFLICT (task_id, fingerprint) DO NOTHING;
 -- Grava conteúdo novo SÓ SE a versão corrente for a esperada (§5.1: editar em cima da versão que se
 -- leu). Se outra pessoa gravou entretanto, a versão já não bate e nenhuma linha é atualizada — a
 -- escrita é recusada em vez de perder trabalho alheio em silêncio.
-UPDATE storage_files SET blob_key = @blob_key, hash = @hash, tamanho = @tamanho, versao = versao + 1
-WHERE id = @id AND tenant_id = @tenant_id AND owner_user_id = @owner_user_id AND versao = @expected_version
+UPDATE storage_files SET blob_key = @blob_key, hash = @hash, size = @size, version = version + 1
+WHERE id = @id AND tenant_id = @tenant_id AND owner_user_id = @owner_user_id AND version = @expected_version
 RETURNING *;
 
 -- name: ListAssistantMemory :many
@@ -2271,7 +2271,7 @@ RETURNING *;
 -- name: ListEmailAliases :many
 -- Aliases do tenant com o dono, para o painel. O nome do dono vem junto para não ser N+1 na UI.
 SELECT a.id, a.address, a.mail_user_id, a.domain_id, a.created_at,
-       u.email AS owner_email, u.name AS owner_name, d.dominio AS domain
+       u.email AS owner_email, u.name AS owner_name, d.domain AS domain
 FROM email_aliases a
 JOIN mail_users u ON u.id = a.mail_user_id
 JOIN domains d ON d.id = a.domain_id

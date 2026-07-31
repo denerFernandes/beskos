@@ -38,7 +38,7 @@ func main() {
 		Secure: true, Region: "auto",
 	})
 	if err != nil {
-		log.Fatalf("origem: %v", err)
+		log.Fatalf("source: %v", err)
 	}
 	sourceBucket := env("ORIGEM_BUCKET")
 

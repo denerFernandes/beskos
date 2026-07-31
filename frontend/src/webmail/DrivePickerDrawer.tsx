@@ -84,8 +84,8 @@ export function DrivePickerDrawer({ onPick, onClose, accept }: {
         ))}
         {files.map((f) => (
           <button key={f.id} className="dp-item" onClick={() => { onPick(f); onClose(); }}>
-            <IcPaperclip size={15} /> <span className="nm">{f.nome}</span>
-            <span className="sz">{fmtSize(f.tamanho)}</span>
+            <IcPaperclip size={15} /> <span className="nm">{f.name}</span>
+            <span className="sz">{fmtSize(f.size)}</span>
           </button>
         ))}
         {folders.length === 0 && files.length === 0 && (

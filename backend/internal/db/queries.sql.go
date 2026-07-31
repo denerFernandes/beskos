@@ -803,12 +803,12 @@ SELECT count(*) FROM mail_users WHERE tenant_id = $1 AND email LIKE '%@' || $2
 
 type CountMailUsersOnDomainParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
-	Dominio  *string   `json:"dominio"`
+	Domain   *string   `json:"domain"`
 }
 
 // Utilizadores/caixas cujo e-mail pertence ao domínio (não há FK; o vínculo é o sufixo do e-mail).
 func (q *Queries) CountMailUsersOnDomain(ctx context.Context, arg CountMailUsersOnDomainParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countMailUsersOnDomain, arg.TenantID, arg.Dominio)
+	row := q.db.QueryRow(ctx, countMailUsersOnDomain, arg.TenantID, arg.Domain)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1798,22 +1798,22 @@ func (q *Queries) CreateDeviceToken(ctx context.Context, arg CreateDeviceTokenPa
 }
 
 const createDomain = `-- name: CreateDomain :one
-INSERT INTO domains (tenant_id, dominio, provision_state)
-VALUES ($1, $2, 'pending') RETURNING id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at
+INSERT INTO domains (tenant_id, domain, provision_state)
+VALUES ($1, $2, 'pending') RETURNING id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at
 `
 
 type CreateDomainParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
-	Dominio  string    `json:"dominio"`
+	Domain   string    `json:"domain"`
 }
 
 func (q *Queries) CreateDomain(ctx context.Context, arg CreateDomainParams) (Domain, error) {
-	row := q.db.QueryRow(ctx, createDomain, arg.TenantID, arg.Dominio)
+	row := q.db.QueryRow(ctx, createDomain, arg.TenantID, arg.Domain)
 	var i Domain
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
-		&i.Dominio,
+		&i.Domain,
 		&i.StalwartID,
 		&i.DkimStatus,
 		&i.DnsStatus,
@@ -2544,16 +2544,16 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 }
 
 const createShare = `-- name: CreateShare :one
-INSERT INTO storage_shares (file_id, tenant_id, principal, nivel) VALUES ($1, $2, $3, $4)
-ON CONFLICT (file_id, principal) DO UPDATE SET nivel = EXCLUDED.nivel
-RETURNING id, file_id, tenant_id, principal, nivel
+INSERT INTO storage_shares (file_id, tenant_id, principal, level) VALUES ($1, $2, $3, $4)
+ON CONFLICT (file_id, principal) DO UPDATE SET level = EXCLUDED.level
+RETURNING id, file_id, tenant_id, principal, level
 `
 
 type CreateShareParams struct {
 	FileID    uuid.UUID `json:"file_id"`
 	TenantID  uuid.UUID `json:"tenant_id"`
 	Principal string    `json:"principal"`
-	Nivel     string    `json:"nivel"`
+	Level     string    `json:"level"`
 }
 
 // Upsert: voltar a partilhar com a mesma pessoa MUDA a permissão em vez de criar outra linha — é
@@ -2563,7 +2563,7 @@ func (q *Queries) CreateShare(ctx context.Context, arg CreateShareParams) (Stora
 		arg.FileID,
 		arg.TenantID,
 		arg.Principal,
-		arg.Nivel,
+		arg.Level,
 	)
 	var i StorageShare
 	err := row.Scan(
@@ -2571,7 +2571,7 @@ func (q *Queries) CreateShare(ctx context.Context, arg CreateShareParams) (Stora
 		&i.FileID,
 		&i.TenantID,
 		&i.Principal,
-		&i.Nivel,
+		&i.Level,
 	)
 	return i, err
 }
@@ -2609,18 +2609,18 @@ func (q *Queries) CreateSnooze(ctx context.Context, arg CreateSnoozeParams) (Sno
 
 const createStorageFile = `-- name: CreateStorageFile :one
 
-INSERT INTO storage_files (tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, folder_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+INSERT INTO storage_files (tenant_id, owner_user_id, name, blob_key, hash, size, version, folder_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type CreateStorageFileParams struct {
 	TenantID    uuid.UUID   `json:"tenant_id"`
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
-	Nome        string      `json:"nome"`
+	Name        string      `json:"name"`
 	BlobKey     string      `json:"blob_key"`
 	Hash        string      `json:"hash"`
-	Tamanho     int64       `json:"tamanho"`
-	Versao      int32       `json:"versao"`
+	Size        int64       `json:"size"`
+	Version     int32       `json:"version"`
 	FolderID    pgtype.UUID `json:"folder_id"`
 }
 
@@ -2629,11 +2629,11 @@ func (q *Queries) CreateStorageFile(ctx context.Context, arg CreateStorageFilePa
 	row := q.db.QueryRow(ctx, createStorageFile,
 		arg.TenantID,
 		arg.OwnerUserID,
-		arg.Nome,
+		arg.Name,
 		arg.BlobKey,
 		arg.Hash,
-		arg.Tamanho,
-		arg.Versao,
+		arg.Size,
+		arg.Version,
 		arg.FolderID,
 	)
 	var i StorageFile
@@ -2641,11 +2641,11 @@ func (q *Queries) CreateStorageFile(ctx context.Context, arg CreateStorageFilePa
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -2693,23 +2693,23 @@ func (q *Queries) CreateTemplate(ctx context.Context, arg CreateTemplateParams) 
 
 const createTenant = `-- name: CreateTenant :one
 
-INSERT INTO tenants (nome, plano) VALUES ($1, $2) RETURNING id, nome, plano, status, stalwart_instance, outbound_ip_pool, created_at, brand_color, brand_logo, disabled_apps, mfa_required, mfa_method, brand_logo_white_dark, currency
+INSERT INTO tenants (name, plan) VALUES ($1, $2) RETURNING id, name, plan, status, stalwart_instance, outbound_ip_pool, created_at, brand_color, brand_logo, disabled_apps, mfa_required, mfa_method, brand_logo_white_dark, currency
 `
 
 type CreateTenantParams struct {
-	Nome  string `json:"nome"`
-	Plano string `json:"plano"`
+	Name string `json:"name"`
+	Plan string `json:"plan"`
 }
 
 // Queries do control plane. sqlc gera código tipado a partir daqui.
 // REGRA: toda query que toca dados de cliente filtra por tenant_id (brief §5/§10).
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error) {
-	row := q.db.QueryRow(ctx, createTenant, arg.Nome, arg.Plano)
+	row := q.db.QueryRow(ctx, createTenant, arg.Name, arg.Plan)
 	var i Tenant
 	err := row.Scan(
 		&i.ID,
-		&i.Nome,
-		&i.Plano,
+		&i.Name,
+		&i.Plan,
 		&i.Status,
 		&i.StalwartInstance,
 		&i.OutboundIpPool,
@@ -4500,7 +4500,7 @@ func (q *Queries) GetCard(ctx context.Context, arg GetCardParams) (Card, error) 
 }
 
 const getCardAttachmentBlob = `-- name: GetCardAttachmentBlob :one
-SELECT f.id, f.tenant_id, f.owner_user_id, f.nome, f.blob_key, f.hash, f.tamanho, f.versao, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at FROM card_attachments ca JOIN storage_files f ON f.id = ca.file_id
+SELECT f.id, f.tenant_id, f.owner_user_id, f.name, f.blob_key, f.hash, f.size, f.version, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at FROM card_attachments ca JOIN storage_files f ON f.id = ca.file_id
 WHERE ca.id = $1 AND ca.tenant_id = $2
 `
 
@@ -4517,11 +4517,11 @@ func (q *Queries) GetCardAttachmentBlob(ctx context.Context, arg GetCardAttachme
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -4917,7 +4917,7 @@ func (q *Queries) GetDeviceTokenUser(ctx context.Context, tokenHash string) (Get
 }
 
 const getDomainByID = `-- name: GetDomainByID :one
-SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE id = $1
+SELECT id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE id = $1
 `
 
 func (q *Queries) GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, error) {
@@ -4926,7 +4926,7 @@ func (q *Queries) GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, erro
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
-		&i.Dominio,
+		&i.Domain,
 		&i.StalwartID,
 		&i.DkimStatus,
 		&i.DnsStatus,
@@ -4938,17 +4938,17 @@ func (q *Queries) GetDomainByID(ctx context.Context, id uuid.UUID) (Domain, erro
 }
 
 const getDomainByName = `-- name: GetDomainByName :one
-SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE dominio = $1
+SELECT id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE domain = $1
 `
 
 // Um domínio só pode existir uma vez na plataforma (é a caixa de correio de alguém).
-func (q *Queries) GetDomainByName(ctx context.Context, dominio string) (Domain, error) {
-	row := q.db.QueryRow(ctx, getDomainByName, dominio)
+func (q *Queries) GetDomainByName(ctx context.Context, domain string) (Domain, error) {
+	row := q.db.QueryRow(ctx, getDomainByName, domain)
 	var i Domain
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
-		&i.Dominio,
+		&i.Domain,
 		&i.StalwartID,
 		&i.DkimStatus,
 		&i.DnsStatus,
@@ -5045,7 +5045,7 @@ func (q *Queries) GetEventInvite(ctx context.Context, arg GetEventInviteParams) 
 }
 
 const getFileByLinkToken = `-- name: GetFileByLinkToken :one
-SELECT f.id, f.tenant_id, f.owner_user_id, f.nome, f.blob_key, f.hash, f.tamanho, f.versao, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at, l.password_hash, l.permission, l.allow_download FROM file_links l JOIN storage_files f ON f.id = l.file_id
+SELECT f.id, f.tenant_id, f.owner_user_id, f.name, f.blob_key, f.hash, f.size, f.version, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at, l.password_hash, l.permission, l.allow_download FROM file_links l JOIN storage_files f ON f.id = l.file_id
 WHERE l.token = $1 AND (l.expires_at IS NULL OR l.expires_at > now())
 `
 
@@ -5053,11 +5053,11 @@ type GetFileByLinkTokenRow struct {
 	ID            uuid.UUID          `json:"id"`
 	TenantID      uuid.UUID          `json:"tenant_id"`
 	OwnerUserID   pgtype.UUID        `json:"owner_user_id"`
-	Nome          string             `json:"nome"`
+	Name          string             `json:"name"`
 	BlobKey       string             `json:"blob_key"`
 	Hash          string             `json:"hash"`
-	Tamanho       int64              `json:"tamanho"`
-	Versao        int32              `json:"versao"`
+	Size          int64              `json:"size"`
+	Version       int32              `json:"version"`
 	CreatedAt     time.Time          `json:"created_at"`
 	FolderID      pgtype.UUID        `json:"folder_id"`
 	DeletedAt     pgtype.Timestamptz `json:"deleted_at"`
@@ -5077,11 +5077,11 @@ func (q *Queries) GetFileByLinkToken(ctx context.Context, token string) (GetFile
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -5095,7 +5095,7 @@ func (q *Queries) GetFileByLinkToken(ctx context.Context, token string) (GetFile
 }
 
 const getFileIfSharedWithMe = `-- name: GetFileIfSharedWithMe :one
-SELECT f.id, f.tenant_id, f.owner_user_id, f.nome, f.blob_key, f.hash, f.tamanho, f.versao, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at FROM storage_shares sh JOIN storage_files f ON f.id = sh.file_id
+SELECT f.id, f.tenant_id, f.owner_user_id, f.name, f.blob_key, f.hash, f.size, f.version, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at FROM storage_shares sh JOIN storage_files f ON f.id = sh.file_id
 WHERE f.id = $1 AND sh.tenant_id = $2 AND sh.principal = $3
 `
 
@@ -5114,11 +5114,11 @@ func (q *Queries) GetFileIfSharedWithMe(ctx context.Context, arg GetFileIfShared
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -5152,7 +5152,7 @@ func (q *Queries) GetFileLinkByFile(ctx context.Context, fileID uuid.UUID) (File
 }
 
 const getFileVersion = `-- name: GetFileVersion :one
-SELECT id, file_id, tenant_id, blob_key, hash, tamanho, versao, created_by, created_at FROM file_versions WHERE id = $1 AND file_id = $2 AND tenant_id = $3
+SELECT id, file_id, tenant_id, blob_key, hash, size, version, created_by, created_at FROM file_versions WHERE id = $1 AND file_id = $2 AND tenant_id = $3
 `
 
 type GetFileVersionParams struct {
@@ -5170,8 +5170,8 @@ func (q *Queries) GetFileVersion(ctx context.Context, arg GetFileVersionParams) 
 		&i.TenantID,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedBy,
 		&i.CreatedAt,
 	)
@@ -5723,7 +5723,7 @@ func (q *Queries) GetSession(ctx context.Context, token string) (GetSessionRow, 
 }
 
 const getStorageFile = `-- name: GetStorageFile :one
-SELECT id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE id = $1 AND owner_user_id = $2
+SELECT id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE id = $1 AND owner_user_id = $2
 `
 
 type GetStorageFileParams struct {
@@ -5738,11 +5738,11 @@ func (q *Queries) GetStorageFile(ctx context.Context, arg GetStorageFileParams) 
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -5753,7 +5753,7 @@ func (q *Queries) GetStorageFile(ctx context.Context, arg GetStorageFileParams) 
 }
 
 const getStorageFileInTenant = `-- name: GetStorageFileInTenant :one
-SELECT id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE id = $1 AND tenant_id = $2
 `
 
 type GetStorageFileInTenantParams struct {
@@ -5768,11 +5768,11 @@ func (q *Queries) GetStorageFileInTenant(ctx context.Context, arg GetStorageFile
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -5783,7 +5783,7 @@ func (q *Queries) GetStorageFileInTenant(ctx context.Context, arg GetStorageFile
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT tenant_id, stripe_id, faixa_de_caixas, status FROM subscriptions WHERE tenant_id = $1
+SELECT tenant_id, stripe_id, mailbox_range, status FROM subscriptions WHERE tenant_id = $1
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, tenantID uuid.UUID) (Subscription, error) {
@@ -5792,14 +5792,14 @@ func (q *Queries) GetSubscription(ctx context.Context, tenantID uuid.UUID) (Subs
 	err := row.Scan(
 		&i.TenantID,
 		&i.StripeID,
-		&i.FaixaDeCaixas,
+		&i.MailboxRange,
 		&i.Status,
 	)
 	return i, err
 }
 
 const getTenant = `-- name: GetTenant :one
-SELECT id, nome, plano, status, stalwart_instance, outbound_ip_pool, created_at, brand_color, brand_logo, disabled_apps, mfa_required, mfa_method, brand_logo_white_dark, currency FROM tenants WHERE id = $1
+SELECT id, name, plan, status, stalwart_instance, outbound_ip_pool, created_at, brand_color, brand_logo, disabled_apps, mfa_required, mfa_method, brand_logo_white_dark, currency FROM tenants WHERE id = $1
 `
 
 func (q *Queries) GetTenant(ctx context.Context, id uuid.UUID) (Tenant, error) {
@@ -5807,8 +5807,8 @@ func (q *Queries) GetTenant(ctx context.Context, id uuid.UUID) (Tenant, error) {
 	var i Tenant
 	err := row.Scan(
 		&i.ID,
-		&i.Nome,
-		&i.Plano,
+		&i.Name,
+		&i.Plan,
 		&i.Status,
 		&i.StalwartInstance,
 		&i.OutboundIpPool,
@@ -5825,13 +5825,13 @@ func (q *Queries) GetTenant(ctx context.Context, id uuid.UUID) (Tenant, error) {
 }
 
 const getTenantBrandingByEmail = `-- name: GetTenantBrandingByEmail :one
-SELECT t.nome, t.brand_color, t.brand_logo
+SELECT t.name, t.brand_color, t.brand_logo
 FROM mail_users u JOIN tenants t ON t.id = u.tenant_id
 WHERE u.email = $1
 `
 
 type GetTenantBrandingByEmailRow struct {
-	Nome       string `json:"nome"`
+	Name       string `json:"name"`
 	BrandColor string `json:"brand_color"`
 	BrandLogo  string `json:"brand_logo"`
 }
@@ -5840,7 +5840,7 @@ type GetTenantBrandingByEmailRow struct {
 func (q *Queries) GetTenantBrandingByEmail(ctx context.Context, email string) (GetTenantBrandingByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getTenantBrandingByEmail, email)
 	var i GetTenantBrandingByEmailRow
-	err := row.Scan(&i.Nome, &i.BrandColor, &i.BrandLogo)
+	err := row.Scan(&i.Name, &i.BrandColor, &i.BrandLogo)
 	return i, err
 }
 
@@ -6109,22 +6109,22 @@ func (q *Queries) IncrMFAChallengeAttempts(ctx context.Context, token string) (i
 }
 
 const insertAudit = `-- name: InsertAudit :exec
-INSERT INTO audit_log (tenant_id, actor, acao, alvo) VALUES ($1, $2, $3, $4)
+INSERT INTO audit_log (tenant_id, actor, action, target) VALUES ($1, $2, $3, $4)
 `
 
 type InsertAuditParams struct {
 	TenantID pgtype.UUID `json:"tenant_id"`
 	Actor    string      `json:"actor"`
-	Acao     string      `json:"acao"`
-	Alvo     string      `json:"alvo"`
+	Action   string      `json:"action"`
+	Target   string      `json:"target"`
 }
 
 func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error {
 	_, err := q.db.Exec(ctx, insertAudit,
 		arg.TenantID,
 		arg.Actor,
-		arg.Acao,
-		arg.Alvo,
+		arg.Action,
+		arg.Target,
 	)
 	return err
 }
@@ -6341,7 +6341,7 @@ func (q *Queries) ListAliasesForUser(ctx context.Context, arg ListAliasesForUser
 }
 
 const listAllDomains = `-- name: ListAllDomains :many
-SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains ORDER BY created_at
+SELECT id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains ORDER BY created_at
 `
 
 // Todos os domínios, para tarefas de manutenção que têm de passar por cada um (ex.: garantir o
@@ -6358,7 +6358,7 @@ func (q *Queries) ListAllDomains(ctx context.Context) ([]Domain, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
-			&i.Dominio,
+			&i.Domain,
 			&i.StalwartID,
 			&i.DkimStatus,
 			&i.DnsStatus,
@@ -7302,7 +7302,7 @@ func (q *Queries) ListCardActivity(ctx context.Context, arg ListCardActivityPara
 }
 
 const listCardAttachments = `-- name: ListCardAttachments :many
-SELECT ca.id, ca.file_id, f.nome, f.tamanho, ca.created_at
+SELECT ca.id, ca.file_id, f.name, f.size, ca.created_at
 FROM card_attachments ca JOIN storage_files f ON f.id = ca.file_id
 WHERE ca.card_id = $1 AND ca.tenant_id = $2 ORDER BY ca.created_at
 `
@@ -7315,8 +7315,8 @@ type ListCardAttachmentsParams struct {
 type ListCardAttachmentsRow struct {
 	ID        uuid.UUID `json:"id"`
 	FileID    uuid.UUID `json:"file_id"`
-	Nome      string    `json:"nome"`
-	Tamanho   int64     `json:"tamanho"`
+	Name      string    `json:"name"`
+	Size      int64     `json:"size"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -7332,8 +7332,8 @@ func (q *Queries) ListCardAttachments(ctx context.Context, arg ListCardAttachmen
 		if err := rows.Scan(
 			&i.ID,
 			&i.FileID,
-			&i.Nome,
-			&i.Tamanho,
+			&i.Name,
+			&i.Size,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -8348,7 +8348,7 @@ func (q *Queries) ListDisabledBuiltinAgents(ctx context.Context, tenantID uuid.U
 }
 
 const listDomainsByTenant = `-- name: ListDomainsByTenant :many
-SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE tenant_id = $1 ORDER BY created_at DESC
+SELECT id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE tenant_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListDomainsByTenant(ctx context.Context, tenantID uuid.UUID) ([]Domain, error) {
@@ -8363,7 +8363,7 @@ func (q *Queries) ListDomainsByTenant(ctx context.Context, tenantID uuid.UUID) (
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
-			&i.Dominio,
+			&i.Domain,
 			&i.StalwartID,
 			&i.DkimStatus,
 			&i.DnsStatus,
@@ -8382,7 +8382,7 @@ func (q *Queries) ListDomainsByTenant(ctx context.Context, tenantID uuid.UUID) (
 }
 
 const listDomainsInState = `-- name: ListDomainsInState :many
-SELECT id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE provision_state = $1 ORDER BY created_at ASC LIMIT $2
+SELECT id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE provision_state = $1 ORDER BY created_at ASC LIMIT $2
 `
 
 type ListDomainsInStateParams struct {
@@ -8402,7 +8402,7 @@ func (q *Queries) ListDomainsInState(ctx context.Context, arg ListDomainsInState
 		if err := rows.Scan(
 			&i.ID,
 			&i.TenantID,
-			&i.Dominio,
+			&i.Domain,
 			&i.StalwartID,
 			&i.DkimStatus,
 			&i.DnsStatus,
@@ -8422,7 +8422,7 @@ func (q *Queries) ListDomainsInState(ctx context.Context, arg ListDomainsInState
 
 const listEmailAliases = `-- name: ListEmailAliases :many
 SELECT a.id, a.address, a.mail_user_id, a.domain_id, a.created_at,
-       u.email AS owner_email, u.name AS owner_name, d.dominio AS domain
+       u.email AS owner_email, u.name AS owner_name, d.domain AS domain
 FROM email_aliases a
 JOIN mail_users u ON u.id = a.mail_user_id
 JOIN domains d ON d.id = a.domain_id
@@ -8683,7 +8683,7 @@ func (q *Queries) ListExcludedFolders(ctx context.Context, tenantID uuid.UUID) (
 }
 
 const listFileChanges = `-- name: ListFileChanges :many
-SELECT f.id, f.folder_id, f.nome, f.hash, f.tamanho, f.versao, f.deleted_at, f.updated_at,
+SELECT f.id, f.folder_id, f.name, f.hash, f.size, f.version, f.deleted_at, f.updated_at,
        (f.owner_user_id = $2) AS owned
 FROM storage_files f
 WHERE f.tenant_id = $1
@@ -8707,10 +8707,10 @@ type ListFileChangesParams struct {
 type ListFileChangesRow struct {
 	ID        uuid.UUID          `json:"id"`
 	FolderID  pgtype.UUID        `json:"folder_id"`
-	Nome      string             `json:"nome"`
+	Name      string             `json:"name"`
 	Hash      string             `json:"hash"`
-	Tamanho   int64              `json:"tamanho"`
-	Versao    int32              `json:"versao"`
+	Size      int64              `json:"size"`
+	Version   int32              `json:"version"`
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
 	UpdatedAt time.Time          `json:"updated_at"`
 	Owned     bool               `json:"owned"`
@@ -8741,10 +8741,10 @@ func (q *Queries) ListFileChanges(ctx context.Context, arg ListFileChangesParams
 		if err := rows.Scan(
 			&i.ID,
 			&i.FolderID,
-			&i.Nome,
+			&i.Name,
 			&i.Hash,
-			&i.Tamanho,
-			&i.Versao,
+			&i.Size,
+			&i.Version,
 			&i.DeletedAt,
 			&i.UpdatedAt,
 			&i.Owned,
@@ -8760,9 +8760,9 @@ func (q *Queries) ListFileChanges(ctx context.Context, arg ListFileChangesParams
 }
 
 const listFileVersions = `-- name: ListFileVersions :many
-SELECT v.id, v.file_id, v.tenant_id, v.blob_key, v.hash, v.tamanho, v.versao, v.created_by, v.created_at, COALESCE(u.name, NULLIF(u.email, ''), '') AS author
+SELECT v.id, v.file_id, v.tenant_id, v.blob_key, v.hash, v.size, v.version, v.created_by, v.created_at, COALESCE(u.name, NULLIF(u.email, ''), '') AS author
 FROM file_versions v LEFT JOIN mail_users u ON u.id = v.created_by
-WHERE v.file_id = $1 AND v.tenant_id = $2 ORDER BY v.versao DESC
+WHERE v.file_id = $1 AND v.tenant_id = $2 ORDER BY v.version DESC
 `
 
 type ListFileVersionsParams struct {
@@ -8776,8 +8776,8 @@ type ListFileVersionsRow struct {
 	TenantID  uuid.UUID   `json:"tenant_id"`
 	BlobKey   string      `json:"blob_key"`
 	Hash      string      `json:"hash"`
-	Tamanho   int64       `json:"tamanho"`
-	Versao    int32       `json:"versao"`
+	Size      int64       `json:"size"`
+	Version   int32       `json:"version"`
 	CreatedBy pgtype.UUID `json:"created_by"`
 	CreatedAt time.Time   `json:"created_at"`
 	Author    string      `json:"author"`
@@ -8798,8 +8798,8 @@ func (q *Queries) ListFileVersions(ctx context.Context, arg ListFileVersionsPara
 			&i.TenantID,
 			&i.BlobKey,
 			&i.Hash,
-			&i.Tamanho,
-			&i.Versao,
+			&i.Size,
+			&i.Version,
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.Author,
@@ -8815,7 +8815,7 @@ func (q *Queries) ListFileVersions(ctx context.Context, arg ListFileVersionsPara
 }
 
 const listFilesInFolder = `-- name: ListFilesInFolder :many
-SELECT id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE owner_user_id = $1 AND folder_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL ORDER BY nome
+SELECT id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE owner_user_id = $1 AND folder_id IS NOT DISTINCT FROM $2 AND deleted_at IS NULL ORDER BY name
 `
 
 type ListFilesInFolderParams struct {
@@ -8836,11 +8836,11 @@ func (q *Queries) ListFilesInFolder(ctx context.Context, arg ListFilesInFolderPa
 			&i.ID,
 			&i.TenantID,
 			&i.OwnerUserID,
-			&i.Nome,
+			&i.Name,
 			&i.BlobKey,
 			&i.Hash,
-			&i.Tamanho,
-			&i.Versao,
+			&i.Size,
+			&i.Version,
 			&i.CreatedAt,
 			&i.FolderID,
 			&i.DeletedAt,
@@ -8858,7 +8858,7 @@ func (q *Queries) ListFilesInFolder(ctx context.Context, arg ListFilesInFolderPa
 }
 
 const listFilesSharedWithMe = `-- name: ListFilesSharedWithMe :many
-SELECT DISTINCT f.id, f.tenant_id, f.owner_user_id, f.nome, f.blob_key, f.hash, f.tamanho, f.versao, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at FROM storage_shares sh
+SELECT DISTINCT f.id, f.tenant_id, f.owner_user_id, f.name, f.blob_key, f.hash, f.size, f.version, f.created_at, f.folder_id, f.deleted_at, f.starred, f.updated_at FROM storage_shares sh
 JOIN storage_files f ON f.id = sh.file_id
 WHERE sh.tenant_id = $1 AND sh.principal = $2
 ORDER BY f.created_at DESC
@@ -8884,11 +8884,11 @@ func (q *Queries) ListFilesSharedWithMe(ctx context.Context, arg ListFilesShared
 			&i.ID,
 			&i.TenantID,
 			&i.OwnerUserID,
-			&i.Nome,
+			&i.Name,
 			&i.BlobKey,
 			&i.Hash,
-			&i.Tamanho,
-			&i.Versao,
+			&i.Size,
+			&i.Version,
 			&i.CreatedAt,
 			&i.FolderID,
 			&i.DeletedAt,
@@ -8946,7 +8946,7 @@ func (q *Queries) ListFolders(ctx context.Context, arg ListFoldersParams) ([]Sto
 const listGifs = `-- name: ListGifs :many
 
 SELECT g.id, g.file_id, g.created_at,
-       COALESCE(NULLIF(g.name, ''), f.nome) AS name, f.tamanho AS size
+       COALESCE(NULLIF(g.name, ''), f.name) AS name, f.size AS size
 FROM gif_library g JOIN storage_files f ON f.id = g.file_id
 WHERE g.owner_user_id = $1 ORDER BY g.created_at DESC LIMIT 60
 `
@@ -10393,7 +10393,7 @@ func (q *Queries) ListScheduledMessages(ctx context.Context, userID uuid.UUID) (
 }
 
 const listSharesByFile = `-- name: ListSharesByFile :many
-SELECT id, file_id, tenant_id, principal, nivel FROM storage_shares WHERE file_id = $1 AND tenant_id = $2
+SELECT id, file_id, tenant_id, principal, level FROM storage_shares WHERE file_id = $1 AND tenant_id = $2
 `
 
 type ListSharesByFileParams struct {
@@ -10415,7 +10415,7 @@ func (q *Queries) ListSharesByFile(ctx context.Context, arg ListSharesByFilePara
 			&i.FileID,
 			&i.TenantID,
 			&i.Principal,
-			&i.Nivel,
+			&i.Level,
 		); err != nil {
 			return nil, err
 		}
@@ -10428,7 +10428,7 @@ func (q *Queries) ListSharesByFile(ctx context.Context, arg ListSharesByFilePara
 }
 
 const listStorageFilesByTenant = `-- name: ListStorageFilesByTenant :many
-SELECT id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE tenant_id = $1 ORDER BY created_at DESC
+SELECT id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE tenant_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListStorageFilesByTenant(ctx context.Context, tenantID uuid.UUID) ([]StorageFile, error) {
@@ -10444,11 +10444,11 @@ func (q *Queries) ListStorageFilesByTenant(ctx context.Context, tenantID uuid.UU
 			&i.ID,
 			&i.TenantID,
 			&i.OwnerUserID,
-			&i.Nome,
+			&i.Name,
 			&i.BlobKey,
 			&i.Hash,
-			&i.Tamanho,
-			&i.Versao,
+			&i.Size,
+			&i.Version,
 			&i.CreatedAt,
 			&i.FolderID,
 			&i.DeletedAt,
@@ -10624,7 +10624,7 @@ func (q *Queries) ListThreadReplies(ctx context.Context, parentID pgtype.UUID) (
 }
 
 const listTrashedFiles = `-- name: ListTrashedFiles :many
-SELECT id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE owner_user_id = $1 AND deleted_at IS NOT NULL ORDER BY deleted_at DESC
+SELECT id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE owner_user_id = $1 AND deleted_at IS NOT NULL ORDER BY deleted_at DESC
 `
 
 // Lixeira do dono: só os soft-deleted, mais recentes primeiro.
@@ -10641,11 +10641,11 @@ func (q *Queries) ListTrashedFiles(ctx context.Context, ownerUserID pgtype.UUID)
 			&i.ID,
 			&i.TenantID,
 			&i.OwnerUserID,
-			&i.Nome,
+			&i.Name,
 			&i.BlobKey,
 			&i.Hash,
-			&i.Tamanho,
-			&i.Versao,
+			&i.Size,
+			&i.Version,
 			&i.CreatedAt,
 			&i.FolderID,
 			&i.DeletedAt,
@@ -10964,16 +10964,16 @@ func (q *Queries) MarkWebhookProcessed(ctx context.Context, eventID string) (str
 }
 
 const maxVersionByName = `-- name: MaxVersionByName :one
-SELECT COALESCE(max(versao), 0)::int FROM storage_files WHERE tenant_id = $1 AND nome = $2
+SELECT COALESCE(max(version), 0)::int FROM storage_files WHERE tenant_id = $1 AND name = $2
 `
 
 type MaxVersionByNameParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
-	Nome     string    `json:"nome"`
+	Name     string    `json:"name"`
 }
 
 func (q *Queries) MaxVersionByName(ctx context.Context, arg MaxVersionByNameParams) (int32, error) {
-	row := q.db.QueryRow(ctx, maxVersionByName, arg.TenantID, arg.Nome)
+	row := q.db.QueryRow(ctx, maxVersionByName, arg.TenantID, arg.Name)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -11098,14 +11098,14 @@ func (q *Queries) MoveFolder(ctx context.Context, arg MoveFolderParams) (Storage
 }
 
 const moveRenameStorageFile = `-- name: MoveRenameStorageFile :one
-UPDATE storage_files SET folder_id = $3, nome = $4 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET folder_id = $3, name = $4 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type MoveRenameStorageFileParams struct {
 	ID          uuid.UUID   `json:"id"`
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
 	FolderID    pgtype.UUID `json:"folder_id"`
-	Nome        string      `json:"nome"`
+	Name        string      `json:"name"`
 }
 
 // Move E renomeia num só UPDATE (o daemon de sync trata mover/renomear local como uma operação).
@@ -11114,18 +11114,18 @@ func (q *Queries) MoveRenameStorageFile(ctx context.Context, arg MoveRenameStora
 		arg.ID,
 		arg.OwnerUserID,
 		arg.FolderID,
-		arg.Nome,
+		arg.Name,
 	)
 	var i StorageFile
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -11136,7 +11136,7 @@ func (q *Queries) MoveRenameStorageFile(ctx context.Context, arg MoveRenameStora
 }
 
 const moveStorageFile = `-- name: MoveStorageFile :one
-UPDATE storage_files SET folder_id = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET folder_id = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type MoveStorageFileParams struct {
@@ -11152,11 +11152,11 @@ func (q *Queries) MoveStorageFile(ctx context.Context, arg MoveStorageFileParams
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -11462,27 +11462,27 @@ func (q *Queries) RenameFolder(ctx context.Context, arg RenameFolderParams) (Sto
 }
 
 const renameStorageFile = `-- name: RenameStorageFile :one
-UPDATE storage_files SET nome = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET name = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type RenameStorageFileParams struct {
 	ID          uuid.UUID   `json:"id"`
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
-	Nome        string      `json:"nome"`
+	Name        string      `json:"name"`
 }
 
 func (q *Queries) RenameStorageFile(ctx context.Context, arg RenameStorageFileParams) (StorageFile, error) {
-	row := q.db.QueryRow(ctx, renameStorageFile, arg.ID, arg.OwnerUserID, arg.Nome)
+	row := q.db.QueryRow(ctx, renameStorageFile, arg.ID, arg.OwnerUserID, arg.Name)
 	var i StorageFile
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -11592,7 +11592,7 @@ func (q *Queries) RestoreEvent(ctx context.Context, arg RestoreEventParams) (Eve
 }
 
 const restoreFile = `-- name: RestoreFile :one
-UPDATE storage_files SET deleted_at = NULL WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET deleted_at = NULL WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type RestoreFileParams struct {
@@ -11608,11 +11608,11 @@ func (q *Queries) RestoreFile(ctx context.Context, arg RestoreFileParams) (Stora
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -11959,18 +11959,18 @@ func (q *Queries) SearchMessagesInChannel(ctx context.Context, arg SearchMessage
 }
 
 const searchStorageFiles = `-- name: SearchStorageFiles :many
-SELECT id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE owner_user_id = $1 AND nome ILIKE $2 AND deleted_at IS NULL ORDER BY nome LIMIT 200
+SELECT id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE owner_user_id = $1 AND name ILIKE $2 AND deleted_at IS NULL ORDER BY name LIMIT 200
 `
 
 type SearchStorageFilesParams struct {
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
-	Nome        string      `json:"nome"`
+	Name        string      `json:"name"`
 }
 
 // Busca global (recursiva): casa o nome em TODAS as pastas do dono, não só na atual. LIMIT p/ teto.
 // Ignora a lixeira (deleted_at IS NULL).
 func (q *Queries) SearchStorageFiles(ctx context.Context, arg SearchStorageFilesParams) ([]StorageFile, error) {
-	rows, err := q.db.Query(ctx, searchStorageFiles, arg.OwnerUserID, arg.Nome)
+	rows, err := q.db.Query(ctx, searchStorageFiles, arg.OwnerUserID, arg.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -11982,11 +11982,11 @@ func (q *Queries) SearchStorageFiles(ctx context.Context, arg SearchStorageFiles
 			&i.ID,
 			&i.TenantID,
 			&i.OwnerUserID,
-			&i.Nome,
+			&i.Name,
 			&i.BlobKey,
 			&i.Hash,
-			&i.Tamanho,
-			&i.Versao,
+			&i.Size,
+			&i.Version,
 			&i.CreatedAt,
 			&i.FolderID,
 			&i.DeletedAt,
@@ -12385,7 +12385,7 @@ func (q *Queries) SetEventTimes(ctx context.Context, arg SetEventTimesParams) er
 }
 
 const setFileStarred = `-- name: SetFileStarred :one
-UPDATE storage_files SET starred = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET starred = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type SetFileStarredParams struct {
@@ -12402,11 +12402,11 @@ func (q *Queries) SetFileStarred(ctx context.Context, arg SetFileStarredParams) 
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -12746,7 +12746,7 @@ func (q *Queries) SharedFileIDs(ctx context.Context, tenantID uuid.UUID) ([]uuid
 }
 
 const snapshotFileVersion = `-- name: SnapshotFileVersion :exec
-INSERT INTO file_versions (file_id, tenant_id, blob_key, hash, tamanho, versao, created_by)
+INSERT INTO file_versions (file_id, tenant_id, blob_key, hash, size, version, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 `
 
@@ -12755,8 +12755,8 @@ type SnapshotFileVersionParams struct {
 	TenantID  uuid.UUID   `json:"tenant_id"`
 	BlobKey   string      `json:"blob_key"`
 	Hash      string      `json:"hash"`
-	Tamanho   int64       `json:"tamanho"`
-	Versao    int32       `json:"versao"`
+	Size      int64       `json:"size"`
+	Version   int32       `json:"version"`
 	CreatedBy pgtype.UUID `json:"created_by"`
 }
 
@@ -12767,8 +12767,8 @@ func (q *Queries) SnapshotFileVersion(ctx context.Context, arg SnapshotFileVersi
 		arg.TenantID,
 		arg.BlobKey,
 		arg.Hash,
-		arg.Tamanho,
-		arg.Versao,
+		arg.Size,
+		arg.Version,
 		arg.CreatedBy,
 	)
 	return err
@@ -12800,8 +12800,8 @@ func (q *Queries) SumAssistantUsageWindow(ctx context.Context, arg SumAssistantU
 }
 
 const sumStorageBytes = `-- name: SumStorageBytes :one
-SELECT COALESCE(sum(tamanho), 0)::bigint
-FROM (SELECT DISTINCT ON (blob_key) tamanho FROM storage_files WHERE tenant_id = $1) t
+SELECT COALESCE(sum(size), 0)::bigint
+FROM (SELECT DISTINCT ON (blob_key) size FROM storage_files WHERE tenant_id = $1) t
 `
 
 func (q *Queries) SumStorageBytes(ctx context.Context, tenantID uuid.UUID) (int64, error) {
@@ -12958,7 +12958,7 @@ func (q *Queries) TransferContactOwner(ctx context.Context, arg TransferContactO
 }
 
 const trashFile = `-- name: TrashFile :one
-UPDATE storage_files SET deleted_at = now() WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET deleted_at = now() WHERE id = $1 AND owner_user_id = $2 RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type TrashFileParams struct {
@@ -12974,11 +12974,11 @@ func (q *Queries) TrashFile(ctx context.Context, arg TrashFileParams) (StorageFi
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -13471,7 +13471,7 @@ func (q *Queries) UpdateContactGroup(ctx context.Context, arg UpdateContactGroup
 const updateDomainProvision = `-- name: UpdateDomainProvision :one
 UPDATE domains
 SET provision_state = $2, stalwart_id = $3, dkim_status = $4, dns_status = $5, dns_zone = $6
-WHERE id = $1 RETURNING id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at
+WHERE id = $1 RETURNING id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at
 `
 
 type UpdateDomainProvisionParams struct {
@@ -13496,7 +13496,7 @@ func (q *Queries) UpdateDomainProvision(ctx context.Context, arg UpdateDomainPro
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
-		&i.Dominio,
+		&i.Domain,
 		&i.StalwartID,
 		&i.DkimStatus,
 		&i.DnsStatus,
@@ -13854,8 +13854,8 @@ func (q *Queries) UpdateMyProfile(ctx context.Context, arg UpdateMyProfileParams
 }
 
 const updateStorageFileContent = `-- name: UpdateStorageFileContent :one
-UPDATE storage_files SET blob_key = $3, hash = $4, tamanho = $5, versao = versao + 1
-WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET blob_key = $3, hash = $4, size = $5, version = version + 1
+WHERE id = $1 AND tenant_id = $2 RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type UpdateStorageFileContentParams struct {
@@ -13863,7 +13863,7 @@ type UpdateStorageFileContentParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 	BlobKey  string    `json:"blob_key"`
 	Hash     string    `json:"hash"`
-	Tamanho  int64     `json:"tamanho"`
+	Size     int64     `json:"size"`
 }
 
 func (q *Queries) UpdateStorageFileContent(ctx context.Context, arg UpdateStorageFileContentParams) (StorageFile, error) {
@@ -13872,18 +13872,18 @@ func (q *Queries) UpdateStorageFileContent(ctx context.Context, arg UpdateStorag
 		arg.TenantID,
 		arg.BlobKey,
 		arg.Hash,
-		arg.Tamanho,
+		arg.Size,
 	)
 	var i StorageFile
 	err := row.Scan(
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -13894,15 +13894,15 @@ func (q *Queries) UpdateStorageFileContent(ctx context.Context, arg UpdateStorag
 }
 
 const updateStorageFileContentIfVersion = `-- name: UpdateStorageFileContentIfVersion :one
-UPDATE storage_files SET blob_key = $1, hash = $2, tamanho = $3, versao = versao + 1
-WHERE id = $4 AND tenant_id = $5 AND owner_user_id = $6 AND versao = $7
-RETURNING id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at, folder_id, deleted_at, starred, updated_at
+UPDATE storage_files SET blob_key = $1, hash = $2, size = $3, version = version + 1
+WHERE id = $4 AND tenant_id = $5 AND owner_user_id = $6 AND version = $7
+RETURNING id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at
 `
 
 type UpdateStorageFileContentIfVersionParams struct {
 	BlobKey         string      `json:"blob_key"`
 	Hash            string      `json:"hash"`
-	Tamanho         int64       `json:"tamanho"`
+	Size            int64       `json:"size"`
 	ID              uuid.UUID   `json:"id"`
 	TenantID        uuid.UUID   `json:"tenant_id"`
 	OwnerUserID     pgtype.UUID `json:"owner_user_id"`
@@ -13916,7 +13916,7 @@ func (q *Queries) UpdateStorageFileContentIfVersion(ctx context.Context, arg Upd
 	row := q.db.QueryRow(ctx, updateStorageFileContentIfVersion,
 		arg.BlobKey,
 		arg.Hash,
-		arg.Tamanho,
+		arg.Size,
 		arg.ID,
 		arg.TenantID,
 		arg.OwnerUserID,
@@ -13927,11 +13927,11 @@ func (q *Queries) UpdateStorageFileContentIfVersion(ctx context.Context, arg Upd
 		&i.ID,
 		&i.TenantID,
 		&i.OwnerUserID,
-		&i.Nome,
+		&i.Name,
 		&i.BlobKey,
 		&i.Hash,
-		&i.Tamanho,
-		&i.Versao,
+		&i.Size,
+		&i.Version,
 		&i.CreatedAt,
 		&i.FolderID,
 		&i.DeletedAt,
@@ -14016,16 +14016,16 @@ func (q *Queries) UpdateTenantBranding(ctx context.Context, arg UpdateTenantBran
 }
 
 const updateTenantPlan = `-- name: UpdateTenantPlan :exec
-UPDATE tenants SET plano = $2 WHERE id = $1
+UPDATE tenants SET plan = $2 WHERE id = $1
 `
 
 type UpdateTenantPlanParams struct {
-	ID    uuid.UUID `json:"id"`
-	Plano string    `json:"plano"`
+	ID   uuid.UUID `json:"id"`
+	Plan string    `json:"plan"`
 }
 
 func (q *Queries) UpdateTenantPlan(ctx context.Context, arg UpdateTenantPlanParams) error {
-	_, err := q.db.Exec(ctx, updateTenantPlan, arg.ID, arg.Plano)
+	_, err := q.db.Exec(ctx, updateTenantPlan, arg.ID, arg.Plan)
 	return err
 }
 
@@ -14346,23 +14346,23 @@ func (q *Queries) UpsertPushSubscription(ctx context.Context, arg UpsertPushSubs
 }
 
 const upsertSubscription = `-- name: UpsertSubscription :exec
-INSERT INTO subscriptions (tenant_id, stripe_id, faixa_de_caixas, status)
+INSERT INTO subscriptions (tenant_id, stripe_id, mailbox_range, status)
 VALUES ($1, $2, $3, $4)
-ON CONFLICT (tenant_id) DO UPDATE SET stripe_id = EXCLUDED.stripe_id, faixa_de_caixas = EXCLUDED.faixa_de_caixas, status = EXCLUDED.status
+ON CONFLICT (tenant_id) DO UPDATE SET stripe_id = EXCLUDED.stripe_id, mailbox_range = EXCLUDED.mailbox_range, status = EXCLUDED.status
 `
 
 type UpsertSubscriptionParams struct {
-	TenantID      uuid.UUID `json:"tenant_id"`
-	StripeID      *string   `json:"stripe_id"`
-	FaixaDeCaixas string    `json:"faixa_de_caixas"`
-	Status        string    `json:"status"`
+	TenantID     uuid.UUID `json:"tenant_id"`
+	StripeID     *string   `json:"stripe_id"`
+	MailboxRange string    `json:"mailbox_range"`
+	Status       string    `json:"status"`
 }
 
 func (q *Queries) UpsertSubscription(ctx context.Context, arg UpsertSubscriptionParams) error {
 	_, err := q.db.Exec(ctx, upsertSubscription,
 		arg.TenantID,
 		arg.StripeID,
-		arg.FaixaDeCaixas,
+		arg.MailboxRange,
 		arg.Status,
 	)
 	return err

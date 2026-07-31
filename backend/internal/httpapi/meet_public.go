@@ -27,7 +27,7 @@ func (s *Server) handlePublicMeetInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	out := map[string]any{"title": m.Title, "access": m.Access, "status": m.Status}
 	if ten, terr := s.q.GetTenant(r.Context(), m.TenantID); terr == nil {
-		out["org"] = ten.Nome
+		out["org"] = ten.Name
 		out["brand"] = map[string]any{"color": ten.BrandColor, "logo": ten.BrandLogo, "logo_white_dark": ten.BrandLogoWhiteDark}
 	}
 	writeJSON(w, http.StatusOK, out)

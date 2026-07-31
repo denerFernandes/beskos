@@ -68,14 +68,14 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if quota <= 0 {
 		quota = 5
 	}
-	email := req.Login + "@" + d.Dominio
+	email := req.Login + "@" + d.Domain
 
 	// Caixa no Stalwart + o usuário (identidade unificada: um só registro com caixa, senha e papel).
 	acctID, err := s.sw.CreateAccount(r.Context(), stalwart.AccountInput{
 		Login: req.Login, DomainID: strval(d.StalwartID), DisplayName: req.Name, Password: req.Password, QuotaBytes: quota << 30,
 	})
 	if err != nil {
-		log.Printf("operação de caixa no Stalwart falhou: %v", err)
+		log.Printf("mailbox operation in Stalwart failed: %v", err)
 		if errors.Is(err, stalwart.ErrWeakPassword) {
 			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
 			return
@@ -100,7 +100,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if len(req.Groups) > 0 {
 		s.syncUserGroups(r.Context(), d.TenantID, pu.ID, req.Groups)
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: actor.TenantID, Valid: true}, Actor: actor.Email, Acao: "user.create", Alvo: email})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: actor.TenantID, Valid: true}, Actor: actor.Email, Action: "user.create", Target: email})
 	s.syncSeats(actor.TenantID) // seats na Stripe acompanham (rateio no período)
 	writeJSON(w, http.StatusCreated, map[string]any{"id": pu.ID, "email": email, "role": req.Role})
 }
@@ -133,7 +133,7 @@ func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := s.sw.SetAccountPassword(r.Context(), *mu.StalwartAccountID, req.Password); err != nil {
-		log.Printf("operação de caixa no Stalwart falhou: %v", err)
+		log.Printf("mailbox operation in Stalwart failed: %v", err)
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}
@@ -149,6 +149,6 @@ func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request)
 		basic := base64.StdEncoding.EncodeToString([]byte(req.Email + ":" + req.Password))
 		_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: mu.ID, JmapCred: s.encTOTP(basic)})
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: actor.TenantID, Valid: true}, Actor: actor.Email, Acao: "user.password_reset", Alvo: req.Email})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: actor.TenantID, Valid: true}, Actor: actor.Email, Action: "user.password_reset", Target: req.Email})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }

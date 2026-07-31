@@ -223,7 +223,7 @@ func (c *Client) GetDomainDNSZone(ctx context.Context, domainID string) (string,
 		return "", fmt.Errorf("decode Domain/get: %w", err)
 	}
 	if len(g.List) == 0 {
-		return "", fmt.Errorf("stalwart: domínio %s não encontrado", domainID)
+		return "", fmt.Errorf("stalwart: domain %s not found", domainID)
 	}
 	return g.List[0].DNSZoneFile, nil
 }

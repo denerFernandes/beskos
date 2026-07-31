@@ -595,7 +595,7 @@ function Picker({ onClose, onUpload, onDrive }: {
   useEffect(() => {
     if (tab !== "drive" || searching) return;
     backend.files(folderId).then(setListing).catch(() => setListing(null));
-    if (!folderId) backend.sharedWithMe().then((r) => setShared(r.files.filter((f) => okPresExt(f.nome)))).catch(() => setShared([]));
+    if (!folderId) backend.sharedWithMe().then((r) => setShared(r.files.filter((f) => okPresExt(f.name)))).catch(() => setShared([]));
   }, [tab, folderId, searching]);
   useEffect(() => {
     if (tab !== "drive" || !searching) return;
@@ -604,7 +604,7 @@ function Picker({ onClose, onUpload, onDrive }: {
   }, [tab, q, searching]);
 
   const folders = searching ? (results?.folders ?? []) : (listing?.folders ?? []);
-  const files = (searching ? (results?.files ?? []) : (listing?.files ?? [])).filter((f) => okPresExt(f.nome) && !f.deleted_at);
+  const files = (searching ? (results?.files ?? []) : (listing?.files ?? [])).filter((f) => okPresExt(f.name) && !f.deleted_at);
   const crumbs = listing?.breadcrumb ?? [];
 
   return (
@@ -645,7 +645,7 @@ function Picker({ onClose, onUpload, onDrive }: {
               ))}
               {files.map((f) => (
                 <button key={f.id} className="pres-fm-item" onClick={() => onDrive(f.id)}>
-                  <IcPaperclip size={15} /> <span className="nm">{f.nome}</span><span className="sz">{fmtSz(f.tamanho)}</span>
+                  <IcPaperclip size={15} /> <span className="nm">{f.name}</span><span className="sz">{fmtSz(f.size)}</span>
                 </button>
               ))}
               {/* Partilhados comigo (só na raiz, sem busca) — também dá para apresentar. */}
@@ -654,7 +654,7 @@ function Picker({ onClose, onUpload, onDrive }: {
                   <div className="pres-fm-sec">{t("files.sharedWithMe")}</div>
                   {shared.map((f) => (
                     <button key={"sh" + f.id} className="pres-fm-item" onClick={() => onDrive(f.id)}>
-                      <IcUsers size={15} /> <span className="nm">{f.nome}</span><span className="sz">{fmtSz(f.tamanho)}</span>
+                      <IcUsers size={15} /> <span className="nm">{f.name}</span><span className="sz">{fmtSz(f.size)}</span>
                     </button>
                   ))}
                 </>

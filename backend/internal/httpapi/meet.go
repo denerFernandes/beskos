@@ -331,7 +331,7 @@ func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 	// e moderar); só conta para os demais. Erro do LiveKit (-1) não bloqueia (a sala importa mais).
 	if !isHost && s.meet != nil {
 		if t, terr := s.q.GetTenant(r.Context(), mu.TenantID); terr == nil {
-			limit := s.planByKey(r.Context(), t.Plano).MaxMeetParticipants
+			limit := s.planByKey(r.Context(), t.Plan).MaxMeetParticipants
 			if n := s.meet.participantCount(r.Context(), room); n >= 0 && n >= limit {
 				writeJSON(w, http.StatusOK, map[string]any{
 					"full": true, "room": room, "title": m.Title, "meeting_id": m.ID, "limit": limit,

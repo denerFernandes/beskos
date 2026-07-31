@@ -12,7 +12,7 @@ import (
 	"mailin/backend/internal/db"
 )
 
-var errBadCursor = errors.New("cursor inválido")
+var errBadCursor = errors.New("invalid cursor")
 
 // Sync de diretórios — M0 (control plane). Feed incremental das mudanças nos ficheiros do próprio
 // utilizador, consumido pelo daemon de sincronização (desktop, escrito em Rust). O daemon guarda o
@@ -67,7 +67,7 @@ func (s *Server) handleListFileChanges(w http.ResponseWriter, r *http.Request) {
 
 	changes := make([]fileChange, 0, len(rows))
 	for _, row := range rows {
-		c := fileChange{ID: row.ID, Name: row.Nome, Hash: row.Hash, Size: row.Tamanho, Version: row.Versao, UpdatedAt: row.UpdatedAt, Owned: row.Owned}
+		c := fileChange{ID: row.ID, Name: row.Name, Hash: row.Hash, Size: row.Size, Version: row.Version, UpdatedAt: row.UpdatedAt, Owned: row.Owned}
 		if row.FolderID.Valid {
 			fid := uuid.UUID(row.FolderID.Bytes)
 			c.FolderID = &fid

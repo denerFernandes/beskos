@@ -29,7 +29,7 @@ func NewStripe(cfg Config) *StripeProvider {
 
 func (p *StripeProvider) Name() string { return "stripe" }
 
-func unknownProvider(name string) error { return fmt.Errorf("billing: provedor desconhecido %q", name) }
+func unknownProvider(name string) error { return fmt.Errorf("billing: unknown provider %q", name) }
 
 // Checkout cria uma Checkout Session em modo assinatura usando price_data inline (não exige
 // pré-cadastrar preços na Stripe). client_reference_id = tenant; metadata[plan] = plano.
@@ -194,14 +194,14 @@ func verifyStripeSignature(payload []byte, header, secret string, tolerance time
 		}
 	}
 	if ts == "" || len(sigs) == 0 {
-		return fmt.Errorf("assinatura ausente")
+		return fmt.Errorf("signature missing")
 	}
 	tsInt, err := strconv.ParseInt(ts, 10, 64)
 	if err != nil {
-		return fmt.Errorf("timestamp inválido")
+		return fmt.Errorf("invalid timestamp")
 	}
 	if tolerance > 0 && absDuration(time.Since(time.Unix(tsInt, 0))) > tolerance {
-		return fmt.Errorf("assinatura fora da janela de tolerância")
+		return fmt.Errorf("signature outside the tolerance window")
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(ts + "." + string(payload)))
@@ -211,7 +211,7 @@ func verifyStripeSignature(payload []byte, header, secret string, tolerance time
 			return nil
 		}
 	}
-	return fmt.Errorf("assinatura inválida")
+	return fmt.Errorf("invalid signature")
 }
 
 func absDuration(d time.Duration) time.Duration {

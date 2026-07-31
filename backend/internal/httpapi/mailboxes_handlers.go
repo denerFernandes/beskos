@@ -67,7 +67,7 @@ func (s *Server) handleResetMailboxPassword(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if err := s.sw.SetAccountPassword(r.Context(), *mu.StalwartAccountID, req.Password); err != nil {
-		log.Printf("criar caixa no Stalwart falhou: %v", err)
+		log.Printf("creating the mailbox in Stalwart failed: %v", err)
 		if errors.Is(err, stalwart.ErrWeakPassword) {
 			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
 			return
@@ -77,7 +77,7 @@ func (s *Server) handleResetMailboxPassword(w http.ResponseWriter, r *http.Reque
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
 		TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email,
-		Acao: "mailbox.password_reset", Alvo: mu.Email,
+		Action: "mailbox.password_reset", Target: mu.Email,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }

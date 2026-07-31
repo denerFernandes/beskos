@@ -39,12 +39,12 @@ func (r *Runner) Tick(ctx context.Context) int {
 			changed, err := r.machine.AdvanceOnce(ctx, d)
 			if err != nil {
 				// Erro (provavelmente transiente): loga e tenta de novo no próximo tick.
-				log.Printf("provisioning: domain %s (%s): %v", d.Dominio, d.ProvisionState, err)
+				log.Printf("provisioning: domain %s (%s): %v", d.Domain, d.ProvisionState, err)
 				continue
 			}
 			if changed {
 				advanced++
-				log.Printf("provisioning: domain %s advanced from %s", d.Dominio, d.ProvisionState)
+				log.Printf("provisioning: domain %s advanced from %s", d.Domain, d.ProvisionState)
 			}
 		}
 	}

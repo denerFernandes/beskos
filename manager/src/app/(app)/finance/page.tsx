@@ -77,8 +77,8 @@ export default function FinancePage() {
             <TableBody>
               {(fin.data?.tenants ?? []).map((t) => (
                 <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.nome}</TableCell>
-                  <TableCell><Badge variant="outline">{t.plano}</Badge></TableCell>
+                  <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableCell><Badge variant="outline">{t.plan}</Badge></TableCell>
                   <TableCell className="text-right tabular-nums">{formatNumber(t.users)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatBytes(t.storage_bytes)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatNumber(t.ai_tokens_30d)}</TableCell>

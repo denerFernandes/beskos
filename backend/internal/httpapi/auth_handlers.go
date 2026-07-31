@@ -52,7 +52,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenant, err := s.q.CreateTenant(r.Context(), db.CreateTenantParams{Nome: req.OrgName, Plano: "trial"})
+	tenant, err := s.q.CreateTenant(r.Context(), db.CreateTenantParams{Name: req.OrgName, Plan: "trial"})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "tenant.create_failed")
 		return
@@ -73,7 +73,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
-		TenantID: pgtype.UUID{Bytes: tenant.ID, Valid: true}, Actor: req.Email, Acao: "signup", Alvo: tenant.ID.String(),
+		TenantID: pgtype.UUID{Bytes: tenant.ID, Valid: true}, Actor: req.Email, Action: "signup", Target: tenant.ID.String(),
 	})
 	token, ok := s.issueSession(w, r.Context(), u)
 	if !ok {

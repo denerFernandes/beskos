@@ -37,7 +37,7 @@ export function DomainsSection({ me, detail, onOpen }: { me: Me | undefined; det
           {(list.data?.length ?? 0) === 0 ? <div className="pnl-empty">{t("domains.empty")}</div>
             : list.data!.map((dm) => (
               <div className="pnl-row" key={dm.id}>
-                <div className="grow"><div className="mono">{dm.dominio}</div></div>
+                <div className="grow"><div className="mono">{dm.domain}</div></div>
                 <StatePill state={dm.provision_state} />
                 <button className="pnl-btn ghost" onClick={() => onOpen(dm.id)}>{t("domainsSection.details")}</button>
               </div>

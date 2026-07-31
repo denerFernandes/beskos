@@ -31,20 +31,20 @@ func (s *Server) handleCopyFile(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&req) // corpo opcional
-	name := f.Nome
+	name := f.Name
 	if n := strings.TrimSpace(req.Name); n != "" {
 		name = n
 	}
-	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Nome: name})
+	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Name: name})
 	rec, err := s.q.CreateStorageFile(r.Context(), db.CreateStorageFileParams{
 		TenantID: mu.TenantID, OwnerUserID: ownerPg(mu),
-		Nome: name, BlobKey: f.BlobKey, Hash: f.Hash, Tamanho: f.Tamanho, Versao: prevMax + 1, FolderID: f.FolderID,
+		Name: name, BlobKey: f.BlobKey, Hash: f.Hash, Size: f.Size, Version: prevMax + 1, FolderID: f.FolderID,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.record_failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Acao: "file.copy", Alvo: name})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Action: "file.copy", Target: name})
 	writeJSON(w, http.StatusCreated, rec)
 }
 
@@ -91,7 +91,7 @@ func (s *Server) handleZipFolder(w http.ResponseWriter, r *http.Request) {
 			if gerr != nil {
 				continue // blob ausente: pula o ficheiro em vez de quebrar o zip
 			}
-			if fw, cerr := zw.Create(path.Join(n.rel, file.Nome)); cerr == nil {
+			if fw, cerr := zw.Create(path.Join(n.rel, file.Name)); cerr == nil {
 				_, _ = io.Copy(fw, obj)
 			}
 			_ = obj.Close()

@@ -136,9 +136,9 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
         {step === 2 && (
           <>
             <h1>{t("onboarding.h2")}</h1>
-            <p className="ob-sub">{t("onboarding.p2", { domain: domain?.dominio ?? "" })}</p>
+            <p className="ob-sub">{t("onboarding.p2", { domain: domain?.domain ?? "" })}</p>
             <div className="ob-invite">
-              <input type="email" placeholder={`colega@${domain?.dominio ?? "acme.com"}`} value={invite}
+              <input type="email" placeholder={`colega@${domain?.domain ?? "acme.com"}`} value={invite}
                 onChange={(e) => setInvite(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addInvite(); } }} />
               <button onClick={addInvite}><IcPlus size={16} /></button>

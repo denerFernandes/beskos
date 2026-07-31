@@ -204,7 +204,7 @@ func (d *DeepSeek) Complete(ctx context.Context, req Request) (Response, error) 
 
 	var cr chatResponse
 	if err := json.Unmarshal(body, &cr); err != nil {
-		return Response{}, fmt.Errorf("deepseek: resposta inválida (HTTP %d): %s", resp.StatusCode, string(body))
+		return Response{}, fmt.Errorf("deepseek: invalid response (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 	if resp.StatusCode != http.StatusOK {
 		msg := string(body)
@@ -214,7 +214,7 @@ func (d *DeepSeek) Complete(ctx context.Context, req Request) (Response, error) 
 		return Response{}, fmt.Errorf("deepseek HTTP %d: %s", resp.StatusCode, msg)
 	}
 	if len(cr.Choices) == 0 {
-		return Response{}, fmt.Errorf("deepseek: resposta sem choices")
+		return Response{}, fmt.Errorf("deepseek: response has no choices")
 	}
 	return Response{
 		Text:         cr.Choices[0].Message.Content,

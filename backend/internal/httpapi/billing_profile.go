@@ -92,7 +92,7 @@ func (s *Server) handleSaveBillingProfile(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusInternalServerError, "billing.profile_save_failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgUUID(u.TenantID), Actor: u.Email, Acao: "billing.profile", Alvo: req.LegalName})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgUUID(u.TenantID), Actor: u.Email, Action: "billing.profile", Target: req.LegalName})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

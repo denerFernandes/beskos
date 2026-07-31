@@ -160,7 +160,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.applyPlan(r, u.TenantID, req.Plan, subID, "active")
-		_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "billing.plan_change", Alvo: req.Plan})
+		_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "billing.plan_change", Target: req.Plan})
 		writeJSON(w, http.StatusOK, billing.CheckoutResult{Applied: true})
 		return
 	}
@@ -175,7 +175,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	}
 	if res.Applied { // Manual: aplica imediatamente
 		s.applyPlan(r, u.TenantID, req.Plan, "", "active")
-		_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "billing.plan_change", Alvo: req.Plan})
+		_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "billing.plan_change", Target: req.Plan})
 	}
 	writeJSON(w, http.StatusOK, res)
 }
@@ -193,7 +193,7 @@ func (s *Server) handleBillingCancel(w http.ResponseWriter, r *http.Request) {
 		// Manual: sem provedor externo — aplica o plano default na hora.
 		s.applyPlan(r, u.TenantID, billing.DefaultPlanID, "", "canceled")
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "billing.cancel", Alvo: ""})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "billing.cancel", Target: ""})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -209,7 +209,7 @@ func (s *Server) handleBillingResume(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "billing.resume_failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Acao: "billing.resume", Alvo: ""})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "billing.resume", Target: ""})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -344,7 +344,7 @@ func (s *Server) tenantPlanByID(ctx context.Context, tid uuid.UUID) billing.Plan
 	if err != nil {
 		return s.planByKey(ctx, billing.DefaultPlanID)
 	}
-	return s.planByKey(ctx, t.Plano)
+	return s.planByKey(ctx, t.Plan)
 }
 
 func (s *Server) applyPlan(r *http.Request, tid uuid.UUID, plan, stripeID, status string) {
@@ -354,9 +354,9 @@ func (s *Server) applyPlan(r *http.Request, tid uuid.UUID, plan, stripeID, statu
 		p = s.planByKey(r.Context(), billing.DefaultPlanID)
 		plan = p.ID
 	}
-	_ = s.q.UpdateTenantPlan(r.Context(), db.UpdateTenantPlanParams{ID: tid, Plano: plan})
+	_ = s.q.UpdateTenantPlan(r.Context(), db.UpdateTenantPlanParams{ID: tid, Plan: plan})
 	_ = s.q.UpsertSubscription(r.Context(), db.UpsertSubscriptionParams{
-		TenantID: tid, StripeID: &stripeID, FaixaDeCaixas: p.MailboxRange, Status: status,
+		TenantID: tid, StripeID: &stripeID, MailboxRange: p.MailboxRange, Status: status,
 	})
 }
 

@@ -47,7 +47,7 @@ func New(endpoint, accessKey, secretKey, bucket, region string, useSSL bool) (*S
 	if !exists {
 		// No R2 os buckets criam-se no painel; o CreateBucket via S3 pode ser negado — não é fatal.
 		if err := c.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: region}); err != nil {
-			return nil, fmt.Errorf("bucket %q não existe e não foi possível criá-lo (cria-o no painel do storage): %w", bucket, err)
+			return nil, fmt.Errorf("bucket %q does not exist and could not be created (create it in the storage panel): %w", bucket, err)
 		}
 	}
 	return s, nil
@@ -66,7 +66,7 @@ func (s *Service) Put(ctx context.Context, key string, r io.Reader, size int64, 
 
 	dek, h, err := s.keys.wrapForKey(ctx, key)
 	if err != nil {
-		return fmt.Errorf("chave do objeto %q: %w", key, err)
+		return fmt.Errorf("object key %q: %w", key, err)
 	}
 
 	// O cifrado sai de um pipe enquanto o envio o consome: um ficheiro de 2 GB nunca fica em
@@ -124,7 +124,7 @@ func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) 
 			obj.Close()
 			return nil, serr
 		}
-		return &SeekObject{ReadSeeker: obj, c: obj, origem: obj}, nil
+		return &SeekObject{ReadSeeker: obj, c: obj, source: obj}, nil
 	}
 	if perr != nil {
 		obj.Close()
@@ -132,7 +132,7 @@ func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) 
 	}
 	if s.keys == nil {
 		obj.Close()
-		return nil, errors.New("storage: objeto cifrado mas a cifra está desligada (falta FILE_ENC_KEYS)")
+		return nil, errors.New("storage: object is encrypted but encryption is off (FILE_ENC_KEYS missing)")
 	}
 	dek, err := s.keys.unwrapFromHeader(ctx, key, h)
 	if err != nil {
@@ -144,7 +144,7 @@ func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) 
 		obj.Close()
 		return nil, err
 	}
-	return &SeekObject{ReadSeeker: sr, c: obj, origem: obj}, nil
+	return &SeekObject{ReadSeeker: sr, c: obj, source: obj}, nil
 }
 
 // SeekObject é o objeto aberto para leitura com salto. Traz também a data da última alteração, que
@@ -153,14 +153,14 @@ func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) 
 type SeekObject struct {
 	io.ReadSeeker
 	c      io.Closer
-	origem *minio.Object
+	source *minio.Object
 }
 
 func (s *SeekObject) Close() error { return s.c.Close() }
 
 // ModTime é quando o objeto mudou pela última vez, do lado do armazenamento.
 func (s *SeekObject) ModTime() (time.Time, error) {
-	info, err := s.origem.Stat()
+	info, err := s.source.Stat()
 	if err != nil {
 		return time.Time{}, err
 	}

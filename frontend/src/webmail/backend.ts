@@ -283,8 +283,8 @@ export const backend = {
   moveFolder: (id: string, parentId: string | null) => req<Folder>(`/api/folders/${id}/move`, { method: "POST", body: JSON.stringify({ parent_id: parentId ?? "" }) }),
   deleteFolder: (id: string) => req<{ status: string }>(`/api/folders/${id}`, { method: "DELETE" }),
   shares: (id: string) => req<Share[]>(`/api/files/${id}/shares`),
-  shareFile: (id: string, principal: string, nivel: string) =>
-    req<Share & { external?: boolean; link?: string; emailed?: boolean }>(`/api/files/${id}/share`, { method: "POST", body: JSON.stringify({ principal, nivel }) }),
+  shareFile: (id: string, principal: string, level: string) =>
+    req<Share & { external?: boolean; link?: string; emailed?: boolean }>(`/api/files/${id}/share`, { method: "POST", body: JSON.stringify({ principal, level }) }),
   removeShare: (fileId: string, shareId: string) => req<{ status: string }>(`/api/files/${fileId}/shares/${shareId}`, { method: "DELETE" }),
   // Link público de download (anexos grandes). Devolve o token; a URL absoluta monta-se no cliente.
   fileLink: (id: string, opts?: { expires_days?: number; password?: string; permission?: "view" | "edit"; allow_download?: boolean }) =>
@@ -294,7 +294,7 @@ export const backend = {
   shareRecipients: (id: string, emails: string[]) => req<{ shared: number }>(`/api/files/${id}/share-recipients`, { method: "POST", body: JSON.stringify({ emails }) }),
   // Equipas do utilizador (para partilhar um ficheiro com o grupo inteiro).
   myGroups: () => req<{ id: string; name: string }[]>("/api/my-groups"),
-  shareWithGroup: (id: string, groupId: string, nivel: string) => req<{ shared: number }>(`/api/files/${id}/share-group`, { method: "POST", body: JSON.stringify({ group_id: groupId, nivel }) }),
+  shareWithGroup: (id: string, groupId: string, level: string) => req<{ shared: number }>(`/api/files/${id}/share-group`, { method: "POST", body: JSON.stringify({ group_id: groupId, level }) }),
   sharedWithMe: () => req<{ files: StorageFile[] }>("/api/files-shared"),
   fileLimits: () => req<{ max_upload_bytes: number }>("/api/files/limits"),
   editSession: (id: string, lang: string, theme: string) => req<EditSession>(`/api/files/${id}/edit-session?lang=${encodeURIComponent(lang)}&theme=${encodeURIComponent(theme)}`, { method: "POST" }),
@@ -550,8 +550,8 @@ export interface FilesListing {
   shared: string[]; owner: Owner; quota: Quota;
 }
 export interface FilesSearch { folders: Folder[]; files: StorageFile[]; shared: string[]; owner: Owner }
-export interface FileVersion { id: string; versao: number; tamanho: number; created_at: string; author: string }
-export interface Share { id: string; principal: string; nivel: string }
+export interface FileVersion { id: string; version: number; size: number; created_at: string; author: string }
+export interface Share { id: string; principal: string; level: string }
 
 // Estado do link público de um ficheiro. token vazio = sem link.
 export interface FileLinkInfo {
@@ -563,7 +563,7 @@ export interface FileLinkInfo {
 }
 
 export interface StorageFile {
-  id: string; nome: string; hash: string; tamanho: number; versao: number; created_at: string;
+  id: string; name: string; hash: string; size: number; version: number; created_at: string;
   deleted_at?: string | null; // preenchido = na lixeira
   starred?: boolean;
 }
@@ -718,7 +718,7 @@ export const cardActivityApi = {
   list: (cardId: string) => req<CardActivity[]>(`/api/cards/${cardId}/activity`),
 };
 
-export interface CardAttachment { id: string; file_id: string; nome: string; tamanho: number; created_at: string }
+export interface CardAttachment { id: string; file_id: string; name: string; size: number; created_at: string }
 export const cardAttachmentsApi = {
   list: (cardId: string) => req<CardAttachment[]>(`/api/cards/${cardId}/attachments`),
   attach: (cardId: string, fileId: string) => req<CardAttachment[]>(`/api/cards/${cardId}/attachments`, { method: "POST", body: JSON.stringify({ file_id: fileId }) }),
@@ -756,7 +756,7 @@ export interface WikiVersionFull extends WikiVersion { body_json: unknown }
 export interface WikiHome { tenant_id: string; body_json: unknown; body_text: string; body_html: string; updated_by: string | null; updated_at: string }
 export interface PublicWikiSpace { space: { name: string; icon: string; description: string }; pages: WikiTreeNode[] }
 export interface PublicWikiPage { title: string; slug: string; body_html: string; updated_at: string }
-export interface WikiAttachment { id: string; file_id: string; nome: string; tamanho: number; created_at: string }
+export interface WikiAttachment { id: string; file_id: string; name: string; size: number; created_at: string }
 export interface WikiComment {
   id: string; page_id: string; author_user_id: string; body: string; body_html?: string; created_at: string;
   author_name: string; author_email: string;
