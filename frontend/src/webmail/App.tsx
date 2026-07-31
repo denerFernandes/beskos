@@ -163,8 +163,20 @@ export function App({ session }: { session: WebmailSession }) {
 
   // Fontes das badges: e-mail não lido (JMAP) + notificações não lidas por tipo (reunião, arquivo).
   const boxesQ = useQuery({ queryKey: ["mailboxes"], queryFn: () => session.service.mailboxes(), refetchInterval: 30000 });
-  const notifQ = useQuery({ queryKey: ["notifications"], queryFn: () => backend.notifications(), refetchInterval: 30000, retry: false });
-  const chatChansQ = useQuery({ queryKey: ["chat-channels"], queryFn: () => backend.chatChannels(), refetchInterval: 30000, retry: false });
+  // refetchIntervalInBackground: TanStack Query stops an interval once the tab is hidden, and the
+  // OS notification only fires WHILE the tab is hidden (see desktopNotify). The two rules cancelled
+  // each other out: nothing was discovered during the only window in which anything would be shown,
+  // and by the time the tab came back and the query refetched, the notification was suppressed for
+  // being redundant. Desktop alerts for chat, tasks and the calendar were, on the web, near enough
+  // dead. The alert sound rode on the same query and arrived just as late.
+  const notifQ = useQuery({
+    queryKey: ["notifications"], queryFn: () => backend.notifications(),
+    refetchInterval: 30000, refetchIntervalInBackground: true, retry: false,
+  });
+  const chatChansQ = useQuery({
+    queryKey: ["chat-channels"], queryFn: () => backend.chatChannels(),
+    refetchInterval: 30000, refetchIntervalInBackground: true, retry: false,
+  });
   const items = notifQ.data?.items ?? [];
 
   // Marca da organização (cor + logo). Aplica a cor globalmente e guarda em cache para o login.

@@ -99,9 +99,27 @@ export function playSound(kind: SoundKind): void {
   if (!soundPrefs()[prefOf(kind)]) return;
   const c = audioContext();
   if (!c) return;
-  // Ainda suspenso (nenhum gesto até agora): tenta acordar, e desiste em silêncio se não puder.
-  if (c.state === "suspended") void c.resume().catch(() => {});
+  // DO NOT SCHEDULE WHILE SUSPENDED. This is the whole point of the function.
+  //
+  // The browser suspends the AudioContext of a backgrounded page, and every context is born
+  // suspended before the first gesture. While suspended, currentTime DOES NOT ADVANCE. Calling
+  // resume() -- which is asynchronous -- and scheduling right after marks the envelope at
+  // "now + 10ms" by a stopped clock; by the time the context wakes, seconds later, that instant is
+  // in the past. The oscillator still starts, but the gain has already run its attack and decay
+  // back there: nothing is heard.
+  //
+  // This is what made the "someone joined" alert silent whenever the Meet window was not focused --
+  // and it is general, not a Meet problem: it applies to any alert while the page is in the
+  // background, which is exactly when an alert is worth having.
+  if (c.state !== "running") {
+    void c.resume().then(() => emit(c, kind)).catch(() => {});
+    return;
+  }
+  emit(c, kind);
+}
 
+// emit writes the notes into the context. Only ever called with the context running.
+function emit(c: AudioContext, kind: SoundKind): void {
   const t0 = c.currentTime + 0.01;
   for (const n of VOICES[kind]) {
     try {
