@@ -19,7 +19,7 @@ type Sender interface {
 type LogSender struct{}
 
 func (LogSender) Send(_ context.Context, phone, _ string) error {
-	log.Printf("[SMS:log] enviado para %s (corpo omitido: contém código MFA)", maskPhone(phone))
+	log.Printf("[SMS:log] sent to %s (body omitted: contains an MFA code)", maskPhone(phone))
 	return nil
 }
 

@@ -405,7 +405,7 @@ func (s *Server) handleUpdateMeetControls(w http.ResponseWriter, r *http.Request
 	if s.meet != nil {
 		policy := roomPolicy{Mic: m.AllowMic, Cam: m.AllowCam, Share: m.AllowShare, Chat: m.AllowChat}
 		if perr := s.meet.applyPolicy(r.Context(), m.RoomName, m.OwnerUserID.String(), policy); perr != nil {
-			log.Printf("meet: aplicar política na sala %s: %v", m.RoomName, perr)
+			log.Printf("meet: apply policy in room %s: %v", m.RoomName, perr)
 		}
 	}
 	writeJSON(w, http.StatusOK, controlsDTO(m))

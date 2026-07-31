@@ -254,7 +254,7 @@ func (c *Client) ConfigSetReputation(ctx context.Context, configSet string, from
 		return Reputation{}, err
 	}
 	if status != http.StatusOK {
-		return Reputation{}, fmt.Errorf("ses métricas de %q: HTTP %d: %s", configSet, status, out)
+		return Reputation{}, fmt.Errorf("ses metrics for %q: HTTP %d: %s", configSet, status, out)
 	}
 
 	var r struct {
@@ -268,12 +268,12 @@ func (c *Client) ConfigSetReputation(ctx context.Context, configSet string, from
 		} `json:"Errors"`
 	}
 	if err := json.Unmarshal(out, &r); err != nil {
-		return Reputation{}, fmt.Errorf("decode métricas: %w", err)
+		return Reputation{}, fmt.Errorf("decode metrics: %w", err)
 	}
 	// Um erro numa das consultas não pode passar por "zero devoluções": zero é o valor que faz o
 	// vigia concluir que está tudo bem, e é exatamente o que não se sabe.
 	if len(r.Errors) > 0 {
-		return Reputation{}, fmt.Errorf("ses métricas de %q: %s", configSet, r.Errors[0].Message)
+		return Reputation{}, fmt.Errorf("ses metrics for %q: %s", configSet, r.Errors[0].Message)
 	}
 
 	var rep Reputation
