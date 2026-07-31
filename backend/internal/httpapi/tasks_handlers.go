@@ -43,7 +43,7 @@ func (s *Server) ensureDefaultBoard(ctx context.Context, tenantID, userID uuid.U
 	if len(boards) > 0 {
 		return boards[0], nil
 	}
-	board, err := s.q.CreateBoard(ctx, db.CreateBoardParams{TenantID: tenantID, Name: "Quadro"}) // sem dono = legado (org toda)
+	board, err := s.createBoard(ctx, db.CreateBoardParams{TenantID: tenantID, Name: "Quadro"}) // no owner = legacy board, visible to the whole org
 	if err != nil {
 		return db.Board{}, err
 	}
@@ -67,7 +67,7 @@ func (s *Server) handleCreateBoard(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "boards.invalid")
 		return
 	}
-	board, err := s.q.CreateBoard(r.Context(), db.CreateBoardParams{
+	board, err := s.createBoard(r.Context(), db.CreateBoardParams{
 		TenantID: mu.TenantID, Name: name, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
 	})
 	// Default colaborativo: o quadro novo nasce visível/editável pela org toda (grant removível
@@ -586,40 +586,6 @@ func (s *Server) handleDeleteColumn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
-}
-
-// handleUpdateBoardPrefix muda o prefixo das tarefas do quadro (QUA-12). Só o formato é imposto:
-// maiúsculas, sem espaços, 2 a 6 caracteres — o resto é decisão de quem gere o quadro.
-// Os cards antigos passam a exibir o prefixo novo: a chave é derivada (prefixo + número), não
-// gravada, então renomear não reescreve histórico nem quebra links (o link usa o id).
-func (s *Server) handleUpdateBoardPrefix(w http.ResponseWriter, r *http.Request) {
-	mu := mailUserFrom(r.Context())
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "boards.invalid_id")
-		return
-	}
-	if !s.requireBoardRole(w, r, id, boardRoleManager) {
-		return
-	}
-	var req struct {
-		Prefix string `json:"prefix"`
-	}
-	if !decode(w, r, &req) {
-		return
-	}
-	p := strings.ToUpper(strings.TrimSpace(req.Prefix))
-	p = nonAlnum.ReplaceAllString(p, "")
-	if len(p) < 2 || len(p) > 6 {
-		writeErr(w, http.StatusBadRequest, "boards.invalid_prefix")
-		return
-	}
-	b, err := s.q.UpdateBoardPrefix(r.Context(), db.UpdateBoardPrefixParams{ID: id, TenantID: mu.TenantID, Prefix: p})
-	if err != nil {
-		writeErr(w, http.StatusNotFound, "boards.not_found")
-		return
-	}
-	writeJSON(w, http.StatusOK, b)
 }
 
 var nonAlnum = regexp.MustCompile(`[^A-Z0-9]`)

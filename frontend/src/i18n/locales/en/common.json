@@ -976,7 +976,8 @@
     "signup.password_weak": "The password needs at least 10 characters.",
     "signup.provision_failed": "Could not set up the domain and mailbox. Try again in a few minutes.",
     "mailbox.password_weak": "That password is too weak. Avoid repeats and sequences — add another word, preferably an uncommon one.",
-    "signup.closed": "Sign-ups are closed at the moment."
+    "signup.closed": "Sign-ups are closed at the moment.",
+    "boards.prefix_taken": "That prefix is already used by another board."
   },
   "members": {
     "title": "Members",

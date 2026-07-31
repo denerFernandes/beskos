@@ -25,14 +25,32 @@ SELECT * FROM boards WHERE tenant_id = $1 AND archived_at IS NOT NULL ORDER BY a
 -- Arquiva (true) ou restaura (false) um quadro. Só no próprio tenant.
 UPDATE boards SET archived_at = CASE WHEN sqlc.arg(archived)::boolean THEN now() ELSE NULL END WHERE id = $1 AND tenant_id = $2 RETURNING *;
 -- name: CreateBoard :one
--- The prefix comes from the name, by the SAME rule migration 00027 used (first 3 alphanumerics,
--- uppercased; none at all means 'TSK'). It was missing here: the insert left it on the column
--- default of '', so every task key rendered as "-1", "-2" instead of "QUA-1". Every board created
--- after that migration was born this way.
+-- The prefix is derived from the name and must not collide with another board of the same tenant.
+--
+-- Base: first 3 alphanumerics, uppercased -- the SAME rule migration 00027 used, so boards created
+-- before and after read alike. A name with no alphanumerics at all ("\U0001F680") would give an empty
+-- string, hence 'TSK'.
+--
+-- Taken already? Append a number: MAR, MAR2, MAR3. "Marketing" and "Marcas" both want MAR, and two
+-- boards sharing a prefix would both produce the key "QUA-1" for different tasks -- the key stops
+-- identifying anything. generate_series gives the candidates; the first free one wins.
+--
+-- This SELECT narrows the race, it does not close it: two requests can both see MAR2 free. The
+-- unique index from migration 00132 is what actually closes it, and the caller retries.
 INSERT INTO boards (tenant_id, name, owner_user_id, prefix)
-VALUES ($1, $2, $3, COALESCE(
-    NULLIF(upper(substring(regexp_replace($2::text, '[^a-zA-Z0-9]', '', 'g') from 1 for 3)), ''),
-    'TSK'))
+SELECT $1, $2, $3, candidate
+FROM (
+    SELECT base.p || CASE WHEN n = 1 THEN '' ELSE n::text END AS candidate, n
+    FROM (SELECT COALESCE(
+              NULLIF(upper(substring(regexp_replace($2::text, '[^a-zA-Z0-9]', '', 'g') from 1 for 3)), ''),
+              'TSK') AS p) base
+    CROSS JOIN generate_series(1, 999) AS n
+) c
+WHERE NOT EXISTS (
+    SELECT 1 FROM boards b WHERE b.tenant_id = $1 AND b.prefix = c.candidate
+)
+ORDER BY c.n
+LIMIT 1
 RETURNING *;
 -- name: BoardRole :one
 -- Papel efetivo (rank) no quadro: 0=sem acesso, 1=viewer, 3=editor, 4=manager. Card atribuído = 3.

@@ -976,7 +976,8 @@
     "signup.password_weak": "A palavra-passe precisa de pelo menos 10 caracteres.",
     "signup.provision_failed": "Não foi possível preparar o domínio e a caixa. Tente de novo dentro de minutos.",
     "mailbox.password_weak": "A palavra-passe é demasiado fraca. Evite repetições e sequências — junte outra palavra, de preferência pouco comum.",
-    "signup.closed": "As inscrições estão fechadas de momento."
+    "signup.closed": "As inscrições estão fechadas de momento.",
+    "boards.prefix_taken": "Esse prefixo já está em uso noutro quadro."
   },
   "members": {
     "title": "Membros",
