@@ -1482,8 +1482,27 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		if author == "" {
 			author = mu.Email
 		}
-		s.publish(ctx, "typing", cid, s.channelRecipients(ctx, cid),
-			map[string]any{"user_id": mu.ID.String(), "author": author})
+		// TODA A GENTE MENOS QUEM ESTÁ A ESCREVER. Ver "fulano está a escrever…" com o nosso próprio
+		// nome enquanto escrevemos não é só ruído: parece que há outra pessoa com o mesmo nome no
+		// canal. Também vale entre aparelhos — se estou a escrever no portátil, o telemóvel não tem
+		// de me anunciar a mim mesmo.
+		//
+		// Filtrado AQUI e não na interface porque é o único evento que não interessa à própria
+		// pessoa: os restantes (mensagem nova, edição) têm de chegar a todos os aparelhos dela para
+		// se manterem sincronizados. É por isso que channelRecipients continua a incluir toda a gente.
+		eu := mu.ID.String()
+		todos := s.channelRecipients(ctx, cid)
+		outros := make([]string, 0, len(todos))
+		for _, id := range todos {
+			if id != eu {
+				outros = append(outros, id)
+			}
+		}
+		if len(outros) == 0 {
+			return // canal só comigo (notas pessoais): não há a quem anunciar
+		}
+		s.publish(ctx, "typing", cid, outros,
+			map[string]any{"user_id": eu, "author": author})
 	}
 	s.hub.Serve(ctx, mu.ID, ws, onClient)
 }
