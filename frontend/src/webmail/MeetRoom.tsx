@@ -187,7 +187,7 @@ function LeaveOnWindowClose() {
   return null;
 }
 
-// Sons da sala: entrei, e alguém entrou.
+// Sons da sala: onJoined, e alguém entrou.
 //
 // PORQUÊ POR EVENTOS DA SALA e não no onConnected do <LiveKitRoom>: trocar de breakout e voltar
 // remonta a sala, e o onConnected dispararia outra vez o som de entrada em cada salto. O evento
@@ -199,14 +199,14 @@ function LeaveOnWindowClose() {
 function RoomSounds() {
   const room = useRoomContext();
   useEffect(() => {
-    const entrei = () => playSound("meetJoin");
-    const chegou = () => playSound("meetPeer");
+    const onJoined = () => playSound("meetJoin");
+    const onPeerJoined = () => playSound("meetPeer");
     // Já ligados quando este componente monta (o caso normal: o LiveKitRoom liga antes dos filhos
     // montarem). Sem isto o som de entrada nunca tocaria, porque o evento já passou.
-    if (room.state === "connected") entrei();
-    room.on(RoomEvent.Connected, entrei);
-    room.on(RoomEvent.ParticipantConnected, chegou);
-    return () => { room.off(RoomEvent.Connected, entrei); room.off(RoomEvent.ParticipantConnected, chegou); };
+    if (room.state === "connected") onJoined();
+    room.on(RoomEvent.Connected, onJoined);
+    room.on(RoomEvent.ParticipantConnected, onPeerJoined);
+    return () => { room.off(RoomEvent.Connected, onJoined); room.off(RoomEvent.ParticipantConnected, onPeerJoined); };
   }, [room]);
   return null;
 }
@@ -522,11 +522,11 @@ function HostLobby({ meetingId }: { meetingId: string }) {
   // Bate à porta uma vez POR PESSOA. A lista é resondada de 3 em 3 segundos e devolve os mesmos
   // pedidos enquanto ninguém os despachar — tocar a cada sondagem daria um alarme de 20 batidas
   // por minuto até o anfitrião reagir, que é a melhor forma de o fazer desligar o som.
-  const anunciados = useRef<Set<string>>(new Set());
+  const announced = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const novos = pending.filter((k) => !anunciados.current.has(k.id));
-    if (!novos.length) return;
-    novos.forEach((k) => anunciados.current.add(k.id));
+    const fresh = pending.filter((k) => !announced.current.has(k.id));
+    if (!fresh.length) return;
+    fresh.forEach((k) => announced.current.add(k.id));
     playSound("meetKnock");
   }, [pending]);
 

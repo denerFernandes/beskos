@@ -84,14 +84,14 @@ function audioContext(): AudioContext | null {
 // Sem isto o primeiro aviso seria engolido em silêncio e só o segundo se ouviria. Destrancamos ao
 // primeiro clique/tecla/toque na app, e o listener remove-se sozinho.
 export function unlockSounds(): void {
-  const destrancar = () => {
+  const unlock = () => {
     const c = audioContext();
     if (c && c.state === "suspended") void c.resume().catch(() => {});
   };
   const opts = { once: true, passive: true } as const;
-  window.addEventListener("pointerdown", destrancar, opts);
-  window.addEventListener("keydown", destrancar, opts);
-  window.addEventListener("touchstart", destrancar, opts);
+  window.addEventListener("pointerdown", unlock, opts);
+  window.addEventListener("keydown", unlock, opts);
+  window.addEventListener("touchstart", unlock, opts);
 }
 
 // Toca um aviso. Nunca lança: um som que falha não pode partir o que o disparou.
@@ -112,14 +112,14 @@ export function playSound(kind: SoundKind): void {
       osc.frequency.value = n.hz;
       // Envelope com ataque e queda: um ganho ligado/desligado de repente dá um "clique" audível,
       // que é o som de um altifalante a saltar, não de um aviso.
-      const inicio = t0 + n.at;
-      const pico = 0.16 * (n.gain ?? 1);
-      g.gain.setValueAtTime(0.0001, inicio);
-      g.gain.exponentialRampToValueAtTime(pico, inicio + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, inicio + n.dur);
+      const startAt = t0 + n.at;
+      const peak = 0.16 * (n.gain ?? 1);
+      g.gain.setValueAtTime(0.0001, startAt);
+      g.gain.exponentialRampToValueAtTime(peak, startAt + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, startAt + n.dur);
       osc.connect(g).connect(c.destination);
-      osc.start(inicio);
-      osc.stop(inicio + n.dur + 0.02);
+      osc.start(startAt);
+      osc.stop(startAt + n.dur + 0.02);
     } catch { /* um aviso falhado não pode partir quem o disparou */ }
   }
 }
