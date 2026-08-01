@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"net"
+	"os"
 	"strings"
+	"time"
 )
 
 // NetDNSVerifier confirma publicação checando resolução real de DNS: o domínio precisa ter
@@ -15,7 +17,26 @@ type NetDNSVerifier struct {
 	resolver *net.Resolver
 }
 
-func NewNetDNSVerifier() *NetDNSVerifier { return &NetDNSVerifier{resolver: net.DefaultResolver} }
+// NewNetDNSVerifier builds the verifier. It asks DNS_RESOLVER ("host:port") when set, and the
+// system resolver otherwise.
+//
+// WHY IT MATTERS WHICH RESOLVER ANSWERS: "this record does not exist" is cached for the zone's SOA
+// minimum, and plenty of providers publish a whole day there. The worker asks every five seconds,
+// so it always asks BEFORE the customer has published -- and then keeps being told the records are
+// missing long after they exist. Our own resolver caps negative answers at a minute; somebody
+// else's does whatever the customer's DNS provider asked for.
+func NewNetDNSVerifier() *NetDNSVerifier {
+	addr := os.Getenv("DNS_RESOLVER")
+	if addr == "" {
+		return &NetDNSVerifier{resolver: net.DefaultResolver}
+	}
+	return &NetDNSVerifier{resolver: &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, addr)
+		},
+	}}
+}
 
 func (v *NetDNSVerifier) Verify(ctx context.Context, domain, zone string) (bool, error) {
 	mx, err := v.resolver.LookupMX(ctx, domain)
