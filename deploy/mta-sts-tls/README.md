@@ -51,6 +51,25 @@ Pinned to **vps2** (node `h7vnxjrmbjia2g8r97hlnsh4a`, 185.232.71.20) by a Swarm 
 CNAME to `mta-sts.beskos.com` (written by `provisioning.PublicHosts`). Moving the service to another
 node means changing that one A record — the customer CNAMEs follow.
 
+## Nothing that must reach it may share its node
+
+A container **cannot** reach a host-published port on its own node here — dialling
+`185.232.71.20:443` from a container on vps2 times out, while the same URL answers from anywhere
+else. Verified with a throwaway service pinned to that node: `000` via the node's public IP, `200`
+via `srv-captain--mta-sts-tls:443` on the overlay.
+
+Two things depend on it, and both are already arranged:
+
+- **The API** serves the public mail audit, which fetches the policy over the *public* path on
+  purpose — measuring what a sending server sees is the whole point, so routing it internally would
+  make the tool lie. It is therefore pinned to **vps3**. This was not theoretical: after a restart
+  the API landed on vps2 and the audit reported `beskos.com` as 10/11, announcing a policy it
+  claimed it could not fetch, while the policy was being served normally to the rest of the world.
+- **The worker** warms the certificate after verifying a domain and does not need an outside
+  vantage point, so it dials the service directly over the overlay via `MTA_STS_INTERNAL_ADDR`.
+
+If this service ever moves node, that pinning has to move with it.
+
 Certificates live in the `mta-sts-tls-data` volume. Because it is a local volume on a pinned node,
 moving the service to a different node starts issuance from scratch.
 
