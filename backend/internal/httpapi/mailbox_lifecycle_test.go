@@ -78,3 +78,24 @@ func TestRecoveryWindowIsThirtyDays(t *testing.T) {
 		t.Fatalf("RecoveryWindow = %s; docs/data-retention.md says 30 days", RecoveryWindow)
 	}
 }
+
+// Removing a domain has two different obstacles and they need opposite advice. Exercised here
+// rather than in production because reaching the second state means deleting the mailbox of the
+// admin doing the deleting, which the product refuses -- correctly.
+func TestDomainRemovalSaysWhichObstacleItHit(t *testing.T) {
+	for _, c := range []struct {
+		name        string
+		total, gone int64
+		want        string
+	}{
+		{"empty domain", 0, 0, ""},
+		{"someone still uses it", 3, 0, "domains.has_mailboxes"},
+		{"some live, some deleted", 3, 2, "domains.has_mailboxes"},
+		{"only deleted, still recoverable", 2, 2, "domains.mailboxes_in_recovery"},
+	} {
+		got := domainRemovalBlock(db.DomainMailboxStateRow{Total: c.total, Deleted: c.gone})
+		if got != c.want {
+			t.Errorf("%s: got %q, want %q", c.name, got, c.want)
+		}
+	}
+}
