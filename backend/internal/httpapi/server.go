@@ -5,11 +5,7 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
-	"log"
 	"net/http"
-	"net/url"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -51,6 +47,7 @@ type Server struct {
 	cookieSecure bool          // cookie de sessão como Secure+SameSite=None (HTTPS/cross-site)
 	publicURL    string        // URL pública da app p/ links absolutos que saem em e-mails (sem "/" final)
 	mailHost     string        // host público do servidor de correio (IMAP/SMTP/JMAP) para os clientes externos
+	mtaStsHost   string        // public name serving MTA-STS policies; every customer's mta-sts.<domain> points here
 	aiProxyBase  string        // endpoint DeepSeek (OpenAI-compat) p/ o proxy de IA do editor
 	aiProxyKey   string        // chave real do DeepSeek — SÓ no servidor, nunca vai ao browser
 	aiProxyModel string        // modelo a forçar no proxy (ex.: deepseek-chat)
@@ -91,103 +88,6 @@ type Server struct {
 
 	readiness func(context.Context) error // testa dependências críticas (ex.: ping ao Postgres) no /readyz; nil = só liveness
 }
-
-// SetReadiness liga a sonda de prontidão (/readyz): a função deve falhar se uma dependência crítica
-// (ex.: Postgres) estiver indisponível. Sem ela, /readyz responde sempre "ready".
-func (s *Server) SetReadiness(ping func(context.Context) error) { s.readiness = ping }
-
-func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
-	if s.readiness != nil {
-		ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-		defer cancel()
-		if err := s.readiness(ctx); err != nil {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unready"})
-			return
-		}
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
-}
-
-// EnableSES liga a limpeza de identidades SES ao apagar domínios.
-func (s *Server) EnableSES(c *ses.Client) { s.sesRelay = c }
-
-// EnableTOTPEncryption liga a cifra do segredo TOTP em repouso (MFA_ENC_KEY). Vazio = desligado.
-func (s *Server) EnableTOTPEncryption(key string) { s.totpBox = secretbox.New(key) }
-
-// encTOTP/decTOTP cifram/decifram o segredo TOTP; com box nil, são no-op (texto claro).
-func (s *Server) encTOTP(plain string) string {
-	if v, err := s.totpBox.Encrypt(plain); err == nil {
-		return v
-	}
-	return plain
-}
-
-func (s *Server) decTOTP(stored string) string {
-	if v, err := s.totpBox.Decrypt(stored); err == nil {
-		return v
-	}
-	return stored
-}
-
-// decryptCred decifra a credencial JMAP guardada (brokering H11). Fail-closed: string vazia ou erro
-// de decifra → (,"", false), o que o proxy trata como "sem mailbox" (401 → re-login).
-func (s *Server) decryptCred(stored string) (string, bool) {
-	if stored == "" {
-		return "", false
-	}
-	v, err := s.totpBox.Decrypt(stored)
-	if err != nil || v == "" {
-		return "", false
-	}
-	return v, true
-}
-
-// SetFileUploadLimit define o tamanho máximo por ficheiro no Files (configurável via env).
-func (s *Server) SetFileUploadLimit(n int64) { s.maxUpload = n }
-
-// SetAppOrigins liga o CORS para as origens dadas (ex.: app Tauri) e define se o cookie de sessão é
-// Secure/SameSite=None (necessário cross-site sobre HTTPS).
-func (s *Server) SetAppOrigins(origins []string, cookieSecure bool) {
-	s.corsOrigins = origins
-	s.cookieSecure = cookieSecure
-}
-
-// SetPublicURL define a URL pública da app, usada para montar links absolutos que saem para fora
-// (ex.: o link de uma sala de reunião num e-mail). Sem ela, esses links ficariam relativos e
-// inúteis fora da app.
-func (s *Server) SetPublicURL(u string) { s.publicURL = strings.TrimRight(u, "/") }
-
-// originHostPatterns extrai os hosts das origens configuradas para o OriginPatterns do WebSocket.
-// Autoriza o app nativo (cross-origin) sem abrir o WS para qualquer site — o default (lista vazia)
-// já aceita só same-origin, fechando o CSWSH.
-func originHostPatterns(origins []string) []string {
-	out := make([]string, 0, len(origins))
-	for _, o := range origins {
-		if u, err := url.Parse(o); err == nil && u.Host != "" {
-			out = append(out, u.Host)
-		}
-	}
-	return out
-}
-
-func (s *Server) originAllowed(origin string) bool {
-	for _, o := range s.corsOrigins {
-		if o == origin {
-			return true
-		}
-	}
-	return false
-}
-
-// SetSignupsOpen abre/fecha o registo self-service (SIGNUPS_OPEN). Fechado, a página mostra
-// "em breve" e a API recusa — o resto do produto continua igual para quem já é cliente.
-func (s *Server) SetSignupsOpen(open bool) { s.signupsOpen = open }
-
-// EnableEmail liga o envio de e-mail para notificações (opcional).
-func (s *Server) EnableEmail(e *notify.Email) { s.email = e }
-
-// EnableChat liga o tempo real do chat (WebSocket + Redis pub/sub).
-func (s *Server) EnableChat(h *chat.Hub) { s.hub = h }
 
 func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSender sms.Sender, st *storage.Service, bp billing.Provider, bset billing.Settings) *Server {
 	srv := &Server{
@@ -553,51 +453,7 @@ func (s *Server) Router() http.Handler {
 			r.Post("/files/{id}/edit-session", s.handleEditSession)
 			r.Get("/ai/editor-key", s.handleAIEditorKey) // config do plugin de IA do editor (proxy)
 
-			// Meet (LiveKit): salas, reuniões agendadas, RSVP.
-			r.Post("/meet/join", s.handleJoinMeet)
-			r.Get("/meet/meetings", s.handleListMeetings)
-			r.Post("/meet/meetings", s.handleCreateMeeting)
-			r.Post("/meet/meetings/{id}/rsvp", s.handleRSVP)
-			r.Post("/meet/meetings/{id}/cancel", s.handleCancelMeeting)
-			r.Patch("/meet/meetings/{id}", s.handleUpdateMeeting) // editar/reagendar
-			// Controles do organizador (a própria query filtra owner_user_id → só o dono altera).
-			r.Patch("/meet/meetings/{id}/controls", s.handleUpdateMeetControls)
-			// v1.5: quem está na sala, expulsar, e as notas por e-mail. Só o dono nos dois últimos.
-			r.Get("/meet/meetings/{id}/participants", s.handleMeetParticipants)
-			r.Post("/meet/meetings/{id}/kick", s.handleKickParticipant)
-			r.Post("/meet/meetings/{id}/mute", s.handleMuteParticipant)
-			r.Get("/meet/meetings/{id}/cohosts", s.handleListCohosts)                    // co-hosts da sala
-			r.Post("/meet/meetings/{id}/cohosts", s.handleAddCohost)                     // promover (dono)
-			r.Delete("/meet/meetings/{id}/cohosts/{uid}", s.handleRemoveCohost)          // despromover (dono)
-			r.Get("/meet/meetings/{id}/breakouts", s.handleListBreakouts)                // salas de breakout
-			r.Post("/meet/meetings/{id}/breakouts", s.handleCreateBreakouts)             // criar (host)
-			r.Delete("/meet/meetings/{id}/breakouts", s.handleCloseBreakouts)            // fechar todas (host)
-			r.Post("/meet/meetings/{id}/breakouts/{bid}/assign", s.handleAssignBreakout) // atribuir (host)
-			r.Get("/meet/meetings/{id}/breakouts/{bid}/token", s.handleBreakoutToken)    // entrar num breakout
-			r.Post("/meet/meetings/{id}/notes/email", s.handleSendMeetNotes)
-			r.Patch("/meet/meetings/{id}/access", s.handleUpdateMeetAccess)
-			// Notas da reunião (viram tarefas via IA no Kanban).
-			r.Get("/meet/meetings/{id}/notes", s.handleGetMeetNotes)
-			r.Put("/meet/meetings/{id}/notes", s.handleSaveMeetNotes)
-
-			// Gravação (LiveKit Egress → MinIO). Opcional.
-			r.Post("/meet/record/start", s.handleStartRecording)
-			r.Post("/meet/record/stop", s.handleStopRecording)
-			r.Get("/meet/recordings", s.handleListRecordings)
-			r.Get("/meet/recordings/{id}/play", s.handlePlayRecording)
-			r.Delete("/meet/recordings/{id}", s.handleDeleteRecording)
-
-			// Meet: apresentação (estilo BBB). Iniciar por upload ou do Drive; slide corrente; parar.
-			r.Post("/meet/presentation/upload", s.handleStartPresentationUpload)
-			r.Post("/meet/presentation/drive", s.handleStartPresentationDrive)
-			r.Get("/meet/presentation", s.handleGetPresentation)
-			r.Post("/meet/presentation/{id}/slide", s.handleSetPresentationSlide)
-			r.Post("/meet/presentation/{id}/stop", s.handleStopPresentation)
-
-			// Meet: lobby (aprovação de convidados) — só o host.
-			r.Get("/meet/meetings/{id}/lobby", s.handleListLobby)
-			r.Post("/meet/lobby/{id}/admit", s.handleAdmit)
-			r.Post("/meet/lobby/{id}/deny", s.handleDeny)
+			s.routesMeet(r)
 
 			// Notificações in-app (sino).
 			r.Get("/notifications", s.handleListNotifications)
@@ -733,135 +589,4 @@ func (s *Server) Router() http.Handler {
 	s.mountJMAPProxy(r)
 
 	return r
-}
-
-// --- logging ---
-
-// redactSensitiveQuery devolve a URL com os parâmetros de credencial mascarados (para logs).
-func redactSensitiveQuery(u *url.URL) string {
-	if u.RawQuery == "" {
-		return u.Path
-	}
-	q := u.Query()
-	redacted := false
-	for _, k := range []string{"access_token", "token"} {
-		if q.Has(k) {
-			q.Set(k, "REDACTED")
-			redacted = true
-		}
-	}
-	if !redacted {
-		return u.Path + "?" + u.RawQuery
-	}
-	return u.Path + "?" + q.Encode()
-}
-
-// csrfGuard protege as rotas de sessão contra CSRF. Requisições que mudam estado precisam ou de um
-// Authorization: Bearer (app nativo — token não-ambiente, sem risco de CSRF) ou do header custom
-// X-Mailin-Client que só o nosso cliente envia. Um POST cross-site "simples" (form) não consegue
-// setar header custom sem preflight, e o preflight bate na allow-list do CORS (auditoria M5).
-func (s *Server) csrfGuard(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-			if r.Header.Get("Authorization") == "" && r.Header.Get("X-Mailin-Client") == "" {
-				writeErr(w, http.StatusForbidden, "csrf.blocked")
-				return
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// publicRateLimit limita por IP os endpoints sem login (Meet público, download por token). Trava
-// enumeração de salas/tokens e abuso desses endpoints anônimos (auditoria M).
-func (s *Server) publicRateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.pubLimiter.allow("pub:"+clientIP(r), time.Now()) {
-			writeErr(w, http.StatusTooManyRequests, "rate_limited")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// presentationRateLimit limita o PDF da apresentação num balde próprio e generoso (ver presLimiter).
-func (s *Server) presentationRateLimit(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !s.presLimiter.allow("pres:"+clientIP(r), time.Now()) {
-			writeErr(w, http.StatusTooManyRequests, "rate_limited")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// requestLogger loga método, URL (com credenciais redigidas), status e duração.
-func requestLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-		start := time.Now()
-		defer func() {
-			log.Printf("%s %s -> %d (%s)", r.Method, redactSensitiveQuery(r.URL), ww.Status(), time.Since(start))
-		}()
-		next.ServeHTTP(ww, r)
-	})
-}
-
-// --- helpers ---
-
-// orEmpty troca slice nil por vazio: em JSON, nil vira `null` e o frontend faz .map/.length em
-// cima disso. Lista vazia é `[]`.
-func orEmpty[T any](v []T) []T {
-	if v == nil {
-		return []T{}
-	}
-	return v
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-// writeErr returns an error with a STABLE code (the frontend translates it via i18n — law §4.4)
-// plus an English fallback message derived from the code. The code is the source of truth for
-// the translation; the message is only a backup and is always English (law §4.6).
-func writeErr(w http.ResponseWriter, status int, code string) {
-	writeJSON(w, status, map[string]string{"error_code": code, "error": humanizeCode(code)})
-}
-
-// humanizeCode turns "auth.invalid_credentials" into "Invalid credentials" (English fallback).
-func humanizeCode(code string) string {
-	s := code
-	if i := strings.LastIndex(code, "."); i >= 0 {
-		s = code[i+1:]
-	}
-	s = strings.ReplaceAll(s, "_", " ")
-	if s == "" {
-		return "Error"
-	}
-	return strings.ToUpper(s[:1]) + s[1:]
-}
-
-const sessionTTL = 7 * 24 * time.Hour
-
-// requirePerm exige que o usuário autenticado (sessão de painel) tenha a permissão. Fonte de
-// verdade é o papel salvo (nunca vindo do request). Fail-closed (lei §5.2).
-func (s *Server) requirePerm(perm rbac.Permission) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			u := mailUserFrom(r.Context())
-			// Efetivas = papel ± exceções da pessoa. É uma leitura a mais por pedido, mas só nas
-			// rotas de administração (baixo tráfego) e é o que torna as exceções reais: sem isto
-			// seriam decoração na UI, com o backend a continuar a decidir só pelo papel.
-			allow, deny := s.memberOverrides(r.Context(), u.TenantID, u.ID)
-			if !rbac.HasEffective(rbac.Role(u.Role), allow, deny, perm) {
-				writeErr(w, http.StatusForbidden, "rbac.forbidden")
-				return
-			}
-			next.ServeHTTP(w, r.WithContext(r.Context()))
-		})
-	}
 }

@@ -61,3 +61,19 @@ func TestPublicHostsIsANoOpWithoutAHost(t *testing.T) {
 		t.Error("with no mail host configured the zone must be left untouched")
 	}
 }
+
+// The API and the worker each ask for this name separately. If they ever disagree, the customer
+// publishes a CNAME to a host that serves no policy -- and MTA-STS fails closed for that domain.
+func TestMTASTSHostFollowsTheMailHost(t *testing.T) {
+	for _, c := range []struct{ mail, override, want string }{
+		{"mail.beskos.com", "", "mta-sts.beskos.com"},
+		{"mail.beskos.com", "policy.example.net", "policy.example.net"},
+		{"", "", ""},             // nothing configured: no record to write
+		{"3517d6da4cde", "", ""}, // a container id has no dot, so there is nothing to derive from
+		{"", "policy.net", "policy.net"},
+	} {
+		if got := MTASTSHost(c.mail, c.override); got != c.want {
+			t.Errorf("MTASTSHost(%q, %q) = %q, want %q", c.mail, c.override, got, c.want)
+		}
+	}
+}

@@ -62,10 +62,7 @@ func (s *Server) handleCheckDomainDNS(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	zone := ""
-	if d.DnsZone != nil {
-		zone = *d.DnsZone
-	}
+	zone := s.zoneOf(d)
 	if strings.TrimSpace(zone) == "" {
 		writeJSON(w, http.StatusOK, map[string]any{"records": []any{}, "checked_at": nil, "summary": dnsSummary(nil)})
 		return
@@ -116,10 +113,7 @@ func (s *Server) handleExportDomainDNS(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	zone := ""
-	if d.DnsZone != nil {
-		zone = *d.DnsZone
-	}
+	zone := s.zoneOf(d)
 	switch r.URL.Query().Get("format") {
 	case "csv":
 		var b strings.Builder

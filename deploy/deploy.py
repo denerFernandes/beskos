@@ -69,6 +69,12 @@ APPS = {
     "unbound": "deploy/unbound",
 }
 
+# mta-sts-tls is DELIBERATELY absent -- see deploy/mta-sts-tls/README.md. CapRover reapplies the
+# stored app definition on every publish, and that app's definition claims port 80, which its own
+# nginx already holds: the publish fails and leaves the service down. The definition cannot be
+# corrected either (CapRover's update endpoint answers 500 for this app), so it is driven by hand
+# through Docker Swarm.
+
 # What does NOT travel to the server. Build artefacts, and the LOCAL environment files: this tar is
 # of the working directory, not of the git tree, so a gitignored `.env.local` rides along anyway --
 # and Vite reads it in EVERY mode, production included. That is how the dev

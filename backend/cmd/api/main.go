@@ -19,6 +19,7 @@ import (
 	"mailin/backend/internal/httpapi"
 	"mailin/backend/internal/mailaudit"
 	"mailin/backend/internal/notify"
+	"mailin/backend/internal/provisioning"
 	"mailin/backend/internal/ses"
 	"mailin/backend/internal/sms"
 	"mailin/backend/internal/stalwart"
@@ -135,6 +136,9 @@ func main() {
 	srv.SetPublicURL(cfg.PublicURL)
 	// Host público do correio: é o que mostramos a quem liga um cliente externo (IMAP/SMTP).
 	srv.SetMailHost(cfg.StalwartHostname)
+	// The host serving MTA-STS policies. The API needs it because it corrects the zone ON READ: a
+	// domain provisioned before that substitution existed would name the container forever.
+	srv.SetMTASTSHost(provisioning.MTASTSHost(cfg.StalwartHostname, os.Getenv("MTA_STS_HOSTNAME")))
 
 	// Proxy de IA para o plugin do OnlyOffice: reencaminha ao DeepSeek com a chave server-side.
 	if aiProvider != nil {
