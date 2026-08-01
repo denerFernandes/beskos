@@ -1,7 +1,7 @@
 package httpapi
 
-// Configuração e ligações opcionais do servidor: o que o main liga antes de servir, e as
-// sondas de saúde. Separado da tabela de rotas para que essa se leia como uma tabela.
+// Server configuration and optional wiring: what main switches on before serving, plus the
+// health probes. Kept apart from the route table so that table reads as a table.
 
 import (
 	"context"
