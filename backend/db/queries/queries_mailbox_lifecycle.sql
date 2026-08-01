@@ -53,6 +53,8 @@ SELECT * FROM email_aliases WHERE tenant_id = $1 AND address = $2;
 -- them apart (law 2.9).
 SELECT count(*)                                                   AS total,
        count(*) FILTER (WHERE status = 'deleted')                  AS deleted,
-       min(deleted_at) FILTER (WHERE status = 'deleted')::timestamptz AS oldest_deleted
+       -- COALESCE so the column stays non-null and typed: with no deleted mailboxes there is
+       -- no date to give, and the caller only reads this when `deleted` is above zero.
+       COALESCE(min(deleted_at) FILTER (WHERE status = 'deleted'), now())::timestamptz AS oldest_deleted
 FROM mail_users
 WHERE tenant_id = @tenant_id AND email LIKE '%@' || @domain;
