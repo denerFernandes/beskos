@@ -147,11 +147,11 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "domains.check_failed")
 		return
 	}
-	switch {
-	case st.Total > st.Deleted:
+	switch domainRemovalBlock(st) {
+	case "domains.has_mailboxes":
 		writeErr(w, http.StatusConflict, "domains.has_mailboxes")
 		return
-	case st.Deleted > 0:
+	case "domains.mailboxes_in_recovery":
 		writeJSON(w, http.StatusConflict, map[string]any{
 			"error_code": "domains.mailboxes_in_recovery",
 			"error":      "Mailboxes deleted from this domain can still be restored",
@@ -209,4 +209,21 @@ func strval(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+// domainRemovalBlock says what stands between a domain and its removal, or "" if nothing does.
+//
+// The two answers need opposite advice. Live mailboxes are somebody's to delete; mailboxes already
+// deleted are nobody's to hurry, and the only honest thing to say is when they stop counting. One
+// number cannot tell them apart, and telling an admin with an empty domain to go and delete
+// mailboxes that were already deleted is how "not yet" gets mistaken for "never" (law 2.9).
+func domainRemovalBlock(st db.DomainMailboxStateRow) string {
+	switch {
+	case st.Total > st.Deleted:
+		return "domains.has_mailboxes"
+	case st.Deleted > 0:
+		return "domains.mailboxes_in_recovery"
+	default:
+		return ""
+	}
 }
