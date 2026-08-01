@@ -58,3 +58,15 @@ SELECT count(*)                                                   AS total,
        COALESCE(min(deleted_at) FILTER (WHERE status = 'deleted'), now())::timestamptz AS oldest_deleted
 FROM mail_users
 WHERE tenant_id = @tenant_id AND email LIKE '%@' || @domain;
+
+-- name: MailUsersNearingPurge :many
+-- Deleted mailboxes whose window is about to close and whose warning has not gone out yet.
+-- `purge_warned_at` is what stops it going out every ten minutes for a week.
+SELECT * FROM mail_users
+WHERE status = 'deleted' AND deleted_at IS NOT NULL
+  AND deleted_at < $1 AND purge_warned_at IS NULL
+ORDER BY deleted_at
+LIMIT 50;
+
+-- name: MarkPurgeWarned :exec
+UPDATE mail_users SET purge_warned_at = now() WHERE id = $1;

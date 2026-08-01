@@ -101,6 +101,12 @@ func (s *Server) jmapMailQuota(next http.Handler) http.Handler {
 		r.Body = io.NopCloser(bytes.NewReader(body))
 		if n := jmapSubmissionRcpts(body); n > 0 {
 			mu := mailUserFrom(r.Context())
+			// The account gate goes BEFORE the daily quota: an organisation whose trial ran out is
+			// not over its limit, and telling them so would send them looking for the wrong thing.
+			if s.accountState(r.Context(), mu.TenantID).Blocked() {
+				writeErr(w, http.StatusPaymentRequired, "account.sending_blocked")
+				return
+			}
 			if !s.mailSendAllowed(r.Context(), mu.TenantID, n) {
 				writeErr(w, http.StatusTooManyRequests, "mail.daily_limit_reached")
 				return

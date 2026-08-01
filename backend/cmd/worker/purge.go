@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"time"
 
@@ -30,6 +31,10 @@ import (
 
 const (
 	purgeInterval = 10 * time.Minute
+	// How long before the end the administrators are told. Seven days is enough to notice, ask
+	// around and export; much more and the warning arrives before anybody could act on it, much
+	// less and it lands while the person who cares is away.
+	purgeWarning = 7 * 24 * time.Hour
 	// How many mailboxes to destroy per pass. A tenant closing down could queue hundreds; doing them
 	// in batches keeps one bad row from holding up the rest and keeps the log readable.
 	purgeBatch = 20
@@ -44,6 +49,7 @@ func startPurgeWorker(q *db.Queries, sw *stalwart.Client) {
 		defer ticker.Stop()
 		consecutive := 0
 		for range ticker.C {
+			warnPass(context.Background(), q)
 			if err := purgePass(context.Background(), q, sw); err != nil {
 				consecutive++
 				if consecutive == purgeFailuresBeforeAlarm {
@@ -89,4 +95,38 @@ func purgePass(ctx context.Context, q *db.Queries, sw *stalwart.Client) error {
 		log.Printf("purge: %s deleted permanently (requested %s)", m.Email, m.DeletedAt.Time.Format(time.RFC3339))
 	}
 	return nil
+}
+
+// warnPass tells the administrators that a mailbox is days away from being destroyed.
+//
+// TO THE ADMINISTRATORS, NEVER TO THE OWNER OF THE MAILBOX. Whoever it belonged to is usually gone,
+// and "everything you have here disappears in seven days" is an invitation to take what they can on
+// the way out. The people who can still act are the ones who can export it -- and the export only
+// exists inside this window.
+//
+// Best-effort and quiet on failure: a warning that fails to send must never stop the purge that
+// follows it, or a promise about deletion becomes contingent on the notification system.
+func warnPass(ctx context.Context, q *db.Queries) {
+	cutoff := time.Now().Add(-(httpapi.RecoveryWindow - purgeWarning))
+	rows, err := q.MailUsersNearingPurge(ctx, pgtype.Timestamptz{Time: cutoff, Valid: true})
+	if err != nil {
+		return
+	}
+	for _, m := range rows {
+		owner, err := q.GetTenantOwner(ctx, m.TenantID)
+		if err != nil {
+			continue
+		}
+		when := m.DeletedAt.Time.Add(httpapi.RecoveryWindow)
+		args, _ := json.Marshal(map[string]string{"mailbox": m.Email, "date": when.Format("2006-01-02")})
+		if _, err := q.CreateNotification(ctx, db.CreateNotificationParams{
+			TenantID: m.TenantID, UserID: owner.ID, Kind: "mailbox_purge_soon",
+			Title: "Mailbox about to be deleted", Body: m.Email + " will be deleted permanently on " + when.Format("2006-01-02"),
+			Link: "/mail/admin/users", MeetingID: pgtype.UUID{}, Args: args,
+		}); err != nil {
+			continue
+		}
+		_ = q.MarkPurgeWarned(ctx, m.ID)
+		log.Printf("purge: warned %s that %s is destroyed on %s", owner.Email, m.Email, when.Format("2006-01-02"))
+	}
 }

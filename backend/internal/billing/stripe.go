@@ -127,6 +127,7 @@ func (p *StripeProvider) ParseWebhook(payload []byte, sigHeader string) (*Webhoo
 				ClientReferenceID string            `json:"client_reference_id"`
 				Subscription      string            `json:"subscription"`
 				Status            string            `json:"status"`
+				CurrentPeriodEnd  int64             `json:"current_period_end"`
 				Metadata          map[string]string `json:"metadata"`
 				AmountPaid        int64             `json:"amount_paid"` // invoice.paid
 				Currency          string            `json:"currency"`    // invoice.paid
@@ -168,10 +169,12 @@ func (p *StripeProvider) ParseWebhook(payload []byte, sigHeader string) (*Webhoo
 			SubscriptionID: o.Subscription, AmountCents: int(o.AmountPaid), Currency: strings.ToUpper(o.Currency),
 			InvoiceURL: o.HostedInvoiceURL, PlanKey: plan}, nil
 	case "customer.subscription.deleted":
-		return &WebhookEvent{EventID: ev.ID, Type: "canceled", TenantID: tenant, Plan: DefaultPlanID, Status: "canceled", SubscriptionID: o.ID}, nil
+		return &WebhookEvent{EventID: ev.ID, Type: "canceled", TenantID: tenant, Plan: DefaultPlanID, Status: "canceled",
+			SubscriptionID: o.ID, PeriodEnd: o.CurrentPeriodEnd}, nil
 	case "customer.subscription.updated":
 		// Só sincroniza o STATUS (past_due, active…): Plan vazio = o handler não mexe no plano.
-		return &WebhookEvent{EventID: ev.ID, Type: "status", TenantID: tenant, Plan: "", Status: o.Status, SubscriptionID: o.ID}, nil
+		return &WebhookEvent{EventID: ev.ID, Type: "status", TenantID: tenant, Plan: "", Status: o.Status,
+			SubscriptionID: o.ID, PeriodEnd: o.CurrentPeriodEnd}, nil
 	default:
 		return nil, nil // evento sem efeito
 	}

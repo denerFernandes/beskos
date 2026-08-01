@@ -56,6 +56,10 @@ type WebhookEvent struct {
 	Currency    string
 	InvoiceURL  string
 	PlanKey     string // plano da fatura, só para o texto do aviso
+	// PeriodEnd is what the subscription is paid up to (unix, 0 = unknown). It decides when a
+	// lapsed account stops being able to send, so it is stored rather than asked for later: putting
+	// Stripe's availability in front of our customers' mail is not a trade we want to make.
+	PeriodEnd int64
 }
 
 // SubscriptionInfo é o retrato da assinatura no provedor — o painel gere sem sair da app.

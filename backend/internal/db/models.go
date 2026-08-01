@@ -623,6 +623,7 @@ type MailUser struct {
 	Status            string             `json:"status"`
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 	SuccessorEmail    string             `json:"successor_email"`
+	PurgeWarnedAt     pgtype.Timestamptz `json:"purge_warned_at"`
 }
 
 type ManagerAudit struct {
@@ -1021,10 +1022,11 @@ type StorageShare struct {
 }
 
 type Subscription struct {
-	TenantID     uuid.UUID `json:"tenant_id"`
-	StripeID     *string   `json:"stripe_id"`
-	MailboxRange string    `json:"mailbox_range"`
-	Status       string    `json:"status"`
+	TenantID         uuid.UUID          `json:"tenant_id"`
+	StripeID         *string            `json:"stripe_id"`
+	MailboxRange     string             `json:"mailbox_range"`
+	Status           string             `json:"status"`
+	CurrentPeriodEnd pgtype.Timestamptz `json:"current_period_end"`
 }
 
 type Tag struct {

@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"mailin/backend/internal/db"
+
+	"mailin/backend/internal/billing"
 )
 
 // Sessão única do produto (cookie wm_session). O login vive em auth_handlers.go: com caixa a
@@ -41,6 +43,22 @@ func (s *Server) requireWebmailSession(next http.Handler) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "auth.invalid_session")
 			return
 		}
+		// Suspending somebody has to take effect NOW, not when their cookie happens to expire.
+		// Blocking the login was never enough: an admin suspends a person who is already signed in,
+		// the panel says "suspended", and that person carries on reading their mail for a week --
+		// which is the whole reason suspension exists, defeated silently.
+		if row.MailUser.Status != "active" {
+			s.endSession(w, token)
+			writeErr(w, http.StatusForbidden, "auth.account_suspended")
+			return
+		}
+		// A locked organisation loses access, not just the ability to send -- but only after the
+		// grace week, during which everything above still works and the data can be taken out.
+		if s.accountState(r.Context(), row.MailUser.TenantID).State == billing.StateLocked {
+			s.endSession(w, token)
+			writeErr(w, http.StatusPaymentRequired, "account.locked")
+			return
+		}
 		ctx := context.WithValue(r.Context(), ctxMailUser, row.MailUser)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -52,4 +70,13 @@ func (s *Server) handleWebmailLogout(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &http.Cookie{Name: "wm_session", Value: "", Path: "/", MaxAge: -1})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
+}
+
+// endSession destroys the session and clears the cookie. Used when access is withdrawn mid-session,
+// so the next request is not merely refused but arrives with nothing to refuse.
+func (s *Server) endSession(w http.ResponseWriter, token string) {
+	if token != "" {
+		_ = s.q.DeleteWebmailSession(context.Background(), token)
+	}
+	http.SetCookie(w, &http.Cookie{Name: "wm_session", Value: "", Path: "/", MaxAge: -1})
 }

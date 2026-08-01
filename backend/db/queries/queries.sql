@@ -636,17 +636,9 @@ FROM (SELECT DISTINCT ON (blob_key) size FROM storage_files WHERE tenant_id = $1
 -- name: UpdateTenantPlan :exec
 UPDATE tenants SET plan = $2 WHERE id = $1;
 
--- name: UpsertSubscription :exec
-INSERT INTO subscriptions (tenant_id, stripe_id, mailbox_range, status)
-VALUES ($1, $2, $3, $4)
-ON CONFLICT (tenant_id) DO UPDATE SET stripe_id = EXCLUDED.stripe_id, mailbox_range = EXCLUDED.mailbox_range, status = EXCLUDED.status;
 
--- name: GetSubscription :one
-SELECT * FROM subscriptions WHERE tenant_id = $1;
 
--- name: UpdateSubscriptionStatus :exec
--- Sincroniza só o status (customer.subscription.updated) sem tocar no plano/faixa.
-UPDATE subscriptions SET status = @status WHERE tenant_id = @tenant_id;
+
 
 -- name: GetTenantOwner :one
 -- Dono da organização: quem recebe os avisos quando não há contacto de faturação definido.
