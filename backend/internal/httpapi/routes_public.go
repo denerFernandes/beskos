@@ -1,6 +1,10 @@
 package httpapi
 
-import "github.com/go-chi/chi/v5"
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
 
 // Unauthenticated routes: the public face of the product -- a shared file, a meeting link, the
 // mail audit on the landing page. Every one of them is rate limited, because anything reachable
@@ -9,7 +13,11 @@ func (s *Server) mountPublic(r chi.Router) {
 	// Meet público (convidados externos, SEM login) — entra por link. Rate-limited por IP.
 	// Mail configuration audit: the landing's lead tool. Public DNS only, rate limited so it
 	// cannot be turned into a scanner.
-	r.With(s.publicRateLimit).Get("/public/mail-audit", s.handleMailAudit)
+	// The landing calls this from beskos.com, a different origin from the API, so it needs its own
+	// CORS -- and the preflight has to be REGISTERED: chi answers 405 for an unregistered method
+	// before any middleware runs, which is exactly how this shipped broken.
+	r.With(publicCORS, s.publicRateLimit).Get("/public/mail-audit", s.handleMailAudit)
+	r.With(publicCORS).Options("/public/mail-audit", func(http.ResponseWriter, *http.Request) {})
 	r.With(s.publicRateLimit).Get("/public/meet/{room}", s.handlePublicMeetInfo)
 	r.With(s.publicRateLimit).Post("/public/meet/{room}/join", s.handlePublicMeetJoin)
 	r.With(s.publicRateLimit).Get("/public/meet/lobby/{id}", s.handlePublicLobbyPoll)

@@ -143,7 +143,7 @@ func Audit(ctx context.Context, domain string) Report {
 	}()
 	go func() {
 		defer wg.Done()
-		sts = []Check{txtCheck(ctx, r, "_mta-sts."+domain, "mta_sts", "v=STSv1")}
+		sts = []Check{mtaStsCheck(ctx, r, domain)}
 		tls = []Check{txtCheck(ctx, r, "_smtp._tls."+domain, "tls_rpt", "v=TLSRPTv1")}
 	}()
 	go func() {

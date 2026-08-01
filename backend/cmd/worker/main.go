@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -378,6 +379,23 @@ func main() {
 	// Relay SES (produção, white-label): com SES_REGION + credenciais AWS, cada domínio novo é
 	// registado no SES com BYODKIM (chave nossa) e a zona reportada esconde o Amazon (`_spf.<brand>`,
 	// DKIM com a nossa chave, sem MAIL FROM). brand = MAIL_BRAND_DOMAIN (default STALWART_DEFAULT_DOMAIN).
+	// The customer's zone must name hosts that exist on the public internet. Stalwart writes its own
+	// container hostname into every MX and CNAME, so without this the MX handed to a customer points
+	// at a container id and no mail is delivered -- with nothing in the instructions looking wrong.
+	mailHost := os.Getenv("STALWART_HOSTNAME")
+	mtaStsHost := os.Getenv("MTA_STS_HOSTNAME")
+	if mtaStsHost == "" && mailHost != "" {
+		// Same deployment, conventional name. Derived rather than required so a new install does not
+		// have to know about it, and overridable for one that puts the policy somewhere else.
+		if i := strings.Index(mailHost, "."); i > 0 {
+			mtaStsHost = "mta-sts" + mailHost[i:]
+		}
+	}
+	machine.WithPublicHosts(mailHost, mtaStsHost)
+	if mailHost == "" {
+		log.Printf("provisioning: STALWART_HOSTNAME unset — the zone given to customers will name the container, not a public host")
+	}
+
 	if relay := ses.NewFromEnv(); relay != nil {
 		brand := os.Getenv("MAIL_BRAND_DOMAIN")
 		if brand == "" {
