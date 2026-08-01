@@ -60,10 +60,15 @@ func (v *NetDNSVerifier) Verify(ctx context.Context, domain, zone string) (bool,
 	return false, nil
 }
 
-// dkimHost extrai o host do primeiro registro _domainkey do zonefile (ex.: "sel._domainkey.dominio.").
+// dkimHost extrai o host do registo _domainkey do zonefile (ex.: "sel._domainkey.dominio.").
+//
+// It insists on a line that carries the key itself, not merely the name. A record written across
+// several lines has a header with the name and nothing else, and accepting that header meant
+// waiting for a record whose contents had been removed -- silently, because a lookup that finds
+// nothing is indistinguishable here from a customer who has not published yet.
 func dkimHost(zone, domain string) string {
 	for _, line := range strings.Split(zone, "\n") {
-		if strings.Contains(line, "_domainkey."+domain) {
+		if strings.Contains(line, "_domainkey."+domain) && strings.Contains(line, "DKIM1") {
 			return strings.TrimSuffix(strings.Fields(line)[0], ".")
 		}
 	}

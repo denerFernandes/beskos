@@ -92,3 +92,36 @@ func TestPublicHostsRewritesSRVTargets(t *testing.T) {
 		t.Errorf("a target that was already public must not be touched:\n%s", got)
 	}
 }
+
+// Stalwart writes long DKIM records across several lines, in the parenthesised form BIND allows.
+// Deleting only the lines that say DKIM1 removed the CONTENTS and left the name behind -- a record
+// the customer cannot publish, which DNS verification then waited for forever.
+func TestStripStalwartDKIMRemovesMultiLineRecords(t *testing.T) {
+	zone := "acme.com. IN MX 10 mail.example.\n" +
+		"v1-rsa-1._domainkey.acme.com. IN TXT (\n" +
+		"    \"v=DKIM1; k=rsa; \"\n" +
+		"    \"p=MIIBIj...\" )\n" +
+		"_dmarc.acme.com. IN TXT \"v=DMARC1; p=reject\""
+	got := StripStalwartDKIM(zone)
+	if strings.Contains(got, "_domainkey") {
+		t.Errorf("the header of the multi-line record survived:\n%s", got)
+	}
+	if strings.Contains(got, "p=MIIBIj") || strings.Contains(got, "k=rsa") {
+		t.Errorf("a continuation line survived:\n%s", got)
+	}
+	for _, keep := range []string{"IN MX 10 mail.example.", "v=DMARC1"} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("removed a record it had no business touching (%s):\n%s", keep, got)
+		}
+	}
+}
+
+// The verifier must look up the record that actually carries a key. It used to take the first line
+// merely NAMING a _domainkey host, which after the strip above was a header with no value.
+func TestDKIMHostIgnoresAHeaderWithoutAKey(t *testing.T) {
+	zone := "v1-rsa-1._domainkey.acme.com. IN TXT (\n" +
+		"beskos._domainkey.acme.com. IN TXT \"v=DKIM1; k=rsa; p=AAA\""
+	if got := dkimHost(zone, "acme.com"); got != "beskos._domainkey.acme.com" {
+		t.Errorf("dkimHost = %q, want the record that carries the key", got)
+	}
+}
