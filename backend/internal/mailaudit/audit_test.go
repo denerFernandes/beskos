@@ -1,6 +1,8 @@
 package mailaudit
 
 import (
+	"errors"
+	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -113,5 +115,22 @@ func TestReportHasNoPercentageField(t *testing.T) {
 					"Deliverability is not derivable from DNS, so any such number is invented.", name)
 			}
 		}
+	}
+}
+
+// A blocklist answers "not listed" by having no record at all. Reading that NXDOMAIN as a failed
+// query is what made the check report "could not check" for every clean domain -- and a clean domain
+// is the normal case, so the check was answering nothing, always.
+func TestNotFoundMeansNotListed(t *testing.T) {
+	err := &net.DNSError{Err: "no such host", IsNotFound: true}
+	var dnsErr *net.DNSError
+	if !errors.As(error(err), &dnsErr) || !dnsErr.IsNotFound {
+		t.Fatal("a NXDOMAIN must be recognisable as not-found")
+	}
+	// And a timeout must NOT be: an unanswered list says nothing about the domain, and calling it
+	// clean is the error that costs the reader money.
+	timeout := &net.DNSError{Err: "timeout", IsTimeout: true}
+	if errors.As(error(timeout), &dnsErr) && dnsErr.IsNotFound {
+		t.Error("a timeout must not be read as not-listed")
 	}
 }

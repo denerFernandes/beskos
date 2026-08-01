@@ -17,6 +17,7 @@ import (
 	"mailin/backend/internal/config"
 	"mailin/backend/internal/db"
 	"mailin/backend/internal/httpapi"
+	"mailin/backend/internal/mailaudit"
 	"mailin/backend/internal/notify"
 	"mailin/backend/internal/ses"
 	"mailin/backend/internal/sms"
@@ -29,6 +30,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
+
+	// The mail audit resolves DNS through this server when set. Without it the blocklist checks are
+	// answered by a refusal from every list -- see mailaudit.UseResolver.
+	mailaudit.UseResolver(os.Getenv("AUDIT_RESOLVER"))
 
 	if err := db.Migrate(cfg.DatabaseURL); err != nil {
 		log.Fatalf("migrate: %v", err)
