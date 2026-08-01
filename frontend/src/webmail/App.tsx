@@ -17,6 +17,7 @@ import { isTauri } from "./tauriNotify";
 import { initVcardOpen } from "./desktopVcard";
 import { setTrayAccount } from "./nativeWindow";
 import { ToastHost, toast } from "./toast";
+import { AccountBanner, MailOrDomainNotice } from "./AccountBanner";
 import { Onboarding } from "./Onboarding";
 import { MailView } from "./MailView";
 import { KanbanView } from "./KanbanView";
@@ -264,6 +265,9 @@ export function App({ session }: { session: WebmailSession }) {
 
   return (
     <div className="wm">
+      {/* Above the shell, not inside it: an unpublished domain or a lapsed account is the reason
+          nothing works, and it has to be visible from whatever screen the person is on. */}
+      <AccountBanner />
       <div className="shell">
         <header className="topbar">
           <div className="brand">
@@ -308,7 +312,11 @@ export function App({ session }: { session: WebmailSession }) {
 
         <div className="stage">
           {view === "today" && <TodayView session={session} onNavigate={setView} />}
-          {view === "mail" && <MailView session={session} search={search} sub={sub} sub2={sub2} advOpen={advOpen} onAdvClose={() => setAdvOpen(false)} />}
+          {/* No mail can have arrived before the domain is published, so the inbox would be empty and
+              the emptiness would be read as a broken product. Say why instead. */}
+          {view === "mail" && <MailOrDomainNotice>
+            <MailView session={session} search={search} sub={sub} sub2={sub2} advOpen={advOpen} onAdvClose={() => setAdvOpen(false)} />
+          </MailOrDomainNotice>}
           {view === "chat" && <ChatView search={search} onSearch={fillSearch} session={session} channelParam={sub} onChannel={(id) => nav(`/mail/chat/${id}`)} />}
           {view === "kanban" && <KanbanView search={search} boardParam={sub} cardParam={sub2} onBoard={(id) => nav(`/mail/kanban/${id}`)} onCard={(bid, cid) => nav(cid ? `/mail/kanban/${bid}/${cid}` : `/mail/kanban/${bid}`)} />}
           {view === "cal" && <CalendarView search={search} eventParam={sub} />}

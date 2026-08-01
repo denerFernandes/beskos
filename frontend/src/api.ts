@@ -16,6 +16,10 @@ export interface Me {
   mfa: { totp: boolean; sms: boolean };
   disabled_apps?: string[]; // apps que o admin desligou p/ a org — o rail some com elas
   assistant_enabled?: boolean; // falso se o admin desligou o assistente (ou IA não configurada) — a bolha some
+  // The organisation's billing state and whether its own domain is live. Both ride on /api/me so
+  // the warning bar is on screen at the first render -- see AccountBanner.
+  account?: { state: "ok" | "ending" | "past_due" | "send_blocked" | "locked"; blocked: boolean; until?: string; days_left?: number };
+  domain?: { domain: string; published: boolean };
 }
 
 export interface Member { id: string; email: string; name?: string; role: string; created_at: string; has_mailbox?: boolean }
@@ -84,6 +88,10 @@ function translateError(code: string | undefined, serverMsg: string | undefined,
   return serverMsg || i18n.t("errors.http", { status });
 }
 
+// Reasons the server takes access away mid-session. They are not 401 on purpose: the session was
+// valid, the answer is that this account may no longer use it, and the status code says which.
+const LOGGED_OUT_CODES = ["auth.account_suspended", "account.locked"];
+
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const res = await fetch(apiUrl(path), {
     ...opts,
@@ -93,6 +101,10 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     if (res.status === 401) notifyUnauthorized(path); // sessão morta → volta ao login (global)
     const body = await res.json().catch(() => ({}));
+    // Access withdrawn while signed in: an admin suspended this person, or the organisation's grace
+    // period ran out. The server has already destroyed the session; without this the app carries on
+    // showing a screen full of data it can no longer refresh, and every click fails one by one.
+    if (LOGGED_OUT_CODES.includes(body.error_code)) notifyUnauthorized(path);
     throw new Error(translateError(body.error_code, body.error, res.status));
   }
   return res.json() as Promise<T>;

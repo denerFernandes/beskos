@@ -2748,5 +2748,17 @@
     "deleteConfirm": "Delete this note?",
     "toChat": "Share in chat",
     "sentToChat": "Note shared in chat."
+  },
+  "accountBanner": {
+    "domainUnpublished": "The domain {{domain}} is not published in DNS yet. Until it is, no mail arrives and sending is blocked.",
+    "domainAction": "See the records to publish",
+    "trialEnding_one": "Your trial ends tomorrow. After that, sending mail stops.",
+    "trialEnding_other": "{{count}} days of trial left. When it ends, sending mail stops.",
+    "pastDue": "The last payment failed. Nothing is blocked yet — worth sorting the card out.",
+    "sendBlocked_one": "Sending mail is blocked. 1 day left before the account is closed.",
+    "sendBlocked_other": "Sending mail is blocked. {{count}} days left before the account is closed.",
+    "payAction": "Fix billing",
+    "mailBlockedTitle": "Mail cannot work yet",
+    "mailBlockedBody": "Until the DNS records for {{domain}} are published, nothing arrives here — anyone writing to you is still delivered to your old provider. Publish the records and mail starts coming in within minutes."
   }
 }

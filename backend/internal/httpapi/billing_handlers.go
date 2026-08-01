@@ -259,6 +259,14 @@ func (s *Server) handleBillingWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if tid, err := uuid.Parse(ev.TenantID); err == nil {
+		// What they have paid up to, whenever the provider mentions it. Written before the switch
+		// because every branch below wants it to already be true, and none of them owns it.
+		if ev.PeriodEnd > 0 {
+			_ = s.q.SetSubscriptionPeriodEnd(r.Context(), db.SetSubscriptionPeriodEndParams{
+				TenantID:         tid,
+				CurrentPeriodEnd: pgtype.Timestamptz{Time: time.Unix(ev.PeriodEnd, 0).UTC(), Valid: true},
+			})
+		}
 		switch {
 		case ev.Type == "charged":
 			// Dinheiro cobrado: avisa quem paga, com o valor e o link da fatura.

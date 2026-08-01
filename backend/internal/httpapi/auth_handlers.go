@@ -187,6 +187,12 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"presence":            u.Presence,
 		"disabled_apps":       orEmpty(disabled), // o rail some com estas; a IA perde as ferramentas delas
 		"assistant_enabled":   assistantEnabled,
+		// The organisation's billing state. Here rather than in a call of its own: the warning banner
+		// has to be on screen at the first render, not a moment later.
+		"account": accountView(s.accountState(r.Context(), u.TenantID)),
+		// Whether their own domain is live in DNS. Until it is, no mail arrives and nothing sent from
+		// here would pass SPF at the far end -- so the app says so instead of showing an empty inbox.
+		"domain": domainView(s.domainPublished(r.Context(), u.Email)),
 	})
 }
 

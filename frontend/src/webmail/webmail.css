@@ -3287,3 +3287,21 @@ html[data-theme="dark"] .wm .kcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.5);}
   .wm .notes{grid-template-columns:1fr;}
   .wm .notes:has(.notes-main .notes-h) .notes-list{display:none;}
 }
+
+/* Account state bar (AccountBanner). Full width, above everything: it is the one message that has
+   to be read BEFORE somebody concludes the product is broken.
+   Literal colours because the webmail theme only defines --accent and --star; the panel's --danger
+   and --warn do not exist in this scope, and var(--warn) with no fallback renders as nothing. */
+.wm .acct-bar{display:flex;align-items:center;gap:12px;padding:9px 16px;font-size:13.5px;font-weight:500;}
+.wm .acct-bar.warn{background:rgba(192,105,47,.14);color:#9A5325;}
+.wm .acct-bar.danger{background:rgba(192,57,43,.13);color:#B4342B;}
+.wm .acct-bar a{margin-left:auto;font-weight:700;text-decoration:underline;color:inherit;white-space:nowrap;}
+@media (prefers-color-scheme: dark){
+  .wm .acct-bar.warn{color:#E5A45F;}
+  .wm .acct-bar.danger{color:#F08A80;}
+}
+/* The explanation that stands in for the mail app while the domain is not published. */
+.wm .wm-blocked{max-width:520px;margin:64px auto;padding:0 24px;text-align:center;}
+.wm .wm-blocked h2{margin:0 0 10px;font-size:19px;}
+.wm .wm-blocked p{margin:0 0 20px;font-size:14px;line-height:1.55;opacity:.75;}
+.wm .wm-blocked-cta{display:inline-block;padding:9px 18px;border-radius:10px;background:var(--accent-solid);color:#fff;font-weight:600;font-size:13.5px;}

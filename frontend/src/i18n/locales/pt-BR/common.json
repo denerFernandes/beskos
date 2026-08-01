@@ -2748,5 +2748,17 @@
     "deleteConfirm": "Apagar esta nota?",
     "toChat": "Partilhar no chat",
     "sentToChat": "Nota partilhada no chat."
+  },
+  "accountBanner": {
+    "domainUnpublished": "O domínio {{domain}} ainda não está publicado no DNS. Até lá não chega correio nenhum e o envio fica bloqueado.",
+    "domainAction": "Ver os registos a publicar",
+    "trialEnding_one": "O teste acaba amanhã. Depois disso o envio de correio para.",
+    "trialEnding_other": "Faltam {{count}} dias de teste. Quando acabar, o envio de correio para.",
+    "pastDue": "O último pagamento falhou. Nada foi bloqueado ainda — vale a pena tratar do cartão.",
+    "sendBlocked_one": "O envio de correio está bloqueado. Falta 1 dia para a conta ser fechada.",
+    "sendBlocked_other": "O envio de correio está bloqueado. Faltam {{count}} dias para a conta ser fechada.",
+    "payAction": "Regularizar",
+    "mailBlockedTitle": "O correio ainda não pode funcionar",
+    "mailBlockedBody": "Enquanto os registos de DNS do {{domain}} não estiverem publicados, nenhuma mensagem chega aqui — quem lhe escrever continua a ser entregue no fornecedor antigo. Publique os registos e o correio começa a entrar em minutos."
   }
 }
