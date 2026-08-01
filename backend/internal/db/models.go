@@ -620,6 +620,9 @@ type MailUser struct {
 	MailSeenAt        pgtype.Timestamptz `json:"mail_seen_at"`
 	JobTitle          string             `json:"job_title"`
 	Avatar            string             `json:"avatar"`
+	Status            string             `json:"status"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	SuccessorEmail    string             `json:"successor_email"`
 }
 
 type ManagerAudit struct {

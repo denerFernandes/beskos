@@ -13,6 +13,10 @@ const (
 	PermDomainsManage Permission = "domains.manage" // adicionar/editar domínio
 	PermDomainsDelete Permission = "domains.delete" // remover domínio (destrutivo, à parte)
 	PermMailboxManage Permission = "mailboxes.manage"
+	// Destroying a mailbox is separate from running one, the same way removing a domain is: the
+	// person who creates accounts and resets passwords every day has no need to destroy anybody's
+	// correspondence, and should not be one misclick away from it.
+	PermMailboxDelete Permission = "mailboxes.delete"
 	PermMembersView   Permission = "members.view"
 	PermMembersInvite Permission = "members.invite" // convidar/criar conta
 	PermMembersManage Permission = "members.manage" // mudar papel, remover, permissões
@@ -62,7 +66,7 @@ var rolePermissions = map[Role]map[Permission]bool{
 // AllPermissions lista todas as permissões conhecidas (usado por owner/internal e nos testes).
 func AllPermissions() []Permission {
 	return []Permission{
-		PermDomainsView, PermDomainsManage, PermDomainsDelete, PermMailboxManage,
+		PermDomainsView, PermDomainsManage, PermDomainsDelete, PermMailboxManage, PermMailboxDelete,
 		PermMembersView, PermMembersInvite, PermMembersManage, PermGroupsManage,
 		PermBillingView, PermBillingManage, PermUsageView, PermTenantDelete,
 		PermOrgBranding, PermOrgSecurity, PermAnnouncements, PermAssistantManage, PermWikiManage,
