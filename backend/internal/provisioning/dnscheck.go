@@ -202,9 +202,13 @@ func tagValue(txt, tag string) string {
 // cabeçalho de comentário.
 func ZoneFile(domain, zone string) string {
 	var b strings.Builder
-	b.WriteString("; Registos DNS de " + domain + "\n")
-	b.WriteString("; Importar no painel do teu fornecedor (Cloudflare: DNS > Records > Import).\n")
-	b.WriteString("; O TTL fica ao critério do fornecedor.\n\n")
+	// English, like everything else the backend writes (law 4.6). The alternative would be guessing
+	// the reader's language from the server side, which is what §4.4 exists to prevent -- and a zone
+	// file is read next to a DNS control panel that is in English anyway. If these lines ever need
+	// translating, they belong in the frontend, which knows who is asking.
+	b.WriteString("; DNS records for " + domain + "\n")
+	b.WriteString("; Import these in your DNS provider (Cloudflare: DNS > Records > Import).\n")
+	b.WriteString("; TTL is up to your provider.\n\n")
 	for _, line := range strings.Split(strings.TrimSpace(zone), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
