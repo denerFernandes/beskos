@@ -20,7 +20,9 @@ import (
 	"context"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -43,7 +45,7 @@ func (m *Machine) warmMTASTS(ctx context.Context, domain string) {
 	if err != nil {
 		return
 	}
-	resp, err := (&http.Client{Timeout: 60 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 60 * time.Second, Transport: warmTransport()}).Do(req)
 	if err != nil {
 		// Expected while the customer's CNAME has not propagated yet. Logged rather than retried:
 		// the next fetch of the policy issues the certificate regardless.
@@ -53,4 +55,24 @@ func (m *Machine) warmMTASTS(ctx context.Context, domain string) {
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 	log.Printf("mta-sts warm-up for %s: HTTP %d", domain, resp.StatusCode)
+}
+
+// warmTransport sends the warm-up straight to the policy service over the internal network when
+// MTA_STS_INTERNAL_ADDR names one ("host:port"), and over the public internet otherwise.
+//
+// WHY THE DETOUR EXISTS: the policy host publishes port 443 on ONE node, and a container elsewhere
+// in the cluster cannot reach that host port -- the first warm-up in production failed with
+// "dial tcp 185.232.71.20:443: i/o timeout" while the very same URL answered from outside. Only the
+// dial address changes: the request keeps the customer's hostname, so SNI still asks for their
+// certificate and the response is still verified against it.
+func warmTransport() http.RoundTripper {
+	addr := os.Getenv("MTA_STS_INTERNAL_ADDR")
+	if addr == "" {
+		return http.DefaultTransport
+	}
+	return &http.Transport{
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, network, addr)
+		},
+	}
 }
