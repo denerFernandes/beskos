@@ -112,6 +112,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "auth.invalid_credentials")
 		return
 	}
+	// A suspended or deleted mailbox has no credentials in Stalwart, so the password check below
+	// would fail anyway -- but it would fail as "wrong password", which sends somebody to reset a
+	// password that will not help. Say the true thing instead, and say it before touching Stalwart.
+	// It also covers accounts with no mailbox, where nothing else would stop a suspended person.
+	if u.Status != "active" {
+		writeErr(w, http.StatusForbidden, "auth.account_suspended")
+		return
+	}
 	if u.StalwartAccountID != nil {
 		// Tem caixa: a credencial é a do Stalwart (o e-mail é a fonte de verdade da senha).
 		ok, verr := s.sw.VerifyUser(r.Context(), req.Email, req.Password)

@@ -112,6 +112,12 @@ export interface DNSCheckResult {
   summary: { total: number; ok: number; missing: number; mismatch: number; required_pending: number };
 }
 
+export type Mailbox = {
+  id: string; email: string; name: string; role: string; created_at: string;
+  status: "active" | "suspended" | "deleted";
+  successor_email?: string; deleted_at?: string; purge_after?: string;
+};
+
 export const api = {
   me: () => req<Me>("/api/me"),
   // Aliases de e-mail (endereço extra que entrega noutra caixa). Não são membros: só correio.
@@ -211,9 +217,18 @@ export const api = {
     req<{ user_id: string }>("/api/auth/mfa/verify", { method: "POST", body: JSON.stringify({ challenge, code }) }),
 
   // Caixas de email (gestão pelo painel)
-  mailboxes: () => req<{ id: string; email: string; name: string; role: string; created_at: string }[]>("/api/mailboxes"),
+  mailboxes: () => req<Mailbox[]>("/api/mailboxes"),
   resetMailboxPassword: (id: string, password: string) =>
     req<{ status: string }>(`/api/mailboxes/${id}/password`, { method: "POST", body: JSON.stringify({ password }) }),
+
+  // Mailbox lifecycle. Deleting destroys nothing today -- see docs/data-retention.md.
+  setMailboxStatus: (id: string, status: "active" | "suspended") =>
+    req<Mailbox>(`/api/mailboxes/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  deleteMailbox: (id: string, successor_email: string) =>
+    req<Mailbox>(`/api/mailboxes/${id}`, { method: "DELETE", body: JSON.stringify({ successor_email, confirm: true }) }),
+  restoreMailbox: (id: string) => req<Mailbox>(`/api/mailboxes/${id}/restore`, { method: "POST" }),
+  // The export is a download, not JSON: the browser handles it from the address.
+  mailboxExportURL: (id: string) => apiUrl(`/api/mailboxes/${id}/export`),
 
   // Usuários unificados = caixa + papel. Criar provisiona os dois juntos.
   createUser: (domain_id: string, login: string, name: string, password: string, role: string, groups: string[] = []) =>

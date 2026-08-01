@@ -346,3 +346,12 @@
   .sub-steps .lb{display:none;}
   .sub-steps li{min-width:0;}
 }
+
+/* Mailbox lifecycle. The `danger` pill was missing: `warn` means "look at this", and a deleted
+   mailbox is not a warning -- it is a state with a deadline. */
+.pnl-pill.danger{background:color-mix(in srgb,var(--danger) 15%,transparent);color:var(--danger);}
+.pnl-icon-btn.danger:hover{background:color-mix(in srgb,var(--danger) 12%,transparent);color:var(--danger);}
+/* The delete confirmation is a line, not a field: the sentence is the point and the box merely
+   accompanies it -- hence not .pnl-field, whose label is block, bold and grey. */
+.mbx-confirm{display:flex;align-items:flex-start;gap:9px;margin-top:14px;font-size:13px;line-height:1.35;cursor:pointer;}
+.mbx-confirm input{margin-top:2px;flex:none;}

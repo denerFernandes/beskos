@@ -449,6 +449,7 @@ func main() {
 	startAssembly(q, stWorker)
 	startSealing(stWorker)
 	startWatchdog(os.Getenv("STALWART_URL"))
+	startPurgeWorker(q, sw)
 
 	// Tarefas em fundo do assistente (§7.5 do desenho do assistente). O executor é montado a
 	// partir de um httpapi.Server porque precisa exatamente das mesmas dependências do motor

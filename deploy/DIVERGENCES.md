@@ -108,6 +108,30 @@ Recomendado: deixar `dkimManagement` Automatic (default). Ler chaves p/ montar D
 - Remover: `{"destroy":["c"]}`. **Integridade referencial:** destruir domínio com DKIM/contas ligadas falha
   com `objectIsLinked`. Ordem correta: contas → DkimSignatures do domínio → domínio.
 
+### Suspender uma conta — **não existe campo "ativa"** (01/08/2026)
+
+Uma conta na 0.16 traz `name`, `domainId`, `credentials`, `roles`, `permissions`, `quotas`,
+`aliases`, `description`, `locale`, `encryptionAtRest`, `usedDiskQuota`, `emailAddress` — e **nada**
+que a desligue. Suspender faz-se **removendo as credenciais**:
+
+```json
+["x:Account/set",{"update":{"<id>":{"credentials":{}}}},"c0"]   // suspende
+["x:Account/set",{"update":{"<id>":{"credentials/0/secret":"<nova>"}}},"c0"]  // reativa
+```
+
+Verificado contra uma conta viva: o login seguinte é recusado **de imediato** (sem cache pelo meio),
+e escrever um novo segredo devolve o acesso também de imediato. A caixa mantém tudo e o correio
+continua a ser entregue — é suspensão, não é apagar.
+
+⚠️ **`credentials` não se aceita a patch parcial.** Escrever `credentials/0/expiresAt` **destrói a
+credencial inteira**, e escrever-lhe `null` deixa `credentials: {}` — descobri isto a partir uma
+conta de teste, que ficou sem forma de entrar. Ou se escreve `credentials/0/secret` (recria), ou se
+substitui o mapa todo. Não há meio-termo, e o `expiresAt` que o objeto mostra **não** serve para
+suspender.
+
+Consequência de desenho: **reativar exige uma senha nova**. Ver `SuspendAccount` em
+`internal/stalwart/provisioning.go`.
+
 ### Registros DNS p/ o cliente publicar — propriedade `dnsZoneFile`
 ```json
 ["x:Domain/get",{"ids":["c"],"properties":["dnsZoneFile"]},"0"]

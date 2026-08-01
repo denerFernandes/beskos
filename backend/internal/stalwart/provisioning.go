@@ -227,3 +227,62 @@ func (c *Client) GetDomainDNSZone(ctx context.Context, domainID string) (string,
 	}
 	return g.List[0].DNSZoneFile, nil
 }
+
+// SuspendAccount blocks every way in without touching a single message: it removes the account's
+// credentials. Mail keeps arriving, the mailbox keeps its contents, and IMAP, SMTP, JMAP and our
+// own panel all stop accepting the password at once.
+//
+// WHY THIS AND NOT A FLAG: an account in Stalwart 0.16 has no "enabled" field -- the object carries
+// name, quotas, roles, permissions, aliases and credentials, and nothing that says "off". Probed
+// against a live account (01/08/2026): removing the credentials map denies the next login
+// immediately, and writing a new secret lets it back in immediately. See deploy/DIVERGENCES.md.
+//
+// Reactivating therefore needs a NEW password (SetAccountPassword) -- the old one is gone. That is
+// not a workaround dressed up as a feature: reinstating a suspended person's old password is the
+// wrong default anyway, since suspension usually means somebody left or was compromised.
+func (c *Client) SuspendAccount(ctx context.Context, accountID string) error {
+	args := map[string]any{
+		"update": map[string]any{accountID: map[string]any{"credentials": map[string]any{}}},
+	}
+	raw, err := c.call(ctx, "x:Account/set", args)
+	if err != nil {
+		return err
+	}
+	var r setResult
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return fmt.Errorf("decode Account/set: %w", err)
+	}
+	if len(r.NotUpdated) > 0 {
+		b, _ := json.Marshal(r.NotUpdated)
+		return fmt.Errorf("stalwart notUpdated: %s", string(b))
+	}
+	return nil
+}
+
+// RenameAccount changes the local part of an account, and with it the address it answers to.
+//
+// This is how a deleted mailbox stops accepting mail without a single message being destroyed. The
+// account keeps everything it had; it simply no longer holds the address, so a sender to the old
+// one is told the recipient does not exist -- which is the truth, and is what every other provider
+// does. Renaming it back is the whole of "restore".
+//
+// Verified against a live account (01/08/2026): emailAddress follows the name in both directions
+// and the stored mail is untouched.
+func (c *Client) RenameAccount(ctx context.Context, accountID, newLocal string) error {
+	args := map[string]any{
+		"update": map[string]any{accountID: map[string]any{"name": newLocal}},
+	}
+	raw, err := c.call(ctx, "x:Account/set", args)
+	if err != nil {
+		return err
+	}
+	var r setResult
+	if err := json.Unmarshal(raw, &r); err != nil {
+		return fmt.Errorf("decode Account/set: %w", err)
+	}
+	if len(r.NotUpdated) > 0 {
+		b, _ := json.Marshal(r.NotUpdated)
+		return fmt.Errorf("stalwart notUpdated: %s", string(b))
+	}
+	return nil
+}

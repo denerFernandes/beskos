@@ -199,6 +199,13 @@ func (s *Server) Router() http.Handler {
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/domains/{id}/mailboxes", s.handleCreateMailbox)
 			r.With(s.requirePerm(rbac.PermDomainsView)).Get("/mailboxes", s.handleListMailboxes)
 			r.With(s.requirePerm(rbac.PermMailboxManage)).Post("/mailboxes/{id}/password", s.handleResetMailboxPassword)
+			// Mailbox lifecycle (mailbox_lifecycle.go). Deleting has its own permission because it is
+			// destructive: running mailboxes and destroying them are different jobs.
+			r.With(s.requirePerm(rbac.PermMailboxManage)).Put("/mailboxes/{id}/status", s.handleSetMailboxStatus)
+			r.With(s.requirePerm(rbac.PermMailboxDelete)).Delete("/mailboxes/{id}", s.handleDeleteMailbox)
+			r.With(s.requirePerm(rbac.PermMailboxDelete)).Post("/mailboxes/{id}/restore", s.handleRestoreMailbox)
+			// Delete OR return (GDPR 28(3)(g)): during the window the data can still be taken out.
+			r.With(s.requirePerm(rbac.PermMailboxDelete)).Get("/mailboxes/{id}/export", s.handleExportMailbox)
 
 			// Aliases de e-mail (contacto@empresa.com → caixa de alguém). Gerir é operação de caixas;
 			// ver a lista basta a quem já vê os domínios. Os endereços PRÓPRIOS (o "De:" do compositor)

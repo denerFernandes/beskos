@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, hasPerm, type Me } from "../api";
+import { api, hasPerm, type Me, type Mailbox } from "../api";
 import { Modal, toast } from "./ui";
 import { PasswordField } from "../webmail/PasswordField";
 import { GroupPicker } from "./GroupPicker";
 import { IcPlus, IcKey, IcTrash, IcColumns, IcShield } from "./icons";
+import { MailboxActions, MailboxStatusPill } from "./MailboxLifecycle";
 
 const ROLES = ["owner", "admin", "member", "billing"];
 
@@ -14,6 +15,7 @@ export function UsersSection({ me }: { me: Me | undefined }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const canManage = hasPerm(me, "members.manage");
+  const canDeleteMailbox = hasPerm(me, "mailboxes.delete");
   const members = useQuery({ queryKey: ["members"], queryFn: api.members, retry: false });
   // Chave "admin-mailboxes": NÃO usar ["mailboxes"] — essa é das pastas JMAP do webmail.
   const mailboxes = useQuery({ queryKey: ["admin-mailboxes"], queryFn: api.mailboxes, retry: false });
@@ -27,11 +29,12 @@ export function UsersSection({ me }: { me: Me | undefined }) {
   // Une membros (contas do painel, com papel) + caixas (mailboxes) por email: um usuário pode
   // ter conta de painel, caixa, ou ambos. Assim TODOS aparecem (bug: caixas sem conta sumiam).
   const users = useMemo(() => {
-    const byEmail = new Map<string, { email: string; role: string; panelId?: string; mailboxId?: string }>();
+    const byEmail = new Map<string, { email: string; role: string; panelId?: string; mailboxId?: string; mailbox?: Mailbox }>();
     for (const m of members.data ?? []) byEmail.set(m.email, { email: m.email, role: m.role, panelId: m.id });
     for (const mb of mailboxes.data ?? []) {
       const e = byEmail.get(mb.email) ?? { email: mb.email, role: "member" };
       e.mailboxId = mb.id;
+      e.mailbox = mb;
       byEmail.set(mb.email, e);
     }
     return [...byEmail.values()].sort((a, b) => a.email.localeCompare(b.email));
@@ -60,7 +63,10 @@ export function UsersSection({ me }: { me: Me | undefined }) {
           {users.length === 0 ? <div className="pnl-empty">{t("mailboxes.empty")}</div> : users.map((u) => (
             <div className="pnl-row" key={u.email}>
               <div className="pnl-avatar" style={{ width: 32, height: 32, fontSize: 12 }}>{u.email.slice(0, 2).toUpperCase()}</div>
-              <div className="grow"><div className="mono">{u.email}</div>
+              <div className="grow">
+                <div className="mono" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {u.email}{u.mailbox && <MailboxStatusPill mb={u.mailbox} />}
+                </div>
                 {!u.mailboxId && <div className="sub">{t("usersSection.noMailbox")}</div>}</div>
               {canManage && u.panelId
                 ? <select className="pnl-select" style={{ width: 150 }} value={u.role} onChange={(e) => changeRole.mutate({ id: u.panelId!, role: e.target.value })}>
@@ -69,7 +75,8 @@ export function UsersSection({ me }: { me: Me | undefined }) {
                 : <span className="pnl-pill muted">{t(`members.roles.${u.role}`, { defaultValue: u.role })}</span>}
               {canManage && u.panelId && <button className="pnl-icon-btn" title={t("groups.userGroups")} onClick={() => setGroupsOf({ id: u.panelId!, label: u.email })}><IcColumns size={16} /></button>}
               {canManage && u.panelId && <button className="pnl-icon-btn" title={t("perms.title")} onClick={() => setPermsOf({ id: u.panelId!, label: u.email })}><IcShield size={16} /></button>}
-              {canManage && u.mailboxId && <button className="pnl-icon-btn" title={t("mailboxes.changePassword")} onClick={() => setReset(u.email)}><IcKey size={16} /></button>}
+              {canManage && u.mailbox?.status !== "deleted" && u.mailboxId && <button className="pnl-icon-btn" title={t("mailboxes.changePassword")} onClick={() => setReset(u.email)}><IcKey size={16} /></button>}
+              {canDeleteMailbox && u.mailbox && <MailboxActions mb={u.mailbox} />}
               {canManage && u.panelId && <button className="pnl-icon-btn" title={t("members.remove")} onClick={() => remove.mutate(u.panelId!)}><IcTrash size={16} /></button>}
             </div>
           ))}

@@ -136,10 +136,28 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := mailUserFrom(r.Context())
-	if n, err := s.q.CountMailUsersOnDomain(r.Context(), db.CountMailUsersOnDomainParams{
+	// A domain cannot go while mailboxes on it still hold data -- including the ones already
+	// deleted, whose messages survive until the recovery window closes. Saying WHICH matters: one
+	// case asks the admin to do something, the other asks them to wait, and "has mailboxes" told
+	// somebody with an empty domain to go and delete mailboxes that were already gone (law 2.9).
+	st, err := s.q.DomainMailboxState(r.Context(), db.DomainMailboxStateParams{
 		TenantID: d.TenantID, Domain: &d.Domain,
-	}); err != nil || n > 0 {
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "domains.check_failed")
+		return
+	}
+	switch {
+	case st.Total > st.Deleted:
 		writeErr(w, http.StatusConflict, "domains.has_mailboxes")
+		return
+	case st.Deleted > 0:
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"error_code": "domains.mailboxes_in_recovery",
+			"error":      "Mailboxes deleted from this domain can still be restored",
+			"free_after": st.OldestDeleted.Add(RecoveryWindow),
+			"mailboxes":  st.Deleted,
+		})
 		return
 	}
 	if id := strval(d.StalwartID); id != "" {
