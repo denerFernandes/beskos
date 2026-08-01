@@ -227,6 +227,10 @@ func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) 
 			return false, nil // SES ainda a validar os CNAMEs DKIM; tenta de novo depois
 		}
 	}
+	// The customer has published mta-sts.<domain> by now, so the policy host can be reached under
+	// that name and issue its certificate. Doing it here means the first person to look -- usually
+	// the customer, checking their own work -- finds it already serving. See mtasts_warm.go.
+	m.warmMTASTS(ctx, d.Domain)
 	return m.persist(ctx, d, StateDNSVerified, d.StalwartID, d.DkimStatus, "verified", d.DnsZone)
 }
 
