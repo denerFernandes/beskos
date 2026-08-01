@@ -27,7 +27,16 @@ func (s *Server) handleListMailboxes(w http.ResponseWriter, r *http.Request) {
 	// Devolve só o necessário (nunca há senha aqui).
 	out := make([]map[string]any, len(list))
 	for i, m := range list {
-		out[i] = map[string]any{"id": m.ID, "email": m.Email, "name": m.Name, "role": m.Role, "created_at": m.CreatedAt}
+		row := map[string]any{"id": m.ID, "email": m.Email, "name": m.Name, "role": m.Role, "created_at": m.CreatedAt}
+		// The lifecycle fields travel with the list, not behind a second call: a panel that has to ask
+		// again to find out which mailboxes are suspended will render them all as normal for a moment,
+		// and somebody will act on that moment.
+		for k, v := range mailboxLifecycleView(m) {
+			if k != "id" && k != "email" && k != "name" {
+				row[k] = v
+			}
+		}
+		out[i] = row
 	}
 	writeJSON(w, http.StatusOK, out)
 }
