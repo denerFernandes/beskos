@@ -83,6 +83,17 @@ type Machine struct {
 	store Store
 	relay EmailRelay // nil = sem SES
 	brand string     // domínio da marca (ex.: beskos.com) para _spf.<brand> e rua do DMARC
+	// Public names the customer will publish. Stalwart writes its own container hostname into every
+	// host-valued record, which resolves nowhere outside the swarm -- see PublicHosts.
+	mailHost   string
+	mtaStsHost string
+}
+
+// WithPublicHosts sets the names that replace Stalwart's internal hostname in the customer's zone.
+// Without them the MX handed out points at a container id and no mail is ever delivered.
+func (m *Machine) WithPublicHosts(mailHost, mtaStsHost string) *Machine {
+	m.mailHost, m.mtaStsHost = mailHost, mtaStsHost
+	return m
 }
 
 func NewMachine(sw Mailserver, dns DNSVerifier, store Store) *Machine {
@@ -181,12 +192,14 @@ func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error
 		zone = StripStalwartDKIM(zone)
 		zone = AugmentZoneForSES(zone, d.Domain, selector, publicKey, m.brand,
 			m.relay.MailFromSubdomain(d.Domain), m.relay.MailFromMX())
+		zone = PublicHosts(zone, m.mailHost, m.mtaStsHost)
 		return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "ses", d.DnsStatus, &zone)
 	}
 	// Sem relay: espera o DKIM do Stalwart (não aparece na hora — DIVERGENCES §D4).
 	if !hasDKIM(zone) {
 		return false, nil // ainda não gerado; tenta de novo depois
 	}
+	zone = PublicHosts(zone, m.mailHost, m.mtaStsHost)
 	return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "generated", d.DnsStatus, &zone)
 }
 

@@ -61,3 +61,32 @@ func TestMailAuditRejectsWhatIsNotADomain(t *testing.T) {
 		}
 	}
 }
+
+// The landing calls this from a different origin, so the browser needs both the header on the
+// response and an answer to the preflight. It shipped without either: curl does not enforce CORS,
+// so every test I ran passed while the page itself could not read a single reply.
+func TestMailAuditIsCallableFromAnotherOrigin(t *testing.T) {
+	s := &Server{}
+	h := publicCORS(http.HandlerFunc(s.handleMailAudit))
+
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/api/public/mail-audit?domain=beskos.com", nil)
+	r.Header.Set("Origin", "https://beskos.com")
+	h.ServeHTTP(w, r)
+	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Errorf("Allow-Origin = %q, want *", got)
+	}
+	// Credentials must NOT be allowed alongside a wildcard: a browser rejects that pairing, and
+	// wanting it here would mean this endpoint had become something that reads a session.
+	if w.Header().Get("Access-Control-Allow-Credentials") != "" {
+		t.Error("a public endpoint must not allow credentials")
+	}
+
+	w = httptest.NewRecorder()
+	r = httptest.NewRequest(http.MethodOptions, "/api/public/mail-audit", nil)
+	r.Header.Set("Origin", "https://beskos.com")
+	h.ServeHTTP(w, r)
+	if w.Code != http.StatusNoContent {
+		t.Errorf("preflight -> %d, want 204", w.Code)
+	}
+}

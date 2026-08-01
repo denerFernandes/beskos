@@ -29,3 +29,28 @@ func (s *Server) cors(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
+// publicCORS opens an endpoint to any origin, WITHOUT credentials.
+//
+// The credentialed `cors` above echoes a known origin and allows cookies, which is right for the
+// application API and wrong here: the mail audit is unauthenticated, returns only records that are
+// already published in public DNS, and is meant to be called from the marketing site -- a different
+// origin from the API. Listing that site's domains here would couple the API to the landing and
+// would have to grow every time a domain is added.
+//
+// "*" is also the safer of the two: a browser refuses to send credentials to a wildcard origin, so
+// this can never turn into a way to make an authenticated request from somebody else's page.
+func publicCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Access-Control-Allow-Origin", "*")
+		if r.Method == http.MethodOptions {
+			h.Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+			h.Set("Access-Control-Allow-Headers", "Content-Type")
+			h.Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

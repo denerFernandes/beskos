@@ -140,3 +140,51 @@ func indexOf(fields []string, target string) int {
 	}
 	return -1
 }
+
+// PublicHosts replaces the hostname Stalwart puts in the zone with names a customer can publish.
+//
+// THIS IS THE DIFFERENCE BETWEEN A ZONE THAT WORKS AND ONE THAT LOOKS RIGHT. Stalwart writes its own
+// server hostname into every host-valued record, and inside a container that hostname is the
+// container id -- "3517d6da4cde". Handed to a customer, the MX points at a name that resolves
+// nowhere: no mail is delivered at all, and nothing in the instructions looks wrong. Our own domain
+// only works because its records were published by hand.
+//
+// A SINGLE LABEL IS THE TELL. A public mail host always has a dot in it; a container id never does.
+// That is a deterministic test, so this cannot mistake a customer's legitimate target for an
+// internal one -- and it keeps working if the container id changes, which it does on every deploy.
+//
+// The MTA-STS record points somewhere else on purpose: the policy is served over HTTPS by the policy
+// host, not by the mail server, and a CNAME to the mail host would answer with the wrong certificate.
+func PublicHosts(zone, mailHost, mtaStsHost string) string {
+	if mailHost == "" {
+		return zone
+	}
+	lines := strings.Split(zone, "\n")
+	for i, line := range lines {
+		f := strings.Fields(line)
+		in := indexOf(f, "IN")
+		if in < 1 || in+2 >= len(f) {
+			continue
+		}
+		rtype, last := strings.ToUpper(f[in+1]), len(f)-1
+		target := strings.TrimSuffix(f[last], ".")
+		if target == "" || strings.Contains(target, ".") {
+			continue // already a public name, or not a host at all
+		}
+		switch rtype {
+		case "MX":
+			f[last] = mailHost + "."
+		case "CNAME":
+			host := strings.TrimSuffix(f[in-1], ".")
+			if strings.HasPrefix(host, "mta-sts.") && mtaStsHost != "" {
+				f[last] = mtaStsHost + "."
+			} else {
+				f[last] = mailHost + "."
+			}
+		default:
+			continue
+		}
+		lines[i] = strings.Join(f, " ")
+	}
+	return strings.Join(lines, "\n")
+}
