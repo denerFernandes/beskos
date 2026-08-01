@@ -45,13 +45,37 @@ func AugmentZoneForSES(zone, domain, selector, publicKey, brand, mailFromHost, m
 // StripStalwartDKIM remove da zona os registos DKIM gerados pelo Stalwart (TXT `..._domainkey...`
 // com `DKIM1`). No modo relay o Stalwart não assina (DKIM Manual), então esses registos não devem
 // chegar ao cliente — quem assina é o SES com a nossa chave (via AugmentZoneForSES).
+// A DKIM record does not fit on one line, and Stalwart writes the long ones in the parenthesised
+// form that BIND allows:
+//
+//	v1-rsa-20260801._domainkey.acme.com. IN TXT (
+//	    "v=DKIM1; k=rsa; "
+//	    "p=MIIBIj..." )
+//
+// Removing the lines that say DKIM1 therefore deleted the CONTENTS and left the header behind --
+// a record with a name and no value. It reached the customer's instructions as a line to publish
+// that cannot be published, and, worse, DNS verification looked it up and waited forever for a
+// record that by then nobody was going to create. Found on the second real customer domain, an
+// hour into a provisioning run that had every other record correct.
 func StripStalwartDKIM(zone string) string {
 	var kept []string
+	dropping := false
 	for _, line := range strings.Split(zone, "\n") {
-		if strings.Contains(line, "_domainkey") && strings.Contains(line, "DKIM1") {
+		if dropping {
+			if strings.Contains(line, ")") {
+				dropping = false
+			}
 			continue
 		}
-		kept = append(kept, line)
+		if !strings.Contains(line, "_domainkey") {
+			kept = append(kept, line)
+			continue
+		}
+		// A record that opens a parenthesis without closing it continues on the lines below.
+		if strings.Contains(line, "(") && !strings.Contains(line, ")") {
+			dropping = true
+		}
+		continue
 	}
 	return strings.Join(kept, "\n")
 }
