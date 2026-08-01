@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
@@ -383,15 +382,7 @@ func main() {
 	// container hostname into every MX and CNAME, so without this the MX handed to a customer points
 	// at a container id and no mail is delivered -- with nothing in the instructions looking wrong.
 	mailHost := os.Getenv("STALWART_HOSTNAME")
-	mtaStsHost := os.Getenv("MTA_STS_HOSTNAME")
-	if mtaStsHost == "" && mailHost != "" {
-		// Same deployment, conventional name. Derived rather than required so a new install does not
-		// have to know about it, and overridable for one that puts the policy somewhere else.
-		if i := strings.Index(mailHost, "."); i > 0 {
-			mtaStsHost = "mta-sts" + mailHost[i:]
-		}
-	}
-	machine.WithPublicHosts(mailHost, mtaStsHost)
+	machine.WithPublicHosts(mailHost, provisioning.MTASTSHost(mailHost, os.Getenv("MTA_STS_HOSTNAME")))
 	if mailHost == "" {
 		log.Printf("provisioning: STALWART_HOSTNAME unset — the zone given to customers will name the container, not a public host")
 	}

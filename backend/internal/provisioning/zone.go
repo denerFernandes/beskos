@@ -141,6 +141,22 @@ func indexOf(fields []string, target string) int {
 	return -1
 }
 
+// MTASTSHost resolves the name that serves MTA-STS policies for every customer domain.
+//
+// Derived from the mail host by convention rather than required, so a new install does not have to
+// know the name exists, and overridable for a deployment that serves the policy elsewhere. Lives
+// here because the API and the worker both need the same answer: one deriving it differently from
+// the other would publish a CNAME pointing at a host that serves no policy.
+func MTASTSHost(mailHost, override string) string {
+	if override != "" {
+		return override
+	}
+	if i := strings.Index(mailHost, "."); i > 0 {
+		return "mta-sts" + mailHost[i:]
+	}
+	return ""
+}
+
 // PublicHosts replaces the hostname Stalwart puts in the zone with names a customer can publish.
 //
 // THIS IS THE DIFFERENCE BETWEEN A ZONE THAT WORKS AND ONE THAT LOOKS RIGHT. Stalwart writes its own

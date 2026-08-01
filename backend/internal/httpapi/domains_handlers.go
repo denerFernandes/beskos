@@ -52,10 +52,7 @@ func (s *Server) handleGetDomain(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	zone := ""
-	if d.DnsZone != nil {
-		zone = *d.DnsZone
-	}
+	zone := s.zoneOf(d)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": d.ID, "domain": d.Domain, "provision_state": d.ProvisionState,
 		"dkim_status": d.DkimStatus, "dns_status": d.DnsStatus,
