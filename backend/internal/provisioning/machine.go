@@ -216,6 +216,7 @@ func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) 
 		return false, fmt.Errorf("verificar DNS: %w", err)
 	}
 	if !ok {
+		waiting(d.Domain, "dns", "MX and "+dkimHost(strval(d.DnsZone), d.Domain))
 		return false, nil // cliente ainda não publicou
 	}
 	if m.relay != nil {
@@ -224,9 +225,11 @@ func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) 
 			return false, fmt.Errorf("verify identity with the relay: %w", rerr)
 		}
 		if !verified {
+			waiting(d.Domain, "relay", "identity verification")
 			return false, nil // SES ainda a validar os CNAMEs DKIM; tenta de novo depois
 		}
 	}
+	waitingDone(d.Domain)
 	// The customer has published mta-sts.<domain> by now, so the policy host can be reached under
 	// that name and issue its certificate. Doing it here means the first person to look -- usually
 	// the customer, checking their own work -- finds it already serving. See mtasts_warm.go.
