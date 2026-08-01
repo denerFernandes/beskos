@@ -2,6 +2,7 @@ package mailaudit
 
 import (
 	"context"
+	"errors"
 	"net"
 	"strings"
 	"sync"
@@ -74,11 +75,35 @@ var sharedMXSuffixes = map[string]string{
 // DNSBLs queried for the MX addresses. Each returns an A record when the address is listed.
 var blocklists = []string{"zen.spamhaus.org", "b.barracudacentral.org", "bl.spamcop.net"}
 
+// resolver is what every lookup goes through. It defaults to the system's, and UseResolver points
+// it somewhere else.
+var resolver = &net.Resolver{}
+
+// UseResolver sends the audit's lookups to a specific DNS server.
+//
+// This exists for one reason: the anti-spam lists REFUSE queries that arrive through a shared
+// resolver. Spamhaus answers 127.255.255.254, which means "go away" and not "not listed" -- so
+// through the datacenter's resolver, or through 1.1.1.1, the blocklist check could never say
+// anything at all. Measured from the production host: forwarded, a refusal; recursing from the root
+// on our own address, real listing codes. Passing an empty address keeps the system resolver, which
+// is what a developer's machine wants.
+func UseResolver(addr string) {
+	if addr == "" {
+		return
+	}
+	resolver = &net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, network, addr)
+		},
+	}
+}
+
 // Audit runs every check. It never returns an error for a domain that simply has nothing published:
 // that IS the finding.
 func Audit(ctx context.Context, domain string) Report {
 	domain = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(domain, ".")))
-	r := &net.Resolver{}
+	r := resolver
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
@@ -259,7 +284,15 @@ func blocklistCheck(ctx context.Context, r *net.Resolver, mx []*net.MX) Check {
 	for _, bl := range blocklists {
 		addrs, err := r.LookupHost(ctx, rev+"."+bl)
 		if err != nil {
-			continue // this list did not answer; it says nothing about the domain
+			// NXDOMAIN IS THE ANSWER "not listed" -- a DNSBL says clean by having no record. Treating
+			// it as a failed query is why this check reported "could not check" for every clean
+			// domain, which is every domain that matters: the ones that ARE listed answer, so only
+			// the innocent looked unverifiable.
+			var dnsErr *net.DNSError
+			if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+				checked = true
+			}
+			continue
 		}
 		refused := false
 		for _, a := range addrs {

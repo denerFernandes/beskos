@@ -65,6 +65,8 @@ APPS = {
     "docs": "deploy/onlyoffice",
     "mail": "deploy/mailweb",
     "backup": "deploy/backup",
+    "mta-sts": "deploy/mta-sts",
+    "unbound": "deploy/unbound",
 }
 
 # What does NOT travel to the server. Build artefacts, and the LOCAL environment files: this tar is
