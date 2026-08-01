@@ -40,6 +40,18 @@ Complementam — não substituem — as restrições inegociáveis do [project.m
      > queimar a reputação da conta inteira — esteve desligada e parecia ligada. Um erro que se
      > repete sempre não é um erro: é uma avaria.
 
+2.9. **"Ainda não" tem de ser distinguível de "nunca".** Um passo que espera por algo de fora
+     (DNS publicado, pagamento, ficheiro carregado) devolve o mesmo "ainda não" quando a espera é
+     legítima e quando a condição nunca se vai cumprir. Se espera por um alvo — um registo, um
+     identificador, um caminho — **registe qual é** na primeira vez e **grite** quando a espera
+     passa de um limiar. Sem isso, o ecrã diz "à espera do cliente" e o cliente já fez a parte dele.
+
+     > Escrita a 01/08/2026 depois de um domínio ficar mais de uma hora em `dns_pending` com todos
+     > os registos publicados e visíveis do mundo inteiro. O verificador procurava um DKIM cujo
+     > conteúdo tinha sido apagado por um bug anterior, e uma consulta que não encontra nada é
+     > exatamente igual, ali, a um cliente que ainda não publicou. Nada nos registos, nada no ecrã:
+     > só o cliente a olhar para "à espera de DNS" e a concluir que o produto não funciona.
+
 ## 3. Padrões Frontend (React/TS)
 
 3.1. TypeScript **strict**. Nada de `any` sem comentário justificando.
