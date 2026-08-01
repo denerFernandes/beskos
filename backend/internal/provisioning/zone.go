@@ -197,6 +197,12 @@ func PublicHosts(zone, mailHost, mtaStsHost string) string {
 			} else {
 				f[last] = mailHost + "."
 			}
+		case "SRV":
+			// The target is the last field here too ("IN SRV <pri> <weight> <port> <target>"), and
+			// Stalwart names the container in it just as it does in the MX. These records are the
+			// ones a mail client reads to configure itself, so left alone they send Outlook and
+			// Thunderbird looking for a host that does not exist.
+			f[last] = mailHost + "."
 		default:
 			continue
 		}

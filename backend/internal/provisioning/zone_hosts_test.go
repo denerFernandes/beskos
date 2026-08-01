@@ -77,3 +77,18 @@ func TestMTASTSHostFollowsTheMailHost(t *testing.T) {
 		}
 	}
 }
+
+// SRV is how a mail client configures itself. Stalwart names the container in the target, exactly
+// as it does in the MX -- so leaving it alone sends Outlook and Thunderbird to a host that does not
+// resolve. Found on the first real customer domain, after the MX case had already been fixed.
+func TestPublicHostsRewritesSRVTargets(t *testing.T) {
+	zone := "_imaps._tcp.acme.com. IN SRV 0 1 993 2ba8572f3dec.\n" +
+		"_jmap._tcp.acme.com. IN SRV 0 1 443 mail.elsewhere.net."
+	got := PublicHosts(zone, "mail.beskos.com", "mta-sts.beskos.com")
+	if !strings.Contains(got, "993 mail.beskos.com.") {
+		t.Errorf("container target left in the SRV record:\n%s", got)
+	}
+	if !strings.Contains(got, "443 mail.elsewhere.net.") {
+		t.Errorf("a target that was already public must not be touched:\n%s", got)
+	}
+}
