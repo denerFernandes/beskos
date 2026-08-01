@@ -108,7 +108,7 @@ func (s *Server) requirePerm(perm rbac.Permission) func(http.Handler) http.Handl
 	}
 }
 
-// --- respostas ---
+// --- responses ---
 
 // orEmpty troca slice nil por vazio: em JSON, nil vira `null` e o frontend faz .map/.length em
 // cima disso. Lista vazia é `[]`.

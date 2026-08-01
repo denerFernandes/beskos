@@ -1,11 +1,11 @@
 package httpapi
 
-// Rotas do Meet: salas e reuniões, controlos do organizador, gravação, apresentação e lobby.
-// Saíram da tabela de rotas por serem o maior bloco de um só produto (lei 1.4).
+// Meet routes: rooms and meetings, host controls, recording, presentation and lobby.
+// Split out of the route table because they were its largest single-product block (law 1.4).
 
 import "github.com/go-chi/chi/v5"
 
-// routesMeet regista as rotas do Meet no grupo autenticado (sessão + CSRF já aplicados).
+// routesMeet registers the Meet routes on the authenticated group (session and CSRF already applied).
 func (s *Server) routesMeet(r chi.Router) {
 	// Meet (LiveKit): salas, reuniões agendadas, RSVP.
 	r.Post("/meet/join", s.handleJoinMeet)
