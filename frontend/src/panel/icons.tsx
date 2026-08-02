@@ -42,6 +42,9 @@ export const IcMoon = ({ size }: P) => (<svg {...S(size)}><path d="M21 12.8A8 8 
 export const IcFolder = ({ size }: P) => (<svg {...S(size)}><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></svg>);
 export const IcArchive = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4" width="18" height="4" rx="1" /><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8" /><path d="M10 12h4" /></svg>);
 export const IcBook = ({ size }: P) => (<svg {...S(size)}><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z" /><path d="M4 19a2 2 0 0 0 2 2h13" /><path d="M9 7h6" /><path d="M9 11h6" /></svg>);
+// Documents: a page with a folded corner and lines. Distinct from IcBook (the wiki) and from
+// IcPencilBox (notes) at the 20px the rail uses, which is the only size that matters here.
+export const IcDoc = ({ size }: P) => (<svg {...S(size)}><path d="M6 3.5h7.5L18 8v12.5H6Z" /><path d="M13.5 3.5V8H18" /><path d="M9 12h6" /><path d="M9 15.5h6" /></svg>);
 export const IcMicOff = ({ size }: P) => (<svg {...S(size)}><path d="M1 1l22 22" /><path d="M9 9v3a3 3 0 0 0 5.1 2.1" /><path d="M15 9.3V5a3 3 0 0 0-5.9-.6" /><path d="M17 16.9A7 7 0 0 1 5 12v-2" /><path d="M19 10v2a7 7 0 0 1-.1 1.2" /><path d="M12 19v3" /></svg>);
 export const IcHandRaise = ({ size }: P) => (<svg {...S(size)}><path d="M18 11V6a1.5 1.5 0 0 0-3 0" /><path d="M15 6V4.5a1.5 1.5 0 0 0-3 0V6" /><path d="M12 6V5a1.5 1.5 0 0 0-3 0v7" /><path d="M9 8.5a1.5 1.5 0 0 0-3 0v5.5a7 7 0 0 0 7 7h1a6 6 0 0 0 6-6v-4" /></svg>);
 export const IcEmoji = ({ size }: P) => (<svg {...S(size)}><circle cx="12" cy="12" r="9" /><path d="M8 14a4.5 4.5 0 0 0 8 0" /><path d="M9 9h.01" /><path d="M15 9h.01" /></svg>);

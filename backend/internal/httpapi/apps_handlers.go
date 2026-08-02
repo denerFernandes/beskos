@@ -9,7 +9,7 @@ import (
 // toggleableApps são as apps do rail que o admin pode desligar para a organização. As Definições e a
 // Administração não são apps do rail (não se desligam). Manter esta lista alinhada com o rail do
 // frontend e com assistant.AppTools.
-var toggleableApps = []string{"today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "notes", "wiki"}
+var toggleableApps = []string{"today", "mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet", "notes", "wiki"}
 
 // handleGetApps devolve as apps alternáveis e as que estão desligadas na organização. Qualquer
 // utilizador lê (o rail filtra por isto).

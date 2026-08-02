@@ -322,7 +322,8 @@
       "meet": "Meet",
       "wiki": "Wiki",
       "admin": "Admin",
-      "notes": "Notes"
+      "notes": "Notes",
+      "docs": "Documents"
     },
     "cancel": "Cancel",
     "undo": "Undo",
@@ -530,7 +531,8 @@
       "cal": "Search events",
       "files": "Search files",
       "contacts": "Search contacts",
-      "meet": "Search meetings"
+      "meet": "Search meetings",
+      "docs": "Search documents"
     },
     "clearSearch": "Clear search",
     "selectAll": "Select all",
@@ -2760,5 +2762,11 @@
     "payAction": "Fix billing",
     "mailBlockedTitle": "Mail cannot work yet",
     "mailBlockedBody": "Until the DNS records for {{domain}} are published, nothing arrives here — anyone writing to you is still delivered to your old provider. Publish the records and mail starts coming in within minutes."
+  },
+  "docs": {
+    "new": "New",
+    "empty": "No documents yet. Create one and it shows up here — and in Drive, which is where it is kept.",
+    "noMatch": "No document by that name.",
+    "sharedWithMe": "shared with you"
   }
 }

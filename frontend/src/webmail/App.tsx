@@ -18,6 +18,7 @@ import { initVcardOpen } from "./desktopVcard";
 import { setTrayAccount } from "./nativeWindow";
 import { ToastHost, toast } from "./toast";
 import { AccountBanner, MailOrDomainNotice } from "./AccountBanner";
+import { DocsView } from "./DocsView";
 import { Onboarding } from "./Onboarding";
 import { MailView } from "./MailView";
 import { KanbanView } from "./KanbanView";
@@ -35,12 +36,12 @@ import { AdminView, useAdminEnabled, useAssistantEnabled, useDisabledApps } from
 import { SettingsView } from "./SettingsView";
 import { NotificationsBell } from "./NotificationsBell";
 import { AssistantBubble } from "./assistant/AssistantBubble";
-import { IcSun, IcMail, IcColumns, IcCalendar, IcFolder, IcUsers, IcSearch, IcMoon, IcLogout, IcVideo, IcChat, IcShield, IcGear, IcChevron, IcBook, IcPencilBox } from "../panel/icons";
+import { IcSun, IcMail, IcColumns, IcCalendar, IcFolder, IcUsers, IcSearch, IcMoon, IcLogout, IcVideo, IcChat, IcShield, IcGear, IcChevron, IcBook, IcPencilBox, IcDoc } from "../panel/icons";
 
-type View = "today" | "mail" | "chat" | "kanban" | "cal" | "files" | "contacts" | "meet" | "notes" | "wiki" | "admin" | "settings" | "profile";
+type View = "today" | "mail" | "chat" | "kanban" | "cal" | "files" | "docs" | "contacts" | "meet" | "notes" | "wiki" | "admin" | "settings" | "profile";
 // Áreas com o que buscar. "today" e "admin" ficam de fora: não têm lista para filtrar.
-const SEARCHABLE: View[] = ["mail", "chat", "kanban", "cal", "files", "contacts", "meet"];
-const VIEWS: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "notes", "wiki", "admin", "settings", "profile"];
+const SEARCHABLE: View[] = ["mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet"];
+const VIEWS: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet", "notes", "wiki", "admin", "settings", "profile"];
 
 // Shell do app de e-mail: barra superior + rail de apps + view ativa. A view ativa fica na URL
 // (/mail/<view>), então links são navegáveis e recarregáveis. "Hoje" é o padrão.
@@ -158,7 +159,7 @@ export function App({ session }: { session: WebmailSession }) {
   // ligada (o Correio já não é garantido — também se pode desligar).
   useEffect(() => {
     if (!disabledApps.includes(view)) return;
-    const order: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "notes", "wiki"];
+    const order: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet", "notes", "wiki"];
     setView(order.find((v) => !disabledApps.includes(v)) ?? "settings");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabledApps, view]);
@@ -230,6 +231,9 @@ export function App({ session }: { session: WebmailSession }) {
     { id: "kanban", label: t("webmail.apps.board"), icon: <IcColumns size={20} /> },
     { id: "cal", label: t("webmail.apps.calendar"), icon: <IcCalendar size={20} /> },
     { id: "files", label: t("webmail.apps.files"), icon: <IcFolder size={20} /> },
+    // Right after Drive, because it is a view over it: somebody looking for a document looks
+    // beside the files, not at the other end of the rail.
+    { id: "docs", label: t("webmail.apps.docs"), icon: <IcDoc size={20} /> },
     { id: "contacts", label: t("webmail.apps.contacts"), icon: <IcUsers size={20} /> },
     { id: "meet", label: t("webmail.apps.meet"), icon: <IcVideo size={20} /> },
     { id: "notes", label: t("webmail.apps.notes"), icon: <IcPencilBox size={20} /> },
@@ -326,6 +330,7 @@ export function App({ session }: { session: WebmailSession }) {
           {view === "files" && <FilesView search={search} folderParam={sub === "file" ? undefined : sub} fileParam={sub === "file" ? sub2 : undefined} onFolder={(id) => nav(id ? `/mail/files/${id}` : "/mail/files")} />}
           {view === "contacts" && <ContactsView search={search} sub={sub} sub2={sub2} />}
           {view === "meet" && <MeetView roomParam={sub === "m" ? undefined : sub} meetingParam={sub === "m" ? sub2 : undefined} />}
+          {view === "docs" && <DocsView search={search} />}
           {view === "notes" && <NotesView noteParam={sub} onNote={(id) => nav(id ? `/mail/notes/${id}` : "/mail/notes")} />}
           {view === "wiki" && <WikiView sub={sub} sub2={sub2} onNav={(s, p) => nav(p ? `/mail/wiki/${s}/${p}` : s ? `/mail/wiki/${s}` : "/mail/wiki")} />}
           {/* sec vazio = voltar à raiz (lista de secções no telemóvel); senão entra na secção. */}

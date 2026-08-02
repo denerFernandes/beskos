@@ -3305,3 +3305,22 @@ html[data-theme="dark"] .wm .kcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.5);}
 .wm .wm-blocked h2{margin:0 0 10px;font-size:19px;}
 .wm .wm-blocked p{margin:0 0 20px;font-size:14px;line-height:1.55;opacity:.75;}
 .wm .wm-blocked-cta{display:inline-block;padding:9px 18px;border-radius:10px;background:var(--accent-solid);color:#fff;font-weight:600;font-size:13.5px;}
+
+/* Documents: a view over Drive, so it borrows Drive's row rhythm rather than inventing its own —
+   the same file seen in two places should not look like two different things. */
+.wm .docs{padding:20px 24px;max-width:900px;margin:0 auto;}
+.wm .docs-top{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
+.wm .docs-top h1{margin:0;font-size:20px;font-weight:600;}
+.wm .docs-new{position:relative;}
+.wm .docs-new-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;border:none;background:var(--accent-solid);color:#fff;font-size:13.5px;font-weight:600;}
+.wm .docs-new-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:210px;padding:6px;border-radius:12px;border:1px solid var(--line);background:var(--surface);box-shadow:0 12px 32px rgba(0,0,0,.16);}
+.wm .docs-new-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:none;background:none;border-radius:8px;font-size:13.5px;text-align:left;color:inherit;}
+.wm .docs-new-menu button:hover{background:var(--surface-2);}
+.wm .docs-list{display:flex;flex-direction:column;}
+.wm .docs-row{display:flex;align-items:center;gap:12px;width:100%;padding:11px 10px;border:none;background:none;border-radius:9px;text-align:left;color:inherit;font-size:14px;}
+.wm .docs-row:hover{background:var(--surface-2);}
+.wm .docs-row .ic{display:grid;place-items:center;flex:none;}
+.wm .docs-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.wm .docs-tag{flex:none;font-size:11.5px;padding:2px 8px;border-radius:20px;background:var(--surface-2);opacity:.75;}
+.wm .docs-date{flex:none;font-size:12.5px;opacity:.6;}
+.wm .docs-empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:56px 20px;text-align:center;font-size:14px;opacity:.7;}
