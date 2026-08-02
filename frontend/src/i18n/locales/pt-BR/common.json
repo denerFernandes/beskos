@@ -322,7 +322,8 @@
       "meet": "Meet",
       "wiki": "Wiki",
       "admin": "Administração",
-      "notes": "Notas"
+      "notes": "Notas",
+      "docs": "Documentos"
     },
     "cancel": "Cancelar",
     "undo": "Desfazer",
@@ -530,7 +531,8 @@
       "cal": "Buscar eventos",
       "files": "Buscar ficheiros",
       "contacts": "Buscar contatos",
-      "meet": "Buscar reuniões"
+      "meet": "Buscar reuniões",
+      "docs": "Pesquisar documentos"
     },
     "clearSearch": "Limpar busca",
     "selectAll": "Selecionar tudo",
@@ -2760,5 +2762,11 @@
     "payAction": "Regularizar",
     "mailBlockedTitle": "O correio ainda não pode funcionar",
     "mailBlockedBody": "Enquanto os registos de DNS do {{domain}} não estiverem publicados, nenhuma mensagem chega aqui — quem lhe escrever continua a ser entregue no fornecedor antigo. Publique os registos e o correio começa a entrar em minutos."
+  },
+  "docs": {
+    "new": "Novo",
+    "empty": "Ainda não há documentos. Crie um e ele aparece aqui — e no Drive, que é onde fica guardado.",
+    "noMatch": "Nenhum documento com esse nome.",
+    "sharedWithMe": "partilhado consigo"
   }
 }

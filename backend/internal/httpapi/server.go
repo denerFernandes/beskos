@@ -456,6 +456,7 @@ func (s *Server) Router() http.Handler {
 			r.Delete("/folders/{id}", s.handleDeleteFolder)
 
 			// Edição de office (OnlyOffice): criar em branco + abrir a sessão do editor.
+			r.Get("/docs/recent", s.handleListRecentDocuments) // the Documents app: a view over Drive
 			r.Post("/files/office", s.handleCreateOfficeFile)
 			r.Post("/files/{id}/edit-session", s.handleEditSession)
 			r.Get("/ai/editor-key", s.handleAIEditorKey) // config do plugin de IA do editor (proxy)
