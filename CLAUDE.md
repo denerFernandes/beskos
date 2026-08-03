@@ -96,12 +96,25 @@ Complementam — não substituem — as restrições inegociáveis do [project.m
      SMS) — **todas as superfícies**, porque o cliente não sabe que são projetos diferentes.
      Verificado por `scripts/check_register.py`, incluído no `make check`.
 
+     **O tratamento formal não chega — o tom também é a lei.** Escreva declarativo: diga o que o
+     sistema faz. Não justifique a decisão de desenho ao leitor, não comente, não opine, não faça
+     perguntas retóricas. "O envio é suspenso até haver subscrição" — não "o envio para, porque um
+     teste que esconde o que se estava a avaliar responde à pergunta errada". Isto **não** é
+     verificado por máquina: os pronomes são, o tom é item de revisão.
+
      > Escrita a 03/08/2026, depois de o registo já divergir entre superfícies sem ninguém dar por
      > isso: a documentação polaca tratava o cliente por `Państwa` e a landing polaca por `Twój`; o
      > mailcheck italiano estava inteiramente em `tu` enquanto o resto do italiano usava `lei`. Quem
      > abre as duas páginas na mesma sessão não vê duas escolhas de estilo — vê duas empresas. E o
      > mailcheck é a porta de entrada do site: era exatamente a página onde a informalidade custava
      > mais.
+     >
+     > O parágrafo do tom foi acrescentado no mesmo dia, algumas horas depois. O verificador tinha
+     > acabado de dar tudo por limpo e a documentação inteira — dezassete artigos em oito idiomas —
+     > continuava escrita em registo de ensaio, a justificar cada decisão ao leitor. Os pronomes
+     > estavam certos. Uma máquina que só sabe medir pronomes assina por baixo de um texto que
+     > nenhum cliente empresarial leria até ao fim, e o "limpo" que ela imprime passa a valer menos
+     > do que parece.
 
 ## 5. Segurança e multi-tenancy (reforço do project.md)
 
