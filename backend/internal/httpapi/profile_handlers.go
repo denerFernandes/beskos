@@ -29,6 +29,9 @@ func (s *Server) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"email": fresh.Email, "name": fresh.Name, "job_title": fresh.JobTitle,
 		"phone": fresh.Phone, "avatar": fresh.Avatar,
+		// The address outside this domain that can be used to get back in. Empty is normal for an
+		// employee -- their way back is an administrator. See password_recovery.go.
+		"recovery_email": fresh.RecoveryEmail,
 	})
 }
 
@@ -39,8 +42,23 @@ func (s *Server) handleUpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 		JobTitle string `json:"job_title"`
 		Phone    string `json:"phone"`
 		Avatar   string `json:"avatar"`
+		// Where a reset link may be sent. It has to be OUTSIDE this domain: an address inside it is
+		// the mailbox the person is locked out of, which is the circularity this whole flow exists
+		// to break.
+		RecoveryEmail string `json:"recovery_email"`
 	}
 	if !decode(w, r, &req) {
+		return
+	}
+	rec := strings.ToLower(strings.TrimSpace(req.RecoveryEmail))
+	if rec != "" {
+		if !strings.Contains(rec, "@") || strings.HasSuffix(rec, "@"+domainOf(u.Email)) {
+			writeErr(w, http.StatusBadRequest, "profile.recovery_email_invalid")
+			return
+		}
+	}
+	if err := s.q.SetRecoveryEmail(r.Context(), db.SetRecoveryEmailParams{ID: u.ID, RecoveryEmail: rec}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "profile.failed")
 		return
 	}
 	if len(req.Avatar) > maxAvatarBytes {

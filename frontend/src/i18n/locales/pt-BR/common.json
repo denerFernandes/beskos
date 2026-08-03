@@ -13,7 +13,23 @@
     "submitSignup": "Criar conta",
     "loading": "...",
     "toSignup": "Não tem conta? Criar",
-    "toLogin": "Já tem conta? Entrar"
+    "toLogin": "Já tem conta? Entrar",
+    "forgotLink": "Esqueceu-se da senha?",
+    "forgotTitle": "Voltar a entrar",
+    "forgotBlurb": "Como somos o seu fornecedor de correio, não lhe podemos enviar uma ligação para a caixa a que não consegue aceder. Avisamos os administradores da sua organização, que definem uma senha nova para si.",
+    "forgotSubmit": "Pedir ajuda",
+    "forgotSentTitle": "Pedido enviado",
+    "forgotSent": "Se essa conta existir, os administradores da organização já foram avisados. Se tiver um endereço de recuperação definido, recebe também uma ligação lá.",
+    "backToSignIn": "Voltar a entrar",
+    "resetTitle": "Definir uma senha nova",
+    "resetBlurb": "Esta ligação serve uma vez e expira dentro de uma hora.",
+    "newPassword": "Senha nova",
+    "secondFactor": "Código do segundo fator",
+    "secondFactorHint": "Esta conta tem segundo fator. Use o código da aplicação de autenticação ou um dos códigos de recuperação — repor a senha não o dispensa.",
+    "resetBadCode": "Código inválido. Tente o da aplicação de autenticação ou um código de recuperação.",
+    "resetSubmit": "Guardar",
+    "resetDoneTitle": "Senha alterada",
+    "resetDone": "Pode entrar com a senha nova. As outras sessões desta conta foram terminadas."
   },
   "dashboard": {
     "loading": "Carregando…",
@@ -227,7 +243,8 @@
       "codePlaceholder": "Código de 6 dígitos",
       "verify": "Verificar",
       "back": "Voltar",
-      "badCode": "Código inválido. Tente de novo."
+      "badCode": "Código inválido. Tente de novo.",
+      "mfaTitle": "Verificação em dois passos"
     },
     "compose": {
       "new": "Escrever",
