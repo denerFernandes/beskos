@@ -145,6 +145,39 @@ def main() -> int:
         for used in sorted(set(re.findall(r"\{(\w+)\}", prose_only)) - known):
             problems.append(f"{f.name}: uses {{{used}}}, which lib/docs-facts.ts does not define")
 
+    # Is each translation actually in its own language?
+    #
+    # WHY THIS EXISTS: a Dutch translation of the landing once came out in German, and nothing caught
+    # it but a human reading the page. A file of a few thousand words in the wrong language looks
+    # entirely correct to a compiler, to a placeholder check, and to anybody who does not speak it.
+    #
+    # A cheap heuristic on function words, not a language model: if another language's markers beat
+    # the file's own, something is wrong enough to look at by hand.
+    MARKERS = {
+        "en": [" the ", " and ", " which ", " your "],  # lang:ok — these are language samples, not prose
+        "pt": [" que ", " não ", " uma ", " para "],  # lang:ok — these are language samples, not prose
+        "es": [" que ", " los ", " una ", " para "],  # lang:ok — these are language samples, not prose
+        "fr": [" les ", " que ", " vous ", " pour "],  # lang:ok — these are language samples, not prose
+        "de": [" der ", " und ", " nicht ", " Sie "],  # lang:ok — these are language samples, not prose
+        "it": [" che ", " gli ", " una ", " per "],  # lang:ok — these are language samples, not prose
+        "nl": [" het ", " een ", " niet ", " voor "],  # lang:ok — these are language samples, not prose
+        "pl": [" nie ", " jest ", " oraz ", " Państwa "],  # lang:ok — these are language samples, not prose
+    }
+    for f in sorted((ROOT / "landing" / "lib" / "locales" / "docs").glob("*.ts")):
+        lang = f.stem
+        if lang not in MARKERS:
+            continue
+        body = "\n".join(l for l in f.read_text(encoding="utf-8").splitlines()
+                         if not l.lstrip().startswith("//"))
+        score = {k: sum(body.count(m) for m in ms) for k, ms in MARKERS.items()}
+        best = max(score, key=lambda k: score[k])
+        # Spanish and Portuguese share markers; only complain when a clearly different family wins.
+        family = {"pt": {"es"}, "es": {"pt"}}
+        if best != lang and best not in family.get(lang, set()):
+            problems.append(
+                f"{f.name}: reads more like {best} than {lang} "
+                f"({score[best]} vs {score[lang]} marker hits) — check it was not translated into the wrong language")
+
     if problems:
         print("DOCUMENTATION OUT OF DATE -- the code and lib/docs-facts.ts disagree:\n")
         for p in problems:
