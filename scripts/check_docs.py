@@ -135,6 +135,16 @@ def main() -> int:
         if fact("apps") != words.get(n, str(n)):
             problems.append(f"apps: the docs say '{fact('apps')}', the product has {n}")
 
+    # Placeholders that no fact answers render on screen as "{whatever}", literally. The check reads
+    # only string content: a header comment explaining the convention mentions {key} as an example,
+    # and flagging that was the first version of this check crying wolf about itself.
+    known = set(re.findall(r'(\w+): "', FACTS.read_text(encoding="utf-8")))
+    for f in sorted((ROOT / "landing" / "lib" / "locales" / "docs").glob("*.ts")):
+        prose_only = "\n".join(l for l in f.read_text(encoding="utf-8").splitlines()
+                               if not l.lstrip().startswith("//"))
+        for used in sorted(set(re.findall(r"\{(\w+)\}", prose_only)) - known):
+            problems.append(f"{f.name}: uses {{{used}}}, which lib/docs-facts.ts does not define")
+
     if problems:
         print("DOCUMENTATION OUT OF DATE -- the code and lib/docs-facts.ts disagree:\n")
         for p in problems:
