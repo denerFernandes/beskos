@@ -624,6 +624,7 @@ type MailUser struct {
 	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 	SuccessorEmail    string             `json:"successor_email"`
 	PurgeWarnedAt     pgtype.Timestamptz `json:"purge_warned_at"`
+	RecoveryEmail     string             `json:"recovery_email"`
 }
 
 type ManagerAudit struct {
@@ -872,6 +873,15 @@ type OutboxEmail struct {
 	SendAt     time.Time `json:"send_at"`
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+type PasswordReset struct {
+	Token     string             `json:"token"`
+	UserID    uuid.UUID          `json:"user_id"`
+	TenantID  uuid.UUID          `json:"tenant_id"`
+	ExpiresAt time.Time          `json:"expires_at"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
+	CreatedAt time.Time          `json:"created_at"`
 }
 
 type Plan struct {

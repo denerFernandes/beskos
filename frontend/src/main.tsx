@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 import "./i18n";
+import { ResetPage } from "./pages/Reset";
 import { MailPage } from "./pages/Mail";
 import { EditorPage } from "./pages/Editor";
 import { PublicFilePage } from "./pages/PublicFile";
@@ -45,6 +46,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <Routes>
           <Route path="/mail/files/edit/:id" element={<EditorPage />} />
+          <Route path="/reset" element={<ResetPage />} />
           <Route path="/mail" element={<MailPage />} />
           <Route path="/mail/:view" element={<MailPage />} />
           <Route path="/mail/:view/:sub" element={<MailPage />} />

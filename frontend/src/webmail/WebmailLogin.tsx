@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { login, verifyMfa, type MfaChallenge } from "./auth";
 import { backend, ApiError, type Branding } from "./backend";
 import { applyBrandColor, cachedBrand, BESKOS_MARK } from "./branding";
+import { ForgotPassword } from "./PasswordRecovery";
 
 // Login do webmail: autentica o USUÁRIO FINAL no Stalwart (Basic atrás do proxy, §D7).
 // Distinto do login do painel (nossa API). Aqui a credencial é a da caixa de email.
@@ -15,6 +16,9 @@ export function WebmailLogin() {
   // 2º fator: quando o login devolve um desafio, mostra-se o passo do código em vez de e-mail/senha.
   const [mfa, setMfa] = useState<MfaChallenge | null>(null);
   const [code, setCode] = useState("");
+  // Locked out: a separate screen rather than a modal, because somebody who cannot get in has
+  // one thing to do and should not be looking at the form that just refused them.
+  const [forgot, setForgot] = useState(false);
   // Marca no login: começa pela última guardada (aparece de imediato ao voltar) e resolve pela
   // organização do e-mail digitado (estilo Google), quando o e-mail parece completo.
   const [brand, setBrand] = useState<Branding | null>(() => cachedBrand());
@@ -55,32 +59,63 @@ export function WebmailLogin() {
     }
   }
 
+  if (forgot) {
+    return (
+      <div className="wm">
+        <div className="lg-wrap">
+          <ForgotPassword email={email} onBack={() => setForgot(false)} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="wm">
-      <div className="login-wrap">
-        <form className="login" onSubmit={submit}>
-          <h1>
-            {/* Sem logótipo do cliente, a marca Beskos (o fallback era a inicial "M", do nome antigo). */}
-            <img className={"brand-logo" + (brand?.logo && brand?.logo_white_dark ? " white-dark" : "")} src={brand?.logo || BESKOS_MARK} alt={brand?.name || "Beskos"} />
-            {" "}{brand?.name || t("webmail.login.title")}
-          </h1>
-          <p>{mfa ? t("webmail.login.mfaPrompt") : t("webmail.login.subtitle")}</p>
-          {!mfa && <>
-            <input type="email" placeholder={t("webmail.login.email")} value={email}
-              onChange={(e) => setEmail(e.target.value)} required autoFocus />
-            <input type="password" placeholder={t("webmail.login.password")} value={pwd}
-              onChange={(e) => setPwd(e.target.value)} required />
-          </>}
-          {err && <p className="err" style={{ marginBottom: 12 }}>{err}</p>}
-          {!mfa && <button className="send" disabled={busy}>{busy ? "…" : t("webmail.login.submit")}</button>}
-        </form>
-        {mfa && (
-          <form className="login" onSubmit={submitCode} style={{ marginTop: -8 }}>
-            <input inputMode="numeric" autoComplete="one-time-code" autoFocus
-              placeholder={t("webmail.login.codePlaceholder")} value={code}
-              onChange={(e) => setCode(e.target.value)} required />
-            <button className="send" disabled={busy || !code.trim()}>{busy ? "…" : t("webmail.login.verify")}</button>
-            <button type="button" className="linklike" onClick={() => { setMfa(null); setErr(""); }}>{t("webmail.login.back")}</button>
+      <div className="lg-wrap">
+        {/* The brand belongs above the card, not inside the heading: an organisation's logo is who
+            you are signing in to, and the card is the act of signing in. */}
+        <div className="lg-brand">
+          <img className={"lg-mark" + (brand?.logo && brand?.logo_white_dark ? " white-dark" : "")}
+            src={brand?.logo || BESKOS_MARK} alt={brand?.name || "Beskos"} />
+          <span>{brand?.name || "Beskos"}</span>
+        </div>
+
+        {!mfa ? (
+          <form className="lg-card" onSubmit={submit}>
+            <h1 className="lg-h">{t("webmail.login.title")}</h1>
+            <p className="lg-sub">{t("webmail.login.subtitle")}</p>
+
+            <label className="lg-field">
+              <span>{t("webmail.login.email")}</span>
+              <input type="email" value={email} autoComplete="username" required autoFocus
+                onChange={(e) => setEmail(e.target.value)} />
+            </label>
+            <label className="lg-field">
+              <span>{t("webmail.login.password")}</span>
+              <input type="password" value={pwd} autoComplete="current-password" required
+                onChange={(e) => setPwd(e.target.value)} />
+            </label>
+
+            {err && <p className="lg-err">{err}</p>}
+            <button className="lg-btn" disabled={busy}>{busy ? "…" : t("webmail.login.submit")}</button>
+            <button type="button" className="lg-link" onClick={() => setForgot(true)}>
+              {t("login.forgotLink")}
+            </button>
+          </form>
+        ) : (
+          <form className="lg-card" onSubmit={submitCode}>
+            <h1 className="lg-h">{t("webmail.login.mfaTitle")}</h1>
+            <p className="lg-sub">{t("webmail.login.mfaPrompt")}</p>
+            <label className="lg-field">
+              <span>{t("webmail.login.codePlaceholder")}</span>
+              <input inputMode="numeric" autoComplete="one-time-code" autoFocus value={code}
+                onChange={(e) => setCode(e.target.value)} required />
+            </label>
+            {err && <p className="lg-err">{err}</p>}
+            <button className="lg-btn" disabled={busy || !code.trim()}>{busy ? "…" : t("webmail.login.verify")}</button>
+            <button type="button" className="lg-link" onClick={() => { setMfa(null); setErr(""); }}>
+              {t("webmail.login.back")}
+            </button>
           </form>
         )}
       </div>

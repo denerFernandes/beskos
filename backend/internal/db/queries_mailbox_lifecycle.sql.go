@@ -72,7 +72,7 @@ func (q *Queries) GetEmailAliasByAddress(ctx context.Context, arg GetEmailAliasB
 }
 
 const mailUsersNearingPurge = `-- name: MailUsersNearingPurge :many
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users
 WHERE status = 'deleted' AND deleted_at IS NOT NULL
   AND deleted_at < $1 AND purge_warned_at IS NULL
 ORDER BY deleted_at
@@ -119,6 +119,7 @@ func (q *Queries) MailUsersNearingPurge(ctx context.Context, deletedAt pgtype.Ti
 			&i.DeletedAt,
 			&i.SuccessorEmail,
 			&i.PurgeWarnedAt,
+			&i.RecoveryEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -131,7 +132,7 @@ func (q *Queries) MailUsersNearingPurge(ctx context.Context, deletedAt pgtype.Ti
 }
 
 const mailUsersToPurge = `-- name: MailUsersToPurge :many
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users
 WHERE status = 'deleted' AND deleted_at IS NOT NULL AND deleted_at < $1
 ORDER BY deleted_at
 LIMIT $2
@@ -182,6 +183,7 @@ func (q *Queries) MailUsersToPurge(ctx context.Context, arg MailUsersToPurgePara
 			&i.DeletedAt,
 			&i.SuccessorEmail,
 			&i.PurgeWarnedAt,
+			&i.RecoveryEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -217,7 +219,7 @@ const restoreMailUser = `-- name: RestoreMailUser :one
 UPDATE mail_users
 SET status = 'active', deleted_at = NULL, successor_email = ''
 WHERE id = $1 AND tenant_id = $2 AND status = 'deleted'
-RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at
+RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email
 `
 
 type RestoreMailUserParams struct {
@@ -257,6 +259,7 @@ func (q *Queries) RestoreMailUser(ctx context.Context, arg RestoreMailUserParams
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
@@ -268,7 +271,7 @@ SET status          = $3,
     deleted_at      = CASE WHEN $3 = 'deleted' THEN deleted_at ELSE NULL END,
     successor_email = CASE WHEN $3 = 'deleted' THEN successor_email ELSE '' END
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at
+RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email
 `
 
 type SetMailUserStatusParams struct {
@@ -313,6 +316,7 @@ func (q *Queries) SetMailUserStatus(ctx context.Context, arg SetMailUserStatusPa
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
@@ -323,7 +327,7 @@ SET status          = 'deleted',
     deleted_at      = now(),
     successor_email = $3
 WHERE id = $1 AND tenant_id = $2
-RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at
+RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email
 `
 
 type SoftDeleteMailUserParams struct {
@@ -366,6 +370,7 @@ func (q *Queries) SoftDeleteMailUser(ctx context.Context, arg SoftDeleteMailUser
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }

@@ -35,6 +35,10 @@ func (s *Server) mountPublic(r chi.Router) {
 	r.With(s.publicRateLimit).Get("/public/plans", s.handlePublicPlans)
 	r.With(s.publicRateLimit).Post("/public/quote", s.handlePublicQuote)
 	r.With(s.publicRateLimit).Post("/public/signup", s.handlePublicSignup)
+	// Forgot your password. Public out of necessity: somebody locked out has no session. The answer
+	// is always the same, whether or not the account exists -- see password_recovery.go.
+	r.With(s.publicRateLimit).Post("/public/password/forgot", s.handleForgotPassword)
+	r.With(s.publicRateLimit).Post("/public/password/reset", s.handleResetPassword)
 	r.With(s.publicRateLimit).Get("/public/booking/{org}/{user}", s.handlePublicBookingInfo)
 	r.With(s.publicRateLimit).Get("/public/booking/{org}/{user}/slots", s.handlePublicBookingSlots)
 	r.With(s.publicRateLimit).Post("/public/booking/{org}/{user}/book", s.handlePublicBookingCreate)

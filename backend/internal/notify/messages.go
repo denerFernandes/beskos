@@ -217,3 +217,40 @@ func FileShared(lang, actor, fileName, linkURL, expires string) Msg {
 		"The link is personal — anyone who has it can open the file.")
 	return build(lang, subject, intro, lines, tr(lang, "Abrir o ficheiro", "Open the file"), linkURL, footer)
 }
+
+// PasswordResetRequested: somebody in the organisation cannot sign in and asked for help. It goes
+// to the administrators, who are the ones with the button.
+//
+// IT CARRIES NO LINK that resets anything: the administrator goes to the panel, where they are
+// already signed in. An e-mail that can reset passwords is an e-mail worth stealing.
+func PasswordResetRequested(lang, who, name, appURL string) Msg {
+	subject := tr(lang, "Pedido de nova palavra-passe", "Password reset requested") // lang:ok
+	intro := tr(lang,
+		"Alguém da sua organização não consegue entrar e pediu uma palavra-passe nova. Se reconhece o pedido, defina-lha no painel e entregue-a por um canal que já use com essa pessoa.", // lang:ok
+		"Somebody in your organisation cannot sign in and asked for a new password. If you recognise the request, set one in the panel and hand it over through a channel you already use with them.")
+	lines := []Line{{tr(lang, "Quem pediu", "Who asked"), who}} // lang:ok
+	if name != "" {
+		lines = append(lines, Line{tr(lang, "Nome", "Name"), name}) // lang:ok
+	}
+	footer := tr(lang,
+		"Se não reconhece este pedido, não faça nada: sem a sua ação, nada muda. "+footerFor(lang), // lang:ok
+		"If you do not recognise this request, do nothing: without your action, nothing changes. "+footerFor(lang))
+	return build(lang, subject, intro, lines, tr(lang, "Abrir o painel", "Open the panel"), appURL, footer)
+}
+
+// PasswordResetLink: the self-service way back, and only for somebody who set an address OUTSIDE
+// their own domain -- typically the owner of a small organisation, with no administrator above them.
+func PasswordResetLink(lang, account, url string, minutes int) Msg {
+	subject := tr(lang, "Repor a palavra-passe do Beskos", "Reset your Beskos password") // lang:ok
+	intro := tr(lang,
+		"Recebemos um pedido para repor a palavra-passe desta conta. A ligação abaixo serve uma vez.", // lang:ok
+		"We received a request to reset the password for this account. The link below works once.")
+	lines := []Line{
+		{tr(lang, "Conta", "Account"), account},                                   // lang:ok
+		{tr(lang, "Válida durante", "Valid for"), fmt.Sprintf("%d min", minutes)}, // lang:ok
+	}
+	footer := tr(lang,
+		"Se não foi você, ignore este e-mail — a palavra-passe atual continua a funcionar. Se a conta tiver segundo fator, ele continua a ser pedido. "+footerFor(lang), // lang:ok
+		"If this was not you, ignore this e-mail — the current password still works. If the account has a second factor, it is still required. "+footerFor(lang))
+	return build(lang, subject, intro, lines, tr(lang, "Definir uma nova", "Set a new one"), url, footer) // lang:ok
+}

@@ -13,7 +13,23 @@
     "submitSignup": "Create account",
     "loading": "...",
     "toSignup": "No account? Create one",
-    "toLogin": "Already have an account? Sign in"
+    "toLogin": "Already have an account? Sign in",
+    "forgotLink": "Forgot your password?",
+    "forgotTitle": "Get back in",
+    "forgotBlurb": "Because we are your mail provider, we cannot send a link to the mailbox you cannot open. We tell your organisation's administrators, who set a new password for you.",
+    "forgotSubmit": "Ask for help",
+    "forgotSentTitle": "Request sent",
+    "forgotSent": "If that account exists, its administrators have been told. If you have a recovery address set, a link goes there too.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Set a new password",
+    "resetBlurb": "This link works once and expires within the hour.",
+    "newPassword": "New password",
+    "secondFactor": "Second factor code",
+    "secondFactorHint": "This account has a second factor. Use the code from your authenticator app or one of your recovery codes — resetting the password does not skip it.",
+    "resetBadCode": "That code is not valid. Try your authenticator app or a recovery code.",
+    "resetSubmit": "Save",
+    "resetDoneTitle": "Password changed",
+    "resetDone": "You can sign in with the new password. Every other session on this account has been ended."
   },
   "dashboard": {
     "loading": "Loading…",
@@ -227,7 +243,8 @@
       "codePlaceholder": "6-digit code",
       "verify": "Verify",
       "back": "Back",
-      "badCode": "Invalid code. Try again."
+      "badCode": "Invalid code. Try again.",
+      "mfaTitle": "Two-step verification"
     },
     "compose": {
       "new": "Compose",

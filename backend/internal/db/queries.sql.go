@@ -558,7 +558,7 @@ func (q *Queries) CountUnreadNotifications(ctx context.Context, userID uuid.UUID
 
 const createAccount = `-- name: CreateAccount :one
 INSERT INTO mail_users (tenant_id, email, password_hash, role)
-VALUES ($1, $2, $3, $4) RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at
+VALUES ($1, $2, $3, $4) RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email
 `
 
 type CreateAccountParams struct {
@@ -606,6 +606,7 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (M
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
@@ -1631,7 +1632,7 @@ func (q *Queries) CreateMFAChallenge(ctx context.Context, arg CreateMFAChallenge
 
 const createMailUser = `-- name: CreateMailUser :one
 INSERT INTO mail_users (tenant_id, email, name, role, stalwart_account_id, quota_bytes, password_hash)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at
+VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email
 `
 
 type CreateMailUserParams struct {
@@ -1684,6 +1685,7 @@ func (q *Queries) CreateMailUser(ctx context.Context, arg CreateMailUserParams) 
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
@@ -3971,7 +3973,7 @@ func (q *Queries) GetDMByKey(ctx context.Context, arg GetDMByKeyParams) (Channel
 }
 
 const getDeviceTokenUser = `-- name: GetDeviceTokenUser :one
-SELECT mail_users.id, mail_users.tenant_id, mail_users.email, mail_users.name, mail_users.role, mail_users.stalwart_account_id, mail_users.quota_bytes, mail_users.created_at, mail_users.password_hash, mail_users.language, mail_users.totp_secret, mail_users.mfa_totp_enabled, mail_users.phone, mail_users.mfa_sms_enabled, mail_users.notify_email, mail_users.settings, mail_users.status_emoji, mail_users.status_text, mail_users.last_totp_step, mail_users.jmap_cred, mail_users.presence, mail_users.mail_seen_at, mail_users.job_title, mail_users.avatar, mail_users.status, mail_users.deleted_at, mail_users.successor_email, mail_users.purge_warned_at, device_tokens.id AS token_id
+SELECT mail_users.id, mail_users.tenant_id, mail_users.email, mail_users.name, mail_users.role, mail_users.stalwart_account_id, mail_users.quota_bytes, mail_users.created_at, mail_users.password_hash, mail_users.language, mail_users.totp_secret, mail_users.mfa_totp_enabled, mail_users.phone, mail_users.mfa_sms_enabled, mail_users.notify_email, mail_users.settings, mail_users.status_emoji, mail_users.status_text, mail_users.last_totp_step, mail_users.jmap_cred, mail_users.presence, mail_users.mail_seen_at, mail_users.job_title, mail_users.avatar, mail_users.status, mail_users.deleted_at, mail_users.successor_email, mail_users.purge_warned_at, mail_users.recovery_email, device_tokens.id AS token_id
 FROM device_tokens
 JOIN mail_users ON mail_users.id = device_tokens.mail_user_id
 WHERE device_tokens.token_hash = $1
@@ -4018,6 +4020,7 @@ func (q *Queries) GetDeviceTokenUser(ctx context.Context, tokenHash string) (Get
 		&i.MailUser.DeletedAt,
 		&i.MailUser.SuccessorEmail,
 		&i.MailUser.PurgeWarnedAt,
+		&i.MailUser.RecoveryEmail,
 		&i.TokenID,
 	)
 	return i, err
@@ -4396,7 +4399,7 @@ func (q *Queries) GetMFAChallenge(ctx context.Context, token string) (MfaChallen
 }
 
 const getMailUserByEmail = `-- name: GetMailUserByEmail :one
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users WHERE email = $1
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users WHERE email = $1
 `
 
 func (q *Queries) GetMailUserByEmail(ctx context.Context, email string) (MailUser, error) {
@@ -4431,12 +4434,13 @@ func (q *Queries) GetMailUserByEmail(ctx context.Context, email string) (MailUse
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
 
 const getMailUserByEmailInTenant = `-- name: GetMailUserByEmailInTenant :one
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users WHERE email = $1 AND tenant_id = $2
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users WHERE email = $1 AND tenant_id = $2
 `
 
 type GetMailUserByEmailInTenantParams struct {
@@ -4478,12 +4482,13 @@ func (q *Queries) GetMailUserByEmailInTenant(ctx context.Context, arg GetMailUse
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
 
 const getMailUserInTenant = `-- name: GetMailUserInTenant :one
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users WHERE id = $1 AND tenant_id = $2
 `
 
 type GetMailUserInTenantParams struct {
@@ -4523,6 +4528,7 @@ func (q *Queries) GetMailUserInTenant(ctx context.Context, arg GetMailUserInTena
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
@@ -4642,7 +4648,7 @@ func (q *Queries) GetRecordingInTenant(ctx context.Context, arg GetRecordingInTe
 }
 
 const getSession = `-- name: GetSession :one
-SELECT sessions.token, sessions.user_id, sessions.expires_at, sessions.created_at, mail_users.id, mail_users.tenant_id, mail_users.email, mail_users.name, mail_users.role, mail_users.stalwart_account_id, mail_users.quota_bytes, mail_users.created_at, mail_users.password_hash, mail_users.language, mail_users.totp_secret, mail_users.mfa_totp_enabled, mail_users.phone, mail_users.mfa_sms_enabled, mail_users.notify_email, mail_users.settings, mail_users.status_emoji, mail_users.status_text, mail_users.last_totp_step, mail_users.jmap_cred, mail_users.presence, mail_users.mail_seen_at, mail_users.job_title, mail_users.avatar, mail_users.status, mail_users.deleted_at, mail_users.successor_email, mail_users.purge_warned_at
+SELECT sessions.token, sessions.user_id, sessions.expires_at, sessions.created_at, mail_users.id, mail_users.tenant_id, mail_users.email, mail_users.name, mail_users.role, mail_users.stalwart_account_id, mail_users.quota_bytes, mail_users.created_at, mail_users.password_hash, mail_users.language, mail_users.totp_secret, mail_users.mfa_totp_enabled, mail_users.phone, mail_users.mfa_sms_enabled, mail_users.notify_email, mail_users.settings, mail_users.status_emoji, mail_users.status_text, mail_users.last_totp_step, mail_users.jmap_cred, mail_users.presence, mail_users.mail_seen_at, mail_users.job_title, mail_users.avatar, mail_users.status, mail_users.deleted_at, mail_users.successor_email, mail_users.purge_warned_at, mail_users.recovery_email
 FROM sessions
 JOIN mail_users ON mail_users.id = sessions.user_id
 WHERE sessions.token = $1 AND sessions.expires_at > now()
@@ -4689,6 +4695,7 @@ func (q *Queries) GetSession(ctx context.Context, token string) (GetSessionRow, 
 		&i.MailUser.DeletedAt,
 		&i.MailUser.SuccessorEmail,
 		&i.MailUser.PurgeWarnedAt,
+		&i.MailUser.RecoveryEmail,
 	)
 	return i, err
 }
@@ -4811,7 +4818,7 @@ func (q *Queries) GetTenantDisabledApps(ctx context.Context, id uuid.UUID) ([]st
 }
 
 const getTenantOwner = `-- name: GetTenantOwner :one
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users WHERE tenant_id = $1 AND role = 'owner' ORDER BY created_at ASC LIMIT 1
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users WHERE tenant_id = $1 AND role = 'owner' ORDER BY created_at ASC LIMIT 1
 `
 
 // Dono da organização: quem recebe os avisos quando não há contacto de faturação definido.
@@ -4847,12 +4854,13 @@ func (q *Queries) GetTenantOwner(ctx context.Context, tenantID uuid.UUID) (MailU
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users WHERE id = $1
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (MailUser, error) {
@@ -4887,6 +4895,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (MailUser, erro
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
@@ -4987,7 +4996,7 @@ func (q *Queries) GetWebhookByToken(ctx context.Context, token string) (ChatWebh
 }
 
 const getWebmailSession = `-- name: GetWebmailSession :one
-SELECT mail_users.id, mail_users.tenant_id, mail_users.email, mail_users.name, mail_users.role, mail_users.stalwart_account_id, mail_users.quota_bytes, mail_users.created_at, mail_users.password_hash, mail_users.language, mail_users.totp_secret, mail_users.mfa_totp_enabled, mail_users.phone, mail_users.mfa_sms_enabled, mail_users.notify_email, mail_users.settings, mail_users.status_emoji, mail_users.status_text, mail_users.last_totp_step, mail_users.jmap_cred, mail_users.presence, mail_users.mail_seen_at, mail_users.job_title, mail_users.avatar, mail_users.status, mail_users.deleted_at, mail_users.successor_email, mail_users.purge_warned_at FROM webmail_sessions
+SELECT mail_users.id, mail_users.tenant_id, mail_users.email, mail_users.name, mail_users.role, mail_users.stalwart_account_id, mail_users.quota_bytes, mail_users.created_at, mail_users.password_hash, mail_users.language, mail_users.totp_secret, mail_users.mfa_totp_enabled, mail_users.phone, mail_users.mfa_sms_enabled, mail_users.notify_email, mail_users.settings, mail_users.status_emoji, mail_users.status_text, mail_users.last_totp_step, mail_users.jmap_cred, mail_users.presence, mail_users.mail_seen_at, mail_users.job_title, mail_users.avatar, mail_users.status, mail_users.deleted_at, mail_users.successor_email, mail_users.purge_warned_at, mail_users.recovery_email FROM webmail_sessions
 JOIN mail_users ON mail_users.id = webmail_sessions.mail_user_id
 WHERE webmail_sessions.token = $1 AND webmail_sessions.expires_at > now()
 `
@@ -5028,6 +5037,7 @@ func (q *Queries) GetWebmailSession(ctx context.Context, token string) (GetWebma
 		&i.MailUser.DeletedAt,
 		&i.MailUser.SuccessorEmail,
 		&i.MailUser.PurgeWarnedAt,
+		&i.MailUser.RecoveryEmail,
 	)
 	return i, err
 }
@@ -7451,7 +7461,7 @@ func (q *Queries) ListLabels(ctx context.Context, tenantID uuid.UUID) ([]Label, 
 }
 
 const listMailUsersByTenant = `-- name: ListMailUsersByTenant :many
-SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at FROM mail_users WHERE tenant_id = $1 ORDER BY created_at DESC
+SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users WHERE tenant_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListMailUsersByTenant(ctx context.Context, tenantID uuid.UUID) ([]MailUser, error) {
@@ -7492,6 +7502,7 @@ func (q *Queries) ListMailUsersByTenant(ctx context.Context, tenantID uuid.UUID)
 			&i.DeletedAt,
 			&i.SuccessorEmail,
 			&i.PurgeWarnedAt,
+			&i.RecoveryEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -11263,7 +11274,7 @@ func (q *Queries) UpdateUserGroup(ctx context.Context, arg UpdateUserGroupParams
 }
 
 const updateUserLanguage = `-- name: UpdateUserLanguage :one
-UPDATE mail_users SET language = $2 WHERE id = $1 RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at
+UPDATE mail_users SET language = $2 WHERE id = $1 RETURNING id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email
 `
 
 type UpdateUserLanguageParams struct {
@@ -11303,6 +11314,7 @@ func (q *Queries) UpdateUserLanguage(ctx context.Context, arg UpdateUserLanguage
 		&i.DeletedAt,
 		&i.SuccessorEmail,
 		&i.PurgeWarnedAt,
+		&i.RecoveryEmail,
 	)
 	return i, err
 }
