@@ -2846,6 +2846,35 @@
       "cancelled": "Importação parada",
       "running": "A copiar",
       "pending": "Em espera"
-    }
+    },
+    "provider": "Fornecedor anterior",
+    "providerHint": "O Outlook e o Thunderbird são programas de correio, não fornecedores. Selecione o fornecedor a que a conta pertence ou escolha outro servidor IMAP e indique o endereço com que o programa foi configurado.",
+    "usernamePlaceholder": "nome@fornecedor-anterior.com",
+    "providers": {
+      "google": "Gmail / Google Workspace",
+      "microsoft365": "Microsoft 365",
+      "outlookcom": "Outlook.com / Hotmail",
+      "yahoo": "Yahoo Mail",
+      "icloud": "iCloud Mail",
+      "zoho": "Zoho Mail",
+      "fastmail": "Fastmail",
+      "other": "Outro servidor IMAP"
+    },
+    "notice": {
+      "appPassword": "Com a verificação em duas etapas ativa, este fornecedor exige uma palavra-passe de aplicação em vez da palavra-passe da conta.",
+      "oauthOnly": "A Microsoft retirou a autenticação por palavra-passe no IMAP. A importação a partir do Microsoft 365 ou do Outlook.com exige OAuth, ainda não disponível aqui."
+    },
+    "folderState": {
+      "pending": "em espera",
+      "running": "a copiar",
+      "done": "concluída",
+      "failed": "falhou",
+      "skipped": "não copiada"
+    },
+    "promptTitle": "Importar o seu correio",
+    "promptBody": "O correio que está num fornecedor anterior pode ser copiado para esta caixa, com a árvore de pastas, as datas de receção e o estado de lido intactos.",
+    "promptSafety": "Nada é removido da conta anterior. A importação também pode ser iniciada mais tarde, a partir da sua conta.",
+    "promptAccept": "Importar correio",
+    "promptLater": "Agora não"
   }
 }

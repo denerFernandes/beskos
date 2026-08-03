@@ -248,7 +248,10 @@ export const api = {
     req<MigrationCheck>("/api/me/migration/check", { method: "POST", body: JSON.stringify(s) }),
   migrationStart: (s: MigrationSource) =>
     req<Migration>("/api/me/migration", { method: "POST", body: JSON.stringify(s) }),
-  migration: () => req<{ migration: Migration | null }>("/api/me/migration"),
+  migration: () => req<{ migration: Migration | null; prompt?: boolean }>("/api/me/migration"),
+  // Records that the first-access offer was made, whatever the answer. Against the account, not
+  // the browser: one person asked once, on every device.
+  migrationDismiss: () => req<{ status: string }>("/api/me/migration/dismiss", { method: "POST" }),
   migrationCancel: (id: string) => req<{ status: string }>(`/api/me/migration/${id}`, { method: "DELETE" }),
   migrations: () => req<{ migrations: Migration[] }>("/api/migrations"),
 

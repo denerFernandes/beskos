@@ -10,6 +10,7 @@ package httpapi
 // The copying itself is in the worker (internal/mailmigrate). Nothing here blocks on a mailbox.
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -133,15 +134,21 @@ func (s *Server) handleCreateMigration(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetMigration reports the live job, or the last one if none is live.
+//
+// It also answers the question the app asks on first sign-in: should this person be offered the
+// import at all? That verdict is computed HERE rather than in the app because it has to survive
+// changing device. Somebody who said "not now" on their laptop and is then asked again on their
+// phone has been nagged, and being nagged by a mail client is how a dialog gets dismissed without
+// being read.
 func (s *Server) handleGetMigration(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	job, err := s.q.LiveMailMigrationForUser(r.Context(), u.ID)
 	if err != nil {
 		job, err = s.q.LastMailMigrationForUser(r.Context(), u.ID)
 		if err != nil {
-			// Nobody has ever migrated this mailbox. Not an error -- it is the normal state, and the
-			// panel shows the form.
-			writeJSON(w, http.StatusOK, map[string]any{"migration": nil})
+			// Nobody has ever migrated this mailbox. Not an error -- it is the normal state, and it
+			// is exactly the person the offer is for.
+			writeJSON(w, http.StatusOK, map[string]any{"migration": nil, "prompt": !s.migrationDismissed(r, u.ID)})
 			return
 		}
 	}
@@ -149,7 +156,47 @@ func (s *Server) handleGetMigration(w http.ResponseWriter, r *http.Request) {
 	if ferr != nil {
 		log.Printf("migration %s: listing folders failed: %v", job.ID, ferr)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"migration": migrationView(job, folders)})
+	// A mailbox that has already imported once is never offered it again unasked: the answer to
+	// "would you like to import your mail" is plainly no for somebody who just did.
+	writeJSON(w, http.StatusOK, map[string]any{"migration": migrationView(job, folders), "prompt": false})
+}
+
+// migrationSettings is the slice of the user's settings this feature owns.
+type migrationSettings struct {
+	Migration struct {
+		Prompted bool `json:"prompted"`
+	} `json:"migration"`
+}
+
+// migrationDismissed reports whether this person has already been offered the import and answered.
+// A failure to read the setting is treated as "already asked": the cost of being wrong that way is
+// an offer nobody sees, and the other way is a dialog on every sign-in.
+func (s *Server) migrationDismissed(r *http.Request, userID uuid.UUID) bool {
+	raw, err := s.q.GetUserSettings(r.Context(), userID)
+	if err != nil {
+		return true
+	}
+	var st migrationSettings
+	if len(raw) == 0 || json.Unmarshal(raw, &st) != nil {
+		return false
+	}
+	return st.Migration.Prompted
+}
+
+// handleDismissMigrationPrompt records that the offer has been made, whatever the answer was.
+//
+// It is stored against the account and not in the browser: the same person on a laptop, a phone and
+// the desktop application is one person who was asked once.
+func (s *Server) handleDismissMigrationPrompt(w http.ResponseWriter, r *http.Request) {
+	u := mailUserFrom(r.Context())
+	// Top-level merge in the query (settings || $2), so writing this section leaves Chat, Calendar
+	// and the rest untouched.
+	patch := []byte(`{"migration":{"prompted":true}}`)
+	if err := s.q.UpdateUserSettings(r.Context(), db.UpdateUserSettingsParams{ID: u.ID, Settings: patch}); err != nil {
+		writeErr(w, http.StatusInternalServerError, "settings.failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 // handleCancelMigration stops a job. What already landed stays: deleting mail we just copied, on the

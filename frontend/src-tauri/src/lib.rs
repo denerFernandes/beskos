@@ -111,11 +111,16 @@ pub fn run() {
                     )?;
                     first.insert(&item, 1)?;
                 }
+                // "Import mail" under File: that is where somebody looks for bringing things INTO
+                // an application, and File is a submenu Tauri already builds on macOS and Windows.
+                desktop::add_import_item(app.handle(), &menu)?;
                 app.set_menu(menu)?;
-                app.on_menu_event(|app, event| {
-                    if event.id().as_ref() == "settings" {
-                        desktop::open_settings(app);
-                    }
+                app.on_menu_event(|app, event| match event.id().as_ref() {
+                    "settings" => desktop::open_settings(app),
+                    // The native menu cannot navigate: it raises the window and tells the UI where
+                    // to go, because the UI is what knows the routes.
+                    "import-mail" => desktop::open_import(app),
+                    _ => {}
                 });
             }
             Ok(())

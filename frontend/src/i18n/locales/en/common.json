@@ -2846,6 +2846,35 @@
       "cancelled": "Import stopped",
       "running": "Copying",
       "pending": "Waiting"
-    }
+    },
+    "provider": "Previous provider",
+    "providerHint": "Outlook and Thunderbird are mail programs, not providers. Select the provider the account belongs to, or choose another IMAP server and enter the address the program was set up with.",
+    "usernamePlaceholder": "name@previous-provider.com",
+    "providers": {
+      "google": "Gmail / Google Workspace",
+      "microsoft365": "Microsoft 365",
+      "outlookcom": "Outlook.com / Hotmail",
+      "yahoo": "Yahoo Mail",
+      "icloud": "iCloud Mail",
+      "zoho": "Zoho Mail",
+      "fastmail": "Fastmail",
+      "other": "Another IMAP server"
+    },
+    "notice": {
+      "appPassword": "With two-step verification enabled, this provider requires an application-specific password rather than the account password.",
+      "oauthOnly": "Microsoft has withdrawn password authentication for IMAP. An import from Microsoft 365 or Outlook.com requires OAuth, which is not yet available here."
+    },
+    "folderState": {
+      "pending": "waiting",
+      "running": "copying",
+      "done": "done",
+      "failed": "failed",
+      "skipped": "not copied"
+    },
+    "promptTitle": "Import your mail",
+    "promptBody": "The mail held by a previous provider can be copied into this mailbox, with the folder tree, the received dates and the read state intact.",
+    "promptSafety": "Nothing is removed from the previous account. The import can also be started later, from your account.",
+    "promptAccept": "Import mail",
+    "promptLater": "Not now"
   }
 }
