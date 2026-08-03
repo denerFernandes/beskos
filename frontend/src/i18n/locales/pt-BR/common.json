@@ -2875,6 +2875,9 @@
     "promptBody": "O correio que está num fornecedor anterior pode ser copiado para esta caixa, com a árvore de pastas, as datas de receção e o estado de lido intactos.",
     "promptSafety": "Nada é removido da conta anterior. A importação também pode ser iniciada mais tarde, a partir da sua conta.",
     "promptAccept": "Importar correio",
-    "promptLater": "Agora não"
+    "promptLater": "Agora não",
+    "formTitle": "Fornecedor anterior",
+    "retry": "Tentar novamente",
+    "folderNow": "A copiar {{folder}}"
   }
 }

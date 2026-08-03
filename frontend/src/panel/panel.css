@@ -359,11 +359,11 @@
 /* Bringing a mailbox in from the previous provider (MigrationSection).
    The folder list is the screen's real content: it is the promise the migration is making, and it
    is read before anything is copied, so it gets a monospaced count column that lines up. */
-.mig-form{padding:18px 20px;}
+.mig-form{padding-top:14px;}
 .mig-check{display:flex;align-items:center;gap:9px;margin:4px 0 14px;font-size:13px;cursor:pointer;}
 .mig-actions{display:flex;gap:10px;margin-top:6px;}
-.mig-found{padding:18px 20px;}
-.mig-found h3{margin:0 0 10px;font-size:14px;font-weight:600;}
+
+
 .mig-found h3.mig-skip-h{margin-top:20px;color:var(--muted);}
 .mig-folders{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;}
 .mig-folders li{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
@@ -378,9 +378,9 @@
 .mig-folders.skipped .name{color:var(--muted);}
 .mig-folders.live li.done .name{color:var(--muted);}
 
-.mig-progress{padding:18px 20px;}
+
 .mig-src{font-size:12.5px;color:var(--muted);}
-.mig-state{margin-top:10px;font-size:14px;font-weight:600;}
+.mig-state{margin-top:8px;font-size:13px;color:var(--muted);}
 .mig-bar{height:7px;border-radius:99px;background:var(--surface-2);overflow:hidden;margin:10px 0 8px;}
 .mig-bar span{display:block;height:100%;background:var(--accent-solid);transition:width .5s ease;}
 .mig-counts{font-size:13px;color:var(--muted);}
@@ -389,10 +389,9 @@
 .mig-progress .mig-folders{margin-top:14px;}
 .mig-progress .pnl-btn{margin-top:14px;}
 
-.mig-last{padding:16px 20px;}
+
 .mig-last.bad{border-color:color-mix(in srgb,var(--danger) 40%,var(--border));}
-.mig-last-h{display:flex;align-items:center;gap:9px;font-size:14px;margin-bottom:6px;}
-.mig-last-h .when{margin-left:auto;font-size:12px;font-weight:400;color:var(--faint);}
+.pnl-card-h .when{font-size:12px;font-weight:400;color:var(--faint);}
 @media (max-width:700px){
   .mig-folders li{flex-wrap:wrap;}
   .mig-folders .why{margin-left:0;text-align:left;max-width:none;}
@@ -414,12 +413,6 @@
 .mig-notice.hard{background:color-mix(in srgb,var(--danger) 10%,transparent);
   border-color:color-mix(in srgb,var(--danger) 35%,transparent);}
 
-/* Status line and percentage share a row: the words say what is happening and the number says how
-   far, and reading one without the other is what makes a progress bar feel stuck. */
-.mig-head{display:flex;align-items:baseline;gap:12px;margin-top:10px;}
-.mig-head .mig-state{margin-top:0;}
-.mig-folder-now{font-weight:400;color:var(--muted);}
-.mig-pct{margin-left:auto;font-size:20px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
 /* Before the source has been counted there is no percentage to show, so the bar sweeps instead of
    sitting at zero -- a bar pinned at 0% reads as broken, not as counting. */
 .mig-bar.unknown span{width:35%;animation:mig-sweep 1.4s ease-in-out infinite;}

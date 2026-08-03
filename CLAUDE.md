@@ -62,6 +62,25 @@ Complementam — não substituem — as restrições inegociáveis do [project.m
 3.5. **Nenhuma credencial de admin do Stalwart no frontend** (project.md §2). O webmail fala JMAP
      com **token do usuário final**; o resto fala com a nossa API Go.
 
+3.6. **Um ecrã novo veste-se como os outros.** Todo ecrã do painel usa a mesma armação:
+     `.pnl-top` (título `h1` + `.desc`) → `.pnl-content` → `.pnl-card` com `.pnl-card-h`
+     (ícone + `h3`) e `.pnl-card-b`. Não invente classes de layout: se precisa de uma classe
+     `pnl-*` que não existe, ou usa a que existe ou define-a no CSS — nunca a escreva e siga.
+     Verificado por `scripts/check_laws.py` nas linhas novas.
+
+     E **um estado de carregamento não substitui o ecrã**. O título e a descrição aparecem antes
+     de a resposta chegar; só o miolo espera. Uma página que é apenas um `…` não se distingue de
+     uma página avariada — nem sequer se sabe onde se está.
+
+     > Escrita a 03/08/2026, depois de o ecrã de importação sair com `pnl-section`, uma classe que
+     > nunca ninguém definiu. Não falhou nem avisou: o React não verifica se a classe existe.
+     > Simplesmente desenhou-se sem a armação da casa — sem faixa de título, sem coluna de
+     > conteúdo, com as caixas com o espaçamento errado. Quem a escreveu estava a olhar para o
+     > código, não para o ecrã, e o produto passou a ter uma página que não se parecia com o
+     > produto. No mesmo ecrã, e pelo mesmo descuido, faltava o `retry: false` que todas as outras
+     > consultas têm: a rota ainda não estava em produção, o TanStack tentou três vezes com recuo
+     > exponencial e o utilizador ficou trinta segundos a olhar para três pontinhos.
+
 ## 4. Internacionalização (i18n) — OBRIGATÓRIO
 
 4.1. **Nenhuma string visível ao usuário fica hard-coded.** Todo texto de UI vem do sistema de i18n.
