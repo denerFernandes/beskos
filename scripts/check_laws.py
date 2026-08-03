@@ -124,16 +124,39 @@ def git(*args: str) -> str:
         return ""
 
 
+def repo_of(path: str) -> tuple[str, str]:
+    """The repository that tracks `path`, and `path` relative to it.
+
+    The landing is a submodule, so from the root repository its files are untracked and every line
+    of them reads as new -- which applies law 4.6 retroactively to legacy code that predates it.
+    Worse, it was silent and inconsistent: `git` inherits the shell's directory, so the same file
+    passed or failed depending on where the last `cd` happened to leave us. Whichever repository
+    owns the file is the one that must answer.
+    """
+    try:
+        absolute = Path(path).resolve()
+    except OSError:
+        return "", path
+    top = git("-C", str(absolute.parent), "rev-parse", "--show-toplevel").strip()
+    if not top:
+        return "", path
+    try:
+        return top, str(absolute.relative_to(top))
+    except ValueError:
+        return top, path
+
+
 def added_lines(path: str, base: str = "HEAD") -> list[tuple[int, str]]:
     """Lines this tree adds to `base`. A file git does not know about is entirely new."""
-    tracked = git("ls-files", "--error-unmatch", path).strip()
+    top, rel = repo_of(path)
+    tracked = git("-C", top, "ls-files", "--error-unmatch", rel).strip() if top else ""
     if not tracked:
         try:
             return list(enumerate(Path(path).read_text(errors="replace").splitlines(), 1))
         except OSError:
             return []
 
-    out, lineno, result = git("diff", "-U0", base, "--", path), 0, []
+    out, lineno, result = git("-C", top, "diff", "-U0", base, "--", rel), 0, []
     for raw in out.splitlines():
         if raw.startswith("@@"):
             m = re.search(r"\+(\d+)", raw)
@@ -147,7 +170,8 @@ def added_lines(path: str, base: str = "HEAD") -> list[tuple[int, str]]:
 
 def base_line_count(path: str, base: str) -> int:
     """How long the file was at `base`. Zero for a file that did not exist there."""
-    out = git("show", f"{base}:{path}")
+    top, rel = repo_of(path)
+    out = git("-C", top, "show", f"{base}:{rel}") if top else git("show", f"{base}:{path}")
     return len(out.splitlines()) if out else 0
 
 
@@ -173,7 +197,9 @@ def moved_pool(paths: list[str], base: str) -> set[str]:
     """Every line these files already had at `base`. Used to tell a moved line from a written one."""
     pool: set[str] = set()
     for path in paths:
-        for line in git("show", f"{base}:{path}").splitlines():
+        top, rel = repo_of(path)
+        shown = git("-C", top, "show", f"{base}:{rel}") if top else git("show", f"{base}:{path}")
+        for line in shown.splitlines():
             s = line.strip()
             if s:
                 pool.add(s)

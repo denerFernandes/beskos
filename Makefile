@@ -74,3 +74,4 @@ clean: ## Limpa artefactos de build (dist + target Rust)
 check: ## Verifica as leis do CLAUDE.md nas linhas novas (idioma e tamanho de ficheiro)
 	@python3 scripts/check_laws.py && echo "leis: ok"
 	@python3 scripts/check_docs.py
+	@python3 scripts/check_register.py

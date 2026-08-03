@@ -88,6 +88,21 @@ Complementam — não substituem — as restrições inegociáveis do [project.m
      `python3 scripts/check_laws.py`. Ele existe porque estas leis já estavam escritas e foram
      quebradas na mesma — um documento não obriga a nada; um comando que falha, sim.
 
+4.8. **Todo o texto que o utilizador lê é formal e corporativo.** Trate o cliente pela forma de
+     cortesia do idioma dele — `usted`/`su` (es), `Sie`/`Ihr` (de), `vous`/`votre` (fr), `lei`/`suo`
+     (it), `u`/`uw` (nl), `Państwa` (pl), terceira pessoa (pt). **Nunca** o tratamento informal:
+     `tu`, `tú`, `du`, `je`/`jij`, `tuo`, `Twój`. Sem exclamações, emoji, gíria nem piadas; frases
+     declarativas. Vale para a landing, a documentação, a UI e as mensagens transacionais (email,
+     SMS) — **todas as superfícies**, porque o cliente não sabe que são projetos diferentes.
+     Verificado por `scripts/check_register.py`, incluído no `make check`.
+
+     > Escrita a 03/08/2026, depois de o registo já divergir entre superfícies sem ninguém dar por
+     > isso: a documentação polaca tratava o cliente por `Państwa` e a landing polaca por `Twój`; o
+     > mailcheck italiano estava inteiramente em `tu` enquanto o resto do italiano usava `lei`. Quem
+     > abre as duas páginas na mesma sessão não vê duas escolhas de estilo — vê duas empresas. E o
+     > mailcheck é a porta de entrada do site: era exatamente a página onde a informalidade custava
+     > mais.
+
 ## 5. Segurança e multi-tenancy (reforço do project.md)
 
 5.1. **Toda query de dados de cliente filtra `tenant_id`.** Use sempre o tenant do usuário
