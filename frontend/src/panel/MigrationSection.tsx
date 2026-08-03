@@ -25,6 +25,10 @@ export function MigrationSection() {
   const current = useQuery({
     queryKey: MIGRATION_QUERY_KEY,
     queryFn: api.migration,
+    // No retries, as everywhere else here. TanStack retries three times with exponential backoff by
+    // default and keeps the query pending throughout, so a route that answers 404 -- an API not yet
+    // deployed, say -- showed half a minute of "…" and no way to tell it was broken. (03/08/2026)
+    retry: false,
     // While a job runs the numbers are the whole screen. Polling stops the moment it ends, so a
     // finished migration is not a page that talks to the server every three seconds forever.
     refetchInterval: (q) => {
@@ -33,16 +37,29 @@ export function MigrationSection() {
     },
   });
 
-  if (current.isLoading) return <div className="loading">…</div>;
   const job = current.data?.migration ?? null;
   const live = job && (job.status === "running" || job.status === "pending");
 
+  // Same shell as every other panel screen: title band, then the content column. The heading is on
+  // screen before the request answers -- a page that is only a spinner cannot even be identified.
   return (
-    <div className="pnl-section">
-      <h2>{t("migration.title")}</h2>
-      <p className="desc">{t("migration.blurb")}</p>
-      {live ? <MigrationProgress job={job!} /> : <MigrationForm last={job} />}
-    </div>
+    <>
+      <div className="pnl-top">
+        <div><h1>{t("migration.title")}</h1><div className="desc">{t("migration.blurb")}</div></div>
+      </div>
+      <div className="pnl-content">
+        {current.isPending
+          ? <div className="pnl-card"><div className="pnl-card-b"><div className="loading">…</div></div></div>
+          : current.isError
+            // The server could not be asked. Saying so beats showing a form whose first button would
+            // fail the same way, with the same silence.
+            ? <div className="pnl-card"><div className="pnl-card-b">
+                <p className="pnl-err">{(current.error as Error).message}</p>
+                <button className="pnl-btn" onClick={() => void current.refetch()}>{t("migration.retry")}</button>
+              </div></div>
+            : live ? <MigrationProgress job={job!} /> : <MigrationForm last={job} />}
+      </div>
+    </>
   );
 }
 
@@ -94,7 +111,12 @@ function MigrationForm({ last }: { last: Migration | null }) {
     <>
       {last && <LastRun job={last} />}
 
-      <div className="pnl-card mig-form">
+      <div className="pnl-card">
+        <div className="pnl-card-h">
+          <IcDownload size={16} />
+          <h3>{t("migration.formTitle")}</h3>
+        </div>
+        <div className="pnl-card-b mig-form">
         <div className="pnl-field">
           <label>{t("migration.provider")}</label>
           <div className="mig-providers">
@@ -163,6 +185,7 @@ function MigrationForm({ last }: { last: Migration | null }) {
             </button>
           )}
         </div>
+        </div>
       </div>
 
       {found && <FoundFolders found={found} />}
@@ -179,8 +202,12 @@ function FoundFolders({ found }: { found: MigrationCheck }) {
   const skipped = found.folders.filter((f) => f.skip_reason);
 
   return (
-    <div className="pnl-card mig-found">
-      <h3>{t("migration.foundTitle", { total: n.format(found.total_messages) })}</h3>
+    <div className="pnl-card">
+      <div className="pnl-card-h">
+        <IcCheck size={16} />
+        <h3>{t("migration.foundTitle", { total: n.format(found.total_messages) })}</h3>
+      </div>
+      <div className="pnl-card-b mig-found">
       <ul className="mig-folders">
         {copied.map((f) => (
           <li key={f.remote_name}>
@@ -207,6 +234,7 @@ function FoundFolders({ found }: { found: MigrationCheck }) {
           </ul>
         </>
       )}
+      </div>
     </div>
   );
 }
@@ -230,20 +258,21 @@ function MigrationProgress({ job }: { job: Migration }) {
   });
 
   return (
-    <div className="pnl-card mig-progress">
+    <div className="pnl-card">
+      <div className="pnl-card-h">
+        <IcDownload size={16} />
+        <h3>{t(job.status === "pending" ? "migration.queued" : "migration.running")}</h3>
+        <div className="grow" />
+        {/* The percentage rides in the card header, where every other panel screen puts its state
+            pill: it is the one number somebody opens this page to read. */}
+        {job.total_messages > 0 && <span className="pnl-pill ok">{pct}%</span>}
+      </div>
+      <div className="pnl-card-b mig-progress">
       <div className="mig-src">{job.source_username} · {job.source_host}</div>
 
-      <div className="mig-head">
-        {/* 'pending' is a job nobody has picked up yet. Saying so beats a bar at zero, which reads
-            as broken (law 2.9: waiting has to look different from stuck). */}
-        <div className="mig-state">
-          {t(job.status === "pending" ? "migration.queued" : "migration.running")}
-          {active && <span className="mig-folder-now"> · {active.remote_name}</span>}
-        </div>
-        {/* Only once the total is known. "0%" before the source has been counted is a number that
-            means "we have not looked yet", and it reads as "nothing is happening". */}
-        {job.total_messages > 0 && <div className="mig-pct">{pct}%</div>}
-      </div>
+      {/* The folder being copied right now. On a large mailbox the percentage moves every few
+          minutes, and on its own it does not answer "is this alive?". */}
+      {active && <div className="mig-state">{t("migration.folderNow", { folder: active.remote_name })}</div>}
 
       <div className={"mig-bar" + (job.total_messages > 0 ? "" : " unknown")}>
         <span style={job.total_messages > 0 ? { width: `${pct}%` } : undefined} />
@@ -264,6 +293,7 @@ function MigrationProgress({ job }: { job: Migration }) {
       <button className="pnl-btn ghost" disabled={cancel.isPending} onClick={() => cancel.mutate()}>
         {t("migration.cancel")}
       </button>
+      </div>
     </div>
   );
 }
@@ -299,12 +329,14 @@ function LastRun({ job }: { job: Migration }) {
   const bad = job.status === "failed";
 
   return (
-    <div className={"pnl-card mig-last" + (bad ? " bad" : "")}>
-      <div className="mig-last-h">
-        {bad ? <IcX size={15} /> : <IcRefresh size={15} />}
-        <b>{t(`migration.state.${job.status}`)}</b>
+    <div className={"pnl-card" + (bad ? " mig-last bad" : " mig-last")}>
+      <div className="pnl-card-h">
+        {bad ? <IcX size={16} /> : <IcRefresh size={16} />}
+        <h3>{t(`migration.state.${job.status}`)}</h3>
+        <div className="grow" />
         {when && <span className="when">{when}</span>}
       </div>
+      <div className="pnl-card-b">
       <div className="mig-src">{job.source_username} · {job.source_host}</div>
       <div className="mig-counts">
         <b>{n.format(job.copied_messages)}</b> {t("migration.copied")}
@@ -316,6 +348,7 @@ function LastRun({ job }: { job: Migration }) {
       {/* The backend sends a key, never a sentence (law 4.4): whatever a foreign IMAP server says is
           in its own language, and it is for the log, not for this screen. */}
       {bad && job.error_code && <p className="pnl-err">{t(`server.${job.error_code}`)}</p>}
+      </div>
     </div>
   );
 }

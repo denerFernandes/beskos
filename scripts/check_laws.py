@@ -9,6 +9,13 @@ What it checks, comparing against git HEAD:
 
   1. Language (law 4.6) -- code, comments, logs and error strings must be English, on ADDED lines.
   2. File size (law 1.4) -- 600 lines maximum, and a file already over it may not grow.
+  3. Panel styling (law 3.6) -- a `pnl-*` class used in a component must exist in the CSS.
+
+WHY THE THIRD ONE. A screen was shipped using `pnl-section`, a class nobody had ever defined. It
+did not fail, it did not warn, it simply rendered without the house layout: no title band, no
+content column, cards with the wrong padding. React does not care whether a class exists, and the
+person who wrote it was looking at the code, not at the screen. One page in the product silently
+stopped looking like the product. This turns that into an error at the moment it is typed.
 
 MOVED IS NOT NEW. Splitting a legacy file makes every line of the new files look added, and the
 language rule would then demand translating the whole backlog in the middle of a refactor -- which
@@ -49,6 +56,9 @@ import sys
 from pathlib import Path
 
 MAX_LINES = 600
+
+# The repository root, from this file's own location: the hook can be invoked from any directory.
+ROOT = Path(__file__).resolve().parents[1]
 
 # Files whose Portuguese content is the product, not the code.
 SKIP_PARTS = (
@@ -193,6 +203,28 @@ def portuguese_in(line: str) -> str | None:
     return None
 
 
+def panel_classes() -> set[str]:
+    """Every `pnl-*` class the stylesheets actually define."""
+    found: set[str] = set()
+    src = ROOT / "frontend" / "src"
+    if not src.is_dir():
+        return found
+    for f in src.rglob("*.css"):
+        found |= set(re.findall(r"\.(pnl-[a-z0-9-]+)", f.read_text(errors="replace")))
+    return found
+
+
+def undefined_panel_classes(line: str, defined: set[str]) -> list[str]:
+    """`pnl-*` names on this line that no stylesheet defines.
+
+    Only literal names are seen. A class built by interpolation (`pnl-${kind}`) yields no match,
+    which is the right outcome: this check refuses to guess what a template produces.
+    """
+    if not defined:
+        return []  # no stylesheet found; assert nothing rather than flag everything
+    return sorted({c for c in re.findall(r"\bpnl-[a-z0-9-]+", line) if c not in defined})
+
+
 def moved_pool(paths: list[str], base: str) -> set[str]:
     """Every line these files already had at `base`. Used to tell a moved line from a written one."""
     pool: set[str] = set()
@@ -219,6 +251,7 @@ def check(paths: list[str], base: str = "HEAD", pool_paths: list[str] | None = N
     # hook is called per file, and a file created by a split does not exist at `base` -- its own pool
     # would be empty and every moved line would read as newly written.
     pool = moved_pool(pool_paths if pool_paths is not None else paths, base)
+    styles = panel_classes()
     for path in paths:
         if not is_checkable(path):
             continue
@@ -244,6 +277,13 @@ def check(paths: list[str], base: str = "HEAD", pool_paths: list[str] | None = N
                     f"{path}:{lineno}: Portuguese in new code -- {found!r} (law 4.6). "
                     f"Code, comments and log/error strings are English.\n    {text.strip()[:100]}"
                 )
+            if path.endswith((".tsx", ".jsx")):
+                for cls in undefined_panel_classes(text, styles):
+                    problems.append(
+                        f"{path}:{lineno}: {cls!r} is not defined in any stylesheet (law 3.6). "
+                        f"Use the house shell -- pnl-top, pnl-content, pnl-card/pnl-card-h/pnl-card-b "
+                        f"-- or add the class.\n    {text.strip()[:100]}"
+                    )
     return problems
 
 

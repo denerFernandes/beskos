@@ -2875,6 +2875,9 @@
     "promptBody": "The mail held by a previous provider can be copied into this mailbox, with the folder tree, the received dates and the read state intact.",
     "promptSafety": "Nothing is removed from the previous account. The import can also be started later, from your account.",
     "promptAccept": "Import mail",
-    "promptLater": "Not now"
+    "promptLater": "Not now",
+    "formTitle": "Previous provider",
+    "retry": "Try again",
+    "folderNow": "Copying {{folder}}"
   }
 }
