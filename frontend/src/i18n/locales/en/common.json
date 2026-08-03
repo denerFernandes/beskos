@@ -244,7 +244,12 @@
       "verify": "Verify",
       "back": "Back",
       "badCode": "Invalid code. Try again.",
-      "mfaTitle": "Two-step verification"
+      "mfaTitle": "Two-step verification",
+      "emailLabel": "Email address",
+      "passwordLabel": "Password",
+      "codeLabel": "Verification code",
+      "signInTitle": "Sign in",
+      "tagline": "Mail, calendar, files, chat and meetings — in one application, on your own domain."
     },
     "compose": {
       "new": "Compose",

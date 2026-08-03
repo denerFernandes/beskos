@@ -59,11 +59,30 @@ export function WebmailLogin() {
     }
   }
 
+  // The split screen. Left is the organisation — their logo, their name, their colour, at a size
+  // that means something. Right is the act of signing in, and nothing else.
+  //
+  // WHY A PANEL AND NOT A BIGGER LOGO: this screen is white-labelled. A 26px mark above a grey card
+  // told a customer's staff nothing about whose system they were entering; half the screen in their
+  // own colour does. On a phone the panel collapses to a header, because there is no half to give.
+  const panel = (
+    <aside className="lg-panel">
+      <div className="lg-panel-in">
+        <img className={"lg-mark" + (brand?.logo && brand?.logo_white_dark ? " white-dark" : "")}
+          src={brand?.logo || BESKOS_MARK} alt={brand?.name || "Beskos"} />
+        <h2>{brand?.name || "Beskos"}</h2>
+        {/* Only ours: putting words in a customer's mouth on their own sign-in screen is not our place. */}
+        {!brand?.name && <p>{t("webmail.login.tagline")}</p>}
+      </div>
+    </aside>
+  );
+
   if (forgot) {
     return (
       <div className="wm">
-        <div className="lg-wrap">
-          <ForgotPassword email={email} onBack={() => setForgot(false)} />
+        <div className="lg-split">
+          {panel}
+          <main className="lg-main"><ForgotPassword email={email} onBack={() => setForgot(false)} /></main>
         </div>
       </div>
     );
@@ -71,53 +90,50 @@ export function WebmailLogin() {
 
   return (
     <div className="wm">
-      <div className="lg-wrap">
-        {/* The brand belongs above the card, not inside the heading: an organisation's logo is who
-            you are signing in to, and the card is the act of signing in. */}
-        <div className="lg-brand">
-          <img className={"lg-mark" + (brand?.logo && brand?.logo_white_dark ? " white-dark" : "")}
-            src={brand?.logo || BESKOS_MARK} alt={brand?.name || "Beskos"} />
-          <span>{brand?.name || "Beskos"}</span>
-        </div>
+      <div className="lg-split">
+        {panel}
+        <main className="lg-main">
+          {!mfa ? (
+            <form className="lg-card" onSubmit={submit}>
+              <h1 className="lg-h">{t("webmail.login.signInTitle")}</h1>
+              <p className="lg-sub">{t("webmail.login.subtitle")}</p>
 
-        {!mfa ? (
-          <form className="lg-card" onSubmit={submit}>
-            <h1 className="lg-h">{t("webmail.login.title")}</h1>
-            <p className="lg-sub">{t("webmail.login.subtitle")}</p>
+              <label className="lg-field">
+                <span>{t("webmail.login.emailLabel")}</span>
+                <input type="email" value={email} autoComplete="username" required autoFocus
+                  placeholder={t("webmail.login.email")}
+                  onChange={(e) => setEmail(e.target.value)} />
+              </label>
+              <label className="lg-field">
+                <span>{t("webmail.login.passwordLabel")}</span>
+                <input type="password" value={pwd} autoComplete="current-password" required
+                  onChange={(e) => setPwd(e.target.value)} />
+              </label>
 
-            <label className="lg-field">
-              <span>{t("webmail.login.email")}</span>
-              <input type="email" value={email} autoComplete="username" required autoFocus
-                onChange={(e) => setEmail(e.target.value)} />
-            </label>
-            <label className="lg-field">
-              <span>{t("webmail.login.password")}</span>
-              <input type="password" value={pwd} autoComplete="current-password" required
-                onChange={(e) => setPwd(e.target.value)} />
-            </label>
-
-            {err && <p className="lg-err">{err}</p>}
-            <button className="lg-btn" disabled={busy}>{busy ? "…" : t("webmail.login.submit")}</button>
-            <button type="button" className="lg-link" onClick={() => setForgot(true)}>
-              {t("login.forgotLink")}
-            </button>
-          </form>
-        ) : (
-          <form className="lg-card" onSubmit={submitCode}>
-            <h1 className="lg-h">{t("webmail.login.mfaTitle")}</h1>
-            <p className="lg-sub">{t("webmail.login.mfaPrompt")}</p>
-            <label className="lg-field">
-              <span>{t("webmail.login.codePlaceholder")}</span>
-              <input inputMode="numeric" autoComplete="one-time-code" autoFocus value={code}
-                onChange={(e) => setCode(e.target.value)} required />
-            </label>
-            {err && <p className="lg-err">{err}</p>}
-            <button className="lg-btn" disabled={busy || !code.trim()}>{busy ? "…" : t("webmail.login.verify")}</button>
-            <button type="button" className="lg-link" onClick={() => { setMfa(null); setErr(""); }}>
-              {t("webmail.login.back")}
-            </button>
-          </form>
-        )}
+              {err && <p className="lg-err">{err}</p>}
+              <button className="lg-btn" disabled={busy}>{busy ? "…" : t("webmail.login.submit")}</button>
+              <button type="button" className="lg-link" onClick={() => setForgot(true)}>
+                {t("login.forgotLink")}
+              </button>
+            </form>
+          ) : (
+            <form className="lg-card" onSubmit={submitCode}>
+              <h1 className="lg-h">{t("webmail.login.mfaTitle")}</h1>
+              <p className="lg-sub">{t("webmail.login.mfaPrompt")}</p>
+              <label className="lg-field">
+                <span>{t("webmail.login.codeLabel")}</span>
+                <input inputMode="numeric" autoComplete="one-time-code" autoFocus value={code}
+                  placeholder={t("webmail.login.codePlaceholder")}
+                  onChange={(e) => setCode(e.target.value)} required />
+              </label>
+              {err && <p className="lg-err">{err}</p>}
+              <button className="lg-btn" disabled={busy || !code.trim()}>{busy ? "…" : t("webmail.login.verify")}</button>
+              <button type="button" className="lg-link" onClick={() => { setMfa(null); setErr(""); }}>
+                {t("webmail.login.back")}
+              </button>
+            </form>
+          )}
+        </main>
       </div>
     </div>
   );
