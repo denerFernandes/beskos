@@ -450,6 +450,8 @@ func main() {
 	startSealing(stWorker)
 	startWatchdog(os.Getenv("STALWART_URL"))
 	startPurgeWorker(q, sw)
+	// Bringing mailboxes in from the provider the customer is leaving (internal/mailmigrate).
+	startMigrationWorker(q, cfg.MFAEncKey, cfg.StalwartURL)
 
 	// Tarefas em fundo do assistente (§7.5 do desenho do assistente). O executor é montado a
 	// partir de um httpapi.Server porque precisa exatamente das mesmas dependências do motor

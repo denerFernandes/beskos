@@ -7,10 +7,11 @@ import { backend } from "./backend";
 import { toast } from "./toast";
 import { api as panelApi } from "../api";
 import { TotpDrawer, SmsDrawer } from "../panel/SecuritySection";
-import { IcUsers, IcKey, IcShield } from "../panel/icons";
+import { MigrationSection } from "../panel/MigrationSection";
+import { IcUsers, IcKey, IcShield, IcDownload } from "../panel/icons";
 
-type Section = "profile" | "password" | "security";
-const SECTIONS: Section[] = ["profile", "password", "security"];
+type Section = "profile" | "password" | "security" | "migration";
+const SECTIONS: Section[] = ["profile", "password", "security", "migration"];
 
 // Página "A minha conta" (menu do avatar): MESMO padrão do Admin — rail de secções à esquerda,
 // conteúdo à direita (telemóvel: lista → detalhe). A 2FA respeita a política da organização:
@@ -24,6 +25,10 @@ export function ProfileView({ section, onSection }: { section?: string; onSectio
     { id: "profile", label: t("profile.sectionProfile"), icon: <IcUsers size={17} /> },
     { id: "password", label: t("profile.passwordTitle"), icon: <IcKey size={17} /> },
     { id: "security", label: t("profile.mfaTitle"), icon: <IcShield size={17} /> },
+    // Moving in from the old provider. It lives here, not in the admin console, because everyone
+    // migrates their OWN mailbox -- and a migration gated behind an administrator is one that never
+    // happens for the eight people who are not one.
+    { id: "migration", label: t("migration.title"), icon: <IcDownload size={17} /> },
   ];
 
   return (
@@ -41,6 +46,7 @@ export function ProfileView({ section, onSection }: { section?: string; onSectio
         {shown === "profile" && <ProfileSection />}
         {shown === "password" && <PasswordSection />}
         {shown === "security" && <MFASection />}
+        {shown === "migration" && <MigrationSection />}
       </section>
     </div>
   );

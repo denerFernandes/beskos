@@ -1012,7 +1012,20 @@
     "notes.create_failed": "Could not create the note.",
     "notes.save_failed": "Could not save the note.",
     "notes.delete_failed": "Could not delete the note.",
-    "notes.share_failed": "Could not share the note."
+    "notes.share_failed": "Could not share the note.",
+    "migration.auth_failed": "The previous provider rejected these credentials. With two-step verification enabled, an application-specific password is required.",
+    "migration.source_unreachable": "The previous provider's server did not answer. Confirm the address and the port.",
+    "migration.invalid_host": "The server address is not valid. Enter only the name, without https:// and without a path.",
+    "migration.missing_fields": "The server, the address and the password are required.",
+    "migration.already_running": "An import is already running for this mailbox.",
+    "migration.create_failed": "The import could not be started.",
+    "migration.cancel_failed": "The import could not be stopped.",
+    "migration.list_failed": "The imports could not be listed.",
+    "migration.not_found": "Import not found.",
+    "migration.storage_unavailable": "Imports are unavailable on this installation. Contact support.",
+    "migration.destination_locked": "Sign in to this mailbox once before importing.",
+    "migration.credentials_gone": "The import was stopped before it started.",
+    "migration.interrupted": "The import was interrupted and will resume on its own."
   },
   "members": {
     "title": "Members",
@@ -2790,5 +2803,49 @@
     "empty": "No documents yet. Create one and it shows up here — and in Drive, which is where it is kept.",
     "noMatch": "No document by that name.",
     "sharedWithMe": "shared with you"
+  },
+  "migration": {
+    "title": "Import mail",
+    "blurb": "Copies the folders and messages from your previous provider into this mailbox. The old account is left exactly as it is, and nothing is deleted there.",
+    "host": "Server of the previous provider",
+    "hostPlaceholder": "imap.gmail.com",
+    "hostHint": "The IMAP server address. For Google it is imap.gmail.com, for Microsoft 365 it is outlook.office365.com.",
+    "username": "Address at the previous provider",
+    "password": "Password",
+    "passwordHint": "With two-step verification enabled, Google and Microsoft require an application-specific password rather than the account password.",
+    "starttls": "Connect on port 143 with STARTTLS",
+    "check": "Verify connection",
+    "checking": "Verifying…",
+    "start": "Start the import",
+    "started": "Import started",
+    "cancel": "Stop the import",
+    "cancelled": "Import stopped",
+    "cancelKeeps": "Stopping keeps every message already copied. Nothing is removed from this mailbox or from the previous provider.",
+    "foundTitle": "{{total}} messages will be copied",
+    "skippedTitle": "Not copied",
+    "queued": "Waiting for a free worker",
+    "running": "Copying",
+    "copied": "copied",
+    "ofTotal": "of {{total}}",
+    "alreadyHere": "already in this mailbox",
+    "failed": "not copied",
+    "skip": {
+      "virtual": "The provider presents this as a folder, but its messages are already in the folders above. Copying it would duplicate every message in the account.",
+      "trash": "Deleted messages.",
+      "junk": "Messages classified as spam."
+    },
+    "role": {
+      "inbox": "Inbox",
+      "sent": "Sent",
+      "drafts": "Drafts",
+      "archive": "Archive"
+    },
+    "state": {
+      "done": "Import completed",
+      "failed": "Import failed",
+      "cancelled": "Import stopped",
+      "running": "Copying",
+      "pending": "Waiting"
+    }
   }
 }

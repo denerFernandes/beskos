@@ -242,6 +242,16 @@ export const api = {
   // The export is a download, not JSON: the browser handles it from the address.
   mailboxExportURL: (id: string) => apiUrl(`/api/mailboxes/${id}/export`),
 
+  // Moving in from the old provider. `check` copies nothing -- it exists so a wrong password is
+  // found on the form, in seconds, rather than by a job that fails an hour later.
+  migrationCheck: (s: MigrationSource) =>
+    req<MigrationCheck>("/api/me/migration/check", { method: "POST", body: JSON.stringify(s) }),
+  migrationStart: (s: MigrationSource) =>
+    req<Migration>("/api/me/migration", { method: "POST", body: JSON.stringify(s) }),
+  migration: () => req<{ migration: Migration | null }>("/api/me/migration"),
+  migrationCancel: (id: string) => req<{ status: string }>(`/api/me/migration/${id}`, { method: "DELETE" }),
+  migrations: () => req<{ migrations: Migration[] }>("/api/migrations"),
+
   // Usuários unificados = caixa + papel. Criar provisiona os dois juntos.
   createUser: (domain_id: string, login: string, name: string, password: string, role: string, groups: string[] = []) =>
     req<{ id: string; email: string; role: string }>("/api/users", { method: "POST", body: JSON.stringify({ domain_id, login, name, password, role, quota_gb: 5, groups }) }),
@@ -293,4 +303,30 @@ export interface BillingQuote {
 
 export function hasPerm(me: Me | undefined, perm: string): boolean {
   return !!me?.permissions?.includes(perm);
+}
+
+// --- Moving a mailbox in from the provider the customer is leaving ---
+
+export interface MigrationSource {
+  host: string; port?: number; starttls?: boolean; username: string; password: string;
+}
+export interface MigrationFolder {
+  remote_name: string; local_name: string; local_role: string;
+  // Empty means the folder is copied. Set means it is not, and the panel says why -- a folder that
+  // vanished without a stated reason looks exactly like data loss to whoever counts them afterwards.
+  skip_reason: "" | "virtual" | "trash" | "junk";
+  status?: string;
+  messages?: number;
+  total_messages?: number; copied_messages?: number; skipped_messages?: number; failed_messages?: number;
+}
+export interface MigrationCheck { folders: MigrationFolder[]; total_messages: number }
+export interface Migration {
+  id: string;
+  status: "pending" | "running" | "done" | "failed" | "cancelled";
+  error_code: string;
+  source_host: string; source_username: string;
+  total_messages: number; copied_messages: number; skipped_messages: number; failed_messages: number;
+  created_at: string; started_at?: string | null; finished_at?: string | null;
+  folders?: MigrationFolder[];
+  mailbox_email?: string;
 }
