@@ -13,13 +13,17 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api, type Migration, type MigrationCheck, type MigrationFolder, type MigrationSource } from "../api";
+import { PROVIDERS, OTHER_PROVIDER, providerById, guessProvider, type Provider } from "./migrationProviders";
 import { toast } from "./ui";
 import { IcDownload, IcCheck, IcX, IcRefresh } from "./icons";
+
+// migrationQuery is shared with the first-access prompt, so both read one cached answer.
+export const MIGRATION_QUERY_KEY = ["migration"];
 
 export function MigrationSection() {
   const { t } = useTranslation();
   const current = useQuery({
-    queryKey: ["migration"],
+    queryKey: MIGRATION_QUERY_KEY,
     queryFn: api.migration,
     // While a job runs the numbers are the whole screen. Polling stops the moment it ends, so a
     // finished migration is not a page that talks to the server every three seconds forever.
@@ -47,6 +51,7 @@ export function MigrationSection() {
 function MigrationForm({ last }: { last: Migration | null }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const [provider, setProvider] = useState<Provider>(OTHER_PROVIDER);
   const [src, setSrc] = useState<MigrationSource>({ host: "", username: "", password: "", starttls: false });
   const [found, setFound] = useState<MigrationCheck | null>(null);
   const [err, setErr] = useState("");
@@ -58,14 +63,32 @@ function MigrationForm({ last }: { last: Migration | null }) {
   });
   const start = useMutation({
     mutationFn: () => api.migrationStart(src),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["migration"] }); toast(t("migration.started")); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: MIGRATION_QUERY_KEY }); toast(t("migration.started")); },
     onError: (e) => setErr((e as Error).message),
   });
 
   const ready = src.host.trim() && src.username.trim() && src.password;
   // Changing any field invalidates what we found: the list on screen would otherwise describe a
   // different account than the one about to be copied.
-  const edit = (patch: Partial<MigrationSource>) => { setSrc({ ...src, ...patch }); setFound(null); setErr(""); };
+  const edit = (patch: Partial<MigrationSource>) => { setSrc((s) => ({ ...s, ...patch })); setFound(null); setErr(""); };
+
+  const pick = (id: string) => {
+    const p = providerById(id);
+    setProvider(p);
+    edit({ host: p.host, port: p.port, starttls: p.starttls });
+  };
+
+  // Typing the address is usually enough: a consumer domain names its own provider, and the person
+  // who has one is the least likely to know what an IMAP server is called.
+  const onAddress = (value: string) => {
+    const guess = provider.id === "other" ? guessProvider(value) : null;
+    if (guess) {
+      setProvider(guess);
+      edit({ username: value, host: guess.host, port: guess.port, starttls: guess.starttls });
+      return;
+    }
+    edit({ username: value });
+  };
 
   return (
     <>
@@ -73,32 +96,60 @@ function MigrationForm({ last }: { last: Migration | null }) {
 
       <div className="pnl-card mig-form">
         <div className="pnl-field">
-          <label>{t("migration.host")}</label>
-          <input className="pnl-input" value={src.host} autoComplete="off" spellCheck={false}
-            placeholder={t("migration.hostPlaceholder")}
-            onChange={(e) => edit({ host: e.target.value.trim() })} />
-          <div className="pnl-note">{t("migration.hostHint")}</div>
+          <label>{t("migration.provider")}</label>
+          <div className="mig-providers">
+            {PROVIDERS.map((p) => (
+              <button key={p.id} type="button"
+                className={"mig-prov" + (provider.id === p.id ? " on" : "")}
+                onClick={() => pick(p.id)}>
+                {t(`migration.providers.${p.id}`)}
+              </button>
+            ))}
+          </div>
+          {/* Thunderbird and Outlook are programs, not providers: what gets imported is the account
+              they were set up with. Said here because the customer thinks in terms of the program. */}
+          <div className="pnl-note">{t("migration.providerHint")}</div>
         </div>
 
         <div className="pnl-field">
           <label>{t("migration.username")}</label>
           <input className="pnl-input" value={src.username} autoComplete="off" spellCheck={false}
-            onChange={(e) => edit({ username: e.target.value.trim() })} />
+            placeholder={t("migration.usernamePlaceholder")}
+            onChange={(e) => onAddress(e.target.value.trim())} />
         </div>
+
+        {/* Only asked when it is not already known. A field pre-filled with imap.gmail.com is one
+            more thing to read and get wrong. */}
+        {provider.id === "other" && (
+          <div className="pnl-field">
+            <label>{t("migration.host")}</label>
+            <input className="pnl-input" value={src.host} autoComplete="off" spellCheck={false}
+              placeholder={t("migration.hostPlaceholder")}
+              onChange={(e) => edit({ host: e.target.value.trim() })} />
+            <div className="pnl-note">{t("migration.hostHint")}</div>
+          </div>
+        )}
+
+        {/* The warning goes ABOVE the password field, not below it: two of these providers refuse an
+            ordinary password, and reading that after typing one is reading it too late. */}
+        {provider.notice && (
+          <p className={"mig-notice" + (provider.notice === "oauthOnly" ? " hard" : "")}>
+            {t(`migration.notice.${provider.notice}`)}
+          </p>
+        )}
 
         <div className="pnl-field">
           <label>{t("migration.password")}</label>
           <input className="pnl-input" type="password" value={src.password} autoComplete="new-password"
             onChange={(e) => edit({ password: e.target.value })} />
-          {/* Google and Microsoft both refuse an account password over IMAP when two-factor is on.
-              Saying so here saves the support request that otherwise arrives as "wrong password". */}
-          <div className="pnl-note">{t("migration.passwordHint")}</div>
         </div>
 
-        <label className="mig-check">
-          <input type="checkbox" checked={!!src.starttls} onChange={(e) => edit({ starttls: e.target.checked })} />
-          <span>{t("migration.starttls")}</span>
-        </label>
+        {provider.id === "other" && (
+          <label className="mig-check">
+            <input type="checkbox" checked={!!src.starttls} onChange={(e) => edit({ starttls: e.target.checked })} />
+            <span>{t("migration.starttls")}</span>
+          </label>
+        )}
 
         {err && <p className="pnl-err">{err}</p>}
 
@@ -129,7 +180,7 @@ function FoundFolders({ found }: { found: MigrationCheck }) {
 
   return (
     <div className="pnl-card mig-found">
-      <h3>{t("migration.foundTitle", { count: found.total_messages, total: n.format(found.total_messages) })}</h3>
+      <h3>{t("migration.foundTitle", { total: n.format(found.total_messages) })}</h3>
       <ul className="mig-folders">
         {copied.map((f) => (
           <li key={f.remote_name}>
@@ -167,11 +218,14 @@ function MigrationProgress({ job }: { job: Migration }) {
   const qc = useQueryClient();
   const n = new Intl.NumberFormat(i18n.language);
   const done = job.copied_messages + job.skipped_messages + job.failed_messages;
-  const pct = job.total_messages > 0 ? Math.min(100, Math.round((done / job.total_messages) * 100)) : 0;
+  const pct = job.total_messages > 0 ? Math.min(100, Math.floor((done / job.total_messages) * 100)) : 0;
+  // The folder being worked on right now. It is the answer to "is this thing moving", which a
+  // percentage that changes every few minutes on a large mailbox does not give on its own.
+  const active = job.folders?.find((f) => f.status === "running");
 
   const cancel = useMutation({
     mutationFn: () => api.migrationCancel(job.id),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["migration"] }); toast(t("migration.cancelled")); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: MIGRATION_QUERY_KEY }); toast(t("migration.cancelled")); },
     onError: (e) => toast((e as Error).message),
   });
 
@@ -179,11 +233,22 @@ function MigrationProgress({ job }: { job: Migration }) {
     <div className="pnl-card mig-progress">
       <div className="mig-src">{job.source_username} · {job.source_host}</div>
 
-      {/* 'pending' is a job nobody has picked up yet. Saying so beats a progress bar at zero, which
-          reads as broken (law 2.9: waiting has to look different from stuck). */}
-      <div className="mig-state">{t(job.status === "pending" ? "migration.queued" : "migration.running")}</div>
+      <div className="mig-head">
+        {/* 'pending' is a job nobody has picked up yet. Saying so beats a bar at zero, which reads
+            as broken (law 2.9: waiting has to look different from stuck). */}
+        <div className="mig-state">
+          {t(job.status === "pending" ? "migration.queued" : "migration.running")}
+          {active && <span className="mig-folder-now"> · {active.remote_name}</span>}
+        </div>
+        {/* Only once the total is known. "0%" before the source has been counted is a number that
+            means "we have not looked yet", and it reads as "nothing is happening". */}
+        {job.total_messages > 0 && <div className="mig-pct">{pct}%</div>}
+      </div>
 
-      <div className="mig-bar"><span style={{ width: `${pct}%` }} /></div>
+      <div className={"mig-bar" + (job.total_messages > 0 ? "" : " unknown")}>
+        <span style={job.total_messages > 0 ? { width: `${pct}%` } : undefined} />
+      </div>
+
       <div className="mig-counts">
         <b>{n.format(job.copied_messages)}</b> {t("migration.copied")}
         {job.total_messages > 0 && <> {t("migration.ofTotal", { total: n.format(job.total_messages) })}</>}
@@ -213,7 +278,10 @@ function FolderProgress({ folders }: { folders: MigrationFolder[] }) {
           <span className="name">{f.remote_name}</span>
           {f.skip_reason
             ? <span className="why">{t(`migration.skip.${f.skip_reason}`)}</span>
-            : <span className="count">{n.format(f.copied_messages ?? 0)} / {n.format(f.total_messages ?? 0)}</span>}
+            : <>
+                <span className="fstate">{t(`migration.folderState.${f.status ?? "pending"}`)}</span>
+                <span className="count">{n.format(f.copied_messages ?? 0)} / {n.format(f.total_messages ?? 0)}</span>
+              </>}
         </li>
       ))}
     </ul>

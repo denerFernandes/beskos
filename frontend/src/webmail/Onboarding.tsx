@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
-import { backend, settingsApi } from "./backend";
+import { backend, settingsApi, type UserSettings } from "./backend";
 import { BESKOS_MARK } from "./branding";
 import { PasswordField } from "./PasswordField";
 import { BRAND_COLORS } from "./branding";
@@ -39,7 +39,10 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
 
   const finish = useMutation({
     mutationFn: async () => {
-      await settingsApi.patch({ general: { onboarded: true } });
+      // The whole section, not just the flag: the server merge is shallow, so a partial patch of
+      // `general` replaces it and drops whatever else was in there. See the same note in App.tsx.
+      const prev = qc.getQueryData<UserSettings>(["settings"]);
+      await settingsApi.patch({ general: { ...(prev?.general ?? {}), onboarded: true } });
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["settings"] }); onDone(); },
   });

@@ -13,7 +13,7 @@ import { onNotificationClick } from "./webpush";
 import { onDesktopNotifClick, setNotifNavigate } from "./desktopNotify";
 import { applyBrandColor, cacheBrand, BESKOS_MARK } from "./branding";
 import { initials } from "./util";
-import { isTauri } from "./tauriNotify";
+import { isTauri, onTauriEvent } from "./tauriNotify";
 import { initVcardOpen } from "./desktopVcard";
 import { setTrayAccount } from "./nativeWindow";
 import { ToastHost, toast } from "./toast";
@@ -36,7 +36,8 @@ import { AdminView, useAdminEnabled, useAssistantEnabled, useDisabledApps } from
 import { SettingsView } from "./SettingsView";
 import { NotificationsBell } from "./NotificationsBell";
 import { AssistantBubble } from "./assistant/AssistantBubble";
-import { IcSun, IcMail, IcColumns, IcCalendar, IcFolder, IcUsers, IcSearch, IcMoon, IcLogout, IcVideo, IcChat, IcShield, IcGear, IcChevron, IcBook, IcPencilBox, IcDoc } from "../panel/icons";
+import { MigrationPrompt } from "../panel/MigrationPrompt";
+import { IcSun, IcMail, IcColumns, IcCalendar, IcFolder, IcUsers, IcSearch, IcMoon, IcLogout, IcVideo, IcChat, IcShield, IcGear, IcChevron, IcBook, IcPencilBox, IcDoc, IcDownload } from "../panel/icons";
 
 type View = "today" | "mail" | "chat" | "kanban" | "cal" | "files" | "docs" | "contacts" | "meet" | "notes" | "wiki" | "admin" | "settings" | "profile";
 // Áreas com o que buscar. "today" e "admin" ficam de fora: não têm lista para filtrar.
@@ -80,7 +81,13 @@ export function App({ session }: { session: WebmailSession }) {
     setTheme(next);
     try { localStorage.setItem("mailin.theme", next); } catch { /* modo privado */ }
     // Segue o utilizador entre aparelhos (fire-and-forget; o localStorage já garante o local).
-    settingsApi.patch({ general: { theme: next } }).catch(() => {});
+    //
+    // The whole section is sent, not just the theme. The merge on the server is `settings || patch`,
+    // which is SHALLOW: a patch of {general:{theme}} replaces the entire general object and takes
+    // `onboarded`, `language` and `startView` with it. The visible symptom was an owner who changed
+    // the theme and was shown the first-run wizard again on the next load. useSection() already
+    // merges this way; this call was the one that did not. (03/08/2026)
+    settingsApi.patch({ general: { ...(settingsQ.data?.general ?? {}), theme: next } }).catch(() => {});
   };
 
   // Preferências gerais vindas do servidor: ao autenticar, o servidor manda (o localStorage foi só
@@ -120,6 +127,9 @@ export function App({ session }: { session: WebmailSession }) {
   // Clicar numa notificação desktop navega para o ITEM que a originou. Três origens, o mesmo
   // destino: service worker (web push), app nativo (evento do Rust) e o construtor Notification
   // (fallback web, cujo clique cai nesta aba).
+  // Desktop: "Import mail" under the File menu. The native menu is built in Rust and cannot
+  // navigate, so it only emits -- the routes are known here.
+  useEffect(() => onTauriEvent("menu-import-mail", () => nav("/mail/profile/migration")), [nav]);
   useEffect(() => onNotificationClick((link) => nav(link)), [nav]);
   useEffect(() => onDesktopNotifClick((link) => nav(link)), [nav]);
   useEffect(() => {
@@ -295,7 +305,8 @@ export function App({ session }: { session: WebmailSession }) {
           <NotificationsBell />
           <button className={"ib" + (view === "settings" ? " on" : "")} title={t("settings.title")} onClick={() => nav("/mail/settings")}><IcGear size={18} /></button>
           <button className="ib" title={t("webmail.toggleTheme")} onClick={toggleTheme}>{theme === "dark" ? <IcSun size={18} /> : <IcMoon size={18} />}</button>
-          <StatusControl email={session.email} onProfile={() => nav("/mail/profile")} onLogout={session.logout} />
+          <StatusControl email={session.email} onProfile={() => nav("/mail/profile")}
+            onImport={() => nav("/mail/profile/migration")} onLogout={session.logout} />
         </header>
 
         <nav className="apprail">
@@ -344,6 +355,8 @@ export function App({ session }: { session: WebmailSession }) {
           {view === "settings" && <SettingsView section={sub} onSection={(sec) => nav(sec ? `/mail/settings/${sec}` : "/mail/settings")} />}
         </div>
       </div>
+      {/* The first-access offer. The server decides whether it appears; this only opens the screen. */}
+      <MigrationPrompt onOpen={() => nav("/mail/profile/migration")} />
       <ToastHost />
     </div>
   );
@@ -354,7 +367,7 @@ const STATUS_PRESETS = [
   { emoji: "💬", key: "available" }, { emoji: "📅", key: "meeting" }, { emoji: "🎧", key: "focus" },
   { emoji: "🍽️", key: "lunch" }, { emoji: "🏠", key: "remote" }, { emoji: "🌴", key: "vacation" }, { emoji: "🤒", key: "sick" },
 ];
-function StatusControl({ email, onProfile, onLogout }: { email: string; onProfile: () => void; onLogout: () => void }) {
+function StatusControl({ email, onProfile, onImport, onLogout }: { email: string; onProfile: () => void; onImport: () => void; onLogout: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -415,6 +428,11 @@ function StatusControl({ email, onProfile, onLogout }: { email: string; onProfil
           <div className="status-menu">
             <button className="status-mi" onClick={() => { setOpen(false); onProfile(); }}>
               <IcUsers size={16} /> {t("profile.menu")}
+            </button>
+            {/* Importing lives HERE and not only inside the profile: somebody who has just arrived
+                looks for it beside their own name, which is where everything "mine" already is. */}
+            <button className="status-mi" onClick={() => { setOpen(false); onImport(); }}>
+              <IcDownload size={16} /> {t("migration.title")}
             </button>
             <button className="status-mi danger" onClick={onLogout}>
               <IcLogout size={16} /> {t("webmail.logout")}

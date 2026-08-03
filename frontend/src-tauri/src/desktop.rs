@@ -48,3 +48,53 @@ pub fn open_settings<R: Runtime>(app: &AppHandle<R>) {
         eprintln!("aviso: não foi possível abrir as Definições: {e}");
     }
 }
+
+/// Adds "Import mail" to the File submenu.
+///
+/// Tauri's default menu builds File on macOS and Windows but not on Linux, and none of its submenus
+/// carry a stable id -- so the submenu is found by its label, and a File submenu is created when
+/// there is none. Matching on "File" is safe because Tauri writes that label itself, in English,
+/// whatever the application's own language is.
+pub fn add_import_item<R: Runtime>(
+    app: &AppHandle<R>,
+    menu: &tauri::menu::Menu<R>,
+) -> tauri::Result<()> {
+    let item = tauri::menu::MenuItem::with_id(
+        app,
+        "import-mail",
+        "Importar correio…", // lang:ok — native menus are not reachable from i18n
+        true,
+        None::<&str>,
+    )?;
+
+    for entry in menu.items()? {
+        if let Some(sub) = entry.as_submenu() {
+            if sub.text().map(|t| t == "File").unwrap_or(false) {
+                // At the top: "Close window" is the only other entry, and burying an action under it
+                // puts the way out above the way in.
+                sub.insert(&item, 0)?;
+                sub.insert(&tauri::menu::PredefinedMenuItem::separator(app)?, 1)?;
+                return Ok(());
+            }
+        }
+    }
+
+    // Linux: no File submenu exists, so make one. Placed after the application submenu when there
+    // is one, otherwise first.
+    let file = tauri::menu::Submenu::with_items(app, "File", true, &[&item])?;
+    let pos = if menu.items()?.is_empty() { 0 } else { 1 };
+    menu.insert(&file, pos)?;
+    Ok(())
+}
+
+/// Raises the main window and asks the UI to open the import screen. The menu does not navigate --
+/// only the web side knows the routes, and duplicating them in Rust means two places to be wrong.
+pub fn open_import<R: Runtime>(app: &AppHandle<R>) {
+    use tauri::Emitter;
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        let _ = w.emit_to("main", "menu-import-mail", ());
+    }
+}

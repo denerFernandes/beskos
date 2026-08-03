@@ -28,6 +28,8 @@ func (s *Server) mountMail(r chi.Router) {
 	r.Post("/me/migration/check", s.handleCheckMigrationSource)
 	r.Post("/me/migration", s.handleCreateMigration)
 	r.Get("/me/migration", s.handleGetMigration)
+	// The offer made on first sign-in, answered once per person rather than once per device.
+	r.Post("/me/migration/dismiss", s.handleDismissMigrationPrompt)
 	r.Delete("/me/migration/{id}", s.handleCancelMigration)
 	// The organisation-wide view is a different thing: whoever manages mailboxes follows the move
 	// for everybody.
