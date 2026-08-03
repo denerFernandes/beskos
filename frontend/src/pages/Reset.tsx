@@ -11,8 +11,10 @@ export function ResetPage() {
   const token = params.get("token") ?? "";
   return (
     <div className="wm">
-      <div className="lg-wrap">
-        <ResetPassword token={token} />
+      {/* No brand panel here: whoever follows a recovery link arrives from an e-mail, already knows
+          where they are, and has one thing to do. A half-screen of decoration would be in the way. */}
+      <div className="lg-split lg-alone">
+        <main className="lg-main"><ResetPassword token={token} /></main>
       </div>
     </div>
   );
