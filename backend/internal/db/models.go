@@ -584,6 +584,48 @@ type MailEvent struct {
 	CreatedAt time.Time   `json:"created_at"`
 }
 
+type MailMigration struct {
+	ID                  uuid.UUID          `json:"id"`
+	TenantID            uuid.UUID          `json:"tenant_id"`
+	MailUserID          uuid.UUID          `json:"mail_user_id"`
+	SourceHost          string             `json:"source_host"`
+	SourcePort          int32              `json:"source_port"`
+	SourceStarttls      bool               `json:"source_starttls"`
+	SourceUsername      string             `json:"source_username"`
+	SourcePassword      string             `json:"source_password"`
+	Status              string             `json:"status"`
+	ErrorCode           string             `json:"error_code"`
+	LastError           string             `json:"last_error"`
+	ConsecutiveFailures int32              `json:"consecutive_failures"`
+	TotalMessages       int64              `json:"total_messages"`
+	CopiedMessages      int64              `json:"copied_messages"`
+	SkippedMessages     int64              `json:"skipped_messages"`
+	FailedMessages      int64              `json:"failed_messages"`
+	CreatedAt           time.Time          `json:"created_at"`
+	StartedAt           pgtype.Timestamptz `json:"started_at"`
+	HeartbeatAt         pgtype.Timestamptz `json:"heartbeat_at"`
+	FinishedAt          pgtype.Timestamptz `json:"finished_at"`
+}
+
+type MailMigrationFolder struct {
+	ID              uuid.UUID `json:"id"`
+	MigrationID     uuid.UUID `json:"migration_id"`
+	RemoteName      string    `json:"remote_name"`
+	LocalName       string    `json:"local_name"`
+	LocalRole       string    `json:"local_role"`
+	SkipReason      string    `json:"skip_reason"`
+	UidValidity     int64     `json:"uid_validity"`
+	LastUid         int64     `json:"last_uid"`
+	TotalMessages   int64     `json:"total_messages"`
+	CopiedMessages  int64     `json:"copied_messages"`
+	SkippedMessages int64     `json:"skipped_messages"`
+	FailedMessages  int64     `json:"failed_messages"`
+	Status          string    `json:"status"`
+	LastError       string    `json:"last_error"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
 type MailTemplate struct {
 	ID          uuid.UUID `json:"id"`
 	TenantID    uuid.UUID `json:"tenant_id"`

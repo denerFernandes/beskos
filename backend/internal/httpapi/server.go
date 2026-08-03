@@ -143,14 +143,7 @@ func (s *Server) Router() http.Handler {
 			r.Use(s.csrfGuard)
 			r.Post("/auth/logout", s.handleWebmailLogout)
 			r.Post("/webmail/logout", s.handleWebmailLogout)
-			r.Post("/mail/snooze", s.handleSnoozeEmail)         // adiar e-mail (worker devolve à inbox)
-			r.Post("/mail/outbox", s.handleCreateOutbox)        // agenda o envio (undo-send / agendado)
-			r.Get("/mail/outbox", s.handleListOutbox)           // e-mails ainda por enviar
-			r.Delete("/mail/outbox/{id}", s.handleCancelOutbox) // cancela um envio pendente
-			r.Get("/mail/templates", s.handleListTemplates)     // templates de resposta (canned)
-			r.Post("/mail/templates", s.handleCreateTemplate)
-			r.Patch("/mail/templates/{id}", s.handleUpdateTemplate)
-			r.Delete("/mail/templates/{id}", s.handleDeleteTemplate)
+			s.mountMail(r) // the mailbox itself: snooze, outbox, templates, moving in
 			r.Get("/me", s.handleMe)
 			r.Get("/me/mail-connection", s.handleMailConnection) // IMAP/SMTP para clientes externos
 

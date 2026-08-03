@@ -1,0 +1,35 @@
+package httpapi
+
+import (
+	"github.com/go-chi/chi/v5"
+
+	"mailin/backend/internal/rbac"
+)
+
+// Routes that act on the mailbox itself rather than on the organisation around it: deferring a
+// message, holding one back before it goes, canned replies, and bringing a mailbox in from the
+// provider the customer is leaving.
+//
+// Split out of server.go when that file reached its 600-line limit (law 1.4). The route table there
+// stays a table; this is one subject.
+func (s *Server) mountMail(r chi.Router) {
+	r.Post("/mail/snooze", s.handleSnoozeEmail)         // adiar e-mail (worker devolve à inbox)
+	r.Post("/mail/outbox", s.handleCreateOutbox)        // agenda o envio (undo-send / agendado)
+	r.Get("/mail/outbox", s.handleListOutbox)           // e-mails ainda por enviar
+	r.Delete("/mail/outbox/{id}", s.handleCancelOutbox) // cancela um envio pendente
+	r.Get("/mail/templates", s.handleListTemplates)     // templates de resposta (canned)
+	r.Post("/mail/templates", s.handleCreateTemplate)
+	r.Patch("/mail/templates/{id}", s.handleUpdateTemplate)
+	r.Delete("/mail/templates/{id}", s.handleDeleteTemplate)
+
+	// Moving in from the old provider. These need no permission: the only account they can read
+	// from is the one whose password the caller just typed, and the only one they write to is their
+	// own. /check copies nothing -- it exists so a wrong password is found on the form.
+	r.Post("/me/migration/check", s.handleCheckMigrationSource)
+	r.Post("/me/migration", s.handleCreateMigration)
+	r.Get("/me/migration", s.handleGetMigration)
+	r.Delete("/me/migration/{id}", s.handleCancelMigration)
+	// The organisation-wide view is a different thing: whoever manages mailboxes follows the move
+	// for everybody.
+	r.With(s.requirePerm(rbac.PermMailboxManage)).Get("/migrations", s.handleListTenantMigrations)
+}

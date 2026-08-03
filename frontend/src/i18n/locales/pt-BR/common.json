@@ -1012,7 +1012,20 @@
     "notes.create_failed": "Não foi possível criar a nota.",
     "notes.save_failed": "Não foi possível guardar a nota.",
     "notes.delete_failed": "Não foi possível apagar a nota.",
-    "notes.share_failed": "Não foi possível partilhar a nota."
+    "notes.share_failed": "Não foi possível partilhar a nota.",
+    "migration.auth_failed": "O fornecedor anterior recusou estas credenciais. Com a verificação em duas etapas ativa, é necessária uma palavra-passe de aplicação.",
+    "migration.source_unreachable": "O servidor do fornecedor anterior não respondeu. Confirme o endereço e a porta.",
+    "migration.invalid_host": "O endereço do servidor não é válido. Indique apenas o nome, sem https:// e sem caminho.",
+    "migration.missing_fields": "O servidor, o endereço e a palavra-passe são obrigatórios.",
+    "migration.already_running": "Já existe uma importação em curso para esta caixa.",
+    "migration.create_failed": "Não foi possível iniciar a importação.",
+    "migration.cancel_failed": "Não foi possível parar a importação.",
+    "migration.list_failed": "Não foi possível listar as importações.",
+    "migration.not_found": "Importação não encontrada.",
+    "migration.storage_unavailable": "As importações não estão disponíveis nesta instalação. Contacte o suporte.",
+    "migration.destination_locked": "Inicie sessão nesta caixa uma vez antes de importar.",
+    "migration.credentials_gone": "A importação foi parada antes de começar.",
+    "migration.interrupted": "A importação foi interrompida e será retomada automaticamente."
   },
   "members": {
     "title": "Membros",
@@ -2790,5 +2803,49 @@
     "empty": "Ainda não há documentos. Crie um e ele aparece aqui — e no Drive, que é onde fica guardado.",
     "noMatch": "Nenhum documento com esse nome.",
     "sharedWithMe": "partilhado consigo"
+  },
+  "migration": {
+    "title": "Importar correio",
+    "blurb": "Copia as pastas e as mensagens do fornecedor anterior para esta caixa. A conta antiga fica exatamente como está e nada é apagado nela.",
+    "host": "Servidor do fornecedor anterior",
+    "hostPlaceholder": "imap.gmail.com",
+    "hostHint": "O endereço do servidor IMAP. No Google é imap.gmail.com; no Microsoft 365 é outlook.office365.com.",
+    "username": "Endereço no fornecedor anterior",
+    "password": "Palavra-passe",
+    "passwordHint": "Com a verificação em duas etapas ativa, a Google e a Microsoft exigem uma palavra-passe de aplicação em vez da palavra-passe da conta.",
+    "starttls": "Ligar na porta 143 com STARTTLS",
+    "check": "Verificar a ligação",
+    "checking": "A verificar…",
+    "start": "Iniciar a importação",
+    "started": "Importação iniciada",
+    "cancel": "Parar a importação",
+    "cancelled": "Importação parada",
+    "cancelKeeps": "Parar mantém todas as mensagens já copiadas. Nada é removido desta caixa nem do fornecedor anterior.",
+    "foundTitle": "Serão copiadas {{total}} mensagens",
+    "skippedTitle": "Não copiadas",
+    "queued": "À espera de um processo livre",
+    "running": "A copiar",
+    "copied": "copiadas",
+    "ofTotal": "de {{total}}",
+    "alreadyHere": "já existiam nesta caixa",
+    "failed": "não copiadas",
+    "skip": {
+      "virtual": "O fornecedor apresenta isto como uma pasta, mas as mensagens já estão nas pastas acima. Copiá-la duplicaria todas as mensagens da conta.",
+      "trash": "Mensagens eliminadas.",
+      "junk": "Mensagens classificadas como spam."
+    },
+    "role": {
+      "inbox": "Caixa de entrada",
+      "sent": "Enviados",
+      "drafts": "Rascunhos",
+      "archive": "Arquivo"
+    },
+    "state": {
+      "done": "Importação concluída",
+      "failed": "A importação falhou",
+      "cancelled": "Importação parada",
+      "running": "A copiar",
+      "pending": "Em espera"
+    }
   }
 }
