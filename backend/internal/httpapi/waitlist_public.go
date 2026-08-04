@@ -35,10 +35,17 @@ func (s *Server) handleJoinWaitlist(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "waitlist.invalid_email")
 		return
 	}
+	// The form requires a name, so the API does too. An endpoint that quietly accepts what the form
+	// refuses is an endpoint whose rules nobody can state.
+	name := clip(req.Name, 120)
+	if name == "" {
+		writeErr(w, http.StatusBadRequest, "waitlist.missing_name")
+		return
+	}
 
 	entry, err := s.q.AddToWaitlist(r.Context(), db.AddToWaitlistParams{
 		Email:   email,
-		Name:    clip(req.Name, 120),
+		Name:    name,
 		Company: clip(req.Company, 160),
 		Note:    clip(req.Note, 2000),
 		Locale:  clip(req.Locale, 12),

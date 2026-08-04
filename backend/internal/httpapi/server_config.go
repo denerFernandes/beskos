@@ -32,6 +32,9 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
+// SetSalesEmail sets where the website's contact form delivers. Empty disables the form.
+func (s *Server) SetSalesEmail(addr string) { s.salesEmail = addr }
+
 // EnableSES liga a limpeza de identidades SES ao apagar domínios.
 func (s *Server) EnableSES(c *ses.Client) { s.sesRelay = c }
 

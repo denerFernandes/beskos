@@ -168,6 +168,13 @@ func main() {
 			"account, trial, billing, login alerts and external shares will not be delivered")
 	}
 
+	// Where the website's contact form delivers. A real mailbox somebody reads, not a table.
+	sales := os.Getenv("SALES_EMAIL")
+	if sales == "" {
+		sales = "sales@beskos.com" // lang:ok
+	}
+	srv.SetSalesEmail(sales)
+
 	srv.SetSignupsOpen(cfg.SignupsOpen)
 	if !cfg.SignupsOpen {
 		log.Printf("self-service signups CLOSED (SIGNUPS_OPEN=false) — /signup shows the coming-soon page")

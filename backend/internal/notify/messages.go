@@ -275,3 +275,25 @@ func WaitlistInvite(lang, name, signupURL string) Msg {
 	return build(lang, subject, intro, nil,
 		tr(lang, "Criar a conta", "Create the account"), signupURL, footer) // lang:ok
 }
+
+// ContactEnquiry is a message from the contact form on the marketing site, addressed to the sales
+// mailbox. It is read by us, not by a customer, so it is plain and complete rather than branded:
+// every field the person filled in, in the order it helps to answer them.
+func ContactEnquiry(name, email, company, locale, message string) Msg {
+	subject := "Contact form: " + name
+	if company != "" {
+		subject += " (" + company + ")"
+	}
+	lines := []Line{{"Name", name}, {"E-mail", email}}
+	if company != "" {
+		lines = append(lines, Line{"Organisation", company})
+	}
+	if locale != "" {
+		// Which language they were reading the site in, so the reply goes out in it.
+		lines = append(lines, Line{"Language", locale})
+	}
+	body := "<p style=\"white-space:pre-wrap\">" + html.EscapeString(message) + "</p>"
+	msg := build("en", subject, body, lines, "", "", "Sent by the contact form on the website.")
+	msg.Text = message + "\n\n" + msg.Text
+	return msg
+}

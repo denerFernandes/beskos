@@ -22,6 +22,10 @@ func (s *Server) mountPublic(r chi.Router) {
 	// including the registered preflight -- for exactly the reason written there.
 	r.With(publicCORS, s.publicRateLimit).Post("/public/waitlist", s.handleJoinWaitlist)
 	r.With(publicCORS).Options("/public/waitlist", func(http.ResponseWriter, *http.Request) {})
+	// The contact form, relayed to the sales mailbox. Same cross-origin shape, same registered
+	// preflight.
+	r.With(publicCORS, s.publicRateLimit).Post("/public/contact", s.handleContactForm)
+	r.With(publicCORS).Options("/public/contact", func(http.ResponseWriter, *http.Request) {})
 	// Asked by the policy server before it issues a certificate for a customer's mta-sts hostname.
 	r.With(s.publicRateLimit).Get("/public/mta-sts-allowed", s.handleMTASTSAllowed)
 	r.With(s.publicRateLimit).Get("/public/meet/{room}", s.handlePublicMeetInfo)
