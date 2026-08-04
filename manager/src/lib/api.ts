@@ -125,6 +125,22 @@ export type GrowthRow = {
   users_total: number;
 };
 
+export type WaitlistEntry = {
+  id: string;
+  email: string;
+  name: string;
+  company: string;
+  note: string;
+  locale: string;
+  source: string;
+  status: "pending" | "invited" | "joined";
+  invited_at: string | null;
+  invited_by: string;
+  created_at: string;
+};
+
+export type WaitlistCounts = { total: number; pending: number; invited: number; joined: number };
+
 export type Operator = {
   id: string;
   email: string;
@@ -238,6 +254,18 @@ export const api = {
   growth: () => request<GrowthRow[]>("/api/manager/reports/growth"),
   alerts: () => request<{ alerts: Alert[]; top_ai_users: TopAIUser[] }>("/api/manager/alerts"),
   deliverability: () => request<Deliverability[]>("/api/manager/deliverability"),
+  waitlist: (status = "") =>
+    request<{ entries: WaitlistEntry[]; counts: WaitlistCounts }>(
+      `/api/manager/waitlist${status ? `?status=${status}` : ""}`),
+  inviteWaitlist: (id: string) =>
+    request<WaitlistEntry>(`/api/manager/waitlist/${id}/invite`, { method: "POST" }),
+  setWaitlistStatus: (id: string, status: string) =>
+    request<WaitlistEntry>(`/api/manager/waitlist/${id}/status`, {
+      method: "POST", body: JSON.stringify({ status }),
+    }),
+  deleteWaitlist: (id: string) =>
+    request<{ status: string }>(`/api/manager/waitlist/${id}`, { method: "DELETE" }),
+
   operators: () => request<Operator[]>("/api/manager/operators"),
   createOperator: (o: { email: string; name: string; password: string; role: string }) =>
     request<ManagerUser>("/api/manager/operators", { method: "POST", body: JSON.stringify(o) }),

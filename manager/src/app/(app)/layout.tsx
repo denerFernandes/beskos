@@ -23,6 +23,7 @@ const NAV = [
   { href: "/plans", label: S.nav.plans },
   { href: "/finance", label: S.nav.finance },
   { href: "/reports", label: S.nav.reports },
+  { href: "/waitlist", label: S.nav.waitlist },
   { href: "/operators", label: S.nav.operators },
 ];
 

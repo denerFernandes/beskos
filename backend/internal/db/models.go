@@ -1164,6 +1164,21 @@ type UserGroupMember struct {
 	AddedAt  time.Time `json:"added_at"`
 }
 
+type Waitlist struct {
+	ID          uuid.UUID          `json:"id"`
+	Email       string             `json:"email"`
+	Name        string             `json:"name"`
+	Company     string             `json:"company"`
+	Note        string             `json:"note"`
+	Locale      string             `json:"locale"`
+	Source      string             `json:"source"`
+	Status      string             `json:"status"`
+	InviteToken string             `json:"invite_token"`
+	InvitedAt   pgtype.Timestamptz `json:"invited_at"`
+	InvitedBy   string             `json:"invited_by"`
+	CreatedAt   time.Time          `json:"created_at"`
+}
+
 type WebmailSession struct {
 	Token      string    `json:"token"`
 	MailUserID uuid.UUID `json:"mail_user_id"`

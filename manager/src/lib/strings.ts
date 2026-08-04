@@ -27,9 +27,30 @@ export const S = {
     plans: "Planos",
     finance: "Financeiro",
     reports: "Relatórios",
+    waitlist: "Lista de espera", // lang:ok
     operators: "Operadores",
     logout: "Sair",
     search: "Pesquisar…",
+  },
+  waitlist: {
+    title: "Lista de espera", // lang:ok
+    empty: "Ainda não há inscrições.", // lang:ok
+    email: "Endereço", // lang:ok
+    who: "Quem", // lang:ok
+    note: "O que procura", // lang:ok
+    source: "Origem", // lang:ok
+    status: "Estado", // lang:ok
+    joinedAt: "Inscreveu-se", // lang:ok
+    invite: "Convidar", // lang:ok
+    inviting: "A enviar…", // lang:ok
+    invited: "Convite enviado", // lang:ok
+    remove: "Remover", // lang:ok
+    markJoined: "Marcar como cliente", // lang:ok
+    all: "Todos", // lang:ok
+    pending: "Por convidar", // lang:ok
+    invitedStatus: "Convidados", // lang:ok
+    joined: "Clientes", // lang:ok
+    counts: "por convidar de", // lang:ok
   },
   reports: {
     growth: "Crescimento mensal",
