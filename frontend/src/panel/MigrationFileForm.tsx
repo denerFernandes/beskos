@@ -16,6 +16,12 @@ import { toast } from "./ui";
 import { IcUpload, IcPaperclip } from "./icons";
 import { MIGRATION_QUERY_KEY } from "./MigrationSection";
 
+// What the proxy in front of the API accepts. Checked HERE as well as on the server, because the
+// server never sees an oversized request: nginx rejects it on the Content-Length and answers with
+// its own HTML page, which this code cannot translate and the customer cannot act on. Refusing on
+// the form costs a second; finding out after a twenty-minute upload costs the afternoon.
+const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+
 export function MigrationFileForm() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -36,9 +42,14 @@ export function MigrationFileForm() {
 
   const pick = (f: File | null | undefined) => {
     if (!f) return;
+    setPct(0);
+    if (f.size > MAX_UPLOAD_BYTES) {
+      setFile(null);
+      setErr(t("migration.fileTooLargeLocal", { size: humanSize(f.size) }));
+      return;
+    }
     setFile(f);
     setErr("");
-    setPct(0);
   };
 
   return (
@@ -80,9 +91,9 @@ export function MigrationFileForm() {
 
         {upload.isPending && (
           <>
-            {/* The upload's own percentage, which is not the import's. Somebody watching a two
-                gigabyte file go up needs to see it moving, and calling it "sending" keeps it
-                distinct from the copying that starts afterwards. */}
+            {/* The upload's own percentage, which is not the import's. Somebody watching half a
+                gigabyte go up needs to see it moving, and calling it "sending" keeps it distinct
+                from the copying that starts once it has arrived. */}
             <div className="mig-state">{t("migration.uploading", { pct })}</div>
             <div className="mig-bar"><span style={{ width: `${pct}%` }} /></div>
           </>

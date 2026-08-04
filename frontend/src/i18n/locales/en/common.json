@@ -1032,7 +1032,7 @@
     "migration.file_msf": "That is Thunderbird's index file, which holds no messages. Select the file of the same name without the .msf extension.",
     "migration.file_empty": "No mailbox was found inside that archive.",
     "migration.file_unreadable": "That file could not be read.",
-    "migration.file_too_large": "That file is larger than the 20 GB limit. Upload the folders separately.",
+    "migration.file_too_large": "That file is above the 500 MB limit for one upload. Send the folders separately.",
     "migration.file_size_unknown": "The size of the file could not be determined.",
     "migration.file_gone": "The uploaded file is no longer stored."
   },
@@ -2893,13 +2893,14 @@
     "fileTitle": "Mail stored on this computer",
     "fileBlurb": "For mail that is on no server: messages downloaded by POP3 years ago, an archive exported before an account was closed, or a mailbox handed over when somebody left.",
     "fileDrop": "Drop the file here, or select it",
-    "fileFormats": "Accepted: Thunderbird mailbox files (Local Folders, with or without a .mbox extension), .eml messages, and a .zip containing either. Up to 20 GB.",
+    "fileFormats": "Accepted: Thunderbird mailbox files (Local Folders, with or without a .mbox extension), .eml messages, and a .zip containing either. Up to 500 MB per upload — larger mailboxes can be sent one folder at a time.",
     "fileStart": "Upload and import",
     "uploading": "Sending the file — {{pct}}%",
     "whereTitle": "Where to find the file",
     "whereThunderbirdTitle": "Thunderbird:",
     "whereThunderbird": "Settings → General → Config Editor is not needed. Use Help → Troubleshooting Information → Profile Folder → Open Folder, then the Mail directory. Each mailbox is the file without an extension; the .msf beside it is only an index. Compressing the Mail folder into a .zip and uploading that brings the whole tree at once.",
     "whereOutlookTitle": "Outlook:",
-    "whereOutlook": "Outlook stores mail in a .pst file, which is a database rather than mail and cannot be read here. Add this mailbox to Outlook as an ordinary account, then drag the folders from the .pst onto it: Outlook uploads the messages itself, and the result is more faithful than any conversion."
+    "whereOutlook": "Outlook stores mail in a .pst file, which is a database rather than mail and cannot be read here. Add this mailbox to Outlook as an ordinary account, then drag the folders from the .pst onto it: Outlook uploads the messages itself, and the result is more faithful than any conversion.",
+    "fileTooLargeLocal": "That file is {{size}}, above the 500 MB limit for one upload. Send the folders separately, or compress a smaller part of the tree."
   }
 }
