@@ -1032,7 +1032,7 @@
     "migration.file_msf": "Esse é o ficheiro de índice do Thunderbird, que não contém mensagens. Selecione o ficheiro com o mesmo nome, sem a extensão .msf.",
     "migration.file_empty": "Não foi encontrada nenhuma caixa dentro desse arquivo.",
     "migration.file_unreadable": "Não foi possível ler esse ficheiro.",
-    "migration.file_too_large": "Esse ficheiro excede o limite de 20 GB. Envie as pastas separadamente.",
+    "migration.file_too_large": "Esse ficheiro está acima do limite de 500 MB por envio. Envie as pastas separadamente.",
     "migration.file_size_unknown": "Não foi possível determinar o tamanho do ficheiro.",
     "migration.file_gone": "O ficheiro enviado já não está guardado."
   },
@@ -2893,13 +2893,14 @@
     "fileTitle": "Correio guardado neste computador",
     "fileBlurb": "Para o correio que não está em servidor nenhum: mensagens descarregadas por POP3 há anos, um arquivo exportado antes de a conta ser fechada, ou uma caixa entregue quando alguém saiu.",
     "fileDrop": "Largue o ficheiro aqui, ou selecione-o",
-    "fileFormats": "Aceites: ficheiros de caixa do Thunderbird (Local Folders, com ou sem a extensão .mbox), mensagens .eml e um .zip com qualquer um deles. Até 20 GB.",
+    "fileFormats": "Aceites: ficheiros de caixa do Thunderbird (Local Folders, com ou sem a extensão .mbox), mensagens .eml e um .zip com qualquer um deles. Até 500 MB por envio — caixas maiores podem ser enviadas uma pasta de cada vez.",
     "fileStart": "Enviar e importar",
     "uploading": "A enviar o ficheiro — {{pct}}%",
     "whereTitle": "Onde encontrar o ficheiro",
     "whereThunderbirdTitle": "Thunderbird:",
     "whereThunderbird": "Ajuda → Informação para resolução de problemas → Pasta de perfil → Abrir pasta, e depois a pasta Mail. Cada caixa é o ficheiro sem extensão; o .msf ao lado é apenas um índice. Comprimir a pasta Mail num .zip e enviar esse ficheiro traz a árvore inteira de uma vez.",
     "whereOutlookTitle": "Outlook:",
-    "whereOutlook": "O Outlook guarda o correio num ficheiro .pst, que é uma base de dados e não correio, e não pode ser lido aqui. Adicione esta caixa ao Outlook como uma conta normal e arraste para lá as pastas do .pst: é o próprio Outlook que envia as mensagens, e o resultado é mais fiel do que qualquer conversão."
+    "whereOutlook": "O Outlook guarda o correio num ficheiro .pst, que é uma base de dados e não correio, e não pode ser lido aqui. Adicione esta caixa ao Outlook como uma conta normal e arraste para lá as pastas do .pst: é o próprio Outlook que envia as mensagens, e o resultado é mais fiel do que qualquer conversão.",
+    "fileTooLargeLocal": "Esse ficheiro tem {{size}}, acima do limite de 500 MB por envio. Envie as pastas separadamente, ou comprima uma parte menor da árvore."
   }
 }

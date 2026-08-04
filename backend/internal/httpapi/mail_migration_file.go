@@ -24,9 +24,19 @@ import (
 	"mailin/backend/internal/mailmigrate"
 )
 
-// maxImportBytes caps one upload. Generous, because a decade of mail legitimately reaches this, and
-// bounded, because the request is otherwise a way to fill the bucket.
-const maxImportBytes = 20 << 30 // 20 GiB
+// maxImportBytes caps one upload.
+//
+// THIS NUMBER IS THE PROXY'S, NOT OURS. CapRover's nginx refuses a body over 500 MB before the
+// request ever reaches this process, and it answers with its own HTML error page -- so a larger
+// limit here would not be generosity, it would be a promise the infrastructure breaks after the
+// customer has spent twenty minutes uploading. Measured against production, not assumed: 400 MB
+// passes through, 600 MB comes back 413 from nginx.
+//
+// Raising it means giving the api app a custom nginx block with `client_max_body_size` AND
+// `proxy_request_buffering off` -- without the second, the proxy spools the whole upload to the
+// disk of the machine that also runs the mail server. Until that is done, the screen tells people
+// to upload folders separately, which is honest and which mbox makes easy.
+const maxImportBytes = 500 << 20
 
 // handleUploadMigrationFile parks an uploaded mailbox and queues the job that reads it.
 func (s *Server) handleUploadMigrationFile(w http.ResponseWriter, r *http.Request) {
