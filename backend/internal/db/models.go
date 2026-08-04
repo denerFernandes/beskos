@@ -605,16 +605,20 @@ type MailMigration struct {
 	StartedAt           pgtype.Timestamptz `json:"started_at"`
 	HeartbeatAt         pgtype.Timestamptz `json:"heartbeat_at"`
 	FinishedAt          pgtype.Timestamptz `json:"finished_at"`
+	Kind                string             `json:"kind"`
+	SourceFile          string             `json:"source_file"`
+	SourceKey           string             `json:"source_key"`
 }
 
 type MailMigrationFolder struct {
-	ID              uuid.UUID `json:"id"`
-	MigrationID     uuid.UUID `json:"migration_id"`
-	RemoteName      string    `json:"remote_name"`
-	LocalName       string    `json:"local_name"`
-	LocalRole       string    `json:"local_role"`
-	SkipReason      string    `json:"skip_reason"`
-	UidValidity     int64     `json:"uid_validity"`
+	ID          uuid.UUID `json:"id"`
+	MigrationID uuid.UUID `json:"migration_id"`
+	RemoteName  string    `json:"remote_name"`
+	LocalName   string    `json:"local_name"`
+	LocalRole   string    `json:"local_role"`
+	SkipReason  string    `json:"skip_reason"`
+	UidValidity int64     `json:"uid_validity"`
+	// IMAP jobs: highest UID copied. File jobs: how many messages of this entry were read.
 	LastUid         int64     `json:"last_uid"`
 	TotalMessages   int64     `json:"total_messages"`
 	CopiedMessages  int64     `json:"copied_messages"`

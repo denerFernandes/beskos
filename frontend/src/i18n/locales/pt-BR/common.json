@@ -893,7 +893,7 @@
     "storage.seek_failed": "Falha ao processar o arquivo",
     "storage.share_failed": "Erro ao compartilhar",
     "storage.too_large": "Arquivo excede o limite",
-    "storage.upload_failed": "Falha ao enviar arquivo",
+    "storage.upload_failed": "Não foi possível guardar o ficheiro.",
     "tenant.create_failed": "Falha ao criar organização",
     "webmail.stalwart_unreachable": "Servidor de email indisponível",
     "webmail.unknown_mailbox": "Caixa não cadastrada neste painel",
@@ -1025,7 +1025,16 @@
     "migration.storage_unavailable": "As importações não estão disponíveis nesta instalação. Contacte o suporte.",
     "migration.destination_locked": "Inicie sessão nesta caixa uma vez antes de importar.",
     "migration.credentials_gone": "A importação foi parada antes de começar.",
-    "migration.interrupted": "A importação foi interrompida e será retomada automaticamente."
+    "migration.interrupted": "A importação foi interrompida e será retomada automaticamente.",
+    "migration.file_pst": "Os ficheiros .pst e .ost do Outlook são bases de dados, não correio, e não podem ser lidos aqui. Adicione esta caixa ao Outlook como uma conta e arraste as pastas para lá: é o Outlook que transfere as mensagens.",
+    "migration.file_olm": "Os arquivos .olm do Outlook para Mac não podem ser lidos aqui. Adicione esta caixa ao Outlook como uma conta e arraste as pastas para lá.",
+    "migration.file_msg": "Um ficheiro .msg é uma única mensagem no formato próprio do Outlook. Guarde-a como .eml, ou arraste-a do Outlook para esta caixa.",
+    "migration.file_msf": "Esse é o ficheiro de índice do Thunderbird, que não contém mensagens. Selecione o ficheiro com o mesmo nome, sem a extensão .msf.",
+    "migration.file_empty": "Não foi encontrada nenhuma caixa dentro desse arquivo.",
+    "migration.file_unreadable": "Não foi possível ler esse ficheiro.",
+    "migration.file_too_large": "Esse ficheiro excede o limite de 20 GB. Envie as pastas separadamente.",
+    "migration.file_size_unknown": "Não foi possível determinar o tamanho do ficheiro.",
+    "migration.file_gone": "O ficheiro enviado já não está guardado."
   },
   "members": {
     "title": "Membros",
@@ -2878,6 +2887,19 @@
     "promptLater": "Agora não",
     "formTitle": "Fornecedor anterior",
     "retry": "Tentar novamente",
-    "folderNow": "A copiar {{folder}}"
+    "folderNow": "A copiar {{folder}}",
+    "sourceServer": "De um fornecedor",
+    "sourceFile": "De um ficheiro",
+    "fileTitle": "Correio guardado neste computador",
+    "fileBlurb": "Para o correio que não está em servidor nenhum: mensagens descarregadas por POP3 há anos, um arquivo exportado antes de a conta ser fechada, ou uma caixa entregue quando alguém saiu.",
+    "fileDrop": "Largue o ficheiro aqui, ou selecione-o",
+    "fileFormats": "Aceites: ficheiros de caixa do Thunderbird (Local Folders, com ou sem a extensão .mbox), mensagens .eml e um .zip com qualquer um deles. Até 20 GB.",
+    "fileStart": "Enviar e importar",
+    "uploading": "A enviar o ficheiro — {{pct}}%",
+    "whereTitle": "Onde encontrar o ficheiro",
+    "whereThunderbirdTitle": "Thunderbird:",
+    "whereThunderbird": "Ajuda → Informação para resolução de problemas → Pasta de perfil → Abrir pasta, e depois a pasta Mail. Cada caixa é o ficheiro sem extensão; o .msf ao lado é apenas um índice. Comprimir a pasta Mail num .zip e enviar esse ficheiro traz a árvore inteira de uma vez.",
+    "whereOutlookTitle": "Outlook:",
+    "whereOutlook": "O Outlook guarda o correio num ficheiro .pst, que é uma base de dados e não correio, e não pode ser lido aqui. Adicione esta caixa ao Outlook como uma conta normal e arraste para lá as pastas do .pst: é o próprio Outlook que envia as mensagens, e o resultado é mais fiel do que qualquer conversão."
   }
 }

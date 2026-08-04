@@ -104,7 +104,7 @@ WHERE id = (
     FOR UPDATE SKIP LOCKED
     LIMIT 1
 )
-RETURNING id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at
+RETURNING id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at, kind, source_file, source_key
 `
 
 // Hand one waiting job to one worker.
@@ -136,8 +136,23 @@ func (q *Queries) ClaimMailMigration(ctx context.Context) (MailMigration, error)
 		&i.StartedAt,
 		&i.HeartbeatAt,
 		&i.FinishedAt,
+		&i.Kind,
+		&i.SourceFile,
+		&i.SourceKey,
 	)
 	return i, err
+}
+
+const clearMailMigrationFile = `-- name: ClearMailMigrationFile :exec
+UPDATE mail_migrations SET source_key = '' WHERE id = $1
+`
+
+// Forget where the upload is parked. Called after the object itself is deleted, so a key never
+// outlives the file it names -- a row pointing at a bucket entry that is gone reads as a bug
+// forever after.
+func (q *Queries) ClearMailMigrationFile(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearMailMigrationFile, id)
+	return err
 }
 
 const countUnfinishedMailMigrationFolders = `-- name: CountUnfinishedMailMigrationFolders :one
@@ -152,6 +167,59 @@ func (q *Queries) CountUnfinishedMailMigrationFolders(ctx context.Context, migra
 	return count, err
 }
 
+const createMailFileMigration = `-- name: CreateMailFileMigration :one
+INSERT INTO mail_migrations (
+    tenant_id, mail_user_id, kind, source_file, source_key,
+    source_host, source_port, source_username, source_password
+) VALUES ($1, $2, 'file', $3, $4, '', 0, '', '')
+RETURNING id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at, kind, source_file, source_key
+`
+
+type CreateMailFileMigrationParams struct {
+	TenantID   uuid.UUID `json:"tenant_id"`
+	MailUserID uuid.UUID `json:"mail_user_id"`
+	SourceFile string    `json:"source_file"`
+	SourceKey  string    `json:"source_key"`
+}
+
+// The same job row, from an uploaded file instead of a server. Host, user and password stay empty:
+// there is nothing to log in to.
+func (q *Queries) CreateMailFileMigration(ctx context.Context, arg CreateMailFileMigrationParams) (MailMigration, error) {
+	row := q.db.QueryRow(ctx, createMailFileMigration,
+		arg.TenantID,
+		arg.MailUserID,
+		arg.SourceFile,
+		arg.SourceKey,
+	)
+	var i MailMigration
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.MailUserID,
+		&i.SourceHost,
+		&i.SourcePort,
+		&i.SourceStarttls,
+		&i.SourceUsername,
+		&i.SourcePassword,
+		&i.Status,
+		&i.ErrorCode,
+		&i.LastError,
+		&i.ConsecutiveFailures,
+		&i.TotalMessages,
+		&i.CopiedMessages,
+		&i.SkippedMessages,
+		&i.FailedMessages,
+		&i.CreatedAt,
+		&i.StartedAt,
+		&i.HeartbeatAt,
+		&i.FinishedAt,
+		&i.Kind,
+		&i.SourceFile,
+		&i.SourceKey,
+	)
+	return i, err
+}
+
 const createMailMigration = `-- name: CreateMailMigration :one
 
 INSERT INTO mail_migrations (
@@ -159,7 +227,7 @@ INSERT INTO mail_migrations (
     source_username, source_password
 ) VALUES ($1, $2, $3, $4, $5,
           $6, $7)
-RETURNING id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at
+RETURNING id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at, kind, source_file, source_key
 `
 
 type CreateMailMigrationParams struct {
@@ -206,6 +274,9 @@ func (q *Queries) CreateMailMigration(ctx context.Context, arg CreateMailMigrati
 		&i.StartedAt,
 		&i.HeartbeatAt,
 		&i.FinishedAt,
+		&i.Kind,
+		&i.SourceFile,
+		&i.SourceKey,
 	)
 	return i, err
 }
@@ -258,7 +329,7 @@ func (q *Queries) FinishMailMigrationFolder(ctx context.Context, arg FinishMailM
 }
 
 const getMailMigration = `-- name: GetMailMigration :one
-SELECT id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at FROM mail_migrations WHERE id = $1 AND tenant_id = $2
+SELECT id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at, kind, source_file, source_key FROM mail_migrations WHERE id = $1 AND tenant_id = $2
 `
 
 type GetMailMigrationParams struct {
@@ -292,6 +363,9 @@ func (q *Queries) GetMailMigration(ctx context.Context, arg GetMailMigrationPara
 		&i.StartedAt,
 		&i.HeartbeatAt,
 		&i.FinishedAt,
+		&i.Kind,
+		&i.SourceFile,
+		&i.SourceKey,
 	)
 	return i, err
 }
@@ -308,7 +382,7 @@ func (q *Queries) HeartbeatMailMigration(ctx context.Context, id uuid.UUID) erro
 }
 
 const lastMailMigrationForUser = `-- name: LastMailMigrationForUser :one
-SELECT id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at FROM mail_migrations
+SELECT id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at, kind, source_file, source_key FROM mail_migrations
 WHERE mail_user_id = $1 ORDER BY created_at DESC LIMIT 1
 `
 
@@ -337,6 +411,9 @@ func (q *Queries) LastMailMigrationForUser(ctx context.Context, mailUserID uuid.
 		&i.StartedAt,
 		&i.HeartbeatAt,
 		&i.FinishedAt,
+		&i.Kind,
+		&i.SourceFile,
+		&i.SourceKey,
 	)
 	return i, err
 }
@@ -383,7 +460,7 @@ func (q *Queries) ListMailMigrationFolders(ctx context.Context, migrationID uuid
 }
 
 const listTenantMailMigrations = `-- name: ListTenantMailMigrations :many
-SELECT m.id, m.tenant_id, m.mail_user_id, m.source_host, m.source_port, m.source_starttls, m.source_username, m.source_password, m.status, m.error_code, m.last_error, m.consecutive_failures, m.total_messages, m.copied_messages, m.skipped_messages, m.failed_messages, m.created_at, m.started_at, m.heartbeat_at, m.finished_at, u.email AS mailbox_email FROM mail_migrations m
+SELECT m.id, m.tenant_id, m.mail_user_id, m.source_host, m.source_port, m.source_starttls, m.source_username, m.source_password, m.status, m.error_code, m.last_error, m.consecutive_failures, m.total_messages, m.copied_messages, m.skipped_messages, m.failed_messages, m.created_at, m.started_at, m.heartbeat_at, m.finished_at, m.kind, m.source_file, m.source_key, u.email AS mailbox_email FROM mail_migrations m
 JOIN mail_users u ON u.id = m.mail_user_id
 WHERE m.tenant_id = $1
 ORDER BY m.created_at DESC LIMIT 200
@@ -410,6 +487,9 @@ type ListTenantMailMigrationsRow struct {
 	StartedAt           pgtype.Timestamptz `json:"started_at"`
 	HeartbeatAt         pgtype.Timestamptz `json:"heartbeat_at"`
 	FinishedAt          pgtype.Timestamptz `json:"finished_at"`
+	Kind                string             `json:"kind"`
+	SourceFile          string             `json:"source_file"`
+	SourceKey           string             `json:"source_key"`
 	MailboxEmail        string             `json:"mailbox_email"`
 }
 
@@ -445,6 +525,9 @@ func (q *Queries) ListTenantMailMigrations(ctx context.Context, tenantID uuid.UU
 			&i.StartedAt,
 			&i.HeartbeatAt,
 			&i.FinishedAt,
+			&i.Kind,
+			&i.SourceFile,
+			&i.SourceKey,
 			&i.MailboxEmail,
 		); err != nil {
 			return nil, err
@@ -458,7 +541,7 @@ func (q *Queries) ListTenantMailMigrations(ctx context.Context, tenantID uuid.UU
 }
 
 const liveMailMigrationForUser = `-- name: LiveMailMigrationForUser :one
-SELECT id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at FROM mail_migrations
+SELECT id, tenant_id, mail_user_id, source_host, source_port, source_starttls, source_username, source_password, status, error_code, last_error, consecutive_failures, total_messages, copied_messages, skipped_messages, failed_messages, created_at, started_at, heartbeat_at, finished_at, kind, source_file, source_key FROM mail_migrations
 WHERE mail_user_id = $1 AND status IN ('pending', 'running')
 `
 
@@ -487,6 +570,9 @@ func (q *Queries) LiveMailMigrationForUser(ctx context.Context, mailUserID uuid.
 		&i.StartedAt,
 		&i.HeartbeatAt,
 		&i.FinishedAt,
+		&i.Kind,
+		&i.SourceFile,
+		&i.SourceKey,
 	)
 	return i, err
 }

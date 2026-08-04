@@ -9,6 +9,21 @@ INSERT INTO mail_migrations (
           @source_username, @source_password)
 RETURNING *;
 
+-- name: CreateMailFileMigration :one
+-- The same job row, from an uploaded file instead of a server. Host, user and password stay empty:
+-- there is nothing to log in to.
+INSERT INTO mail_migrations (
+    tenant_id, mail_user_id, kind, source_file, source_key,
+    source_host, source_port, source_username, source_password
+) VALUES (@tenant_id, @mail_user_id, 'file', @source_file, @source_key, '', 0, '', '')
+RETURNING *;
+
+-- name: ClearMailMigrationFile :exec
+-- Forget where the upload is parked. Called after the object itself is deleted, so a key never
+-- outlives the file it names -- a row pointing at a bucket entry that is gone reads as a bug
+-- forever after.
+UPDATE mail_migrations SET source_key = '' WHERE id = $1;
+
 -- name: GetMailMigration :one
 -- Tenant-scoped (law 5.1): the id alone would let one organisation read another's job, password
 -- column and all.
