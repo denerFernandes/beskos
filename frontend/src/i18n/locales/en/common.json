@@ -2757,7 +2757,12 @@
     "soonTitle": "We're opening by invitation.",
     "soonBody": "Beskos isn't taking open sign-ups yet. We're onboarding the first organisations a few at a time, so each one gets proper attention.",
     "soonCta": "Learn about Beskos",
-    "soonContact": "Want to join the list? Write to ola@beskos.com."
+    "soonName": "Your name",
+    "soonEmail": "name@yourcompany.com",
+    "soonSubmit": "Join the waiting list",
+    "soonSending": "Sending…",
+    "soonDone": "You are on the list. You will be written to at that address when a place opens.",
+    "soonPrivacy": "The address is used to write to you about a place, and for nothing else."
   },
   "onboarding": {
     "h0": "Set your password",

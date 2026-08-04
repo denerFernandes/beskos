@@ -117,3 +117,15 @@
 .sg-badge { display: inline-block; padding: 5px 12px; border-radius: 20px; background: var(--accent-tint); color: var(--accent-ink); font-size: 12.5px; font-weight: 700; letter-spacing: .01em; }
 .sg-main.center h1 { max-width: 18ch; }
 .sg-main.center .sg-sub { max-width: 46ch; }
+
+/* Waiting list on the closed-signup screen. Two fields and a button, centred in the same column as
+   the heading -- it is the whole point of that page now, not a footnote under it. */
+.sg-soon-form { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 340px; margin: 18px 0 6px; }
+.sg-soon-form .sg-fld input { text-align: center; }
+.sg-soon-form .sg-cta { width: 100%; }
+.sg-soon-err { color: var(--danger); }
+.sg-soon-done { max-width: 34ch; margin-top: 18px; }
+/* The "learn about Beskos" link stops being the primary action once there is a form above it:
+   two solid buttons competing is a screen with no answer to "what do I do here". */
+.sg-main.center .sg-cta.ghost { background: none; color: var(--muted); border: 1px solid var(--border-strong); }
+.sg-main.center .sg-cta.ghost:hover { background: var(--surface-2); filter: none; }

@@ -233,10 +233,66 @@ function ComingSoon() {
         <span className="sg-badge">{t("signup.soonBadge")}</span>
         <h1>{t("signup.soonTitle")}</h1>
         <p className="sg-sub">{t("signup.soonBody")}</p>
-        <a className="sg-cta" href="https://beskos.com">{t("signup.soonCta")}</a>
-        <p className="sg-fine">{t("signup.soonContact")}</p>
+        {/* The form, not an address. Somebody who navigated to /signup has already decided to try
+            the product -- telling them to go and compose an e-mail instead is asking them to do our
+            work, and most of them simply will not. */}
+        <SoonWaitlist />
+        <a className="sg-cta ghost" href="https://beskos.com">{t("signup.soonCta")}</a>
       </main>
     </div>
+  );
+}
+
+// SoonWaitlist puts somebody on the waiting list from the closed-signup screen.
+function SoonWaitlist() {
+  const { t, i18n } = useTranslation();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (busy || !name.trim() || !email.trim()) return;
+    setBusy(true);
+    setErr("");
+    try {
+      await api.joinWaitlist({
+        email: email.trim(), name: name.trim(), locale: i18n.language, source: "signup",
+      });
+      setDone(true);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // The form is replaced by the confirmation: leaving it there invites a second submission that
+  // changes nothing, which reads as a form that did not work.
+  if (done) {
+    return (
+      <p className="sg-fine ok center sg-soon-done">{t("signup.soonDone")}</p>
+    );
+  }
+
+  return (
+    <form className="sg-soon-form" onSubmit={submit}>
+      <div className="sg-fld">
+        <input value={name} onChange={(ev) => setName(ev.target.value)} required
+          placeholder={t("signup.soonName")} aria-label={t("signup.soonName")} autoComplete="name" />
+      </div>
+      <div className="sg-fld">
+        <input value={email} onChange={(ev) => setEmail(ev.target.value)} required type="email"
+          placeholder={t("signup.soonEmail")} aria-label={t("signup.soonEmail")} autoComplete="email" />
+      </div>
+      <button className="sg-cta" type="submit" disabled={busy}>
+        {busy ? t("signup.soonSending") : t("signup.soonSubmit")}
+      </button>
+      {err && <p className="sg-fine center sg-soon-err">{err}</p>}
+      <p className="sg-fine center">{t("signup.soonPrivacy")}</p>
+    </form>
   );
 }
 

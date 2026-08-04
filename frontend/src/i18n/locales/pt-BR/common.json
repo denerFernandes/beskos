@@ -2755,9 +2755,14 @@
     "invoiceHintShort": "Para aqui vão as faturas (normalmente o financeiro).",
     "soonBadge": "Em breve",
     "soonTitle": "Estamos a abrir por convite.",
-    "soonBody": "O Beskos ainda não aceita inscrições abertas. Estamos a receber as primeiras organizações a conta-gotas, para tratar bem de cada uma.",
+    "soonBody": "O Beskos ainda não aceita registos abertos. As primeiras organizações entram poucas de cada vez, para que cada uma receba a atenção devida.",
     "soonCta": "Conhecer o Beskos",
-    "soonContact": "Quer entrar na lista? Escreva para ola@beskos.com."
+    "soonName": "O seu nome",
+    "soonEmail": "nome@aempresa.com",
+    "soonSubmit": "Entrar na lista de espera",
+    "soonSending": "A enviar…",
+    "soonDone": "Está na lista. Será contactado nesse endereço quando houver lugar.",
+    "soonPrivacy": "O endereço é usado para o contactar sobre um lugar, e para mais nada."
   },
   "onboarding": {
     "h0": "Defina a sua palavra-passe",
