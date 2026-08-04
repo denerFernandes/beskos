@@ -306,6 +306,10 @@ export const api = {
     plan: string; cycle: BillingCycle; billing: BillingProfile;
   }) => req<{ tenant_id: string; email: string; token: string; trial_days: number; checkout_url?: string }>(
     "/api/public/signup", { method: "POST", body: JSON.stringify(b) }),
+  // The waiting list. Reached from the closed-signup screen, which is the highest-intent surface
+  // there is: somebody who navigated to /signup has already decided to try the product.
+  joinWaitlist: (b: { email: string; name: string; company?: string; note?: string; locale?: string; source?: string }) =>
+    req<{ status: string }>("/api/public/waitlist", { method: "POST", body: JSON.stringify(b) }),
   billingCancel: () => req<{ status: string }>("/api/billing/cancel", { method: "POST", body: "{}" }),
   billingResume: () => req<{ status: string }>("/api/billing/resume", { method: "POST", body: "{}" }),
   billingPortal: () => req<{ url: string }>("/api/billing/portal", { method: "POST", body: "{}" }),
