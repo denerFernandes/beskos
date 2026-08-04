@@ -15,7 +15,7 @@
   --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
   --ink:#191813; --muted:#6A675E; --faint:#918D82;
   --border:#DFDACB; --border-strong:#C7C0AD; --hover:#EDE8DC;
-  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --accent:#B4785F; --accent-solid:#9A6247; --accent-ink:#8A5539; --accent-tint:#EFE3DA;
   --on-accent:#FFFFFF; --star:#C08A0C;
   --blue:#2F6296; --rose:#A61E1E; --purple:#6D45AD; --green:#2E7D5B; --amber:#7F5E0B;
   /* NAMES THIS FILE USES AND NEVER DECLARED. `color:var(--text)` appears 24 times, `var(--danger)`
@@ -42,7 +42,7 @@
   color-scheme: dark;
   --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
   --border:#34312A; --border-strong:#4A463C; --hover:#2E2A23;
-  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --accent:#D2A28C; --accent-solid:#D2A28C; --accent-ink:#E0BAA8; --accent-tint:#33251E;
   --on-accent:#1A1916; --star:#E8C24E;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
   --shadow-pop:0 8px 24px rgba(0,0,0,.4);
@@ -52,7 +52,7 @@
   color-scheme: dark;
   --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
   --border:#34312A; --border-strong:#4A463C; --hover:#2E2A23;
-  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --accent:#D2A28C; --accent-solid:#D2A28C; --accent-ink:#E0BAA8; --accent-tint:#33251E;
   --on-accent:#1A1916; --star:#E8C24E;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
   --shadow-pop:0 8px 24px rgba(0,0,0,.4);
@@ -63,7 +63,7 @@
   --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
   --ink:#191813; --muted:#6A675E; --faint:#918D82;
   --border:#DFDACB; --border-strong:#C7C0AD; --hover:#EDE8DC;
-  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --accent:#B4785F; --accent-solid:#9A6247; --accent-ink:#8A5539; --accent-tint:#EFE3DA;
   --on-accent:#FFFFFF; --star:#C08A0C;
   --blue:#2F6296; --rose:#A61E1E; --purple:#6D45AD; --green:#2E7D5B; --amber:#7F5E0B;
 }

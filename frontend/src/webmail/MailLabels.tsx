@@ -6,7 +6,7 @@ import { IcPlus, IcCheck, IcTrash } from "../panel/icons";
 import { toast } from "./toast";
 
 // Paleta dos marcadores (mesma linguagem visual das tags/eventos).
-const LABEL_COLORS = ["#C2603A", "#c0392b", "#8e44ad", "#2980b9", "#d68910", "#27ae60", "#2c3e50"];
+const LABEL_COLORS = ["#B4785F", "#c0392b", "#8e44ad", "#2980b9", "#d68910", "#27ae60", "#2c3e50"];
 
 // Ícone de etiqueta inline (não há IcTag no conjunto).
 export function TagIcon({ size = 15 }: { size?: number }) {

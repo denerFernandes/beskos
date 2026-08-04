@@ -6,7 +6,7 @@ import { toast } from "./toast";
 import { Avatar } from "./Avatar";
 import { IcPencil, IcTrash, IcUsers, IcX } from "../panel/icons";
 
-const PALETTE = ["#C2603A", "#B44D3A", "#3B6FB0", "#8257C7", "#2E7D5B", "#C0692F"];
+const PALETTE = ["#B4785F", "#B44D3A", "#3B6FB0", "#8257C7", "#2E7D5B", "#C0692F"];
 
 // GRUPOS de contatos: além de arrumar, é o que DÁ ACESSO — partilhar um grupo com uma equipa faz
 // os contatos dele aparecerem para essa equipa. Decide-se uma vez por grupo, não contato a contato.
