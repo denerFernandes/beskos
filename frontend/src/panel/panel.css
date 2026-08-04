@@ -1,25 +1,58 @@
 /* Design system do painel administrativo — layout estilo Google Workspace Admin.
    Sidebar + conteúdo, ícones monocromáticos, modais e drawers. Escopo em .pnl. */
 .pnl {
-  --paper:#F6F7F8; --surface:#FFFFFF; --surface-2:#F1F3F4;
-  --ink:#1F2124; --muted:#5F6368; --faint:#9AA0A6;
-  --border:#E3E6E8; --border-strong:#D5D9DC;
-  --accent:#116466; --accent-solid:#116466; --accent-ink:#0C4A4B; --accent-tint:#E4F0EE;
-  --danger:#C0392B; --ok:#2E7D5B; --warn:#C0692F;
-  --shadow-sm:0 1px 2px rgba(31,33,36,.06);
-  --shadow:0 1px 3px rgba(31,33,36,.08),0 4px 16px rgba(31,33,36,.06);
-  --shadow-lg:0 8px 30px rgba(31,33,36,.11);
+  color-scheme: light;
+  --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
+  --ink:#191813; --muted:#6A675E; --faint:#918D82;
+  --border:#DFDACB; --border-strong:#C7C0AD;
+  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --on-accent:#FFFFFF;
+  --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
+  --shadow-sm:0 1px 2px rgba(25,24,19,.05);
+  --shadow:0 1px 3px rgba(25,24,19,.07),0 4px 16px rgba(25,24,19,.05);
+  --shadow-lg:0 8px 30px rgba(25,24,19,.10);
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:"SF Mono",ui-monospace,"Roboto Mono",Menlo,monospace;
   --sidebar:248px;
   font-family:var(--font); color:var(--ink); font-size:14px; line-height:1.5;
 }
 @media (prefers-color-scheme:dark){.pnl{
-  --paper:#141516; --surface:#1C1E1F; --surface-2:#26292A; --ink:#E8EAED; --muted:#9AA0A6; --faint:#6B7075;
-  --border:#2C2F31; --border-strong:#3A3E40; --accent:#2DD4BF; --accent-solid:#14B8A6; --accent-ink:#5EEAD4; --accent-tint:#17302E;
+  color-scheme: dark;
+  --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
+  --border:#34312A; --border-strong:#4A463C;
+  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --on-accent:#1A1916;
+  --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
   --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
   --shadow-lg:0 10px 44px rgba(0,0,0,.5);
 }}
+/* THE TOGGLE HAS TO WIN OVER THE OPERATING SYSTEM. The webmail's theme switch writes `data-theme`
+   on <html> (webmail/App.tsx), and webmail.css honours it -- this file did not have a single
+   data-theme rule. Choosing light in the app on a dark desktop left the administration console
+   dark, and the reverse; the two halves of the same product disagreed about the theme the user
+   had just chosen. These two blocks are the fix, and they mirror what webmail.css already did. */
+:root[data-theme="dark"] .pnl{
+  color-scheme: dark;
+  --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
+  --border:#34312A; --border-strong:#4A463C;
+  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --on-accent:#1A1916;
+  --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  --shadow-lg:0 10px 44px rgba(0,0,0,.5);
+}
+:root[data-theme="light"] .pnl{
+  color-scheme: light;
+  --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
+  --ink:#191813; --muted:#6A675E; --faint:#918D82;
+  --border:#DFDACB; --border-strong:#C7C0AD;
+  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --on-accent:#FFFFFF;
+  --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
+  --shadow-sm:0 1px 2px rgba(25,24,19,.05);
+  --shadow:0 1px 3px rgba(25,24,19,.07),0 4px 16px rgba(25,24,19,.05);
+  --shadow-lg:0 8px 30px rgba(25,24,19,.10);
+}
 .pnl *,.pnl *::before,.pnl *::after{box-sizing:border-box;}
 .pnl button{font-family:inherit;cursor:pointer;}
 .pnl a{color:inherit;text-decoration:none;}
@@ -29,21 +62,21 @@
 /* Sidebar */
 .pnl-side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
 .pnl-brand{display:flex;align-items:center;gap:11px;padding:18px 20px;}
-.pnl-mark{width:32px;height:32px;border-radius:9px;background:linear-gradient(150deg,var(--accent),var(--accent-ink));display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;}
+.pnl-mark{width:32px;height:32px;border-radius:8px;background:var(--accent-solid);display:grid;place-items:center;color:var(--on-accent);font-weight:700;font-size:16px;}
 .pnl-brand b{font-size:16px;letter-spacing:-.01em;}
 .pnl-brand small{display:block;color:var(--faint);font-size:11px;font-weight:500;}
 .pnl-nav{display:flex;flex-direction:column;gap:2px;padding:8px 12px;flex:1;overflow-y:auto;}
-.pnl-nav button{display:flex;align-items:center;gap:13px;padding:9px 12px;border-radius:10px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:left;}
+.pnl-nav button{display:flex;align-items:center;gap:13px;padding:9px 12px;border-radius:8px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:left;}
 .pnl-nav button:hover{background:var(--surface-2);color:var(--ink);}
 .pnl-nav button.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600;}
 .pnl-nav button.on svg{color:var(--accent);}
 .pnl-nav .sep{height:1px;background:var(--border);margin:8px 6px;}
 .pnl-side-foot{padding:12px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
-.pnl-avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;flex:none;}
+.pnl-avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;font-weight:600;font-size:13px;flex:none;}
 .pnl-side-foot .who{flex:1;min-width:0;}
 .pnl-side-foot .who b{display:block;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pnl-side-foot .who span{font-size:11px;color:var(--faint);}
-.pnl-icon-btn{width:34px;height:34px;border-radius:9px;border:none;background:none;color:var(--muted);display:grid;place-items:center;}
+.pnl-icon-btn{width:34px;height:34px;border-radius:8px;border:none;background:none;color:var(--muted);display:grid;place-items:center;}
 .pnl-icon-btn:hover{background:var(--surface-2);color:var(--ink);}
 
 /* Content */
@@ -55,9 +88,9 @@
 .pnl-content{padding:16px 32px 48px;max-width:1080px;width:100%;}
 
 /* Buttons */
-.pnl-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);border-radius:10px;padding:9px 16px;font-weight:600;font-size:13.5px;}
+.pnl-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);border-radius:8px;padding:9px 16px;font-weight:600;font-size:13.5px;}
 .pnl-btn:hover{background:var(--surface-2);}
-.pnl-btn.primary{background:var(--accent-solid);border-color:var(--accent-solid);color:#fff;}
+.pnl-btn.primary{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--on-accent);}
 .pnl-btn.primary:hover{filter:brightness(1.05);}
 .pnl-btn.ghost{border-color:transparent;background:none;}
 .pnl-btn.danger{color:var(--danger);border-color:transparent;}
@@ -65,7 +98,7 @@
 .pnl-btn:disabled{opacity:.5;}
 
 /* Cards & tables */
-.pnl-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);}
+.pnl-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm);}
 .pnl-card + .pnl-card{margin-top:16px;}
 .pnl-card-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);}
 .pnl-card-h h3{margin:0;font-size:15px;font-weight:600;}
@@ -194,7 +227,7 @@
 /* Permissões por membro: lista de capacidades com o estado (do papel / concedida / retirada). */
 .perm-list{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto;}
 .perm-row{display:flex;align-items:flex-start;gap:10px;padding:8px 6px;border-radius:8px;cursor:pointer;}
-.perm-row:hover{background:var(--hover,rgba(127,127,127,.08));}
+.perm-row:hover{background:var(--surface-2);}
 .perm-row.off{opacity:.5;cursor:not-allowed;}
 .perm-row input{margin-top:2px;}
 .perm-tx{display:flex;flex-direction:column;gap:1px;min-width:0;}
@@ -288,7 +321,7 @@
 .sub-steps button:disabled{cursor:default;}
 .sub-steps .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;border:2px solid var(--border);background:var(--surface);font-weight:700;font-size:12.5px;}
 .sub-steps li.on .n{border-color:var(--accent-solid);color:var(--accent-solid);}
-.sub-steps li.done .n{border-color:var(--accent-solid);background:var(--accent-solid);color:#fff;}
+.sub-steps li.done .n{border-color:var(--accent-solid);background:var(--accent-solid);color:var(--on-accent);}
 .sub-steps li.on .lb{color:var(--ink);font-weight:600;}
 .sub-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start;}
 .sub-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
@@ -297,7 +330,7 @@
 .sub-cycle{display:inline-flex;align-self:flex-start;padding:3px;background:var(--surface-2);border-radius:11px;gap:3px;}
 .sub-cycle button{display:inline-flex;align-items:center;gap:7px;border:none;background:none;color:var(--muted);border-radius:9px;padding:8px 16px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;}
 .sub-cycle button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12);}
-.sub-cycle em{font-style:normal;font-size:11px;font-weight:700;color:#fff;background:var(--accent-solid);border-radius:20px;padding:2px 7px;}
+.sub-cycle em{font-style:normal;font-size:11px;font-weight:700;color:var(--on-accent);background:var(--accent-solid);border-radius:20px;padding:2px 7px;}
 .sub-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
 .sub-plan{display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font:inherit;}
 .sub-plan:hover{border-color:var(--border-strong);}
@@ -403,7 +436,7 @@
 .mig-providers{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:2px;}
 .mig-prov{border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:500;}
 .mig-prov:hover{background:var(--surface-2);}
-.mig-prov.on{background:var(--accent-solid);border-color:var(--accent-solid);color:#fff;}
+.mig-prov.on{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--on-accent);}
 /* The notice sits ABOVE the password field and is not a .pnl-note: a note is background colour, and
    "this provider will refuse your password" is not background. `hard` is the one that will not work
    at all today, so it reads as a stop rather than as advice. */

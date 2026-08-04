@@ -15,7 +15,7 @@ import { IcTrash, IcX, IcSparkle, IcPencil, IcLink, IcChevron, IcPaperclip, IcDo
 import { useDisabledApps } from "./AdminView";
 import { ShareCardChatDrawer } from "./ShareCardChatDrawer";
 
-const COLORS = ["#116466", "#3B6FB0", "#8257C7", "#B44D3A", "#2E7D5B", "#C0692F", "#C9871F"];
+const COLORS = ["#C2603A", "#3B6FB0", "#8257C7", "#B44D3A", "#2E7D5B", "#C0692F", "#C9871F"];
 const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
 // Modal de criar/editar tarefa (card). Responsável via autocomplete de contatos; label com cor;

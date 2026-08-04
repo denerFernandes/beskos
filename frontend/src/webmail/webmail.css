@@ -1,41 +1,71 @@
 /* Design system do app de e-mail — "correspondência moderna" (protótipo aprovado). Escopo em .wm. */
+/* PALETTE: paper and ink, one clay accent -- the same system as the public site.
+   It used to be a teal accent (#116466) on a near-white ground, while the site ran clay on cream.
+   Nobody sees those as two design decisions; they see two companies, and the switch happens at the
+   exact moment somebody stops evaluating and starts using the product.
+
+   The warning colours had to move with it. `--amber` was #C0692F and clay is #C2603A -- the same
+   colour to any eye that is not holding a picker. "Primary action" and "pay attention" cannot be
+   the same hue, so amber went yellower and `--rose` went to a cooler red, away from the accent.
+
+   `--on-accent` is new: the text colour that sits on an accent fill. It was hard-coded to #fff in
+   43 places, which is right on light clay and wrong on the lighter clay the dark theme needs. */
 .wm {
   color-scheme: light; /* controlos nativos (picker de data/hora, scrollbars) em claro por defeito */
-  --paper:#FBFAF8; --surface:#FFFFFF; --surface-2:#F4F1EC;
-  --ink:#1C1B1A; --muted:#6B6863; --faint:#9C988F;
-  --border:#E9E4DB; --border-strong:#DAD3C7; --hover:#EFEAE1;
-  --accent:#116466; --accent-solid:#116466; --accent-ink:#0C4A4B; --accent-tint:#E4F0EE; --star:#C9871F;
-  --blue:#3B6FB0; --rose:#B44D3A; --purple:#8257C7; --green:#2E7D5B; --amber:#C0692F;
-  --shadow:0 1px 2px rgba(28,27,26,.04),0 8px 24px rgba(28,27,26,.06);
+  --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
+  --ink:#191813; --muted:#6A675E; --faint:#918D82;
+  --border:#DFDACB; --border-strong:#C7C0AD; --hover:#EDE8DC;
+  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --on-accent:#FFFFFF; --star:#C08A0C;
+  --blue:#2F6296; --rose:#A61E1E; --purple:#6D45AD; --green:#2E7D5B; --amber:#7F5E0B;
+  /* NAMES THIS FILE USES AND NEVER DECLARED. `color:var(--text)` appears 24 times, `var(--danger)`
+     four, plus --bg, --line, --warn and --danger-tint. None of them existed in this scope, and a
+     custom property with no fallback and no declaration makes the whole declaration invalid: the
+     rule silently does nothing. Thirty-three dead declarations, none of which ever failed loudly.
+     Somebody had already hit it and worked around it with literal colours further down this file,
+     leaving a comment saying `var(--warn)` "renders as nothing" -- which is the bug, described
+     accurately, and then routed around instead of fixed. These aliases are the fix. */
+  --text:var(--ink); --bg:var(--paper); --line:var(--border);
+  --danger:var(--rose); --danger-tint:color-mix(in srgb, var(--rose) 14%, transparent);
+  --warn:var(--amber); --accent-soft:var(--accent-tint); --accent-on-ink:var(--accent);
+  --shadow:0 1px 2px rgba(25,24,19,.04),0 8px 24px rgba(25,24,19,.06);
   /* Elevação para menus/popovers e para diálogos/drawers. No modo CLARO são deliberadamente
      discretas (o utilizador não gosta de sombra pesada); no escuro precisam de mais para separar
      do fundo. Substituem as sombras rgba(0,0,0,.2–.5) que estavam fixas e pesavam no claro. */
-  --shadow-pop:0 2px 10px rgba(28,27,26,.08);
-  --shadow-modal:0 8px 28px rgba(28,27,26,.12);
+  --shadow-pop:0 2px 10px rgba(25,24,19,.08);
+  --shadow-modal:0 8px 28px rgba(25,24,19,.12);
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:"SF Mono",ui-monospace,"Cascadia Code","Roboto Mono",Menlo,monospace;
   font-family:var(--font); color:var(--ink); background:var(--paper);
 }
 @media (prefers-color-scheme:dark){.wm{
   color-scheme: dark;
-  --paper:#121313; --surface:#1A1C1C; --surface-2:#222525; --ink:#ECEAE5; --muted:#9E9A91; --faint:#6E6B64;
-  --border:#292C2C; --border-strong:#343838; --accent:#2DD4BF; --accent-solid:#14B8A6; --accent-ink:#5EEAD4; --accent-tint:#17302E; --star:#E0A945; --hover:#2A2E2E;
+  --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
+  --border:#34312A; --border-strong:#4A463C; --hover:#2E2A23;
+  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --on-accent:#1A1916; --star:#E8C24E;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
   --shadow-pop:0 8px 24px rgba(0,0,0,.4);
   --shadow-modal:0 16px 44px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"] .wm{
   color-scheme: dark;
-  --paper:#121313; --surface:#1A1C1C; --surface-2:#222525; --ink:#ECEAE5; --muted:#9E9A91; --faint:#6E6B64;
-  --border:#292C2C; --border-strong:#343838; --accent:#2DD4BF; --accent-solid:#14B8A6; --accent-ink:#5EEAD4; --accent-tint:#17302E; --star:#E0A945; --hover:#2A2E2E;
+  --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
+  --border:#34312A; --border-strong:#4A463C; --hover:#2E2A23;
+  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --on-accent:#1A1916; --star:#E8C24E;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
   --shadow-pop:0 8px 24px rgba(0,0,0,.4);
   --shadow-modal:0 16px 44px rgba(0,0,0,.5);
 }
 :root[data-theme="light"] .wm{
   color-scheme: light;
-  --paper:#FBFAF8; --surface:#FFFFFF; --surface-2:#F4F1EC; --ink:#1C1B1A; --muted:#6B6863; --faint:#9C988F;
-  --border:#E9E4DB; --border-strong:#DAD3C7; --hover:#EFEAE1; --accent:#116466; --accent-solid:#116466; --accent-ink:#0C4A4B; --accent-tint:#E4F0EE; --star:#C9871F;
+  --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
+  --ink:#191813; --muted:#6A675E; --faint:#918D82;
+  --border:#DFDACB; --border-strong:#C7C0AD; --hover:#EDE8DC;
+  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --on-accent:#FFFFFF; --star:#C08A0C;
+  --blue:#2F6296; --rose:#A61E1E; --purple:#6D45AD; --green:#2E7D5B; --amber:#7F5E0B;
 }
 .wm *,.wm *::before,.wm *::after{box-sizing:border-box;}
 /* Remove o "flash"/borda que o iOS (WKWebView) desenha ao tocar em botões e links — é o que fazia
@@ -49,7 +79,7 @@
 .wm .shell{display:grid;grid-template-columns:66px 1fr;grid-template-rows:58px 1fr;height:100vh;}
 .wm .topbar{grid-column:1/-1;display:flex;align-items:center;gap:18px;padding:0 18px;border-bottom:1px solid var(--border);background:var(--surface);}
 .wm .brand{display:flex;align-items:center;gap:10px;}
-.wm .mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(150deg,var(--accent),var(--accent-ink));display:grid;place-items:center;color:#fff;font-weight:700;}
+.wm .mark{width:30px;height:30px;border-radius:8px;background:var(--accent-solid);display:grid;place-items:center;color:var(--on-accent);font-weight:700;}
 .wm .brand b{font-size:16px;letter-spacing:-.01em;}
 .wm .brand-logo{height:30px;max-width:140px;object-fit:contain;display:block;border-radius:6px;}
 /* Logo forçado a BRANCO no tema escuro (opção do branding, 23/07/2026): silhueta branca. */
@@ -58,18 +88,18 @@
 :root[data-theme="light"] .wm .brand-logo.white-dark{filter:none;}
 .wm .search .clear{border:0;background:none;color:var(--faint);cursor:pointer;font-size:16px;line-height:1;padding:0 2px;}
 .wm .search .clear:hover{color:var(--ink);}
-.wm .search{flex:1;max-width:520px;display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid transparent;border-radius:11px;padding:9px 13px;color:var(--muted);}
+.wm .search{flex:1;max-width:520px;display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid transparent;border-radius:10px;padding:9px 13px;color:var(--muted);}
 .wm .search:focus-within{border-color:var(--border-strong);background:var(--surface);}
 .wm .search input{border:none;background:none;outline:none;color:var(--ink);width:100%;font-size:14px;}
 .wm .grow{flex:1;}
-.wm .ib{width:38px;height:38px;border-radius:10px;border:none;background:none;color:var(--muted);display:grid;place-items:center;font-size:16px;}
+.wm .ib{width:38px;height:38px;border-radius:8px;border:none;background:none;color:var(--muted);display:grid;place-items:center;font-size:16px;}
 .wm .ib:hover{background:var(--surface-2);color:var(--ink);}
 .wm .me{width:34px;height:34px;border-radius:50%;background:var(--rose);color:#fff;display:grid;place-items:center;font-weight:600;font-size:13px;}
 /* O tooltip dos botões de ícone é agora GLOBAL e instantâneo (GlobalTooltip.tsx + .gtt em
    index.css): intercepta title/data-tip e mostra uma bolha coerente. Os botões só precisam de
    `title` (ou `data-tip`/`data-tip-side` p/ forçar o lado, como o rail). */
 .wm .apprail{border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 0;}
-.wm .app{width:44px;height:44px;border-radius:12px;border:none;background:none;color:var(--muted);display:grid;place-items:center;position:relative;}
+.wm .app{width:44px;height:44px;border-radius:10px;border:none;background:none;color:var(--muted);display:grid;place-items:center;position:relative;}
 .wm .app:hover{background:var(--surface-2);color:var(--ink);}
 .wm .app.on{background:var(--accent-tint);color:var(--accent);}
 .wm .app.on::before{content:"";position:absolute;left:-14px;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--accent);}
@@ -79,18 +109,18 @@
 /* Mail */
 .wm .mailgrid{display:grid;grid-template-columns:210px var(--listw,420px) 1fr;height:100%;}
 .wm .mrail{border-right:1px solid var(--border);padding:14px 12px;background:var(--surface);overflow-y:auto;}
-.wm .compose{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:var(--accent-solid);color:#fff;border:none;border-radius:12px;padding:11px;font-weight:600;margin-bottom:16px;}
+.wm .compose{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:11px;font-weight:600;margin-bottom:16px;}
 .wm .nav{display:flex;flex-direction:column;gap:2px;}
-.wm .nav button{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:9px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:left;}
+.wm .nav button{display:flex;align-items:center;gap:11px;padding:8px 11px;border-radius:8px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:left;}
 .wm .nav button:hover{background:var(--surface-2);color:var(--ink);}
 .wm .nav button.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600;}
 /* O número de não lidas é clicável (mostra só essas): tem de se ver que é um alvo, sem virar botão
    dentro de botão — daí o realce só no hover e quando o modo está ligado. */
 .wm .nav button .c{margin-left:auto;font-size:12px;color:var(--faint);font-variant-numeric:tabular-nums;padding:1px 6px;border-radius:20px;cursor:pointer;}
 .wm .nav button .c:hover{background:var(--surface-2);color:var(--ink);}
-.wm .nav button .c.on{background:var(--accent-solid);color:#fff;}
+.wm .nav button .c.on{background:var(--accent-solid);color:var(--on-accent);}
 .wm .rlabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:0 11px;margin:20px 0 7px;}
-.wm .tag{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:9px;color:var(--muted);font-weight:500;font-size:13px;}
+.wm .tag{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;color:var(--muted);font-weight:500;font-size:13px;}
 .wm .dot{width:9px;height:9px;border-radius:50%;}
 .wm .list{border-right:1px solid var(--border);overflow-y:auto;background:var(--paper);position:relative;}
 /* Pega de redimensionar a lista (23/07/2026): 6px na borda direita; realça no hover/arrasto. */
@@ -127,13 +157,13 @@
 .wm .ract{display:flex;align-items:center;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
 .wm .ract-main,.wm .ract-side{display:contents;}
 /* Toolbar uniforme: uma só pill suave para tudo; só Reply é preenchido no accent. */
-.wm .ract .chipbtn{background:var(--surface-2);border:1px solid transparent;color:var(--ink);border-radius:10px;padding:8px 13px;font-size:13px;font-weight:600;gap:8px;transition:background .12s,border-color .12s,transform .06s;}
+.wm .ract .chipbtn{background:var(--surface-2);border:1px solid transparent;color:var(--ink);border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;gap:8px;transition:background .12s,border-color .12s,transform .06s;}
 .wm .ract .chipbtn svg{color:var(--faint);transition:color .12s;}
 .wm .ract .chipbtn:hover{background:var(--surface);border-color:var(--border-strong);}
 .wm .ract .chipbtn:hover svg{color:var(--accent-ink);}
 .wm .ract .chipbtn:active{transform:translateY(1px);}
 /* Reply = ação primária. */
-.wm .ract-main .chipbtn:first-child{background:var(--accent-solid);color:#fff;border-color:var(--accent);}
+.wm .ract-main .chipbtn:first-child{background:var(--accent-solid);color:var(--on-accent);border-color:var(--accent);}
 .wm .ract-main .chipbtn:first-child svg{color:#fff;}
 .wm .ract-main .chipbtn:first-child:hover{filter:brightness(1.06);color:#fff;}
 /* Grupo secundário: espaço extra à esquerda no primeiro item (separação sem linha). */
@@ -173,7 +203,7 @@
 /* Barra de ações do leitor estilo Gmail — botão Responder dividido (▾) + 3 ícones de triagem + ⋯.
    Substitui a antiga fila de ~13 botões. Partilhada por desktop, web e telemóvel. */
 .wm .ract .split{display:inline-flex;position:relative;}
-.wm .ract .split-main,.wm .ract .split-caret{background:var(--accent-solid);color:#fff;border:none;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:9px 14px;}
+.wm .ract .split-main,.wm .ract .split-caret{background:var(--accent-solid);color:var(--on-accent);border:none;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:9px 14px;}
 .wm .ract .split-main svg,.wm .ract .split-caret svg{color:#fff;}
 .wm .ract .split-main{border-radius:10px 0 0 10px;}
 .wm .ract .split-caret{border-radius:0 10px 10px 0;padding:9px 8px;border-left:1px solid rgba(255,255,255,.28);}
@@ -205,7 +235,7 @@
 .wm .att-grid{display:flex;gap:11px;flex-wrap:wrap;margin:22px 0;}
 .wm .att{display:flex;gap:10px;align-items:center;border:1px solid var(--border);background:var(--surface);border-radius:11px;padding:9px 13px;min-width:190px;text-decoration:none;color:inherit;cursor:pointer;text-align:left;font:inherit;}
 .wm .att:hover{border-color:var(--accent);}
-.wm .att .ic{width:32px;height:32px;border-radius:8px;background:var(--accent-solid);color:#fff;display:grid;place-items:center;font-size:10px;font-weight:700;}
+.wm .att .ic{width:32px;height:32px;border-radius:8px;background:var(--accent-solid);color:var(--on-accent);display:grid;place-items:center;font-size:10px;font-weight:700;}
 .wm .att .nm{font-size:12.5px;font-weight:600;}.wm .att .z{font-size:11.5px;color:var(--faint);}
 .wm .empty,.wm .loading{padding:40px 24px;color:var(--faint);text-align:center;}
 
@@ -295,13 +325,13 @@
 .wm .chead h2{margin:0;font-size:18px;}
 .wm .cnav{display:flex;gap:4px;align-items:center;}
 .wm .cnav button{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);}
-.wm .newev{margin-left:auto;background:var(--accent-solid);color:#fff;border:none;border-radius:9px;padding:8px 15px;font-weight:600;font-size:12.5px;}
+.wm .newev{margin-left:auto;background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:9px;padding:8px 15px;font-weight:600;font-size:12.5px;}
 .wm .cgrid{flex:1;overflow:auto;display:grid;grid-template-columns:56px repeat(5,1fr);}
 .wm .cdayh{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:10px;text-align:center;position:sticky;top:0;background:var(--paper);z-index:3;}
 .wm .ccorner{border-bottom:1px solid var(--border);border-right:1px solid var(--border);position:sticky;top:0;background:var(--paper);z-index:3;}
 .wm .cdayh .dn{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;}
 .wm .cdayh .dd{font-size:19px;font-weight:600;margin-top:2px;}
-.wm .cdayh.is-today .dd{color:#fff;background:var(--accent);width:34px;height:34px;border-radius:50%;display:inline-grid;place-items:center;}
+.wm .cdayh.is-today .dd{color:var(--on-accent);background:var(--accent);width:34px;height:34px;border-radius:50%;display:inline-grid;place-items:center;}
 .wm .chourlab{border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:56px;font-size:11px;color:var(--faint);text-align:right;padding:2px 8px;}
 .wm .ccell{border-right:1px solid var(--border);border-bottom:1px solid var(--border);height:56px;position:relative;cursor:pointer;}
 .wm .ev{position:absolute;left:4px;right:4px;border-radius:8px;padding:6px 8px;font-size:11.5px;color:#fff;overflow:hidden;box-shadow:var(--shadow);}
@@ -423,7 +453,7 @@
 .wm .kbc-cell.out{opacity:.4;}
 .wm .kbc-cell.today{border-color:var(--accent);}
 .wm .kbc-day{font-size:11px;color:var(--muted);}
-.wm .kbc-ev{border:none;background:var(--accent-solid);color:#fff;border-radius:5px;padding:2px 5px;font-size:11px;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wm .kbc-ev{border:none;background:var(--accent-solid);color:var(--on-accent);border-radius:5px;padding:2px 5px;font-size:11px;text-align:left;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 /* Timeline */
 .wm .kb-timeline{max-width:900px;display:flex;flex-direction:column;gap:4px;}
 .wm .kbt-axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:0 0 4px 180px;}
@@ -486,7 +516,7 @@
 .wm .dvrow:hover .row-acts,.wm .dvrow.sel .row-acts{visibility:visible;}
 /* proprietário */
 .wm .owner-cell{display:flex;align-items:center;gap:7px;min-width:0;}
-.wm .mini-av{width:22px;height:22px;border-radius:50%;background:var(--accent-solid);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;flex:none;}
+.wm .mini-av{width:22px;height:22px;border-radius:50%;background:var(--accent-solid);color:var(--on-accent);font-size:10px;font-weight:700;display:grid;place-items:center;flex:none;}
 .wm .owner-cell .ot{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wm .shared-badge{display:inline-grid;place-items:center;color:var(--accent-ink);}
 .wm .shared-badge.fl{position:absolute;bottom:-3px;right:-6px;background:var(--surface);border-radius:50%;padding:2px;box-shadow:var(--shadow);}
@@ -611,7 +641,7 @@
 .wm .editor{flex:1;overflow-y:auto;padding:16px 18px;outline:none;font-size:14.5px;line-height:1.7;}
 .wm .editor:empty::before{content:attr(data-ph);color:var(--faint);}
 .wm .cmp footer{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--border);}
-.wm .send{background:var(--accent-solid);color:#fff;border:none;border-radius:999px;padding:10px 20px;font-weight:650;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:filter .12s;}
+.wm .send{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:999px;padding:10px 20px;font-weight:650;font-size:13.5px;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:filter .12s;}
 .wm .send:hover{filter:brightness(1.08);}
 .wm .send:disabled{opacity:.5;}
 /* Botão de envio dividido: enviar | ▾ agendar */
@@ -663,7 +693,7 @@
 .wm .rcpt-sugg .nm{font-size:13px;font-weight:600;}
 .wm .rcpt-sugg .em{font-size:12px;color:var(--faint);margin-left:auto;}
 .wm .cc-toggle{align-self:flex-start;margin:2px 16px;border:none;background:none;color:var(--accent-ink);font-size:12.5px;font-weight:600;cursor:pointer;}
-.wm .tools button.on{background:var(--accent-soft,rgba(17,100,102,.12));color:var(--accent-ink);}
+.wm .tools button.on{background:var(--accent-soft);color:var(--accent-ink);}
 /* Painel IA inline no compose */
 .wm .cmp-ai{padding:8px 14px;border-bottom:1px solid var(--border);background:var(--surface-2);}
 .wm .cmp-ai-row{display:flex;align-items:center;gap:8px;}
@@ -724,7 +754,7 @@
 .wm .drawer .body{padding:18px;overflow-y:auto;flex:1;}
 /* Rodapé fixo da gaveta (o container padrão): ações à direita, como no modal antigo. */
 .wm .drawer>footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;}
-.wm .drawer>footer .add{background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;}
+.wm .drawer>footer .add{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:9px 16px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;}
 .wm .drawer>footer .add:disabled{opacity:.6;}
 /* Variante larga: para conteúdo com coluna lateral (ex.: tarefa com atividade). */
 .wm .drawer.drawer-wide{width:min(96vw,880px);}
@@ -736,7 +766,7 @@
 /* Na gaveta, o .body já dá o padding — a vista de leitura do evento não o duplica. */
 .wm .drawer .body .tk-read{padding:0;}
 .wm .prompt{width:100%;border:1px solid var(--border);border-radius:11px;padding:11px 13px;background:var(--paper);color:var(--ink);font:inherit;resize:none;min-height:70px;}
-.wm .gen{margin-top:12px;background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:600;}
+.wm .gen{margin-top:12px;background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:10px 16px;font-weight:600;}
 .wm .gen:disabled{opacity:.6;}
 .wm .draft{margin-top:18px;border:1px solid var(--border);border-radius:12px;padding:14px;background:var(--paper);font-size:14px;line-height:1.65;white-space:pre-wrap;}
 .wm .draft .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent-ink);font-weight:700;margin-bottom:8px;}
@@ -756,11 +786,11 @@
 .wm .tk .tt{font-weight:600;font-size:13.5px;}
 .wm .tk .tm2{font-size:12px;color:var(--muted);margin-top:3px;}
 .wm .tk footer{padding:14px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px;}
-.wm .tk .add{background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:600;}
+.wm .tk .add{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:9px 16px;font-weight:600;}
 .wm .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:11px;font-size:13.5px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:90;}
 .wm .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .wm .toast{display:inline-flex;align-items:center;gap:14px;}
-.wm .toast-action{background:none;border:none;color:var(--accent-on-ink,#8fd3c9);font-weight:700;font-size:13.5px;cursor:pointer;padding:2px 4px;}
+.wm .toast-action{background:none;border:none;color:var(--accent-on-ink);font-weight:700;font-size:13.5px;cursor:pointer;padding:2px 4px;}
 .wm .toast-action:hover{text-decoration:underline;}
 .wm .err{color:#C0392B;font-size:13px;}
 .wm .login-wrap{min-height:100vh;display:grid;place-items:center;}
@@ -795,20 +825,20 @@
 .wm .pub-card p{margin:0;font-size:13.5px;color:var(--muted);}
 .wm .pub-card input{border:1px solid var(--border);border-radius:9px;padding:10px 12px;background:var(--paper);color:var(--ink);font:inherit;outline:none;}
 .wm .pub-card input:focus{border-color:var(--accent);}
-.wm .pub-card .add{background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;}
+.wm .pub-card .add{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;}
 .wm .pub-card .add:disabled{opacity:.6;}
 .wm .pub-err{color:var(--danger,#c0392b);font-size:12.5px;}
 /* Barra de marca no topo do visualizador público (anónimo/externo). */
 .wm .pub-bar{display:flex;align-items:center;gap:12px;padding:8px 16px;background:var(--surface);border-bottom:2px solid var(--accent);flex:none;}
 .wm .pub-brand{display:flex;align-items:center;gap:9px;min-width:0;}
 .wm .pub-logo{height:26px;width:auto;max-width:120px;object-fit:contain;display:block;}
-.wm .pub-logo-txt{width:26px;height:26px;border-radius:7px;background:var(--accent-solid);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;}
+.wm .pub-logo-txt{width:26px;height:26px;border-radius:7px;background:var(--accent-solid);color:var(--on-accent);display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;}
 .wm .pub-brand-name{font-weight:700;color:var(--ink);white-space:nowrap;}
 .wm .pub-file-name{flex:1;min-width:0;text-align:center;color:var(--muted);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wm .pub-mode{font-size:12px;color:var(--faint);border:1px solid var(--border);border-radius:20px;padding:3px 10px;white-space:nowrap;flex:none;}
 /* Menu "Novo" do Drive */
-.wm .chipbtn.primary{background:var(--accent-solid);color:#fff;border-color:var(--accent);}
-.wm .chipbtn.primary:hover{filter:brightness(1.06);background:var(--accent-solid);color:#fff;}
+.wm .chipbtn.primary{background:var(--accent-solid);color:var(--on-accent);border-color:var(--accent);}
+.wm .chipbtn.primary:hover{filter:brightness(1.06);background:var(--accent-solid);color:var(--on-accent);}
 .wm .chipbtn.primary:hover{filter:brightness(1.05);color:#fff;}
 .wm .new-wrap{position:relative;}
 .wm .menu-backdrop{position:fixed;inset:0;z-index:40;}
@@ -845,19 +875,19 @@
    (o vídeo lê-se melhor sobre preto). 24/07/2026. */
 .wm .meet-prejoin[data-lk-theme],
 .wm .meet-call [data-lk-theme]{
-  --lk-accent-bg: var(--accent, #116466);
+  --lk-accent-bg: var(--accent);
   --lk-accent-fg: #fff;
-  --lk-accent2: color-mix(in srgb, var(--accent, #116466) 85%, #000);
-  --lk-accent3: color-mix(in srgb, var(--accent, #116466) 70%, #000);
-  --lk-accent4: color-mix(in srgb, var(--accent, #116466) 55%, #000);
+  --lk-accent2: color-mix(in srgb, var(--accent) 85%, #000);
+  --lk-accent3: color-mix(in srgb, var(--accent) 70%, #000);
+  --lk-accent4: color-mix(in srgb, var(--accent) 55%, #000);
   --lk-bg: #0b0d0d;
   --lk-bg2: #17191c;
   --lk-bg3: #202327;
   --lk-bg4: #2a2e33;
   --lk-control-bg: #202327;
   --lk-control-hover-bg: #2a2e33;
-  --lk-control-active-bg: var(--accent, #116466);
-  --lk-control-active-hover-bg: color-mix(in srgb, var(--accent, #116466) 88%, #fff);
+  --lk-control-active-bg: var(--accent);
+  --lk-control-active-hover-bg: color-mix(in srgb, var(--accent) 88%, #fff);
   --lk-fg: #f2f3f5;
   --lk-fg2: #b9bdc2;
   --lk-fg3: #8b9096;
@@ -866,7 +896,7 @@
 }
 /* Botão de entrar + inputs do prejoin: pílula e cantos consistentes com a app. */
 .wm .meet-prejoin .lk-button.lk-join-button,
-.wm .meet-prejoin button.lk-button[type="submit"]{background-color:var(--accent,#116466)!important;border-radius:999px;font-weight:650;padding:12px 20px;}
+.wm .meet-prejoin button.lk-button[type="submit"]{background-color:var(--accent)!important;border-radius:999px;font-weight:650;padding:12px 20px;}
 .wm .meet-prejoin .lk-button.lk-join-button:hover{filter:brightness(1.08);}
 .wm .meet-prejoin .lk-prejoin .lk-form-control,
 .wm .meet-prejoin .lk-prejoin input,
@@ -883,7 +913,7 @@
 .wm .meet-hero h1{font-size:30px;letter-spacing:-.02em;margin:6px 0 0;}
 .wm .meet-hero p{color:var(--muted);font-size:15px;line-height:1.6;margin:0;max-width:420px;}
 .wm .meet-actions{display:flex;flex-direction:column;gap:14px;width:100%;max-width:420px;margin-top:10px;}
-.wm .meet-new{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent-solid);color:#fff;border:none;border-radius:999px;padding:11px 18px;font:inherit;font-size:13.5px;font-weight:650;}
+.wm .meet-new{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:999px;padding:11px 18px;font:inherit;font-size:13.5px;font-weight:650;}
 .wm .meet-new:hover{filter:brightness(1.05);}
 .wm .meet-new:disabled{opacity:.6;}
 .wm .meet-join{display:flex;gap:8px;}
@@ -918,7 +948,7 @@
 .wm .mc-av.rsvp-pending{background:var(--faint);}
 .wm .mc-notif{position:absolute;bottom:-1px;right:-1px;width:9px;height:9px;border-radius:50%;background:var(--blue);border:2px solid var(--surface);}
 .wm .mc-actions{display:flex;flex-direction:column;gap:8px;align-items:flex-end;}
-.wm .mc-join{display:inline-flex;align-items:center;gap:7px;background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:9px 15px;font:inherit;font-size:13px;font-weight:600;}
+.wm .mc-join{display:inline-flex;align-items:center;gap:7px;background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:9px 15px;font:inherit;font-size:13px;font-weight:600;}
 .wm .mc-join:hover{filter:brightness(1.05);}
 .wm .mc-cancel{border:none;background:none;color:var(--muted);font:inherit;font-size:12.5px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
 .wm .mc-cancel:hover{color:var(--rose);}
@@ -952,7 +982,7 @@
 .wm .inv-sugg{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:5;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:5px;display:flex;flex-direction:column;gap:2px;}
 .wm .inv-sugg button{display:flex;align-items:center;gap:10px;border:none;background:none;padding:7px 9px;border-radius:8px;text-align:left;}
 .wm .inv-sugg button:hover{background:var(--surface-2);}
-.wm .inv-sugg .cav{width:28px;height:28px;border-radius:50%;background:var(--accent-solid);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center;flex:none;}
+.wm .inv-sugg .cav{width:28px;height:28px;border-radius:50%;background:var(--accent-solid);color:var(--on-accent);font-size:11px;font-weight:700;display:grid;place-items:center;flex:none;}
 .wm .inv-sugg .cinfo{display:flex;flex-direction:column;min-width:0;}
 .wm .inv-sugg .cinfo b{font-size:13px;font-weight:600;}
 .wm .inv-sugg .cinfo i{font-size:11.5px;color:var(--muted);font-style:normal;}
@@ -1024,7 +1054,7 @@
 .wm .ag-mcell:nth-child(7n+1){border-left:none;}
 .wm .ag-mcell.out{background:var(--surface-2);opacity:.55;}
 .wm .ag-mday{font-size:12px;font-weight:600;align-self:flex-start;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;}
-.wm .ag-mcell.today .ag-mday{background:var(--accent-solid);color:#fff;}
+.wm .ag-mcell.today .ag-mday{background:var(--accent-solid);color:var(--on-accent);}
 .wm .ag-mchip{border:1px solid color-mix(in srgb,var(--accent) 30%,transparent);background:color-mix(in srgb,var(--accent) 14%,var(--surface));color:var(--ink);border-radius:8px;padding:4px 7px;font-size:10.5px;font-weight:600;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .wm .ag-mchip.live{background:var(--rose);color:#fff;}
 .wm .ag-more{font-size:10.5px;color:var(--muted);padding-left:3px;}
@@ -1101,7 +1131,7 @@
 .wm .cm-cell.out .cm-day{color:var(--faint);}
 .wm .cm-day{font-size:20px;font-weight:600;letter-spacing:-.02em;align-self:flex-start;min-width:32px;height:32px;display:grid;place-items:center;border-radius:50%;}
 .wm .cm-cell.today{background:color-mix(in srgb,var(--accent) 5%,transparent);}
-.wm .cm-cell.today .cm-day{background:var(--accent-solid);color:#fff;border-radius:50%;}
+.wm .cm-cell.today .cm-day{background:var(--accent-solid);color:var(--on-accent);border-radius:50%;}
 .wm .cm-events{display:flex;flex-direction:column;gap:3px;min-width:0;}
 .wm .cm-ev{display:flex;flex-direction:column;gap:2px;border:1px solid var(--border);border-left:3px solid var(--evc,var(--accent));background:var(--surface);color:var(--ink);border-radius:4px;padding:5px 8px;font-size:11px;text-align:left;overflow:hidden;transition:background .1s,border-color .1s;cursor:pointer;}
 .wm .cm-ev:hover{background:var(--surface-2);border-color:var(--border-strong);border-left-color:var(--evc,var(--accent));}
@@ -1264,7 +1294,7 @@
 .wm .chat-unread-divider::before,.wm .chat-unread-divider::after{content:"";flex:1;height:1px;background:var(--danger,#c0392b);opacity:.35;}
 @keyframes msgflash{0%{background:color-mix(in srgb,var(--accent) 28%,transparent);}100%{background:transparent;}}
 .wm .msg.flash{animation:msgflash 2.2s ease-out;border-radius:8px;}
-.wm .mention-pop .av.special{background:var(--accent-solid);color:#fff;display:grid;place-items:center;font-weight:700;}
+.wm .mention-pop .av.special{background:var(--accent-solid);color:var(--on-accent);display:grid;place-items:center;font-weight:700;}
 .wm .fwd-target{display:block;width:100%;text-align:left;background:none;border:0;padding:9px 10px;border-radius:8px;cursor:pointer;color:var(--ink);font-weight:600;}
 .wm .fwd-target:hover{background:var(--surface-2);}
 .wm .ib.saved-on{color:var(--accent);}
@@ -1312,7 +1342,7 @@
 .wm .composer{position:relative;display:flex;gap:10px;padding:12px 20px 18px;border-top:1px solid var(--border);align-items:center;}
 .wm .composer input{flex:1;border:1px solid var(--border-strong);border-radius:12px;padding:11px 14px;background:var(--paper);color:var(--ink);font:inherit;outline:none;}
 .wm .composer input:focus{border-color:var(--accent);}
-.wm .composer .send{background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:600;cursor:pointer;}
+.wm .composer .send{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:10px 20px;font-weight:600;cursor:pointer;}
 .wm .composer .send:disabled{opacity:.5;}
 .wm .mention-pop{position:absolute;bottom:calc(100% - 4px);left:20px;right:20px;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;z-index:9;}
 .wm .mention-pop button{display:flex;align-items:center;gap:9px;width:100%;padding:8px 11px;border:none;background:none;text-align:left;color:var(--ink);cursor:pointer;}
@@ -1365,7 +1395,7 @@
 .wm .link-modal .fld input{height:38px;padding:0 12px;border:1px solid var(--border-strong);border-radius:9px;background:var(--paper);color:var(--ink);font:inherit;font-size:14px;outline:none;}
 .wm .link-modal .fld input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint);}
 .wm .link-modal .link-acts{display:flex;justify-content:flex-end;gap:10px;margin-top:2px;}
-.wm .link-modal .link-acts .send{background:var(--accent-solid);color:#fff;border:none;border-radius:9px;padding:9px 20px;font-weight:600;cursor:pointer;}
+.wm .link-modal .link-acts .send{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:9px;padding:9px 20px;font-weight:600;cursor:pointer;}
 .wm .link-modal .link-acts .send:disabled{opacity:.5;}
 /* Pré-visualização de anexo de texto/CSV dentro da mensagem. Largura contida: a tabela rola dentro
    da própria caixa em vez de esticar a conversa. */
@@ -1385,8 +1415,8 @@
 .wm .rich-box textarea{display:block;width:100%;border:none;background:none;outline:none;color:var(--ink);font:inherit;font-size:14.5px;line-height:1.5;padding:10px 14px;resize:none;max-height:180px;}
 .wm .rich-foot .hint{font-size:11.5px;color:var(--faint);margin-right:2px;}
 /* Enviar: o único botão cheio da barra — é a ação principal e tem de se ver de relance. */
-.wm .rich-foot .send{background:var(--accent-solid);color:#fff;min-width:34px;height:30px;border-radius:8px;}
-.wm .rich-foot .send:hover{background:var(--accent-solid);color:#fff;filter:brightness(1.08);}
+.wm .rich-foot .send{background:var(--accent-solid);color:var(--on-accent);min-width:34px;height:30px;border-radius:8px;}
+.wm .rich-foot .send:hover{background:var(--accent-solid);color:var(--on-accent);filter:brightness(1.08);}
 .wm .rich-foot .send:disabled{opacity:.45;filter:none;}
 @media (max-width:640px){
   /* No telemóvel a dica de teclado não serve de nada e roubava a linha toda aos botões. */
@@ -1409,11 +1439,11 @@
 .wm .msg-txt a{color:var(--accent-ink);}
 /* Cartão de chamada */
 .wm .call-card{display:flex;align-items:center;gap:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:11px 14px;margin-top:4px;max-width:420px;}
-.wm .call-ic{width:38px;height:38px;border-radius:10px;background:var(--accent-solid);color:#fff;display:grid;place-items:center;flex:none;}
+.wm .call-ic{width:38px;height:38px;border-radius:10px;background:var(--accent-solid);color:var(--on-accent);display:grid;place-items:center;flex:none;}
 .wm .call-info{display:flex;flex-direction:column;}
 .wm .call-info b{font-size:14px;}
 .wm .call-info span{font-size:12px;color:var(--faint);}
-.wm .call-join{margin-left:auto;background:var(--accent-solid);color:#fff;border:none;border-radius:9px;padding:8px 18px;font-weight:600;cursor:pointer;}
+.wm .call-join{margin-left:auto;background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:9px;padding:8px 18px;font-weight:600;cursor:pointer;}
 .wm .call-join:hover{filter:brightness(1.05);}
 /* Anexos no chat */
 .wm .msg-atts{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
@@ -1422,7 +1452,7 @@
 .wm .att-thumb:hover{border-color:var(--accent);}
 .wm .att-file{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:9px 12px;min-width:200px;cursor:pointer;text-align:left;font:inherit;color:inherit;}
 .wm .att-file:hover{border-color:var(--accent);}
-.wm .att-file .att-ic{width:30px;height:30px;border-radius:8px;background:var(--accent-solid);color:#fff;display:grid;place-items:center;flex:none;}
+.wm .att-file .att-ic{width:30px;height:30px;border-radius:8px;background:var(--accent-solid);color:var(--on-accent);display:grid;place-items:center;flex:none;}
 .wm .att-file .att-meta{display:flex;flex-direction:column;min-width:0;}
 .wm .att-file .nm{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px;}
 .wm .att-file .z{font-size:11.5px;color:var(--faint);}
@@ -1538,7 +1568,7 @@
 /* Dispositivo em uso. O LiveKit já o realçava com `[data-lk-active=true]`, mas o `background:
    transparent` acima tem mais especificidade e apagava-o — sem isto não se via qual estava escolhido. */
 .wm .lk-control-bar .lk-device-menu [data-lk-active="true"] > .lk-button{
-  background:var(--accent-solid);color:#fff;font-weight:600;}
+  background:var(--accent-solid);color:var(--on-accent);font-weight:600;}
 .wm .lk-control-bar .lk-device-menu [data-lk-active="true"] > .lk-button:hover{background:var(--accent);}
 
 /* Sair: último da fila. `order` porque no DOM o LiveKit põe-no antes dos nossos botões — mudar a
@@ -2055,7 +2085,7 @@
 .wm .vac-actions{display:flex;justify-content:flex-end;}
 /* O "Guardar" aparecia como texto solto: a classe .add só estava estilizada dentro de gavetas e
    modais, e esta página não é nem uma coisa nem outra. */
-.wm .vac-actions .add{background:var(--accent-solid);color:#fff;border:none;
+.wm .vac-actions .add{background:var(--accent-solid);color:var(--on-accent);border:none;
   border-radius:10px;padding:9px 18px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;}
 .wm .vac-actions .add:disabled{opacity:.5;cursor:default;}
 .wm .rules-list{display:flex;flex-direction:column;gap:10px;}
@@ -2078,7 +2108,7 @@
 /* A espinha: uma linha contínua atrás dos pontos. Sem ela os cartões são só uma pilha. */
 .wm .canvas{position:relative;padding-left:38px;}
 .wm .canvas::before{content:"";position:absolute;left:14px;top:16px;bottom:16px;width:2px;
-  background:linear-gradient(var(--accent),var(--amber),var(--green));opacity:.35;border-radius:2px;}
+  background:var(--border-strong);border-radius:2px;}
 
 .wm .node{position:relative;}
 .wm .node-dot{position:absolute;left:-38px;top:12px;width:30px;height:30px;border-radius:50%;
@@ -2358,7 +2388,7 @@
 .wm .breakout-bar.invite{background:var(--accent);}
 .wm .breakout-bar .bb-label{font-size:13.5px;font-weight:600;}
 .wm .bb-btn{border:none;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;background:#fff;color:#111;cursor:pointer;}
-.wm .breakout-panel .bp-btn{width:100%;border:none;border-radius:999px;padding:11px;font-size:13.5px;font-weight:650;background:var(--accent-solid);color:#fff;cursor:pointer;margin-top:2px;transition:filter .12s;}
+.wm .breakout-panel .bp-btn{width:100%;border:none;border-radius:999px;padding:11px;font-size:13.5px;font-weight:650;background:var(--accent-solid);color:var(--on-accent);cursor:pointer;margin-top:2px;transition:filter .12s;}
 .wm .breakout-panel .bp-btn:hover{filter:brightness(1.07);}
 .wm .breakout-panel .bp-btn:disabled{opacity:.6;cursor:default;}
 .wm .breakout-panel .bp-btn.danger{background:color-mix(in srgb,var(--rose,#c0392b) 16%,transparent);color:var(--rose,#c0392b);}
@@ -2395,7 +2425,7 @@
 .wm .sched-who small{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wm .sched-when{display:inline-flex;align-items:center;gap:4px;}
 /* Mensagens de bot/integração */
-.wm .av.bot-av{background:var(--accent-solid);color:#fff;border-radius:6px;}
+.wm .av.bot-av{background:var(--accent-solid);color:var(--on-accent);border-radius:6px;}
 .wm .bot-badge{font-size:10px;font-weight:700;letter-spacing:.3px;color:var(--accent-ink);background:var(--accent-tint);border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
 
 /* Linha rótulo + switch (modais do chat) */
@@ -2687,7 +2717,7 @@
 .pres-picker header b{font-size:16px;}
 .pres-tabs{display:flex;gap:6px;margin:6px 0 12px;}
 .pres-tabs button{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink);cursor:pointer;font-weight:600;font-size:13px;}
-.pres-tabs button.on{background:var(--accent-solid);color:#fff;border-color:var(--accent);}
+.pres-tabs button.on{background:var(--accent-solid);color:var(--on-accent);border-color:var(--accent);}
 .pres-drop{display:flex;flex-direction:column;align-items:center;gap:10px;padding:34px;border:2px dashed var(--border);border-radius:12px;cursor:pointer;color:var(--muted);}
 .pres-drive{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:2px;}
 .pres-drive-row{display:flex;align-items:center;gap:8px;padding:9px 10px;border:0;background:none;text-align:left;border-radius:8px;cursor:pointer;font-size:13px;}
@@ -2719,7 +2749,7 @@
 /* Lançador do assistente: item no FUNDO do menu (rail), não uma bolha a pairar. margin-top:auto
    empurra-o para o fundo da coluna do rail; position:relative para a badge se posicionar dentro. */
 .wm .as-bubble{margin-top:auto;flex:none;position:relative;width:46px;height:46px;border-radius:50%;
-  border:0;background:linear-gradient(150deg,var(--accent-solid),color-mix(in srgb,var(--accent-solid) 74%,#000));color:#fff;font-size:19px;line-height:1;
+  border:0;background:var(--accent-solid);color:var(--on-accent);font-size:19px;line-height:1;
   box-shadow:var(--shadow);display:grid;place-items:center;cursor:pointer;}
 .wm .as-bubble:hover{filter:brightness(1.08);}
 .wm .as-bubble.on{transform:scale(.94);}
@@ -2762,7 +2792,7 @@
 .wm .as-compose{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);}
 .wm .as-compose textarea{flex:1;resize:none;font:inherit;font-size:14px;padding:8px;border:1px solid var(--border);
   border-radius:10px;background:var(--paper);color:var(--ink);}
-.wm .as-send{flex:none;padding:0 14px;border:0;border-radius:10px;background:var(--accent-solid);color:#fff;}
+.wm .as-send{flex:none;padding:0 14px;border:0;border-radius:10px;background:var(--accent-solid);color:var(--on-accent);}
 .wm .as-send:disabled{opacity:.5;cursor:default;}
 
 /* Confirmação de uma ação que sai para fora ou destrói (§6.3). Destacada de propósito: é o único
@@ -2775,7 +2805,7 @@
 .wm .as-confirm-body dd{margin:0;white-space:pre-wrap;word-break:break-word;}
 .wm .as-confirm-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;}
 .wm .as-approve,.wm .as-reject{padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--ink);}
-.wm .as-approve{background:var(--accent);border-color:var(--accent);color:#fff;}
+.wm .as-approve{background:var(--accent);border-color:var(--accent);color:var(--on-accent);}
 .wm .as-approve:disabled,.wm .as-reject:disabled{opacity:.5;cursor:default;}
 
 /* Seletor de agente e etiqueta de quem respondeu (§3.2): a escolha é sempre visível. */
@@ -2795,7 +2825,7 @@
 /* Ponto de sessão ativa (minimizado): discreto, a dizer que há uma conversa para retomar. */
 .wm .as-bubble-session{position:absolute;top:-1px;right:-1px;width:12px;height:12px;border-radius:50%;
   background:var(--accent);border:2px solid var(--surface);}
-.wm .as-tab-badge{margin-left:3px;font-size:10px;background:var(--accent-solid);color:#fff;border-radius:8px;padding:0 4px;}
+.wm .as-tab-badge{margin-left:3px;font-size:10px;background:var(--accent-solid);color:var(--on-accent);border-radius:8px;padding:0 4px;}
 .wm .as-tasks{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:12px;}
 .wm .as-task{border:1px solid var(--border);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;}
 .wm .as-task-head{display:flex;align-items:center;gap:7px;font-size:13px;}
@@ -2927,7 +2957,7 @@
 @media (max-width:720px){.wm .wiki-public-shell{grid-template-columns:1fr;}}
 
 /* ---- Wiki: botões primários fora dos footers de drawer (mesmo visual da casa) ---- */
-.wm .wiki .add,.wm .drawer .body .add{background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;align-self:flex-start;}
+.wm .wiki .add,.wm .drawer .body .add{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:8px 14px;font-weight:600;cursor:pointer;align-self:flex-start;}
 .wm .wiki .add:disabled,.wm .drawer .body .add:disabled{opacity:.5;cursor:default;}
 .wm .wiki-comment-form .add{align-self:flex-end;}
 
@@ -3082,7 +3112,7 @@
 
 /* ---- Kanban: footer do TaskModal (aninhado em .tk-main, os estilos de .drawer>footer não chegam cá) ---- */
 .wm .tk-main footer{display:flex;align-items:center;gap:10px;padding:12px 16px;border-top:1px solid var(--border);}
-.wm .tk-main footer .add{background:var(--accent-solid);color:#fff;border:none;border-radius:10px;padding:9px 16px;font-weight:600;cursor:pointer;}
+.wm .tk-main footer .add{background:var(--accent-solid);color:var(--on-accent);border:none;border-radius:10px;padding:9px 16px;font-weight:600;cursor:pointer;}
 .wm .tk-main footer .add:disabled{opacity:.6;}
 .wm .tk-main footer .chipbtn{white-space:nowrap;}
 .wm .tk-main footer .mc-cancel{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
@@ -3210,7 +3240,7 @@ html[data-theme="dark"] .wm .kcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.5);}
 /* Definições → Calendário: chips dos dias de trabalho */
 .wm .workday-chips{display:flex;gap:6px;flex-wrap:wrap;}
 .wm .wd-chip{border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;text-transform:capitalize;}
-.wm .wd-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.wm .wd-chip.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent);}
 
 /* Meet: cabeçalho de secção com pager à direita */
 .wm .meet-sec-h{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
@@ -3289,22 +3319,28 @@ html[data-theme="dark"] .wm .kcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.5);}
 }
 
 /* Account state bar (AccountBanner). Full width, above everything: it is the one message that has
-   to be read BEFORE somebody concludes the product is broken.
-   Literal colours because the webmail theme only defines --accent and --star; the panel's --danger
-   and --warn do not exist in this scope, and var(--warn) with no fallback renders as nothing. */
+   to be read BEFORE somebody concludes the product is broken. It now uses the tokens -- --warn and
+   --danger exist in this scope as of this change. */
 .wm .acct-bar{display:flex;align-items:center;gap:12px;padding:9px 16px;font-size:13.5px;font-weight:500;}
-.wm .acct-bar.warn{background:rgba(192,105,47,.14);color:#9A5325;}
-.wm .acct-bar.danger{background:rgba(192,57,43,.13);color:#B4342B;}
+.wm .acct-bar.warn{background:color-mix(in srgb, var(--warn) 15%, transparent);color:var(--warn);}
+.wm .acct-bar.danger{background:color-mix(in srgb, var(--danger) 14%, transparent);color:var(--danger);}
 .wm .acct-bar a{margin-left:auto;font-weight:700;text-decoration:underline;color:inherit;white-space:nowrap;}
+/* On the dark ground the two tokens are too dark to read, and they are not themed (they carry white
+   labels as avatar and badge fills). So the bar lightens them here -- and it has to answer to the
+   theme TOGGLE as well as to the desktop, which the previous version did not. */
 @media (prefers-color-scheme: dark){
-  .wm .acct-bar.warn{color:#E5A45F;}
-  .wm .acct-bar.danger{color:#F08A80;}
+  .wm .acct-bar.warn{color:#D9B45C;}
+  .wm .acct-bar.danger{color:#E88379;}
 }
+:root[data-theme="dark"] .wm .acct-bar.warn{color:#D9B45C;}
+:root[data-theme="dark"] .wm .acct-bar.danger{color:#E88379;}
+:root[data-theme="light"] .wm .acct-bar.warn{color:var(--warn);}
+:root[data-theme="light"] .wm .acct-bar.danger{color:var(--danger);}
 /* The explanation that stands in for the mail app while the domain is not published. */
 .wm .wm-blocked{max-width:520px;margin:64px auto;padding:0 24px;text-align:center;}
 .wm .wm-blocked h2{margin:0 0 10px;font-size:19px;}
 .wm .wm-blocked p{margin:0 0 20px;font-size:14px;line-height:1.55;opacity:.75;}
-.wm .wm-blocked-cta{display:inline-block;padding:9px 18px;border-radius:10px;background:var(--accent-solid);color:#fff;font-weight:600;font-size:13.5px;}
+.wm .wm-blocked-cta{display:inline-block;padding:9px 18px;border-radius:10px;background:var(--accent-solid);color:var(--on-accent);font-weight:600;font-size:13.5px;}
 
 /* Documents: a view over Drive, so it borrows Drive's row rhythm rather than inventing its own —
    the same file seen in two places should not look like two different things. */
@@ -3312,7 +3348,7 @@ html[data-theme="dark"] .wm .kcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.5);}
 .wm .docs-top{display:flex;align-items:center;gap:12px;margin-bottom:18px;}
 .wm .docs-top h1{margin:0;font-size:20px;font-weight:600;}
 .wm .docs-new{position:relative;}
-.wm .docs-new-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;border:none;background:var(--accent-solid);color:#fff;font-size:13.5px;font-weight:600;}
+.wm .docs-new-btn{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;border:none;background:var(--accent-solid);color:var(--on-accent);font-size:13.5px;font-weight:600;}
 .wm .docs-new-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:20;min-width:210px;padding:6px;border-radius:12px;border:1px solid var(--line);background:var(--surface);box-shadow:0 12px 32px rgba(0,0,0,.16);}
 .wm .docs-new-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border:none;background:none;border-radius:8px;font-size:13.5px;text-align:left;color:inherit;}
 .wm .docs-new-menu button:hover{background:var(--surface-2);}
@@ -3358,7 +3394,7 @@ html[data-theme="dark"] .wm .kcard:hover{box-shadow:0 3px 12px rgba(0,0,0,.5);}
 .wm .lg-field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 18%,transparent);}
 .wm .lg-field small{display:block;margin-top:7px;font-size:12px;color:var(--muted);line-height:1.45;}
 .wm .lg-btn{display:block;width:100%;margin-top:8px;padding:12px 16px;border:none;border-radius:11px;
-  background:var(--accent-solid);color:#fff;font:inherit;font-size:14.5px;font-weight:650;
+  background:var(--accent-solid);color:var(--on-accent);font:inherit;font-size:14.5px;font-weight:650;
   text-align:center;text-decoration:none;cursor:pointer;}
 .wm .lg-btn:hover:not(:disabled){filter:brightness(1.08);}
 .wm .lg-btn:disabled{opacity:.5;cursor:default;}
