@@ -11,7 +11,7 @@ import { toast, toastAction } from "./toast";
 import { initials, hueFor } from "./util";
 import { IcSparkle, IcVideo, IcTrash, IcCheck, IcX, IcCopy, IcPencil } from "../panel/icons";
 
-const COLORS = ["#116466", "#3B6FB0", "#8257C7", "#B44D3A", "#2E7D5B", "#C0692F", "#C9871F"];
+const COLORS = ["#C2603A", "#3B6FB0", "#8257C7", "#B44D3A", "#2E7D5B", "#C0692F", "#C9871F"];
 const pad = (n: number) => String(n).padStart(2, "0");
 const toDate = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const toTime = (iso: string) => { const d = new Date(iso); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };

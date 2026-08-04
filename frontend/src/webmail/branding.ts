@@ -8,6 +8,9 @@ export const BESKOS_MARK = "/beskos-mark.svg";
 // Paleta de cores oferecida ao admin (nome + hex). "fornecer algumas cores" — sem color picker
 // livre, para garantir contraste e coerência.
 export const BRAND_COLORS: { id: string; name: string; hex: string }[] = [
+  // Clay leads because it is the product's own accent. Teal stays on the list: it was the
+  // default until this change, and dropping it would silently rebrand whoever had chosen it.
+  { id: "clay", name: "Argila", hex: "#C2603A" },
   { id: "teal", name: "Teal", hex: "#116466" },
   { id: "blue", name: "Azul", hex: "#2563EB" },
   { id: "indigo", name: "Índigo", hex: "#4F46E5" },
@@ -22,10 +25,11 @@ export const BRAND_COLORS: { id: string; name: string; hex: string }[] = [
 
 const STYLE_ID = "mailin-brand";
 
-// applyBrandColor sobrepõe a cor de acento em toda a app. Cor vazia → remove a sobreposição (volta
-// à cor padrão do tema). CIENTE DO TEMA (23/07/2026): no escuro a cor é CLAREADA (mistura com
-// branco) — o mesmo que o tema faz com o teal padrão (#116466 → #57B4A8). Sem isto, uma marca
-// escura (ex.: Preto #111) ficava invisível sobre o fundo escuro (seleções sem contraste).
+// applyBrandColor overrides the accent colour across the whole app. An empty colour removes the
+// override and returns to the theme's own accent. THEME AWARE (23/07/2026): on the dark ground the
+// colour is LIGHTENED (mixed with white), the same thing the theme does to the default accent
+// (#C2603A -> #DE8560). Without it, a dark brand (Black #111, say) went invisible against the dark
+// background and selections lost their contrast.
 export function applyBrandColor(color: string): void {
   let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
   if (!color) { el?.remove(); return; }

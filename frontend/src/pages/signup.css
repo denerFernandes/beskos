@@ -1,19 +1,27 @@
 /* Registo self-service. Uma coluna centrada, muito espaço, uma pergunta de cada vez — o formato
    que Stripe, Linear e companhia usam por bons motivos: menos ruído, menos desistências.
-   Página própria (não é o webmail nem o painel), por isso traz a sua paleta. */
+   Página própria (não é o webmail nem o painel), por isso traz a sua paleta.
+
+   THE PALETTE IS NO LONGER ITS OWN, only its own copy. This was the third one in the product: a
+   cool near-black on white with a teal accent, while the webmail and the console ran one thing and
+   the public site ran another. It matters more here than anywhere: this screen is what the site's
+   "Get started" opens. Somebody who has just read a cream page with a clay button landed on a white
+   page with a teal one, and that is the moment the product stops looking like the thing they
+   chose. Same values as .wm and .pnl now; only the names differ, because here --paper is the card
+   and --bg is the page. */
 
 .sg {
-  --ink: #10161A;
-  --paper: #FFFFFF;
-  --bg: #FBFAF8;
-  --line: #E7E3DC;
-  --line-2: #D6D0C6;
-  --muted: #6C7370;
-  --faint: #9BA29F;
-  --accent: #116466;
-  --accent-ink: #0C4A4B;
-  --accent-tint: #E6F1EF;
-  --danger: #B4342B;
+  --ink: #191813;
+  --paper: #FCFBF8;
+  --bg: #F5F2EA;
+  --line: #DFDACB;
+  --line-2: #C7C0AD;
+  --muted: #6A675E;
+  --faint: #918D82;
+  --accent: #C2603A;
+  --accent-ink: #9F4826;
+  --accent-tint: #F0DFD4;
+  --danger: #A61E1E;
   min-height: 100vh;
   background: var(--bg);
   color: var(--ink);
@@ -22,9 +30,9 @@
 }
 @media (prefers-color-scheme: dark) {
   .sg {
-    --ink: #ECEFEE; --paper: #151A1B; --bg: #0E1213; --line: #242A2B; --line-2: #333A3B;
-    --muted: #9BA4A2; --faint: #6D7776; --accent: #2DD4BF; --accent-ink: #7EE7DA;
-    --accent-tint: #15302E; --danger: #F87171;
+    --ink: #F2EFE6; --paper: #221F1B; --bg: #1A1916; --line: #34312A; --line-2: #4A463C;
+    --muted: #A39E92; --faint: #7C776D; --accent: #DE8560; --accent-ink: #E8A183;
+    --accent-tint: #3A2A22; --danger: #E88379;
   }
 }
 
