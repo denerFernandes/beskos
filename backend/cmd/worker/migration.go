@@ -8,6 +8,7 @@ import (
 	"mailin/backend/internal/db"
 	"mailin/backend/internal/mailmigrate"
 	"mailin/backend/internal/secretbox"
+	"mailin/backend/internal/storage"
 )
 
 // Bringing mailboxes in from the provider a customer is leaving. See internal/mailmigrate.
@@ -31,7 +32,7 @@ const (
 // startMigrationWorker runs the copier. Without an encryption key it does not start: the source
 // password is stored encrypted, so with no key there is nothing this worker could decrypt anyway --
 // and the API refuses to create the jobs in the first place.
-func startMigrationWorker(q *db.Queries, mfaEncKey, stalwartURL string) {
+func startMigrationWorker(q *db.Queries, mfaEncKey, stalwartURL string, st *storage.Service) {
 	box := secretbox.New(mfaEncKey)
 	if box == nil {
 		log.Printf("mailbox migration worker disabled (MFA_ENC_KEY unset — source credentials cannot be stored)")
@@ -42,6 +43,13 @@ func startMigrationWorker(q *db.Queries, mfaEncKey, stalwartURL string) {
 		return
 	}
 	runner := mailmigrate.NewRunner(q, box, stalwartURL)
+	if st != nil {
+		runner.WithStorage(st)
+	} else {
+		// Server-sourced jobs still run; a file-sourced one would have nowhere to read from, and
+		// says so rather than failing with something that reads like a bug.
+		log.Printf("mailbox migration: no object storage, importing from an uploaded file is off")
+	}
 
 	go func() {
 		for {

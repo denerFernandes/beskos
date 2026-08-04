@@ -893,7 +893,7 @@
     "storage.seek_failed": "Failed to process file",
     "storage.share_failed": "Failed to share",
     "storage.too_large": "File exceeds the limit",
-    "storage.upload_failed": "Failed to upload file",
+    "storage.upload_failed": "The file could not be stored.",
     "tenant.create_failed": "Failed to create organization",
     "webmail.stalwart_unreachable": "Mail server unavailable",
     "webmail.unknown_mailbox": "Mailbox not registered in this panel",
@@ -1025,7 +1025,16 @@
     "migration.storage_unavailable": "Imports are unavailable on this installation. Contact support.",
     "migration.destination_locked": "Sign in to this mailbox once before importing.",
     "migration.credentials_gone": "The import was stopped before it started.",
-    "migration.interrupted": "The import was interrupted and will resume on its own."
+    "migration.interrupted": "The import was interrupted and will resume on its own.",
+    "migration.file_pst": "Outlook's .pst and .ost files are databases, not mail, and cannot be read here. Add this mailbox to Outlook as an account and drag the folders across: Outlook transfers the messages itself.",
+    "migration.file_olm": "Outlook for Mac .olm archives cannot be read here. Add this mailbox to Outlook as an account and drag the folders across.",
+    "migration.file_msg": "A .msg file is a single Outlook message in Outlook's own format. Save it as .eml, or drag it into this mailbox from Outlook.",
+    "migration.file_msf": "That is Thunderbird's index file, which holds no messages. Select the file of the same name without the .msf extension.",
+    "migration.file_empty": "No mailbox was found inside that archive.",
+    "migration.file_unreadable": "That file could not be read.",
+    "migration.file_too_large": "That file is larger than the 20 GB limit. Upload the folders separately.",
+    "migration.file_size_unknown": "The size of the file could not be determined.",
+    "migration.file_gone": "The uploaded file is no longer stored."
   },
   "members": {
     "title": "Members",
@@ -2878,6 +2887,19 @@
     "promptLater": "Not now",
     "formTitle": "Previous provider",
     "retry": "Try again",
-    "folderNow": "Copying {{folder}}"
+    "folderNow": "Copying {{folder}}",
+    "sourceServer": "From a provider",
+    "sourceFile": "From a file",
+    "fileTitle": "Mail stored on this computer",
+    "fileBlurb": "For mail that is on no server: messages downloaded by POP3 years ago, an archive exported before an account was closed, or a mailbox handed over when somebody left.",
+    "fileDrop": "Drop the file here, or select it",
+    "fileFormats": "Accepted: Thunderbird mailbox files (Local Folders, with or without a .mbox extension), .eml messages, and a .zip containing either. Up to 20 GB.",
+    "fileStart": "Upload and import",
+    "uploading": "Sending the file — {{pct}}%",
+    "whereTitle": "Where to find the file",
+    "whereThunderbirdTitle": "Thunderbird:",
+    "whereThunderbird": "Settings → General → Config Editor is not needed. Use Help → Troubleshooting Information → Profile Folder → Open Folder, then the Mail directory. Each mailbox is the file without an extension; the .msf beside it is only an index. Compressing the Mail folder into a .zip and uploading that brings the whole tree at once.",
+    "whereOutlookTitle": "Outlook:",
+    "whereOutlook": "Outlook stores mail in a .pst file, which is a database rather than mail and cannot be read here. Add this mailbox to Outlook as an ordinary account, then drag the folders from the .pst onto it: Outlook uploads the messages itself, and the result is more faithful than any conversion."
   }
 }

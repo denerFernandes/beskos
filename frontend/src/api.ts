@@ -255,6 +255,32 @@ export const api = {
   migrationCancel: (id: string) => req<{ status: string }>(`/api/me/migration/${id}`, { method: "DELETE" }),
   migrations: () => req<{ migrations: Migration[] }>("/api/migrations"),
 
+  // Uploading a mailbox from the customer's own disk.
+  //
+  // XHR and not fetch, for one reason: fetch cannot report how far an upload has got. A mail
+  // archive is measured in gigabytes, and a browser that shows nothing for eleven minutes is a
+  // browser somebody closes. The body is the file itself -- no multipart envelope around several
+  // gigabytes just to carry a filename, which rides in the query instead.
+  migrationUploadFile: (file: File, onProgress: (pct: number) => void) =>
+    new Promise<Migration>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", apiUrl(`/api/me/migration/file?name=${encodeURIComponent(file.name)}`));
+      xhr.withCredentials = true;
+      for (const [k, v] of Object.entries(authHeaders())) xhr.setRequestHeader(k, v);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.floor((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        let body: { error_code?: string; error?: string } = {};
+        try { body = JSON.parse(xhr.responseText); } catch { /* not JSON: fall through to the generic */ }
+        if (xhr.status >= 200 && xhr.status < 300) { resolve(body as unknown as Migration); return; }
+        if (xhr.status === 401) notifyUnauthorized("/api/me/migration/file");
+        reject(new Error(translateError(body.error_code, body.error, xhr.status)));
+      };
+      xhr.onerror = () => reject(new Error(i18n.t("errors.network", { defaultValue: "Network error" })));
+      xhr.send(file);
+    }),
+
   // Usuários unificados = caixa + papel. Criar provisiona os dois juntos.
   createUser: (domain_id: string, login: string, name: string, password: string, role: string, groups: string[] = []) =>
     req<{ id: string; email: string; role: string }>("/api/users", { method: "POST", body: JSON.stringify({ domain_id, login, name, password, role, quota_gb: 5, groups }) }),
@@ -325,6 +351,9 @@ export interface MigrationFolder {
 export interface MigrationCheck { folders: MigrationFolder[]; total_messages: number }
 export interface Migration {
   id: string;
+  // "imap" = an account on a server; "file" = something the customer uploaded.
+  kind?: "imap" | "file";
+  source_file?: string;
   status: "pending" | "running" | "done" | "failed" | "cancelled";
   error_code: string;
   source_host: string; source_username: string;

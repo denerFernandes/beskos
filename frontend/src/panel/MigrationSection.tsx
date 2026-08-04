@@ -14,6 +14,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api, type Migration, type MigrationCheck, type MigrationFolder, type MigrationSource } from "../api";
 import { PROVIDERS, OTHER_PROVIDER, providerById, guessProvider, type Provider } from "./migrationProviders";
+import { MigrationFileForm } from "./MigrationFileForm";
 import { toast } from "./ui";
 import { IcDownload, IcCheck, IcX, IcRefresh } from "./icons";
 
@@ -68,6 +69,9 @@ export function MigrationSection() {
 function MigrationForm({ last }: { last: Migration | null }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  // Which kind of source. "server" first because it is the common case; "file" is what somebody
+  // reaches for once they discover their old mail is not on a server at all.
+  const [source, setSource] = useState<"server" | "file">("server");
   const [provider, setProvider] = useState<Provider>(OTHER_PROVIDER);
   const [src, setSrc] = useState<MigrationSource>({ host: "", username: "", password: "", starttls: false });
   const [found, setFound] = useState<MigrationCheck | null>(null);
@@ -111,6 +115,15 @@ function MigrationForm({ last }: { last: Migration | null }) {
     <>
       {last && <LastRun job={last} />}
 
+      {/* Two ways in, named for what the customer has rather than for the protocol. */}
+      <div className="mig-sources">
+        <button type="button" className={"mig-src-tab" + (source === "server" ? " on" : "")}
+          onClick={() => setSource("server")}>{t("migration.sourceServer")}</button>
+        <button type="button" className={"mig-src-tab" + (source === "file" ? " on" : "")}
+          onClick={() => setSource("file")}>{t("migration.sourceFile")}</button>
+      </div>
+
+      {source === "file" ? <MigrationFileForm /> : (
       <div className="pnl-card">
         <div className="pnl-card-h">
           <IcDownload size={16} />
@@ -187,8 +200,9 @@ function MigrationForm({ last }: { last: Migration | null }) {
         </div>
         </div>
       </div>
+      )}
 
-      {found && <FoundFolders found={found} />}
+      {source === "server" && found && <FoundFolders found={found} />}
     </>
   );
 }
@@ -268,7 +282,7 @@ function MigrationProgress({ job }: { job: Migration }) {
         {job.total_messages > 0 && <span className="pnl-pill ok">{pct}%</span>}
       </div>
       <div className="pnl-card-b mig-progress">
-      <div className="mig-src">{job.source_username} · {job.source_host}</div>
+      <div className="mig-src">{sourceLabel(job)}</div>
 
       {/* The folder being copied right now. On a large mailbox the percentage moves every few
           minutes, and on its own it does not answer "is this alive?". */}
@@ -337,7 +351,7 @@ function LastRun({ job }: { job: Migration }) {
         {when && <span className="when">{when}</span>}
       </div>
       <div className="pnl-card-b">
-      <div className="mig-src">{job.source_username} · {job.source_host}</div>
+      <div className="mig-src">{sourceLabel(job)}</div>
       <div className="mig-counts">
         <b>{n.format(job.copied_messages)}</b> {t("migration.copied")}
         {job.skipped_messages > 0 && <> · {n.format(job.skipped_messages)} {t("migration.alreadyHere")}</>}
@@ -351,6 +365,12 @@ function LastRun({ job }: { job: Migration }) {
       </div>
     </div>
   );
+}
+
+// sourceLabel names where the mail is coming from: an account on a server, or a file.
+function sourceLabel(job: Migration): string {
+  if (job.kind === "file") return job.source_file || "";
+  return `${job.source_username} · ${job.source_host}`;
 }
 
 // destName is where a folder lands: a role the account already has, or a folder created by name.

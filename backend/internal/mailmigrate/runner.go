@@ -22,6 +22,7 @@ import (
 	"mailin/backend/internal/db"
 	"mailin/backend/internal/mailbox"
 	"mailin/backend/internal/secretbox"
+	"mailin/backend/internal/storage"
 )
 
 // pageSize is how many messages one pass copies from one folder before writing progress and looking
@@ -38,11 +39,17 @@ type Runner struct {
 	q           *db.Queries
 	box         *secretbox.Box
 	stalwartURL string
+	// store holds uploads while a file-sourced job runs. nil = only server-sourced jobs can run,
+	// which is what a deployment without object storage honestly supports.
+	store *storage.Service
 }
 
 func NewRunner(q *db.Queries, box *secretbox.Box, stalwartURL string) *Runner {
 	return &Runner{q: q, box: box, stalwartURL: stalwartURL}
 }
+
+// WithStorage enables importing from an uploaded file.
+func (r *Runner) WithStorage(st *storage.Service) *Runner { r.store = st; return r }
 
 // Tick takes at most one job and works on it for one pass. Returns true if it did anything, so the
 // caller can poll fast while there is work and slowly when there is none.
@@ -65,6 +72,8 @@ func (r *Runner) fail(ctx context.Context, job db.MailMigration, err error) {
 	code, permanent := classify(err)
 	if permanent {
 		log.Printf("mail-migration %s: giving up (%s): %v", job.ID, code, err)
+		// A job that will never run again must not leave a copy of the mailbox in the bucket.
+		r.eraseUpload(ctx, job)
 		_ = r.q.FinishMailMigration(ctx, db.FinishMailMigrationParams{
 			ID: job.ID, Status: "failed", ErrorCode: code, LastError: truncate(err.Error(), 500),
 		})
@@ -83,6 +92,7 @@ func (r *Runner) fail(ctx context.Context, job db.MailMigration, err error) {
 			job.ID, n, job.SourceHost, err)
 		// Ten failed passes is not a bad minute, it is a broken job. Stopping it puts the reason on
 		// the customer's screen, which is the only thing that gets it fixed.
+		r.eraseUpload(ctx, job)
 		_ = r.q.FinishMailMigration(ctx, db.FinishMailMigrationParams{
 			ID: job.ID, Status: "failed", ErrorCode: code, LastError: truncate(err.Error(), 500),
 		})
@@ -94,8 +104,11 @@ func (r *Runner) fail(ctx context.Context, job db.MailMigration, err error) {
 	}
 }
 
-// run does one pass over one job.
+// run does one pass over one job, from whichever source it has.
 func (r *Runner) run(ctx context.Context, job db.MailMigration) error {
+	if job.Kind == "file" {
+		return r.runFile(ctx, job)
+	}
 	pw, err := r.box.Decrypt(job.SourcePassword)
 	if err != nil || pw == "" {
 		// The password is erased when a job ends, so an empty one here means the job was finished or

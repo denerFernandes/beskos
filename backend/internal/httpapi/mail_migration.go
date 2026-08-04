@@ -282,6 +282,8 @@ func (s *Server) migrationCredentials(w http.ResponseWriter, req migrationSource
 func migrationView(m db.MailMigration, folders []db.MailMigrationFolder) map[string]any {
 	out := map[string]any{
 		"id":               m.ID,
+		"kind":             m.Kind,
+		"source_file":      m.SourceFile,
 		"status":           m.Status,
 		"error_code":       m.ErrorCode,
 		"source_host":      m.SourceHost,

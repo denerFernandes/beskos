@@ -27,6 +27,8 @@ func (s *Server) mountMail(r chi.Router) {
 	// own. /check copies nothing -- it exists so a wrong password is found on the form.
 	r.Post("/me/migration/check", s.handleCheckMigrationSource)
 	r.Post("/me/migration", s.handleCreateMigration)
+	// From a file on the customer's own disk -- the mail no IMAP login can reach.
+	r.Post("/me/migration/file", s.handleUploadMigrationFile)
 	r.Get("/me/migration", s.handleGetMigration)
 	// The offer made on first sign-in, answered once per person rather than once per device.
 	r.Post("/me/migration/dismiss", s.handleDismissMigrationPrompt)
