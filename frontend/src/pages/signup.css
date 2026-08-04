@@ -18,9 +18,9 @@
   --line-2: #C7C0AD;
   --muted: #6A675E;
   --faint: #918D82;
-  --accent: #C2603A;
-  --accent-ink: #9F4826;
-  --accent-tint: #F0DFD4;
+  --accent: #B4785F;
+  --accent-ink: #8A5539;
+  --accent-tint: #EFE3DA;
   --danger: #A61E1E;
   min-height: 100vh;
   background: var(--bg);
@@ -31,8 +31,8 @@
 @media (prefers-color-scheme: dark) {
   .sg {
     --ink: #F2EFE6; --paper: #221F1B; --bg: #1A1916; --line: #34312A; --line-2: #4A463C;
-    --muted: #A39E92; --faint: #7C776D; --accent: #DE8560; --accent-ink: #E8A183;
-    --accent-tint: #3A2A22; --danger: #E88379;
+    --muted: #A39E92; --faint: #7C776D; --accent: #D2A28C; --accent-ink: #E0BAA8;
+    --accent-tint: #33251E; --danger: #E88379;
   }
 }
 

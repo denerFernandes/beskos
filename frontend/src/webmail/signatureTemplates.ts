@@ -10,7 +10,7 @@ const E = "Empresa";
 const M = "email@empresa.com";
 const P = "+55 (11) 90000-0000";
 const W = "www.empresa.com";
-const AC = "#C2603A"; // acento
+const AC = "#B4785F"; // acento
 
 export const SIGNATURE_TEMPLATES: SignatureTemplate[] = [
   {

@@ -5,7 +5,7 @@
   --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
   --ink:#191813; --muted:#6A675E; --faint:#918D82;
   --border:#DFDACB; --border-strong:#C7C0AD;
-  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --accent:#B4785F; --accent-solid:#9A6247; --accent-ink:#8A5539; --accent-tint:#EFE3DA;
   --on-accent:#FFFFFF;
   --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
   --shadow-sm:0 1px 2px rgba(25,24,19,.05);
@@ -20,7 +20,7 @@
   color-scheme: dark;
   --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
   --border:#34312A; --border-strong:#4A463C;
-  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --accent:#D2A28C; --accent-solid:#D2A28C; --accent-ink:#E0BAA8; --accent-tint:#33251E;
   --on-accent:#1A1916;
   --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
   --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
@@ -35,7 +35,7 @@
   color-scheme: dark;
   --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
   --border:#34312A; --border-strong:#4A463C;
-  --accent:#DE8560; --accent-solid:#DE8560; --accent-ink:#E8A183; --accent-tint:#3A2A22;
+  --accent:#D2A28C; --accent-solid:#D2A28C; --accent-ink:#E0BAA8; --accent-tint:#33251E;
   --on-accent:#1A1916;
   --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
   --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow:0 1px 3px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
@@ -46,7 +46,7 @@
   --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
   --ink:#191813; --muted:#6A675E; --faint:#918D82;
   --border:#DFDACB; --border-strong:#C7C0AD;
-  --accent:#C2603A; --accent-solid:#B04F2E; --accent-ink:#9F4826; --accent-tint:#F0DFD4;
+  --accent:#B4785F; --accent-solid:#9A6247; --accent-ink:#8A5539; --accent-tint:#EFE3DA;
   --on-accent:#FFFFFF;
   --danger:#A61E1E; --ok:#2E7D5B; --warn:#7F5E0B;
   --shadow-sm:0 1px 2px rgba(25,24,19,.05);

@@ -10,7 +10,7 @@ import { IcTrash, IcSearch } from "../panel/icons";
 // cartão do evento fica com o fundo pastel derivado (color-mix no CSS).
 export const CAT_COLORS = ["#F0926B", "#8B7CF6", "#62BEE9", "#53C08B"];
 // Cores dos calendários pessoais.
-export const CAL_COLORS = ["#C2603A", "#e6a817", "#c0392b", "#2980b9", "#8e44ad", "#27ae60"];
+export const CAL_COLORS = ["#B4785F", "#e6a817", "#c0392b", "#2980b9", "#8e44ad", "#27ae60"];
 
 // Sidebar do calendário no MESMO padrão da página de Contactos (24/07/2026): secções `rlabel`,
 // linhas `grp-item` (ponto colorido + nome), botão tracejado `newg`. Clicar numa linha
