@@ -15,6 +15,7 @@ import (
 	"mailin/backend/internal/billing"
 	"mailin/backend/internal/db"
 	"mailin/backend/internal/managerapi"
+	"mailin/backend/internal/notify"
 )
 
 func main() {
@@ -52,6 +53,23 @@ func main() {
 		log.Fatalf("billing provider: %v", err)
 	}
 	srv := managerapi.NewServer(q, os.Getenv("MFA_ENC_KEY"), os.Getenv("COOKIE_SECURE") == "true", bp)
+
+	// The waiting-list invitation is the only mail this API sends, and it is the first thing a
+	// prospective customer ever receives from us. Without a sender configured the endpoint refuses
+	// rather than marking people invited who were never written to -- and says so here, because a
+	// list that silently cannot be invited from looks exactly like a list nobody is working.
+	if em := notify.NewEmail(os.Getenv("NOTIFY_SMTP_HOST"), os.Getenv("NOTIFY_SMTP_PORT"),
+		os.Getenv("NOTIFY_FROM"), os.Getenv("NOTIFY_SMTP_USER"), os.Getenv("NOTIFY_SMTP_PASSWORD"),
+		os.Getenv("NOTIFY_SMTP_INSECURE") == "true"); em != nil {
+		appURL := os.Getenv("APP_PUBLIC_URL")
+		if appURL == "" {
+			appURL = os.Getenv("PUBLIC_URL")
+		}
+		srv.EnableEmail(em, appURL)
+		log.Printf("waitlist invitations enabled (from %s, signup at %s)", os.Getenv("NOTIFY_FROM"), appURL)
+	} else {
+		log.Printf("WARNING: waitlist invitations DISABLED (missing NOTIFY_SMTP_HOST/NOTIFY_FROM)")
+	}
 	if os.Getenv("MFA_ENC_KEY") != "" {
 		log.Printf("TOTP secret encryption enabled")
 	}

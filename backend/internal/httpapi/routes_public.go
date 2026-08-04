@@ -18,6 +18,10 @@ func (s *Server) mountPublic(r chi.Router) {
 	// before any middleware runs, which is exactly how this shipped broken.
 	r.With(publicCORS, s.publicRateLimit).Get("/public/mail-audit", s.handleMailAudit)
 	r.With(publicCORS).Options("/public/mail-audit", func(http.ResponseWriter, *http.Request) {})
+	// The waiting list, posted from the marketing site. Same cross-origin shape as mail-audit above,
+	// including the registered preflight -- for exactly the reason written there.
+	r.With(publicCORS, s.publicRateLimit).Post("/public/waitlist", s.handleJoinWaitlist)
+	r.With(publicCORS).Options("/public/waitlist", func(http.ResponseWriter, *http.Request) {})
 	// Asked by the policy server before it issues a certificate for a customer's mta-sts hostname.
 	r.With(s.publicRateLimit).Get("/public/mta-sts-allowed", s.handleMTASTSAllowed)
 	r.With(s.publicRateLimit).Get("/public/meet/{room}", s.handlePublicMeetInfo)

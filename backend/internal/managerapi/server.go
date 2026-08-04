@@ -16,6 +16,7 @@ import (
 
 	"mailin/backend/internal/billing"
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/notify"
 	"mailin/backend/internal/secretbox"
 )
 
@@ -32,7 +33,15 @@ type Server struct {
 	loginUser    *rateLimiter
 	// billing espelha o catálogo de planos no provedor (Stripe): gravar plano → Product/Price lá.
 	billing billing.Provider
+	// email sends the waiting-list invitation. nil = not configured, and the endpoint says so
+	// rather than reporting somebody invited who was never written to.
+	email *notify.Email
+	// appURL is where the invitation link points: the product, not the manager.
+	appURL string
 }
+
+// EnableEmail wires the sender used for waiting-list invitations.
+func (s *Server) EnableEmail(e *notify.Email, appURL string) { s.email, s.appURL = e, appURL }
 
 func NewServer(q *db.Queries, encKey string, cookieSecure bool, bp billing.Provider) *Server {
 	return &Server{
@@ -74,6 +83,12 @@ func (s *Server) Router() http.Handler {
 			r.Get("/export/usage.csv", s.handleExportUsage)
 			r.Get("/export/finance.csv", s.handleExportFinance)
 			// Operadores (M5). Escritas admin-only (checado nos handlers).
+			// The waiting list: who asked to be told, and the invitation.
+			r.Get("/waitlist", s.handleListWaitlist)
+			r.Post("/waitlist/{id}/invite", s.handleInviteWaitlist)
+			r.Post("/waitlist/{id}/status", s.handleSetWaitlistStatus)
+			r.Delete("/waitlist/{id}", s.handleDeleteWaitlist)
+
 			r.Get("/operators", s.handleListOperators)
 			r.Post("/operators", s.handleCreateOperator)
 			r.Post("/operators/{id}/active", s.handleSetOperatorActive)
