@@ -37,6 +37,7 @@ type Server struct {
 	billingCfg   billing.Settings
 	office       *onlyoffice   // edição de office (OnlyOffice Document Server); nil = desligado
 	meet         *meet         // videochamada (LiveKit); nil = desligado
+	salesEmail   string        // where the website's contact form delivers; empty = form disabled
 	email        *notify.Email // envio de e-mail (notificações); nil = desligado
 	hub          *chat.Hub     // tempo real do chat (Redis pub/sub); nil = desligado
 	wiki         *wiki.Service // base de conhecimento (Confluence-style); serviço sobre as queries

@@ -88,6 +88,21 @@ func (e *Email) SendHTML(to, subject, html, text string) error {
 	return e.send(to, subject, `multipart/alternative; boundary="`+boundary+`"`, body)
 }
 
+// SendReplyTo delivers an HTML message whose replies go somewhere other than the sender.
+//
+// Used by the contact form: the message is relayed BY us but written by the enquirer, and answering
+// it should reach them rather than the mailbox that carried it. Without this, hitting reply writes
+// back to our own notification address and the enquiry dies there.
+func (e *Email) SendReplyTo(to, replyTo, subject, html, text string) error {
+	boundary := "beskos-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	body := "--" + boundary + "\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n" +
+		strings.ReplaceAll(text, "\n", "\r\n") + "\r\n" +
+		"--" + boundary + "\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n" +
+		strings.ReplaceAll(html, "\n", "\r\n") + "\r\n" +
+		"--" + boundary + "--\r\n"
+	return e.sendWith(to, replyTo, subject, `multipart/alternative; boundary="`+boundary+`"`, body)
+}
+
 // Send delivers a plain-text message. Best-effort: the caller logs errors and continues.
 func (e *Email) Send(to, subject, body string) error {
 	return e.send(to, subject, "text/plain; charset=UTF-8", strings.ReplaceAll(body, "\n", "\r\n"))
@@ -95,6 +110,11 @@ func (e *Email) Send(to, subject, body string) error {
 
 // send monta o envelope e entrega. O corpo já vem com o Content-Type certo e as quebras em CRLF.
 func (e *Email) send(to, subject, contentType, body string) error {
+	return e.sendWith(to, "", subject, contentType, body)
+}
+
+// sendWith is send, plus an optional Reply-To.
+func (e *Email) sendWith(to, replyTo, subject, contentType, body string) error {
 	// Validate the recipient address before it enters the To: header — defense in depth against
 	// header injection (a CRLF in `to` could forge headers). ParseAddress rejects control chars.
 	addr, err := mail.ParseAddress(to)
@@ -122,10 +142,20 @@ func (e *Email) send(to, subject, contentType, body string) error {
 	if err != nil {
 		return err
 	}
+	// Reply-To is parsed exactly like the recipient, and for the same reason: it arrives from a
+	// public form, and a CRLF inside it would forge the headers that follow. An address that does
+	// not parse is dropped rather than sent -- losing the convenience of a reply beats sending a
+	// message somebody else wrote the headers of.
+	replyHeader := ""
+	if replyTo != "" {
+		if ra, rerr := mail.ParseAddress(replyTo); rerr == nil {
+			replyHeader = "Reply-To: " + ra.Address + "\r\n"
+		}
+	}
 	// Subject is encoded: accents in "Nova tarefa atribuída" would be mangled raw.
-	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\n"+
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\n%sSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\n"+
 		"Content-Type: %s\r\n\r\n%s\r\n",
-		e.from, to, mime.QEncoding.Encode("UTF-8", subject), time.Now().Format(time.RFC1123Z),
+		e.from, to, replyHeader, mime.QEncoding.Encode("UTF-8", subject), time.Now().Format(time.RFC1123Z),
 		contentType, body)
 	if _, err := wc.Write([]byte(msg)); err != nil {
 		return err
