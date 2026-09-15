@@ -70,6 +70,14 @@ jobs:
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           "$(go env GOPATH)/bin/govulncheck" ./...
+      # Report-only: 130 pre-existing findings as of 2026-09-15, triaged by hand -- the real
+      # categories (SSRF, TLS, hardcoded credentials) are false positives (see docs/OPEN-SOURCE.md
+      # F5); the rest is unchecked integer-overflow noise across the codebase, not yet swept.
+      - name: gosec (report-only)
+        continue-on-error: true
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          "$(go env GOPATH)/bin/gosec" -exclude-dir internal/db ./...
       - name: sqlc — código gerado está atualizado
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.27.0

@@ -125,8 +125,9 @@ func (s *Server) handleListMeetings(w http.ResponseWriter, r *http.Request) {
 	// Com ?bucket=upcoming|past a resposta é PAGINADA no servidor (home do Meet). Sem bucket,
 	// devolve tudo — a agenda (dia/semana/mês) precisa do conjunto completo do período.
 	if bucket := r.URL.Query().Get("bucket"); bucket == "upcoming" || bucket == "past" {
+		// Upper-bounded too: an unbounded page overflows the int32 offset below.
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-		if page < 1 {
+		if page < 1 || page > 1_000_000 {
 			page = 1
 		}
 		per, _ := strconv.Atoi(r.URL.Query().Get("per"))
