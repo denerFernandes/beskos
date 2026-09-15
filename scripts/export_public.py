@@ -42,6 +42,8 @@ EXCLUDE = [
     "docs/GAPS-FUNCIONALIDADES.md",
     "docs/landing-europa.md",
     "docs/OPEN-SOURCE.md",
+    "docs/README-oss.md",  # becomes README.md via OVERRIDES, not kept at its own path too
+    "deploy/docker-compose.community.yml",  # becomes deploy/docker-compose.yml via OVERRIDES
     # Agent configuration and the landing gitlink (separate repository).
     ".claude/*",
     ".codex/*",
@@ -49,6 +51,14 @@ EXCLUDE = [
     "CLAUDE.md",
     "landing",
 ]
+
+# Published path -> source path. The source replaces whatever tracked_files() would have put at
+# the published path (its own tracked copy there, if any, is excluded below) -- used for files
+# that need a different version in public than the one the team uses day to day.
+OVERRIDES = {
+    "README.md": "docs/README-oss.md",
+    "deploy/docker-compose.yml": "deploy/docker-compose.community.yml",
+}
 
 # Residue checks: things the exported tree must not contain. Each entry is a
 # regex applied to text files, with the paths where a match is acceptable.
@@ -71,13 +81,19 @@ def tracked_files() -> list[str]:
 
 
 def excluded(path: str) -> bool:
+    if path in OVERRIDES:
+        return True  # replaced below, not copied as tracked
     return any(fnmatch.fnmatch(path, pattern) or path == pattern.rstrip("/*") for pattern in EXCLUDE)
 
 
 def residue(paths: list[str]) -> dict[str, list[str]]:
+    """Checks the tree as it will actually be published: kept files at their own path, plus each
+    override's source content checked at its PUBLISHED path (so e.g. README.md's allowances
+    apply to docs/README-oss.md's content, not to docs/*'s)."""
     hits: dict[str, list[str]] = {name: [] for name, _, _ in RESIDUE}
-    for rel in paths:
-        p = ROOT / rel
+    entries = [(rel, ROOT / rel) for rel in paths]
+    entries += [(pub, ROOT / src) for pub, src in OVERRIDES.items()]
+    for rel, p in entries:
         if p.suffix not in TEXT_SUFFIXES or not p.is_file():
             continue
         try:
@@ -103,6 +119,10 @@ def copy_tree(paths: list[str], target: pathlib.Path) -> None:
         dst = target / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
+    for pub, src_rel in OVERRIDES.items():
+        dst = target / pub
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT / src_rel, dst)
 
 
 def main() -> int:
