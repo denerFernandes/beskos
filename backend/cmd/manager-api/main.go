@@ -12,10 +12,10 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/managerapi"
-	"mailin/backend/internal/notify"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/managerapi"
+	"github.com/beskosorg/beskos/backend/internal/notify"
 )
 
 func main() {

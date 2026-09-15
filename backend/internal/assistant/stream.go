@@ -3,7 +3,7 @@ package assistant
 import (
 	"context"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // Tipos de evento emitidos durante uma execução. São o que a conversa mostra ao vivo.

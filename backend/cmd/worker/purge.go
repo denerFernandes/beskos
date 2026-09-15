@@ -24,9 +24,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/httpapi"
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/httpapi"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 const (

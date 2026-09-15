@@ -15,8 +15,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/minio/minio-go/v7"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/filecrypt"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
 // Teste de integração contra o MinIO e o Postgres locais (CLAUDE.md §2.7). Sem as envs é saltado,

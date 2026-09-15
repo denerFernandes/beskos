@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/rbac"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
 // Mural de avisos da organização. Admins/owner publicam (RBAC org.settings) e podem despublicar;

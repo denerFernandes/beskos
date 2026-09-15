@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Marca da organização (cor principal + logo). Leitura por qualquer utilizador do tenant (para o

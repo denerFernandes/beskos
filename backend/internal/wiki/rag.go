@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // RAG semântico (docs/wiki-features.md §7.2): as páginas published de espaços com ai_indexed são

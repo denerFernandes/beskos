@@ -19,8 +19,8 @@ import (
 	"io"
 	"log"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/mailbox"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/mailbox"
 )
 
 // filePageSize is how many messages are imported before progress is written. Smaller than the IMAP

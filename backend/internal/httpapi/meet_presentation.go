@@ -15,7 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Apresentações do Meet (estilo BigBlueButton): o apresentador escolhe um PDF/PPTX (upload ou do

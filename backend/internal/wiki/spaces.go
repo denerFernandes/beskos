@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // SpaceInput carries the mutable fields of a space (create/update).

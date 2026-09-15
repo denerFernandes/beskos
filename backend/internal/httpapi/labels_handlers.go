@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Marcadores: catálogo por tenant. Aplicar/remover em e-mails é via keywords JMAP no frontend.

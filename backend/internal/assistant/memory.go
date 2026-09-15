@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // Categorias válidas de um facto (§8.1). Fora destas, o facto não se guarda.

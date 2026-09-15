@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Import/export de eventos em iCalendar (RFC 5545) — o formato universal de agenda (Google, Apple,

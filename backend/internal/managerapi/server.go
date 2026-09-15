@@ -14,10 +14,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/notify"
-	"mailin/backend/internal/secretbox"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/notify"
+	"github.com/beskosorg/beskos/backend/internal/secretbox"
 )
 
 const (

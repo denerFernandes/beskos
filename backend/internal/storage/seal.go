@@ -11,7 +11,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 
-	"mailin/backend/internal/filecrypt"
+	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
 // Selagem: pegar num objeto que está em claro e reescrevê-lo cifrado.

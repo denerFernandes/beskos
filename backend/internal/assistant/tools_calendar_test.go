@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // recordingCal regista os eventos que lhe mandaram criar, para se afirmar o que foi (ou não) criado.

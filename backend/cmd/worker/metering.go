@@ -8,8 +8,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 // Metering do manager (M3, docs/manager.md §3.5): rollup diário idempotente + retenção de

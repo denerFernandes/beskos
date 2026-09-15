@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/notify"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/notify"
 )
 
 // Avisos por e-mail nos momentos que importam ao cliente: conta criada, teste iniciado, subscrição

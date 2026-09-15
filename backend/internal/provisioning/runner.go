@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Lister é o subconjunto do db.Queries que o Runner usa para achar trabalho pendente.

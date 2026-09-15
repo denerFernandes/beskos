@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mailin/backend/internal/mailbox"
+	"github.com/beskosorg/beskos/backend/internal/mailbox"
 )
 
 // draftArgs são os campos que o modelo preenche para escrever uma mensagem.

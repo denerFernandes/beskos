@@ -9,9 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/ai"
-	"mailin/backend/internal/mailbox"
-	"mailin/backend/internal/office"
+	"github.com/beskosorg/beskos/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/mailbox"
+	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
 // fakeProvider devolve respostas guionadas; a última repete-se se o motor pedir mais.

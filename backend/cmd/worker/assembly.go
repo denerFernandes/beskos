@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 // Montagem OFFLINE das gravações (docs/manager.md §1): o LiveKit gravou uma faixa crua por

@@ -32,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 type gateway struct {

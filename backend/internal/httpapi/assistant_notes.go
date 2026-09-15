@@ -9,9 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/assistant"
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/wiki"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/wiki"
 )
 
 // Adapters that connect the assistant's note tools to the database.

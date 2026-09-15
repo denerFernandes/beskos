@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/chat"
-	"mailin/backend/internal/notify"
-	"mailin/backend/internal/secretbox"
-	"mailin/backend/internal/ses"
+	"github.com/beskosorg/beskos/backend/internal/chat"
+	"github.com/beskosorg/beskos/backend/internal/notify"
+	"github.com/beskosorg/beskos/backend/internal/secretbox"
+	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
 // SetReadiness liga a sonda de prontidão (/readyz): a função deve falhar se uma dependência crítica

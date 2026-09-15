@@ -9,7 +9,7 @@ import (
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Web Push: notificações desktop entregues pelo servidor quando o Beskos está fechado. Cifra o

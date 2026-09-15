@@ -13,7 +13,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"mailin/backend/internal/filecrypt"
+	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
 type Service struct {

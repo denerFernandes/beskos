@@ -7,9 +7,9 @@ import (
 	"sync"
 	"testing"
 
-	"mailin/backend/internal/ai"
-	"mailin/backend/internal/mailbox"
-	"mailin/backend/internal/office"
+	"github.com/beskosorg/beskos/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/mailbox"
+	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
 // recordingBox regista o que lhe mandaram enviar, para se poder afirmar que NADA saiu.

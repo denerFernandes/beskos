@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"mailin/backend/internal/rbac"
+	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
 const sessionTTL = 7 * 24 * time.Hour

@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/provisioning"
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/provisioning"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 type createDomainReq struct {

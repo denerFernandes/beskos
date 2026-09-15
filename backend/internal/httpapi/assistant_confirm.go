@@ -9,7 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
 // assistantConfirmWait é quanto tempo uma ação espera por decisão. Passado o prazo, é RECUSADA —

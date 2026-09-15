@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // toggleableApps são as apps do rail que o admin pode desligar para a organização. As Definições e a

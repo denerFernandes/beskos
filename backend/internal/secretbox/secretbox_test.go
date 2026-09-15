@@ -30,10 +30,15 @@ func TestNonceIsRandom(t *testing.T) {
 	}
 }
 
+// TestTamperFails flips a bit near the middle of the base64 payload, not the last character:
+// the last base64 character of a padded group can encode bits that never surface in the decoded
+// bytes, so flipping it sometimes leaves the actual ciphertext unchanged and this test flaky
+// (found running it with -count=5: 2 failures in 5 runs, unrelated to any real bug).
 func TestTamperFails(t *testing.T) {
 	b := New("chave")
 	enc, _ := b.Encrypt("segredo")
-	tampered := enc[:len(enc)-1] + string(enc[len(enc)-1]^1)
+	mid := 4 + (len(enc)-4)/2 // skip the "enc:" prefix, tamper a byte guaranteed to matter
+	tampered := enc[:mid] + string(enc[mid]^1) + enc[mid+1:]
 	if _, err := b.Decrypt(tampered); err == nil {
 		t.Fatal("decrypt de ciphertext adulterado deveria falhar (GCM autentica)")
 	}

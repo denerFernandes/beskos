@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mailin/backend/internal/office"
+	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
 // FileContent é o que uma leitura de ficheiro devolve. Version e Hash identificam a versão exata que

@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Meet — videochamada via LiveKit. Nosso Go assina o token de sala (JWT HS256 com o segredo do

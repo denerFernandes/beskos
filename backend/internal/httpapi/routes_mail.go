@@ -3,7 +3,7 @@ package httpapi
 import (
 	"github.com/go-chi/chi/v5"
 
-	"mailin/backend/internal/rbac"
+	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
 // Routes that act on the mailbox itself rather than on the organisation around it: deferring a

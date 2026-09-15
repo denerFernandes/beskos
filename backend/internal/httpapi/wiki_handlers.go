@@ -12,7 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/wiki"
+	"github.com/beskosorg/beskos/backend/internal/wiki"
 )
 
 // Wiki: thin HTTP transport over the wiki service (law 1.3). Every handler takes tenant+user from the

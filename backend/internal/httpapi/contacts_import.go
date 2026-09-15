@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Import/export de contatos em vCard 3.0 e CSV — os formatos universais de agenda (Google, Apple,

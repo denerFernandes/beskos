@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 type waitlistReq struct {

@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
 // Proxy OpenAI-compatível para o plugin de IA do OnlyOffice usar o DeepSeek SEM que a chave real saia

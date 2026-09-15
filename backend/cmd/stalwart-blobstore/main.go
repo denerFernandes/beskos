@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 func main() {

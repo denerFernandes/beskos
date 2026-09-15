@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/assistant"
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/office"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
 // assistantDocsRead lê o conteúdo de texto de um ficheiro do Drive do utilizador, com a versão

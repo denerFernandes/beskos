@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // failingProvider falha sempre — serve para provar que a dúvida cai no agente mais fraco.

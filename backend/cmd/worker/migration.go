@@ -5,10 +5,10 @@ import (
 	"log"
 	"time"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/mailmigrate"
-	"mailin/backend/internal/secretbox"
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/mailmigrate"
+	"github.com/beskosorg/beskos/backend/internal/secretbox"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 // Bringing mailboxes in from the provider a customer is leaving. See internal/mailmigrate.

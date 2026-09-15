@@ -22,7 +22,7 @@ import (
 	"os"
 	"strconv"
 
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 func main() {

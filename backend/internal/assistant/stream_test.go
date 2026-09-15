@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // fakeStreamer é um fornecedor com streaming: parte o texto guionado em pedaços.

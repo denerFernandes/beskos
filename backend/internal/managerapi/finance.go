@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Finanças (M4, docs/manager.md §5): MRR/ARR/ARPU a partir do catálogo de planos × utilizadores

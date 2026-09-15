@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 // --- Fakes -------------------------------------------------------------------

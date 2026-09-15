@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"mailin/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
 // INVARIANTE (§3.2): um agente criado pelo cliente nunca pode ter mais ferramentas do que o teto —

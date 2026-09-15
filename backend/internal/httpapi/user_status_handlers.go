@@ -3,7 +3,7 @@ package httpapi
 import (
 	"net/http"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Status do utilizador (estilo Slack): emoji + texto curto. Definido por si próprio; visível aos

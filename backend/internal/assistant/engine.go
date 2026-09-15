@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // DefaultMaxSteps é o teto de segurança por execução (§9.1). Existe para travar ciclos: um agente

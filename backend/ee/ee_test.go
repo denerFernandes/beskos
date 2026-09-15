@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"mailin/backend/internal/edition"
+	"github.com/beskosorg/beskos/backend/internal/edition"
 )
 
 // Register must never panic, in either build: it runs on every server start, before anyone

@@ -5,8 +5,8 @@ import (
 	"sync"
 	"testing"
 
-	"mailin/backend/internal/ai"
-	"mailin/backend/internal/office"
+	"github.com/beskosorg/beskos/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
 // fakeFiles é um Drive em memória: guarda o conteúdo e a versão de cada ficheiro, e conta as

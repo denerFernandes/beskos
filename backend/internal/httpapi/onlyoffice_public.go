@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/auth"
+	"github.com/beskosorg/beskos/backend/internal/auth"
 )
 
 // handlePublicDocSession abre uma sessão pública (SEM login) de um ficheiro por token de link. Para

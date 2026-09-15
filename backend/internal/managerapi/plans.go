@@ -11,8 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Gestão de planos (M2, docs/manager.md §3.1/§5.3). Só operadores com role=admin escrevem;

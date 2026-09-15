@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Favoritos e miniaturas (thumbnails) de imagens. As miniaturas usam só a stdlib (image/*) — sem

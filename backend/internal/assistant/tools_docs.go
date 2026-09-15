@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mailin/backend/internal/office"
+	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
 // DocsCreate grava um ficheiro Office no Drive do utilizador e devolve o que foi criado.
