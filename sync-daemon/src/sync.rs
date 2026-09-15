@@ -1,13 +1,13 @@
-//! Reconciliação bidirecional (M2) com espelho de subpastas. A ORDEM importa: **push antes de pull**.
-//!   1. push: sobe mudanças locais com If-Match (o hash base). Se o servidor também mudou → 412,
-//!      guardamos uma cópia de conflito local e deixamos o pull trazer a versão do servidor. Push
-//!      antes de pull garante que uma edição local não é sobrescrita pelo download antes de subir.
-//!      Ficheiros novos (mesmo em subpastas) são criados no servidor, criando as pastas em falta.
-//!   2. pull: aplica o feed. Coloca cada ficheiro sob o caminho da sua pasta (espelho da árvore);
-//!      se só a pasta mudou (mesmo hash), MOVE o ficheiro local em vez de rebaixar; tombstone apaga
-//!      só o que este daemon baixou. O cursor só avança por página aplicada.
-//! Segurança: caminhos sanitizados (anti-traversal, incl. subpastas), escrita atómica, e o delete
-//! LOCAL não é propagado ao servidor.
+//! Bidirectional reconciliation with subfolder mirroring. Order matters: **push before pull**.
+//!   1. push: uploads local changes with If-Match (the base hash). If the server also changed →
+//!      412, we keep a local conflict copy and let pull bring in the server version. Push before
+//!      pull ensures a local edit is not overwritten by the download before it is uploaded.
+//!      New files (even in subfolders) are created on the server, creating missing folders too.
+//!   2. pull: applies the feed. Places each file under its folder's path (tree mirror); if only
+//!      the folder changed (same hash), it MOVES the local file instead of re-downloading;
+//!      tombstones delete only what this daemon downloaded. The cursor only advances per applied page.
+//! Safety: sanitized paths (anti-traversal, incl. subfolders), atomic writes, and LOCAL deletes
+//! are never propagated to the server.
 
 use std::collections::HashSet;
 use std::fs;
@@ -111,8 +111,8 @@ fn read_block(f: &mut fs::File, buf: &mut [u8]) -> std::io::Result<usize> {
     Ok(got)
 }
 
-/// Tenta enviar só os blocos alterados (M4). Devolve `Ok(None)` quando não compensa ou não dá — o
-/// chamador faz então o envio completo. Nunca falha a sincronização por causa do delta.
+/// Attempts to upload only the changed blocks. Returns `Ok(None)` when it is not worth it or not
+/// possible — the caller then falls back to a full upload. Never fails the sync over the delta path.
 fn try_delta_upload(
     client: &Client,
     path: &Path,
