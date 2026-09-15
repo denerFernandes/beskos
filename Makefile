@@ -75,3 +75,4 @@ check: ## Verifica as leis do CLAUDE.md nas linhas novas (idioma e tamanho de fi
 	@python3 scripts/check_laws.py && echo "leis: ok"
 	@python3 scripts/check_docs.py
 	@python3 scripts/check_register.py
+	@python3 scripts/comment_audit.py || echo "comment_audit: report-only, not a merge gate yet"
