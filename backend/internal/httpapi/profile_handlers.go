@@ -14,8 +14,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Perfil do utilizador (menu do avatar — pedido 23/07/2026): nome, cargo, telefone, foto e troca
-// de senha self-service. A segurança PESSOAL (MFA) usa os endpoints /mfa/* existentes.
+// User profile (avatar menu): name, job title, phone, photo, and self-service password change.
+// PERSONAL security (MFA) uses the existing /mfa/* endpoints.
 
 const maxAvatarBytes = 150 << 10 // data-URL ~128px cabe folgado; acima disto é upload errado
 

@@ -10,16 +10,16 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/billing"
 )
 
-// Sessão única do produto (cookie wm_session). O login vive em auth_handlers.go: com caixa a
-// credencial é validada no Stalwart, sem caixa no nosso cadastro. O e-mail em si segue JMAP
-// direto no Stalwart (DIVERGENCES §D7).
+// Single product session (wm_session cookie). Login lives in auth_handlers.go: with a mailbox,
+// the credential is validated against Stalwart; without one, against our own signup records.
+// Email itself talks JMAP directly to Stalwart.
 
 const ctxMailUser ctxKey = "mailUser"
 
 func mailUserFrom(ctx context.Context) db.MailUser { return ctx.Value(ctxMailUser).(db.MailUser) }
 
-// sessionToken extrai o token da sessão do webmail: header Bearer (app nativo) > cookie wm_session
-// (web same-origin) > ?access_token= na query (WebSocket / mídia, que não mandam Authorization).
+// sessionToken extracts the webmail session token: Bearer header (native app) > wm_session cookie
+// (web same-origin) > ?access_token= query param (WebSocket / media, which don't send Authorization).
 func sessionToken(r *http.Request) string {
 	if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
 		return strings.TrimPrefix(h, "Bearer ")
@@ -30,7 +30,7 @@ func sessionToken(r *http.Request) string {
 	return r.URL.Query().Get("access_token")
 }
 
-// requireWebmailSession valida o cookie de sessão do webmail e injeta a mail_user no contexto.
+// requireWebmailSession validates the webmail session cookie and injects the mail_user into the context.
 func (s *Server) requireWebmailSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		token := sessionToken(r)

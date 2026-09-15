@@ -13,11 +13,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
-// Webhook do SNS com os eventos do SES (bounce/complaint/delivery) — deliverability por tenant
-// (docs/manager.md, 22/07/2026). Público mas FECHADO: só entra mensagem com assinatura SNS válida
-// de cert *.amazonaws.com; a subscrição confirma-se sozinha (SubscribeURL com a mesma allowlist).
-// Setup na AWS: SNS topic → subscrição HTTPS para <PUBLIC_URL>/api/webhooks/ses; no SES, ligar as
-// notificações da identidade (ou configuration set) ao topic.
+// SNS webhook carrying SES events (bounce/complaint/delivery) — per-tenant deliverability
+// tracking. Public but CLOSED: only a message with a valid SNS signature from a *.amazonaws.com
+// cert gets in; the subscription confirms itself (SubscribeURL under the same allowlist).
+// AWS setup: SNS topic -> HTTPS subscription to <PUBLIC_URL>/api/webhooks/ses; in SES, connect the
+// identity's (or configuration set's) notifications to the topic.
 
 func (s *Server) handleSESWebhook(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))

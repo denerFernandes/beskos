@@ -435,8 +435,8 @@ func (s *Server) handleUpdateMeetAccess(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]string{"access": m.Access})
 }
 
-// handleMeetWebhook recebe os eventos do LiveKit (server-to-server) e atualiza os tempos reais
-// da reunião e a presença dos participantes. Autenticado pela assinatura do LiveKit (não sessão).
+// handleMeetWebhook receives LiveKit events (server-to-server) and updates the meeting's actual
+// start/end times and participant presence. Authenticated by the LiveKit signature, not a session.
 func (s *Server) handleMeetWebhook(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		w.WriteHeader(http.StatusServiceUnavailable)

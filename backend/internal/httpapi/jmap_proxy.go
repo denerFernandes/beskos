@@ -8,11 +8,12 @@ import (
 	"net/url"
 )
 
-// O proxy JMAP encaminha /jmap/*, /auth/*, /.well-known/* para o Stalwart. Faz o BROKERING da
-// credencial (H11): o browser autentica-se com a SESSÃO (cookie/bearer/?access_token) e o proxy
-// INJETA a credencial Basic da caixa (guardada cifrada em mail_users.jmap_cred) na requisição a
-// caminho do Stalwart. Assim a senha da caixa nunca vive no browser. Precisa estar SEMPRE no caminho
-// do JMAP (web e app nativo) — o deploy roteia /jmap para a NOSSA API, não direto ao Stalwart.
+// The JMAP proxy forwards /jmap/*, /auth/*, /.well-known/* to Stalwart. It BROKERS the
+// credential: the browser authenticates with the SESSION (cookie/bearer/?access_token) and the
+// proxy INJECTS the mailbox's Basic credential (stored encrypted in mail_users.jmap_cred) into
+// the request on its way to Stalwart. This way the mailbox password never lives in the browser.
+// It must ALWAYS sit in the JMAP path (web and native app) — the deploy routes /jmap to OUR API,
+// never directly to Stalwart.
 //
 // SSE streaming (/jmap/eventsource) needs immediate flushing, so FlushInterval is -1.
 func (s *Server) newJMAPProxy() http.Handler {
@@ -42,9 +43,10 @@ func (s *Server) mountJMAPProxy(r interface {
 	r.Handle("/.well-known/*", p)
 }
 
-// jmapBrokerAuth autentica a sessão do usuário e injeta a credencial Basic da caixa no request antes
-// de encaminhá-lo ao Stalwart. O browser envia só a sessão (cookie/bearer/?access_token); nunca a
-// credencial da caixa. Sem sessão válida ou sem credencial guardada → 401 (força login/re-login).
+// jmapBrokerAuth authenticates the user's session and injects the mailbox's Basic credential into
+// the request before forwarding it to Stalwart. The browser sends only the session
+// (cookie/bearer/?access_token); never the mailbox credential. No valid session or no stored
+// credential -> 401 (forces login/re-login).
 func (s *Server) jmapBrokerAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tok := sessionToken(r)
@@ -59,7 +61,7 @@ func (s *Server) jmapBrokerAuth(next http.Handler) http.Handler {
 		}
 		cred, ok := s.decryptCred(row.MailUser.JmapCred)
 		if !ok {
-			// Conta só-painel (sem caixa) ou sessão anterior ao brokering: sem credencial para injetar.
+			// Panel-only account (no mailbox) or a session predating brokering: no credential to inject.
 			http.Error(w, "no mailbox credential", http.StatusUnauthorized)
 			return
 		}

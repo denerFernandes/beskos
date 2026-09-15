@@ -77,7 +77,7 @@ func (s *Server) handleUploadMigrationFile(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Its own prefix, never under "mail/" -- that belongs to Stalwart and sweeping the bucket needs
-	// an allow-list (see deploy/DIVERGENCES.md). Tenant-scoped like every other object we write.
+	// an allow-list. Tenant-scoped like every other object we write.
 	key := fmt.Sprintf("migrations/%s/%s", u.TenantID, uuid.New())
 	body := http.MaxBytesReader(w, r.Body, maxImportBytes)
 	if err := s.storage.Put(r.Context(), key, body, size, "application/octet-stream"); err != nil {

@@ -16,9 +16,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Booking (24/07/2026): página pública estilo Calendly por colaborador. O dono configura janelas
-// semanais + campos obrigatórios; externos marcam em /b/<org>/<colaborador>. Cada reserva cria o
-// evento (com sala Meet), envia e-mail a quem marcou e notifica o colaborador.
+// Booking: a public Calendly-style page per collaborator. The owner configures weekly windows
+// plus required fields; outsiders book at /b/<org>/<collaborator>. Each booking creates the
+// event (with a Meet room), emails whoever booked, and notifies the collaborator.
 
 // bookingWindow é uma janela semanal de disponibilidade, em minutos desde as 00:00 locais do
 // servidor. weekday segue time.Weekday/JS: 0 = domingo.
@@ -189,7 +189,7 @@ func (s *Server) handleSaveBookingPage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.bookingOut(page))
 }
 
-// ── Público (sem sessão; com rate limit) ──
+// -- Public (no session; rate limited) --
 
 func (s *Server) publicBookingPage(w http.ResponseWriter, r *http.Request) (db.BookingPage, db.MailUser, bool) {
 	page, err := s.q.GetBookingPageBySlugs(r.Context(), db.GetBookingPageBySlugsParams{

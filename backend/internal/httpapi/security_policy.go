@@ -8,10 +8,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Política de segurança DA ORGANIZAÇÃO (admin/security): MFA obrigatório para todo o tenant, com
-// o MÉTODO escolhido pelo admin ('any' = utilizador escolhe; 'totp'/'sms' = só esse conta).
-// LIGAR a política mata todas as sessões do tenant (menos a do admin que ligou): todos re-entram
-// e caem no gate de enrollment do webmail (pedido 23/07/2026).
+// ORGANIZATION-level security policy (admin/security): MFA required for the whole tenant, with
+// the METHOD chosen by the admin ('any' = the user chooses; 'totp'/'sms' = only that one counts).
+// Turning the policy ON kills every session in the tenant (except the admin's who enabled it):
+// everyone re-enters and hits the webmail enrollment gate.
 
 func (s *Server) handleGetSecurityPolicy(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())

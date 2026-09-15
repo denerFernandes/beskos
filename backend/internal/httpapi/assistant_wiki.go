@@ -13,9 +13,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/wiki"
 )
 
-// Adapters das ferramentas wiki.* do assistente (docs/wiki-features.md §7.5). Cada função recebe a
-// Identity da SESSÃO (§6.2) e chama o serviço internal/wiki — a MESMA superfície vis/canAccess da UI:
-// o modelo nunca lê o que o utilizador não veria, e a escrita revalida role>=editor no serviço.
+// Adapters for the assistant's wiki.* tools. Each function takes the SESSION's Identity and calls
+// the internal/wiki service — the SAME vis/canAccess surface as the UI: the model never reads
+// what the user couldn't see, and writes re-validate role>=editor in the service.
 
 // assistantWikiSearch: busca citável na wiki. Com embeddings configurados é semântica (kNN); sem
 // eles, recua para a busca LEXICAL em vez de falhar — era o que acontecia em produção

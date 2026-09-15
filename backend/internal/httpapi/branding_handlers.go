@@ -63,8 +63,9 @@ func (s *Server) handleUpdateBranding(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleResolveBranding devolve a marca a partir de um e-mail (ecrã de login, SEM sessão). Em caso
-// de e-mail desconhecido devolve marca vazia (default) — não revela se a conta existe.
+// handleResolveBranding returns the tenant's branding for an email, for the login screen before any
+// session exists. An unknown email returns the empty (default) branding, never revealing whether
+// the account exists.
 func (s *Server) handleResolveBranding(w http.ResponseWriter, r *http.Request) {
 	email := r.URL.Query().Get("email")
 	if email == "" {

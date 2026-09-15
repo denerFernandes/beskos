@@ -69,7 +69,7 @@ type Server struct {
 	// confirms guarda as ações do assistente à espera de aprovação humana (§6.3).
 	confirms *assistantConfirms
 
-	// planCat é o cache do catálogo de planos lido da BD (manager M2; ver plans_catalog.go).
+	// planCat is the cache of the plan catalog loaded from the database; see plans_catalog.go.
 	planCat planCatalog
 
 	// edition holds which Pro capabilities this instance has unlocked (edition.Load at startup).

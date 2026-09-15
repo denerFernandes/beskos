@@ -16,14 +16,14 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Tokens de dispositivo: autenticação de clientes headless (o daemon de sync). Segurança:
-//   - o token cru (32 bytes aleatórios, base64url, prefixo "mlnd_") é mostrado UMA vez, na criação;
-//   - guardamos só o SHA-256 (hex) — um vazamento do banco não expõe tokens usáveis;
-//   - escopo restrito: o token só passa no grupo /api/sync/* (ler changes + baixar), nunca no
-//     resto da API nem no fluxo de sessão;
-//   - revogável por dispositivo e com expiração opcional.
-// A gestão (criar/listar/revogar) fica atrás da sessão do webmail — é o próprio utilizador a
-// provisionar o seu dispositivo.
+// Device tokens: authentication for headless clients (the sync daemon). Security properties:
+//   - the raw token (32 random bytes, base64url, "mlnd_" prefix) is shown ONCE, at creation;
+//   - only its SHA-256 (hex) is stored — a database leak doesn't expose usable tokens;
+//   - narrow scope: the token only works on the /api/sync/* group (read changes + download),
+//     never the rest of the API nor the session flow;
+//   - revocable per device, with an optional expiry.
+// Managing tokens (create/list/revoke) sits behind the webmail session — users provision their
+// own devices.
 
 const deviceTokenPrefix = "mlnd_"
 

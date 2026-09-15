@@ -15,9 +15,9 @@ import (
 
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
-	// requestLogger no lugar de middleware.Logger: o token de sessão pode chegar em ?access_token=
-	// (WS/media) e o logger padrão gravaria a URL inteira — token de 7 dias em log = sequestro de
-	// sessão (auditoria H6). Aqui a query sensível é redigida antes de logar.
+	// requestLogger replaces middleware.Logger: the session token can arrive in ?access_token=
+	// (WS/media), and the default logger would write the whole URL — a 7-day token in the logs is
+	// a session hijack waiting to happen. The sensitive query is redacted here before logging.
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, requestLogger)
 	r.Use(s.cors) // CORS para o app nativo (Tauri) — no-op se não houver origens configuradas
 
@@ -40,7 +40,7 @@ func (s *Server) Router() http.Handler {
 		r.Post("/auth/mfa/verify", s.handleMFAVerify) // 2º passo do login
 		r.Get("/edition", s.handleGetEdition)         // capabilities unlocked on this instance (Community/Pro)
 
-		// TUDO atrás da mesma sessão. O RBAC decide o que cada papel enxerga.
+		// Everything behind the same session. RBAC decides what each role can see.
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireWebmailSession)
 			r.Use(s.csrfGuard)
@@ -50,7 +50,7 @@ func (s *Server) Router() http.Handler {
 			r.Get("/me", s.handleMe)
 			r.Get("/me/mail-connection", s.handleMailConnection) // IMAP/SMTP para clientes externos
 
-			// MFA (enrollment do 2º fator). Requer sessão já ativa.
+			// MFA (second-factor enrollment). Requires an already active session.
 			// Política de segurança da organização (MFA obrigatório) — só quem gere a org.
 			r.With(s.requirePerm(rbac.PermOrgSecurity)).Get("/org/security", s.handleGetSecurityPolicy)
 			r.With(s.requirePerm(rbac.PermOrgSecurity)).Put("/org/security", s.handleSetSecurityPolicy)
@@ -352,7 +352,7 @@ func (s *Server) Router() http.Handler {
 			r.Post("/folders/{id}/move", s.handleMoveFolder) // muda o pai (com guarda de ciclo)
 			r.Delete("/folders/{id}", s.handleDeleteFolder)
 
-			// Edição de office (OnlyOffice): criar em branco + abrir a sessão do editor.
+			// Office editing (OnlyOffice): create a blank file + open the editor session.
 			r.Get("/docs/recent", s.handleListRecentDocuments) // the Documents app: a view over Drive
 			r.Post("/files/office", s.handleCreateOfficeFile)
 			r.Post("/files/{id}/edit-session", s.handleEditSession)
@@ -427,23 +427,23 @@ func (s *Server) Router() http.Handler {
 			r.Get("/chat/ws", s.handleChatWS)
 		})
 
-		// Sync de diretórios (daemon headless): grupo separado, autenticado por TOKEN DE DISPOSITIVO
-		// (não sessão). Escopo mínimo — só ler o feed de changes e baixar ficheiros; o token não
-		// alcança o resto da API. Sem csrfGuard (não é fluxo de cookie/browser).
+		// Directory sync (headless daemon): a separate group, authenticated by a DEVICE TOKEN
+		// (not a session). Minimal scope — only reading the changes feed and downloading files;
+		// the token doesn't reach the rest of the API. No csrfGuard (not a cookie/browser flow).
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireDeviceToken)
 			r.Get("/sync/files/changes", s.handleListFileChanges)
 			r.Get("/sync/files/{id}/download", s.handleDownloadFile)
-			// M2: escrita. PUT exige If-Match (concorrência otimista); POST cria ficheiro novo.
+			// Writes: PUT requires If-Match (optimistic concurrency); POST creates a new file.
 			r.Put("/sync/files/{id}", s.handleSyncUpdateFile)
 			r.Post("/sync/files", s.handleSyncCreateFile)
-			// Árvore de pastas (espelho de subpastas): listar tudo + criar as em falta.
+			// Folder tree (subfolder mirror): list everything + create the missing ones.
 			r.Get("/sync/folders", s.handleListSyncFolders)
 			r.Post("/sync/folders", s.handleCreateSyncFolder)
-			// Espelho do que acontece na pasta local: apagar → lixeira (recuperável); mover/renomear.
+			// Mirrors what happens in the local folder: delete → trash (recoverable); move/rename.
 			r.Post("/sync/files/{id}/trash", s.handleSyncTrashFile)
 			r.Post("/sync/files/{id}/move", s.handleSyncMoveFile)
-			// Upload delta (M4): hashes por bloco + envio só dos blocos alterados.
+			// Delta upload: block hashes, only the changed blocks are sent.
 			r.Get("/sync/files/{id}/blocks", s.handleSyncFileBlocks)
 			r.Put("/sync/files/{id}/delta", s.handleSyncUpdateFileDelta)
 		})
@@ -476,8 +476,8 @@ func (s *Server) Router() http.Handler {
 	r.With(s.publicRateLimit).Post("/v1/chat/completions", s.handleAIEnvelopeProxy)
 	r.With(s.publicRateLimit).Get("/v1/models", s.handleAIModelsEditor)
 
-	// Endpoints do Document Server (OnlyOffice) — chamados server-to-server, autenticados por
-	// token HMAC na query (não pela sessão de cookie). Ficam fora de /api por isso.
+	// Document Server (OnlyOffice) endpoints — called server-to-server, authenticated by an HMAC
+	// token in the query string (not the cookie session). They live outside /api for that reason.
 	r.Get("/doc/files/{id}/download", s.handleDocDownload)
 	r.Post("/doc/callback/{id}", s.handleDocCallback)
 

@@ -28,8 +28,8 @@ func assistantQuotaLimit() int {
 	return assistant.DefaultQuotaTokens
 }
 
-// assistantQuotaStatus calcula a quota do utilizador na janela deslizante. O teto vem do PLANO do
-// tenant quando definido (manager M2, ai_tokens_per_window > 0); senão do env/default do produto.
+// assistantQuotaStatus computes the user's quota in the sliding window. The ceiling comes from
+// the tenant's PLAN when set (ai_tokens_per_window > 0); otherwise from the product's env/default.
 func (s *Server) assistantQuotaStatus(ctx context.Context, id assistant.Identity, now time.Time) assistant.QuotaStatus {
 	limit := assistantQuotaLimit()
 	if p := s.tenantPlanByID(ctx, id.TenantID); p.AITokensPerWindow > 0 {
@@ -165,7 +165,7 @@ func (s *Server) handleAssistantExcludeFolder(w http.ResponseWriter, r *http.Req
 		writeErr(w, http.StatusBadRequest, "storage.invalid_id")
 		return
 	}
-	// A pasta tem de existir NESTE tenant — não se aceita um id de fora (hardening 24/07/2026).
+	// The folder must exist IN THIS tenant — an id from outside is never accepted.
 	if _, err := s.q.GetFolderInTenant(r.Context(), db.GetFolderInTenantParams{ID: fid, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusNotFound, "storage.not_found")
 		return

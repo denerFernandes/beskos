@@ -27,8 +27,9 @@ const aiPluginGUID = "asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}"
 
 var errStorageDisabled = errors.New("storage disabled")
 
-// handleEditSession abre uma sessão de edição de office: devolve o api.js do Document Server e o
-// config JWT-assinado que o editor consome. Fase A: somente visualização (mode=view).
+// handleEditSession opens an office editing session: returns the Document Server's api.js and
+// the JWT-signed config the editor consumes, with the mode (view or edit) resolved from the
+// caller's write access.
 func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	if s.office == nil {
 		writeErr(w, http.StatusServiceUnavailable, "files.editing_disabled")
@@ -42,7 +43,7 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Edição office por plano (manager M3): plano sem OnlyOffice edit rebaixa para visualização.
+	// Office editing is gated by plan: a plan without OnlyOffice edit downgrades to view-only.
 	if canWrite && !s.tenantPlanByID(r.Context(), mu.TenantID).OnlyOfficeEdit {
 		canWrite = false
 	}
@@ -65,9 +66,9 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	// key: único por versão (alfanumérico) — muda a cada nova versão para o DS recarregar.
 	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Version)))).String(), "-", "")
 
-	// Enxuga o cromo para integrar ao Beskos. A marca do cabeçalho é nossa (applyBranding), o que
-	// exige o patch de branding no Document Server; a atribuição à Ascensio System SIA fica no
-	// "Sobre". Ver onlyoffice_branding.go e deploy/DIVERGENCES.md.
+	// Strips the chrome down to integrate with Beskos. The header branding is ours (applyBranding),
+	// which requires the branding patch on the Document Server; attribution to Ascensio System SIA
+	// stays in "About". See onlyoffice_branding.go.
 	customization := officeChrome(darkTheme, true)
 	// Botão de fechar NO cabeçalho do editor (dispensa uma barra nossa por cima). Só aparece se
 	// o cliente registar o evento onRequestClose — é ele que decide para onde voltar. Sem `text`:

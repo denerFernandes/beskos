@@ -18,11 +18,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Apresentações do Meet (estilo BigBlueButton): o apresentador escolhe um PDF/PPTX (upload ou do
-// Drive), nós convertemos PPTX→PDF (OnlyOffice) e guardamos o PDF no MinIO. Cada participante
-// (membro OU convidado) renderiza o PDF no cliente (pdf.js) e a anotação/slide corrente sincroniza
-// em tempo real pelo data channel do LiveKit. O PDF é servido por uma URL assinada (token HMAC),
-// alcançável por todos na sala sem depender da sessão — por isso convidados também veem.
+// Meet presentations (BigBlueButton-style): the presenter picks a PDF/PPTX (upload or from
+// Drive), we convert PPTX->PDF (OnlyOffice) and store the PDF in MinIO. Each participant (member
+// OR guest) renders the PDF client-side (pdf.js), and the current annotation/slide syncs in real
+// time over the LiveKit data channel. The PDF is served via a signed URL (HMAC token), reachable
+// by everyone in the room without depending on a session — that's why guests can see it too.
 
 // presReady exige storage + office (para converter) + meet ligados.
 func (s *Server) presReady(w http.ResponseWriter) bool {
@@ -292,8 +292,8 @@ func (s *Server) handleStopPresentation(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 }
 
-// GET /meet/presentation/{id}/pdf?token=... — PÚBLICO: serve o PDF a qualquer participante (membro
-// ou convidado) autorizado pelo token HMAC. Sem sessão (o token é a autorização).
+// GET /meet/presentation/{id}/pdf?token=... — PUBLIC: serves the PDF to any participant (member
+// or guest) authorized by the HMAC token. No session (the token is the authorization).
 func (s *Server) handlePresentationPDF(w http.ResponseWriter, r *http.Request) {
 	if s.office == nil || s.storage == nil {
 		writeErr(w, http.StatusServiceUnavailable, "office.disabled")

@@ -72,8 +72,8 @@ func (s *Server) decryptCred(stored string) (string, bool) {
 // SetFileUploadLimit define o tamanho máximo por ficheiro no Files (configurável via env).
 func (s *Server) SetFileUploadLimit(n int64) { s.maxUpload = n }
 
-// SetAppOrigins liga o CORS para as origens dadas (ex.: app Tauri) e define se o cookie de sessão é
-// Secure/SameSite=None (necessário cross-site sobre HTTPS).
+// SetAppOrigins wires CORS for the given origins (e.g. the Tauri app) and sets whether the
+// session cookie is Secure/SameSite=None (required for cross-site use over HTTPS).
 func (s *Server) SetAppOrigins(origins []string, cookieSecure bool) {
 	s.corsOrigins = origins
 	s.cookieSecure = cookieSecure

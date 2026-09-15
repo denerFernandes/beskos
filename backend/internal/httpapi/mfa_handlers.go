@@ -58,11 +58,12 @@ type mfaVerifyReq struct {
 	Code      string `json:"code"`
 }
 
-// handleMFAVerify troca um desafio + 2º fator por uma sessão. Aceita TOTP, código SMS ou
-// código de recuperação (uso único). Rate limit por desafio (mfaMaxAttempts) contra brute force.
+// handleMFAVerify exchanges a challenge plus a second factor for a session. Accepts TOTP, an
+// SMS code, or a recovery code (single use). Rate-limited per challenge (mfaMaxAttempts) against
+// brute force.
 func (s *Server) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
-	// Limite por IP além do limite por desafio: sem isto, um atacante com a senha pede um desafio
-	// novo a cada 5 palpites e faz brute-force do código de 6 dígitos (auditoria H5/M4).
+	// Rate limit per IP in addition to the per-challenge limit: without it, an attacker who has
+	// the password can request a new challenge every 5 guesses and brute-force the 6-digit code.
 	if !s.mfaIP.allow("mfa:"+clientIP(r), time.Now()) {
 		writeErr(w, http.StatusTooManyRequests, "mfa.too_many")
 		return
@@ -96,7 +97,8 @@ func (s *Server) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Também aqui: com 2º fator a sessão só nasce depois do código, e é este o momento do login.
+	// With a second factor, the session is only created after the code succeeds, so this is the
+	// actual login moment.
 	s.alertNewLogin(r, u)
 	writeJSON(w, http.StatusOK, map[string]any{"user_id": u.ID, "token": token})
 }
@@ -250,10 +252,10 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	// Step-up: desativar o 2º fator (e apagar os códigos de recuperação) exige re-autenticar com a
-	// senha. Sem isto, uma sessão sequestrada removeria o MFA em silêncio (auditoria M6).
-	// Política da organização (admin/security): com MFA obrigatório, desativar é recusado no
-	// SERVIDOR também — esconder o botão na UI não é uma barreira (defesa em profundidade).
+	// Step-up auth: disabling the second factor (and deleting the recovery codes) requires
+	// re-authenticating with the password. Without this, a hijacked session could silently
+	// remove MFA. Organization policy (admin/security): when MFA is required, disabling it is
+	// refused on the server too — hiding the button in the UI is not a barrier (defense in depth).
 	if t, terr := s.q.GetTenant(r.Context(), u.TenantID); terr == nil && t.MfaRequired {
 		writeErr(w, http.StatusForbidden, "mfa.org_required")
 		return

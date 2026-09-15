@@ -44,9 +44,9 @@ func (s *Server) assistant(w http.ResponseWriter, r *http.Request) (*ai.Assistan
 		writeErr(w, http.StatusTooManyRequests, "ai.rate_limited")
 		return nil, false
 	}
-	// Quota de tokens da janela de 6h (a MESMA do chat): estes endpoints de uma tacada gastam
-	// tokens pagos e têm de contar contra o limite — senão seriam uma porta para o contornar
-	// (auditoria 24/07/2026). Gate na entrada + débito por chamada via SetUsageHook.
+	// Token quota for the 6h window (the SAME one chat uses): these one-shot endpoints spend paid
+	// tokens and must count against the limit — otherwise they'd be a way around it. Gated on
+	// entry, with a per-call debit via SetUsageHook.
 	id := assistant.Identity{TenantID: mu.TenantID, UserID: mu.ID, Email: mu.Email}
 	if s.assistantQuotaStatus(r.Context(), id, time.Now()).Exceeded() {
 		writeErr(w, http.StatusTooManyRequests, "assistant.quota_exceeded")
@@ -127,8 +127,9 @@ func (s *Server) handleAIDraft(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"draft": out})
 }
 
-// handleAIWikiWrite gera conteúdo de página da wiki (Markdown) para o editor BlockNote: continuar a
-// escrever, melhorar, resumir, ou uma instrução livre. Sessão + rate limit como as demais rotas de IA.
+// handleAIWikiWrite generates wiki page content (Markdown) for the BlockNote editor: continue
+// writing, improve, summarize, or a free-form instruction. Session + rate limit like the other
+// AI routes.
 func (s *Server) handleAIWikiWrite(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.assistant(w, r)
 	if !ok {
