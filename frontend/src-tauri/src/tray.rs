@@ -6,7 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use mailin_sync::engine::{Engine, Phase};
+use beskos_sync::engine::{Engine, Phase};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Runtime};

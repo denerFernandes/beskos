@@ -1,5 +1,5 @@
 [package]
-name = "mailin-sync"
+name = "beskos-sync"
 version = "0.1.0"
 edition = "2021"
 description = "Motor de sincronização de ficheiros do Beskos, embutido na app desktop."
@@ -7,7 +7,7 @@ license = "MIT"
 
 # Só biblioteca: o MOTOR. Quem o hospeda (janela, tray, menus) é a app desktop.
 [lib]
-name = "mailin_sync"
+name = "beskos_sync"
 path = "src/lib.rs"
 
 

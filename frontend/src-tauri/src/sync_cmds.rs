@@ -1,11 +1,12 @@
-//! Ponte entre a UI (React) e o motor de sincronização embutido.
+//! Bridge between the UI (React) and the embedded sync engine.
 //!
-//! O motor corre numa thread de fundo dentro da própria app — não há segunda aplicação. A UI só
-//! chama estes comandos; toda a lógica (watcher, delta, conflitos, lixeira) vive em `mailin_sync`.
+//! The engine runs on a background thread inside this same app -- there is no second
+//! application. The UI only calls these commands; all the logic (watcher, delta, conflicts,
+//! trash) lives in `beskos_sync`.
 
 use std::sync::Arc;
 
-use mailin_sync::engine::{Engine, Status};
+use beskos_sync::engine::{Engine, Status};
 use tauri::State;
 
 /// Guardado no estado do Tauri para os comandos alcançarem o mesmo motor.
@@ -51,7 +52,7 @@ pub fn sync_connect(
 pub fn sync_add_folder(
     engine: State<'_, SyncEngine>,
     local_path: String,
-) -> Result<mailin_sync::config::SyncPair, String> {
+) -> Result<beskos_sync::config::SyncPair, String> {
     engine.0.add_pair(&local_path).map_err(|e| e.to_string())
 }
 
