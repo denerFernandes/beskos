@@ -340,27 +340,36 @@ defaults `beskos.com`. "Powered by" passa a capability (`Branding` desliga-o). T
 **Pronto quando:** `git grep beskos.com -- backend frontend/src` só devolve testes e o ficheiro de
 defaults do Cloud.
 
-### F4 — Qualidade do código (3 semanas) — ferramentas prontas, limpeza por fazer
+### F4 — Qualidade do código (3 semanas) — comentários-diário e ficheiros grandes feitos
 
-- **Comentários:** `scripts/comment_audit.py` (feito, `make check` corre-o em modo relatório)
-  conta comentários datados, com referência a documento interno, ou a número de fase. Contagem
-  em 2026-09-15: **301** (77 datados, 33 com referência a `docs/manager.md`/`project.md`, 70 com
-  `M2`/`A3b`/`§x`, 121 em tom de diário). Aplicar a política da §5 a todo o repositório até o
-  script sair limpo — trabalho real de leitura, não mecanizável.
-- **`internal/httpapi/server.go` já foi dividido** (F2, `2687f76`): `Server`/`NewServer` saíram
-  para `server_types.go`, `server.go` ficou só com `Router()`. Os outros 6 ficheiros acima de 600
-  linhas continuam por dividir. Dividir `internal/httpapi` por domínio (`httpapi/mail`,
-  `httpapi/files`, `httpapi/chat`, `httpapi/wiki`, `httpapi/meet`, `httpapi/admin`), mantendo
-  `httpapi` só com servidor, middleware e router.
-- **Testes:** `auth`, `chat`, `config`, `mailbox` ganham `_test.go`; cobertura mínima no CI (70 % nos
-  pacotes de regra de negócio, medida com `go test -cover`).
-- **Nomes:** módulo `github.com/beskosorg/beskos/backend`; crate `beskos-sync`; `package.json`
-  `beskos-web`.
-- **Ferramentas:** `golangci-lint` (errcheck, gosec, staticcheck, revive, misspell), `eslint` +
-  `typescript-eslint` no frontend, `cargo clippy -D warnings`. Tudo no CI.
-- **CLAUDE.md/AGENTS.md:** as leis passam para `CONTRIBUTING.md` em inglês, sem os parágrafos
-  de crónica ("Escrita a 31/07/2026 porque…"). Ficam as regras, não as histórias. `CLAUDE.md`
-  aponta para `CONTRIBUTING.md`.
+- **Comentários:** `scripts/comment_audit.py` foi de **301 a 0** em 2026-09-15, em cinco lotes
+  paralelos (SQL/sqlc, Rust, `frontend/src/webmail`, resto do frontend, `internal/httpapi`, resto
+  do backend), cada um verificado com build/vet/test antes de integrar. `make check` continua a
+  correr o script em modo relatório — fica limpo até a próxima escrita, não é uma garantia
+  permanente. **Por fazer, maior e à parte:** o script só apanha o tom de diário (datas,
+  referências internas, números de fase); comentários em português SEM esses marcadores não
+  entram no seu alcance de propósito — `scripts/export_public.py --check` continua a apontar
+  ~382 ficheiros com português comum, um trabalho de tradução completa muito maior, não tentado.
+- **Ficheiros >600 linhas: feito.** `internal/httpapi/server.go` (dividido em F2) e os seis
+  restantes (`chat_handlers.go` 1508, `wiki_handlers.go` 729, `files_handlers.go` 723,
+  `MailView.tsx` 832, `backend.ts` 818, `MeetPresentation.tsx` 671, `FilesView.tsx` 607) foram
+  todos divididos por responsabilidade — nenhum ficheiro do repositório excede hoje as 600 linhas.
+  O split do backend foi verificado duas vezes de forma independente (a árvore sintática de cada
+  declaração, antes e depois, é idêntica byte a byte — só os blocos de import mudam).
+- **Nomes: feito.** Módulo Go `github.com/beskosorg/beskos/backend` (197 ficheiros), crate
+  `beskos-sync`, crate do app desktop `beskos`, `frontend/package.json` `beskos-web`.
+- **Testes:** `auth`, `chat`, `config`, `mailbox` continuam sem `_test.go`; cobertura mínima no CI
+  (70% nos pacotes de regra de negócio) por fazer.
+- **Ferramentas:** `golangci-lint`, `eslint`+`typescript-eslint` estrito, `cargo clippy -D
+  warnings` — nenhum ainda no CI.
+- **CLAUDE.md/AGENTS.md → CONTRIBUTING.md:** feito parcialmente — `CONTRIBUTING.md` já resume as
+  leis em inglês; `CLAUDE.md` continua a ser o documento completo (em português, com as crónicas),
+  não apontando ainda para o resumo.
+- **Achado nesta ronda:** o próprio `scripts/check_laws.py` tinha um bug de deteção de rename do
+  git — uma divisão de ficheiro que o git reconhece como rename (≥50% de semelhança) escondia o
+  caminho antigo do diff, e o mecanismo de "linha movida não conta como nova" (`moved_pool`)
+  nunca via o conteúdo original. Corrigido com `--no-renames` no diff que alimenta a lista de
+  ficheiros alterados (`427e801`), reproduzido e confirmado localmente antes e depois.
 - **Pronto quando:** `comment_audit.py` a zero, `check_laws.py` sem exceções, lint verde.
 
 ### F5 — Segurança (2 semanas, antes de publicar) — em curso
