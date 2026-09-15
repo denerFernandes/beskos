@@ -1,160 +1,166 @@
-# Beskos — plataforma de email + armazenamento multi-tenant
+# Beskos — multi-tenant email + storage platform
 
-Control plane (Go) + webmail/painel (React) por cima do **Stalwart** (motor de email, usado
-sem modificação, só via rede). Ver [project.md](project.md) para o brief completo.
+Control plane (Go) + webmail/panel (React) on top of **Stalwart** (email engine, used without
+modification, only over the network). See [project.md](project.md) for the full brief.
 
-> 📋 **Lista completa de funcionalidades (status de cada uma):** [docs/FUNCIONALIDADES.md](docs/FUNCIONALIDADES.md)
+> 📋 **Full feature list (status of each one):** [docs/FUNCIONALIDADES.md](docs/FUNCIONALIDADES.md)
 
-> **Leia antes de tudo:**
-> - [CLAUDE.md](CLAUDE.md) — as **leis do projeto** (simplicidade, padrões Go, arquivos ≤600 linhas,
->   separação de lógica, i18n obrigatório). Todo código segue.
-> - [deploy/DIVERGENCES.md](deploy/DIVERGENCES.md) — a versão fixada (Stalwart v0.16.4) **removeu a
->   REST Management API** que o brief §6 assume; toda administração é via JMAP. Fonte da verdade da integração.
+> **Read before anything else:**
+> - [CLAUDE.md](CLAUDE.md) — the **project laws** (simplicity, Go standards, files ≤600 lines,
+>   separation of concerns, mandatory i18n). All code follows them.
+> - [deploy/DIVERGENCES.md](deploy/DIVERGENCES.md) — the pinned version (Stalwart v0.16.4) **removed
+>   the REST Management API** that brief §6 assumes; all administration goes through JMAP. Source of
+>   truth for the integration.
 
 ## i18n
 
-Todo texto de UI vem do i18n (lei §4). Frontend: `react-i18next`, locales em
-`frontend/src/i18n/locales/{pt-BR,en}/common.json` (default **pt-BR**, **en** obrigatório).
-Erros da API carregam `error_code` estável; o frontend traduz via chave `server.<code>`.
+All UI text comes from i18n (law §4). Frontend: `react-i18next`, locales in
+`frontend/src/i18n/locales/{pt-BR,en}/common.json` (default **pt-BR**, **en** mandatory).
+API errors carry a stable `error_code`; the frontend translates it via the `server.<code>` key.
 
 ## Status
 
-**Fase 0 — Fundação** ✅ · docker-compose (Stalwart v0.16.4 + Postgres + MinIO), client JMAP
-tipado + teste de integração, esqueleto Go (`cmd/api`/`cmd/worker`, goose, sqlc), auth do painel,
-esqueleto React com i18n.
+**Phase 0 — Foundation** ✅ · docker-compose (Stalwart v0.16.4 + Postgres + MinIO), typed JMAP
+client + integration test, Go skeleton (`cmd/api`/`cmd/worker`, goose, sqlc), panel auth,
+React skeleton with i18n.
 
-**Fase 1 — Provisionamento** ✅
+**Phase 1 — Provisioning** ✅
 
-| Componente | Estado |
+| Component | Status |
 |---|---|
-| Máquina de estados de provisionamento (`internal/provisioning`), idempotente/resumível | ✅ (5 testes unit. com fakes) |
-| Worker (`Runner`) processando estados não-terminais em loop | ✅ |
-| `cmd/bootstrap` (setup inicial do Stalwart, §D3) | ✅ |
-| API: `POST /api/domains`, `GET /api/domains/{id}` (estado+DNS), `POST .../mailboxes` | ✅ |
-| Frontend: adicionar domínio, ver estado + registros DNS, criar mailbox | ✅ (build limpo) |
-| E2E ponta a ponta (Postgres+Stalwart reais): domínio → active → mailbox | ✅ `scripts/e2e-phase1.sh` |
+| Provisioning state machine (`internal/provisioning`), idempotent/resumable | ✅ (5 unit tests with fakes) |
+| Worker (`Runner`) processing non-terminal states in a loop | ✅ |
+| `cmd/bootstrap` (initial Stalwart setup, §D3) | ✅ |
+| API: `POST /api/domains`, `GET /api/domains/{id}` (state+DNS), `POST .../mailboxes` | ✅ |
+| Frontend: add domain, view state + DNS records, create mailbox | ✅ (clean build) |
+| End-to-end (real Postgres+Stalwart): domain → active → mailbox | ✅ `scripts/e2e-phase1.sh` |
 
-Máquina de estados (brief §7, sobre JMAP — ver [DIVERGENCES §D6](deploy/DIVERGENCES.md)):
+State machine (brief §7, over JMAP — see [DIVERGENCES §D6](deploy/DIVERGENCES.md)):
 `pending → domain_created → dkim_created → dns_pending → dns_verified → active` (`↘ error`).
 
-**Fase 2 — Webmail** ✅
+**Phase 2 — Webmail** ✅
 
-| Componente | Estado |
+| Component | Status |
 |---|---|
-| Reverse proxy same-origin (dev: Vite; prod: `deploy/Caddyfile`) — obrigatório (§D7) | ✅ smoke test verde |
-| Client JMAP tipado (`src/jmap`): sessão, Mailbox, Email query/get, envio, busca | ✅ integração verde contra Stalwart real |
-| Auth do webmail (Basic atrás do proxy, `src/webmail/auth.ts`) | ✅ |
-| UI webmail (rail/lista/leitura/compose/busca) no design aprovado, i18n pt-BR/en | ✅ build limpo |
+| Same-origin reverse proxy (dev: Vite; prod: `deploy/Caddyfile`) — mandatory (§D7) | ✅ green smoke test |
+| Typed JMAP client (`src/jmap`): session, Mailbox, Email query/get, sending, search | ✅ green integration against real Stalwart |
+| Webmail auth (Basic behind the proxy, `src/webmail/auth.ts`) | ✅ |
+| Webmail UI (rail/list/reading/compose/search) in the approved design, i18n pt-BR/en | ✅ clean build |
 
-Webmail em `/mail` (login do usuário final, separado do painel). Design: ver artifact "webmail-v1".
-⚠️ Arquitetura: o React **não** fala direto com o Stalwart (CORS ausente, §D7) — tudo via proxy same-origin.
+Webmail lives at `/mail` (end-user login, separate from the panel). Design: see artifact "webmail-v1".
+⚠️ Architecture: React does **not** talk directly to Stalwart (no CORS, §D7) — everything goes
+through the same-origin proxy.
 
-**Fases seguintes (escopo ampliado)** ✅ — IA (resumir/escrever), Kanban, Calendário, Contatos,
-Armazenamento/Drive (pastas, compartilhamento, visualizadores), **edição de office** (OnlyOffice:
-editar/co-editar/criar), **RBAC + convites**, **MFA (TOTP/SMS)**, billing por usuário, e **Meet**
-(videochamada LiveKit: chamada, agenda dia/semana/mês, RSVP, notificações in-app/e-mail, efeitos
-de fundo). Ver a memória do projeto para o detalhe por área.
+**Later phases (expanded scope)** ✅ — AI (summarize/write), Kanban, Calendar, Contacts,
+Storage/Drive (folders, sharing, viewers), **office editing** (OnlyOffice:
+edit/co-edit/create), **RBAC + invites**, **MFA (TOTP/SMS)**, per-user billing, and **Meet**
+(LiveKit video calls: calling, day/week/month agenda, RSVP, in-app/email notifications, background
+effects). See the project memory for the per-area detail.
 
-Pendências conhecidas: **gravação do Meet** (Egress) só completa em host Linux — ver
-[Meet — rede do LiveKit/Egress](#meet-videochamada--rede-do-livekitegress); verificar **e-mail de
-notificação** ao vivo (provisionar um mailbox `notify@` + `NOTIFY_*`).
+Known pending items: **Meet recording** (Egress) only completes on a Linux host — see
+[Meet — LiveKit/Egress networking](#meet-video-calling--livekitegress-networking); verify
+**notification email** live (provision a `notify@` mailbox + `NOTIFY_*`).
 
 ## Layout
 
 ```
 backend/    Go — control plane (API + worker)
-  cmd/api           API REST/JSON do painel
-  cmd/worker        workers (máquina de estados de provisionamento — Fase 1)
-  internal/stalwart Client JMAP do Stalwart (x:Domain/Account/DkimSignature/Bootstrap)
-  internal/db       sqlc gerado + migrations (goose, embutidas)
+  cmd/api           panel's REST/JSON API
+  cmd/worker        workers (provisioning state machine — Phase 1)
+  internal/stalwart Stalwart JMAP client (x:Domain/Account/DkimSignature/Bootstrap)
+  internal/db       sqlc-generated code + migrations (goose, embedded)
   internal/{auth,httpapi,config}
-frontend/   React — painel/webmail/admin/storage
-deploy/     docker-compose, config do Stalwart, DIVERGENCES.md
+frontend/   React — panel/webmail/admin/storage
+deploy/     docker-compose, Stalwart config, DIVERGENCES.md
 ```
 
-## Rodando (dev)
+## Running (dev)
 
-Backend inteiro no Docker; **só o frontend roda localmente** (o Vite faz proxy para os serviços do compose).
+The whole backend runs in Docker; **only the frontend runs locally** (Vite proxies to the
+compose services).
 
-Pré-requisitos: Docker, Node 20+.
+Prerequisites: Docker, Node 20+.
 
 ```bash
 # 1. Infra + control plane (Postgres, Stalwart, MinIO, API, worker)
 cd deploy
-cp .env.example .env                 # ajuste os segredos
-docker compose up -d --build         # sobe TUDO menos o frontend
+cp .env.example .env                 # adjust the secrets
+docker compose up -d --build         # brings up EVERYTHING except the frontend
 
-# 2. Bootstrap do Stalwart — UMA vez (cria o admin permanente; ver DIVERGENCES §D3).
+# 2. Bootstrap Stalwart — ONCE (creates the permanent admin; see DIVERGENCES §D3).
 docker compose run --rm --entrypoint /usr/local/bin/bootstrap api
-docker compose restart stalwart      # obrigatório para o bootstrap valer
+docker compose restart stalwart      # required for the bootstrap to take effect
 
-# 3. Frontend local (proxy: /api → :8000, /jmap → :8080)
+# 3. Local frontend (proxy: /api → :8000, /jmap → :8080)
 cd ../frontend
 npm install
 npm run dev                          # http://localhost:5173
 ```
 
-Acesse: **http://localhost:5173** (painel) e **http://localhost:5173/mail** (webmail).
-Crie a organização no painel, adicione um domínio (provisiona automático com
-`PROVISION_SKIP_DNS_VERIFY=true`), crie uma caixa e entre no webmail com ela.
+Open: **http://localhost:5173** (panel) and **http://localhost:5173/mail** (webmail).
+Create the organization in the panel, add a domain (auto-provisions with
+`PROVISION_SKIP_DNS_VERIFY=true`), create a mailbox, and log into the webmail with it.
 
-> IA fica desligada sem `AI_API_KEY` (endpoints respondem 503); SMS usa o modo `log`
-> (o código aparece em `docker compose logs api`); billing usa o modo `manual`.
+> AI is disabled without `AI_API_KEY` (endpoints respond 503); SMS uses `log` mode
+> (the code shows up in `docker compose logs api`); billing uses `manual` mode.
 
-## Meet (videochamada) — rede do LiveKit/Egress
+## Meet (video calling) — LiveKit/Egress networking
 
-O Meet usa **LiveKit** (SFU WebRTC) + **Egress** (gravação), rodando como serviços rede-only.
-A videochamada em si funciona em dev; a **gravação exige atenção de rede** porque o WebRTC
-precisa de IPs/portas realmente alcançáveis.
+Meet uses **LiveKit** (WebRTC SFU) + **Egress** (recording), running as network-only services.
+The call itself works in dev; **recording needs network attention** because WebRTC
+needs IPs/ports that are actually reachable.
 
-**Dev (Docker Desktop / Mac).** O `deploy/livekit/livekit.yaml` usa `node_ip: 127.0.0.1` para que
-os candidatos ICE sejam alcançáveis pelo **browser no host** (o Docker Desktop encaminha as portas
-publicadas `7880/7881/7882`). A chamada conecta normalmente.
+**Dev (Docker Desktop / Mac).** `deploy/livekit/livekit.yaml` uses `node_ip: 127.0.0.1` so that
+the ICE candidates are reachable from the **browser on the host** (Docker Desktop forwards the
+published ports `7880/7881/7882`). The call connects normally.
 
-> ⚠️ **Gravação (Egress) não completa no Docker Desktop do Mac.** O Egress sobe um Chrome headless
-> que precisa estabelecer **a própria conexão WebRTC** com o SFU; o loopback/UDP do Docker Desktop
-> não entrega isso de forma confiável e o Egress aborta com `Start signal not received`. Todo o
-> restante (botão Gravar, API `StartRoomCompositeEgress`, webhook `egress_ended`, upload pro MinIO,
-> player) está pronto — só a captura do vídeo não fecha **nesta máquina de dev**.
+> ⚠️ **Recording (Egress) does not complete on Docker Desktop for Mac.** Egress spins up a
+> headless Chrome that needs to establish **its own WebRTC connection** to the SFU; Docker
+> Desktop's loopback/UDP does not deliver that reliably, and Egress aborts with
+> `Start signal not received`. Everything else (the Record button, the
+> `StartRoomCompositeEgress` API, the `egress_ended` webhook, the upload to MinIO, the player)
+> is ready — only the video capture doesn't close **on this dev machine**.
 
-**Produção (host Linux/VPS).** Para chamada **e** gravação funcionarem:
+**Production (Linux host/VPS).** For the call **and** the recording to both work:
 
-1. **IP público/roteável no LiveKit:** em `livekit.yaml`, troque `node_ip: 127.0.0.1` por
-   `rtc: { use_external_ip: true }` (ou fixe `node_ip: <IP público do host>`), e **abra as portas
-   UDP** do range RTC no firewall (ou configure **TURN** para redes restritas).
-2. **TLS/proxy same-origin:** sirva o LiveKit sob `wss://` (o `deploy/Caddyfile` termina TLS);
-   ajuste `LIVEKIT_URL` para o `wss://…` público.
-3. **Egress alcançando o SFU:** rode o Egress no **mesmo host** com rede que enxergue o RTC do
-   LiveKit (o compose já usa `network_mode: "service:livekit"`, que resolve isso quando o
-   `node_ip` é roteável). Em Linux com host network / IP público, o handshake do Egress completa.
-4. **Segredos fortes** (lei §2.6): `LIVEKIT_API_SECRET`, `ONLYOFFICE_JWT_SECRET`, `DOC_TOKEN_SECRET`
-   e os `*-change-me` do compose precisam de valores reais no ambiente.
+1. **Public/routable IP on LiveKit:** in `livekit.yaml`, replace `node_ip: 127.0.0.1` with
+   `rtc: { use_external_ip: true }` (or pin `node_ip: <host's public IP>`), and **open the UDP
+   ports** of the RTC range in the firewall (or configure **TURN** for restrictive networks).
+2. **TLS/same-origin proxy:** serve LiveKit under `wss://` (`deploy/Caddyfile` terminates TLS);
+   set `LIVEKIT_URL` to the public `wss://…`.
+3. **Egress reaching the SFU:** run Egress on the **same host** with network visibility into
+   LiveKit's RTC (compose already uses `network_mode: "service:livekit"`, which handles this when
+   `node_ip` is routable). On Linux with host networking / a public IP, the Egress handshake
+   completes.
+4. **Strong secrets** (law §2.6): `LIVEKIT_API_SECRET`, `ONLYOFFICE_JWT_SECRET`,
+   `DOC_TOKEN_SECRET`, and the compose file's `*-change-me` values need real values in the
+   environment.
 
-Gravação é **opcional**: sem `LIVEKIT_HTTP_URL` + MinIO configurados, o botão responde
-`meet.recording_disabled` e o resto do Meet segue funcionando.
+Recording is **optional**: without `LIVEKIT_HTTP_URL` + MinIO configured, the button responds
+with `meet.recording_disabled` and the rest of Meet keeps working.
 
-## Testes
+## Tests
 
 ```bash
-# Unitários (sem dependências externas) — inclui a máquina de estados de provisionamento
+# Unit tests (no external dependencies) — includes the provisioning state machine
 cd backend && go test ./...
 
-# Frontend: guarda de i18n (chaves iguais em pt-BR e en)
+# Frontend: i18n guard (matching keys in pt-BR and en)
 cd frontend && npm test
 
-# E2E da Fase 1 (sobe Postgres + Stalwart, provisiona um cliente de ponta a ponta)
+# Phase 1 E2E (brings up Postgres + Stalwart, provisions a customer end to end)
 bash scripts/e2e-phase1.sh
 
-# Integração contra o Stalwart de teste (sobe um container efêmero):
+# Integration against the test Stalwart (spins up an ephemeral container):
 docker run -d --name sw-test -e STALWART_RECOVERY_ADMIN='admin:probe-secret' -p 18080:8080 stalwartlabs/stalwart:v0.16.4
-# complete o bootstrap (DIVERGENCES §D3), depois:
+# complete the bootstrap (DIVERGENCES §D3), then:
 STALWART_TEST_URL=http://localhost:18080 STALWART_TEST_USER=admin STALWART_TEST_PWD=probe-secret \
   go test ./internal/stalwart -run TestIntegration -v
 ```
 
-## Princípios (brief)
+## Principles (brief)
 
-- **Stalwart nunca modificado** — só falamos por rede (JMAP). Nada linka/patcheia o binário.
-- **Multi-tenancy é nossa, no Go** — toda query filtra `tenant_id`; admin do Stalwart nunca vaza ao frontend.
-- **Idempotência** em provisionamento e webhooks.
-- **Segredos fora do código** — via ambiente/`.env` (não comitado).
+- **Stalwart never modified** — we only talk to it over the network (JMAP). Nothing links/patches the binary.
+- **Multi-tenancy is ours, in Go** — every query filters by `tenant_id`; Stalwart admin never leaks to the frontend.
+- **Idempotency** in provisioning and webhooks.
+- **Secrets outside the code** — via environment/`.env` (not committed).
