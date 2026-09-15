@@ -1,433 +1,464 @@
-# Avaliação — configurações por app, responsividade, apps Tauri, sync em Rust e prontidão para produção
+# Assessment — per-app settings, responsiveness, Tauri apps, Rust sync, and production readiness
 
-> Levantamento do estado atual (código real do repo, 2026-07-19) e do que falta para:
-> (1) configurações individuais por app; (2) design responsivo dos modos de "ver" (apresentação
-> no Meet etc.); (3) responsividade real desktop + mobile; (4) app mobile com Tauri;
-> (5) sincronização de diretórios com a nuvem em Rust; (6) demais itens de produção.
-> **Legenda:** 🔴 essencial · 🟡 importante · 🟢 pode esperar. Esforço: P (≤2 dias) / M (≤1 semana) / G (>1 semana).
-> **Checkboxes:** `- [x]` feito e verificado · `- [~]` parcial (o resto depende de si ou é refinamento) · `- [ ]` por fazer.
+> Survey of the current state (real repo code, 2026-07-19) and what's missing for:
+> (1) individual per-app settings; (2) responsive design of "viewing" modes (Meet presentation
+> etc.); (3) real desktop + mobile responsiveness; (4) mobile app with Tauri;
+> (5) directory sync with the cloud in Rust; (6) remaining production items.
+> **Legend:** 🔴 essential · 🟡 important · 🟢 can wait. Effort: S (≤2 days) / M (≤1 week) / L (>1 week).
+> **Checkboxes:** `- [x]` done and verified · `- [~]` partial (the rest is up to you or is
+> refinement) · `- [ ]` to do.
 
-## Status da execução (2026-07-19)
+## Execution status (2026-07-19)
 
-> A primeira versão desta avaliação baseou-se numa exploração do repo que foi interrompida a meio,
-> e por isso **superestimou** as lacunas das frentes 1, 2 e 6. Depois de verificar o código real:
+> The first version of this assessment was based on a repo exploration that was interrupted
+> halfway through, and so it **overestimated** the gaps in fronts 1, 2, and 6. After checking the
+> real code:
 
-**Entregue e verificado nesta rodada (build + typecheck + gofmt limpos):**
-- **§6 Produção — backup/restauro:** `scripts/backup.sh` (pg_dump + tar dos volumes MinIO/Stalwart,
-  retenção configurável) e `scripts/restore.sh` (destrutivo, com confirmação, pára api/worker). Era a
-  maior lacuna real (perda de dado irreversível).
-- **§6 Produção — CI:** `.github/workflows/ci.yml` (gofmt+vet+build+test+sqlc no backend; tsc+vitest
-  no frontend; cargo check do Tauri desktop). A árvore foi deixada gofmt-limpa (3 ficheiros
-  pré-existentes normalizados).
-- **§6 Produção — prontidão:** endpoint `/readyz` que pinga o Postgres (`SetReadiness(pool.Ping)`),
-  e o healthcheck do `api` no compose passou a usá-lo (não encaminha tráfego antes da base responder).
-- **§2 Meet — layout de gravação + PiP:** host escolhe o layout (grid/orador/só-orador), validado no
-  backend; botão de Picture-in-Picture na barra de ações (feature-detected). GAPS §Meet atualizado.
-- **§5 Sync — M0 do backend (aprovado por si):** feed incremental `GET /api/files/changes?since=<cursor>`
-  (migração 00078: coluna `updated_at` + trigger `BEFORE UPDATE` que a atualiza em qualquer mudança;
-  keyset por `(updated_at, id)`; `hash` = ETag; soft-delete vira tombstone). Migração e feed
-  verificados contra um Postgres real (trigger dispara só nos ficheiros alterados; ordenação e
-  tombstone corretos). → `00078_file_changes.sql`, `files_changes.go`, `queries.sql`. **Próximo:** o
-  daemon Rust (decisão: processo separado) que consome este feed — é o M1, ainda não iniciado.
+**Delivered and verified in this round (clean build + typecheck + gofmt):**
+- **§6 Production — backup/restore:** `scripts/backup.sh` (pg_dump + tar of the MinIO/Stalwart
+  volumes, configurable retention) and `scripts/restore.sh` (destructive, with confirmation,
+  stops api/worker). This was the biggest real gap (irreversible data loss).
+- **§6 Production — CI:** `.github/workflows/ci.yml` (gofmt+vet+build+test+sqlc on the backend;
+  tsc+vitest on the frontend; cargo check for the Tauri desktop). The tree was left gofmt-clean
+  (3 pre-existing files normalized).
+- **§6 Production — readiness:** a `/readyz` endpoint that pings Postgres
+  (`SetReadiness(pool.Ping)`), and the `api` healthcheck in the compose file now uses it (no
+  traffic is routed before the database responds).
+- **§2 Meet — recording layout + PiP:** the host chooses the layout (grid/speaker/speaker-only),
+  validated on the backend; a Picture-in-Picture button in the action bar (feature-detected).
+  §Meet in GAPS updated.
+- **§5 Sync — backend M0 (approved by you):** an incremental feed
+  `GET /api/files/changes?since=<cursor>` (migration 00078: `updated_at` column + a
+  `BEFORE UPDATE` trigger that updates it on any change; keyset by `(updated_at, id)`; `hash` =
+  ETag; soft-delete becomes a tombstone). Migration and feed verified against a real Postgres
+  (the trigger fires only on changed files; ordering and tombstones are correct). →
+  `00078_file_changes.sql`, `files_changes.go`, `queries.sql`. **Next:** the Rust daemon
+  (decision: separate process) that consumes this feed — that's M1, not started yet.
 
-**Decisões que você tomou (2026-07-19):** sync = **daemon separado** (não embutido no app); métricas/
-observabilidade = **nenhuma dependência nova por agora**; Meet mobile = **fazer spike do WebRTC no
-iOS antes** de comprometer o caminho Tauri; sync M0 backend = **implementar já** (feito, acima).
+**Decisions you made (2026-07-19):** sync = **separate daemon** (not embedded in the app);
+metrics/observability = **no new dependency for now**; Meet mobile = **do a WebRTC spike on iOS
+first** before committing to the Tauri path; sync M0 backend = **implement now** (done, above).
 
-**Rodada 2 (implementar tudo, com foco em segurança) — entregue e verificado:**
-- **§5 Auth do daemon (token de dispositivo):** migração 00079 `device_tokens` — token cru mostrado
-  só na criação, guardado apenas como **SHA-256** (hex); escopo restrito ao grupo `/api/sync/*`
-  (ler changes + baixar), **fora** do resto da API e do fluxo de sessão; revogável por dispositivo,
-  expiração opcional. Rotas de gestão (`GET/POST/DELETE /api/devices`) atrás da sessão do webmail.
-  Semântica de auth testada em Postgres real (revogado e expirado ⇒ 0; válido ⇒ 1).
+**Round 2 (implement everything, with a security focus) — delivered and verified:**
+- **§5 Daemon auth (device token):** migration 00079 `device_tokens` — the raw token is shown
+  only at creation, stored only as **SHA-256** (hex); scope restricted to the `/api/sync/*` group
+  (read changes + download), **outside** the rest of the API and the session flow; revocable per
+  device, optional expiry. Management routes (`GET/POST/DELETE /api/devices`) behind the webmail
+  session. Auth semantics tested against a real Postgres (revoked and expired ⇒ 0; valid ⇒ 1).
   → `00079_device_tokens.sql`, `device_tokens.go`, `server.go`.
-- **§6 Hardening:** `postgres` e `redis` **pinados por digest** (eram tags flutuantes); o `devtools`
-  do Tauri **removido do build release** (o inspector deixa de ir no pacote distribuído; dev mantém-no
-  automaticamente). → `docker-compose.yml`, `src-tauri/Cargo.toml`.
-- Nota: LiveKit-server **já estava** pinado por digest (correção à v1 desta avaliação).
+- **§6 Hardening:** `postgres` and `redis` **pinned by digest** (they were floating tags); the
+  Tauri `devtools` **removed from the release build** (the inspector no longer ships in the
+  distributed package; dev keeps it automatically). → `docker-compose.yml`, `src-tauri/Cargo.toml`.
+- Note: LiveKit-server **was already** pinned by digest (a fix from v1 of this assessment).
 
-**Rodada 12 — §1 configs de todas as apps na página de Definições.** `/mail/settings` ganhou
-secções para **todas as apps**: Geral (idioma, tema, vista inicial), E-mail, Chat, Calendário,
-Ficheiros, Meet, Kanban (+ Notificações, Dispositivos). Persistência server-side pela infra JSONB
-`mail_users.settings` via um hook novo `useSettings.ts` (`useSection` escreve otimista; `useUserSettings`
-lê nas apps — cache partilhado, muda nas Definições ⇒ reflete já). **Sem toggles mortos** — cada
-preferência está ligada à sua app: Ficheiros→vista+expiração-de-link; Calendário→início-da-semana+
-vista-inicial+duração+lembrete (EventModal); Chat→Enter-envia (Composer); Meet→entrar-mudo/câmara-off
-(PreJoin); Kanban→quadro-inicial; Geral→tema+vista-inicial (App). Removi o toggle de "sons do chat"
-(não há feature de som — seria decorativo) e Contactos não ganhou secção (sem preferência real a
-ligar). i18n pt-BR/en; `tsc`+`build` limpos. → `SettingsView.tsx`, `useSettings.ts`, `backend.ts`,
-`App.tsx`, `FilesView.tsx`, `CalendarView.tsx`, `EventModal.tsx`, `ChatView.tsx`, `MeetRoom.tsx`,
-`KanbanView.tsx`, `ShareModal.tsx`.
+**Round 12 — §1 settings for every app on the Settings page.** `/mail/settings` gained sections
+for **every app**: General (language, theme, initial view), Email, Chat, Calendar, Files, Meet,
+Kanban (+ Notifications, Devices). Server-side persistence via the existing JSONB infra
+`mail_users.settings` through a new `useSettings.ts` hook (`useSection` writes optimistically;
+`useUserSettings` reads it in the apps — shared cache, change in Settings ⇒ reflects
+immediately). **No dead toggles** — each preference is wired to its app: Files→view+link
+expiration; Calendar→week-start+initial-view+duration+reminder (EventModal); Chat→Enter-sends
+(Composer); Meet→join-muted/camera-off (PreJoin); Kanban→initial-board; General→theme+initial-view
+(App). Removed the "chat sounds" toggle (there's no sound feature — it would be decorative), and
+Contacts didn't get a section (no real preference to wire up). i18n pt-BR/en; `tsc`+`build` clean.
+→ `SettingsView.tsx`, `useSettings.ts`, `backend.ts`, `App.tsx`, `FilesView.tsx`,
+`CalendarView.tsx`, `EventModal.tsx`, `ChatView.tsx`, `MeetRoom.tsx`, `KanbanView.tsx`,
+`ShareModal.tsx`.
 
-**Rodada 11 — bug de produção: Caddyfile contornava o broker JMAP.** O frontend **não** fala JMAP
-direto ao Stalwart — manda o *nosso* token de sessão (Bearer) para `/jmap`, e a nossa API faz o
-brokering (H11): valida a sessão e injeta a credencial Basic da caixa server-to-server (o browser
-nunca segura a senha). O `vite.config.ts` (dev) e o `jmap_proxy.go` já implementavam isto, mas o
-`deploy/Caddyfile` estava **desatualizado** e roteava `/jmap`, `/auth`, `/.well-known` **direto ao
-Stalwart:8080**, saltando o broker — em produção quebraria o webmail (401, o Stalwart não entende a
-nossa sessão) e anularia o brokering de segurança. Corrigido: os três passam agora por
-`control-plane:8000`, alinhado com o dev e com o comentário do próprio `jmap_proxy.go`. → `deploy/Caddyfile`.
+**Round 11 — production bug: the Caddyfile was bypassing the JMAP broker.** The frontend does
+**not** speak JMAP directly to Stalwart — it sends *our* session token (Bearer) to `/jmap`, and
+our API does the brokering (H11): it validates the session and injects the mailbox's
+server-to-server Basic credential (the browser never holds the password). `vite.config.ts` (dev)
+and `jmap_proxy.go` already implemented this, but `deploy/Caddyfile` was **out of date** and
+routed `/jmap`, `/auth`, `/.well-known` **straight to Stalwart:8080**, skipping the broker — in
+production this would break the webmail (401, Stalwart doesn't understand our session) and defeat
+the security brokering. Fixed: all three now go through `control-plane:8000`, matching dev and
+`jmap_proxy.go`'s own comment. → `deploy/Caddyfile`.
 
-**Rodada 10 — §3 responsividade adotada em Tailwind + últimos vãos:** decisão de responsividade
-resolvida (era pergunta em aberto). Tailwind configurado como o **sistema responsivo**: `important: true`
-(a app vive sob `.wm`, de alta especificidade; como Tailwind estava praticamente por usar, ligar o
-important não altera o layout existente e faz os utilitários ganharem a disputa) e `md: 721px` para
-que `max-md:` case **exatamente** o breakpoint móvel que o `webmail.css` já usa (`max-width:720px`),
-sem zona morta. Convenção: **novo trabalho responsivo usa `max-md:` do Tailwind** (só afeta ≤720px,
-o desktop não emite regra — zero risco de regressão); as regras `@media` que já funcionam ficam como
-estão (não se churna código a funcionar, e as que dependem de `:has()` do LiveKit nem seriam
-utilitários). Vão fechado: **Contactos** (grelha fixa 220px→empilha em `max-md:grid-cols-1` + barra
-de grupos com altura limitada). Mecanismo verificado no CSS gerado (`@media not all and
+**Round 10 — §3 responsiveness adopted in Tailwind + remaining gaps:** the responsiveness
+decision was resolved (it was an open question). Tailwind configured as the **responsive
+system**: `important: true` (the app lives under `.wm`, high specificity; since Tailwind was
+barely used, turning on important doesn't change the existing layout and lets the utilities win
+the specificity fight) and `md: 721px` so that `max-md:` matches **exactly** the mobile breakpoint
+`webmail.css` already uses (`max-width:720px`), with no dead zone. Convention: **new responsive
+work uses Tailwind's `max-md:`** (it only affects ≤720px, desktop emits no rule — zero regression
+risk); the `@media` rules that already work stay as they are (working code doesn't get churned,
+and the ones depending on LiveKit's `:has()` wouldn't even be utility classes anyway). Gap
+closed: **Contacts** (fixed 220px grid → stacks to `max-md:grid-cols-1` + a height-limited group
+bar). Mechanism verified in the generated CSS (`@media not all and
 (min-width:721px){…!important}`). → `tailwind.config.js`, `ContactsView.tsx`, `GroupsSidebar.tsx`.
 
-**Rodada 9 — §5 espelho de subpastas no sync:** o sync deixou de ser plano — passa a **espelhar a
-árvore de pastas**. Backend: `GET/POST /api/sync/folders` (listar a árvore do dono / criar pasta,
-com verificação de posse do pai). Daemon: novo módulo `tree.rs` (mapa `folder_id`↔caminho, à prova
-de ciclos, com testes) — coloca cada ficheiro sob o caminho da sua pasta; **trata movimentos**
-(mesmo conteúdo + pasta diferente ⇒ move o local em vez de rebaixar); o push é **recursivo** e cria
-as pastas do servidor em falta. Sanitização anti-traversal estendida a subcaminhos (`safe_join_rel`
-+ testes). `go build`/`vet` e `cargo build`/`test` (4 testes) limpos. → `files_sync_folders.go`,
-`sync-daemon/src/{tree,sync,api,safepath}.rs`.
+**Round 9 — §5 subfolder mirroring in sync:** sync is no longer flat — it now **mirrors the
+folder tree**. Backend: `GET/POST /api/sync/folders` (list the owner's tree / create a folder,
+with parent-ownership verification). Daemon: a new `tree.rs` module (a `folder_id`↔path map,
+cycle-proof, with tests) — places each file under its folder's path; **handles moves** (same
+content + different folder ⇒ moves the local file instead of duplicating it); the push is
+**recursive** and creates missing server folders. Anti-traversal sanitization extended to
+subpaths (`safe_join_rel` + tests). `go build`/`vet` and `cargo build`/`test` (4 tests) clean. →
+`files_sync_folders.go`, `sync-daemon/src/{tree,sync,api,safepath}.rs`.
 
-**Rodada 8 — §2 apresentação do Meet responsiva:** no telemóvel o palco da apresentação passa a
-ocupar a largura toda e as câmaras do LiveKit viram uma **fita horizontal** por baixo (em vez de
-uma coluna estreita ilegível). Fecha o último 🔴 do §2. → `webmail.css`.
+**Round 8 — §2 responsive Meet presentation:** on mobile, the presentation stage now takes the
+full width and the LiveKit cameras become a **horizontal strip** underneath (instead of an
+illegible narrow column). Closes the last 🔴 of §2. → `webmail.css`.
 
-**Rodada 7 — §5 M2: sync bidirecional (nuvem ↔ local) com concorrência otimista:**
-- **Backend:** `PUT /api/sync/files/{id}` exige **If-Match** (hash base); divergência → **412**
-  (conflito). Antes de sobrescrever, **fotografa a versão** no histórico (nunca perde); cota, dedup
-  por hash e isolamento por tenant/dono preservados. `POST /api/sync/files` cria ficheiros novos.
-  Hash em streaming (sem carregar o ficheiro em memória). Semântica de snapshot+update testada em
-  Postgres. → `files_sync_upload.go`, `server.go`.
-- **Daemon:** passagem **push-antes-de-pull** (evita o download sobrescrever uma edição local por
-  subir); sobe alterados (If-Match) e novos; no 412 guarda **cópia de conflito** local; **delete
-  local não é propagado** (segurança). Hash local em SHA-256 (mesmo algoritmo do servidor).
-  `cargo build`/`test` limpos. → `sync-daemon/src/{api,sync,index}.rs`.
-- Nota: cada camada foi verificada isoladamente (backend build+vet, SQL em Postgres, daemon
-  build+testes); o teste ponta-a-ponta ao vivo (daemon ↔ API ↔ MinIO) precisa da stack a correr.
+**Round 7 — §5 M2: bidirectional sync (cloud ↔ local) with optimistic concurrency:**
+- **Backend:** `PUT /api/sync/files/{id}` requires **If-Match** (base hash); a mismatch → **412**
+  (conflict). Before overwriting, it **snapshots the version** into history (never loses data);
+  quota, hash-based dedup, and tenant/owner isolation preserved. `POST /api/sync/files` creates
+  new files. Streaming hash (no loading the whole file into memory). Snapshot+update semantics
+  tested against Postgres. → `files_sync_upload.go`, `server.go`.
+- **Daemon:** a **push-before-pull** pass (avoids a download overwriting a local edit on its way
+  up); uploads changed (If-Match) and new files; on 412 it keeps a local **conflict copy**;
+  **local deletes are not propagated** (safety). Local hash in SHA-256 (same algorithm as the
+  server). `cargo build`/`test` clean. → `sync-daemon/src/{api,sync,index}.rs`.
+- Note: each layer was verified in isolation (backend build+vet, SQL in Postgres, daemon
+  build+tests); the live end-to-end test (daemon ↔ API ↔ MinIO) needs the stack running.
 
-**Rodada 6 — §4 apps móveis (Tauri Android + iOS) inicializados:** corri `tauri android init` e
-`tauri ios init` — projetos nativos gerados em `src-tauri/gen/android` e `.../gen/apple`; o
-`lib.rs` já tinha o `mobile_entry_point`. Permissões do Meet declaradas (câmara/micro no
-AndroidManifest e no Info.plist — sem estas a App Store recusa) + `POST_NOTIFICATIONS`. O
-`cargo check` do desktop continua a passar (não quebrou). Runbook em `src-tauri/MOBILE.md`.
-**Falta (precisa de contas externas):** push nativo FCM/APNs e o **spike do WebRTC no WKWebView iOS**
-(decisão: validar antes de comprometer o Meet ao Tauri; plano B = Safari via opener).
-→ `src-tauri/gen/*`, `AndroidManifest.xml`, `Info.plist`, `MOBILE.md`.
+**Round 6 — §4 mobile apps (Tauri Android + iOS) initialized:** ran `tauri android init` and
+`tauri ios init` — native projects generated in `src-tauri/gen/android` and `.../gen/apple`;
+`lib.rs` already had the `mobile_entry_point`. Meet permissions declared (camera/mic in
+AndroidManifest and Info.plist — without these the App Store rejects it) +
+`POST_NOTIFICATIONS`. Desktop `cargo check` still passes (nothing broke). Runbook in
+`src-tauri/MOBILE.md`. **Missing (needs external accounts):** native FCM/APNs push and the
+**WebRTC spike in the iOS WKWebView** (decision: validate before committing Meet to Tauri; plan B
+= Safari via opener). → `src-tauri/gen/*`, `AndroidManifest.xml`, `Info.plist`, `MOBILE.md`.
 
-**Rodada 5 — §1 tema/idioma seguem o utilizador + §5 upload condicional (decisão):**
-- **§1 sync de tema/idioma:** agora persistidos em `settings.general` (usa a infra JSONB existente).
-  Ao autenticar, o servidor manda (reconcilia tema e idioma); o `localStorage` fica como cache
-  instantâneo pré-login. Faz sentido com web + desktop + mobile. `tsc` limpo. → `App.tsx`,
-  `SettingsView.tsx`, `backend.ts`.
-- **§5 upload condicional (If-Match):** na altura foi adiado por YAGNI; **agora implementado** na
-  Rodada 7 (M2), que é exatamente o "escritor real" que justifica proteger o caminho de gravação.
+**Round 5 — §1 theme/language follow the user + §5 conditional upload (decision):**
+- **§1 theme/language sync:** now persisted in `settings.general` (using the existing JSONB
+  infra). On authentication, the server sends them down (reconciling theme and language);
+  `localStorage` stays as an instant pre-login cache. Makes sense with web + desktop + mobile.
+  `tsc` clean. → `App.tsx`, `SettingsView.tsx`, `backend.ts`.
+- **§5 conditional upload (If-Match):** deferred at the time as YAGNI; **now implemented** in
+  Round 7 (M2), which is exactly the "real writer" that justifies protecting the save path.
 
-**Rodada 4 — §3 responsividade:** correção ao diagnóstico — Chat, Webmail, o shell (nav vira barra
-inferior), a busca e Admin/Definições **já eram responsivos e wired** (drawers, troca lista↔detalhe,
-`chat-burger`/`mobtop`). O que faltava e foi entregue (CSS, validado com `npm run build`): **Calendário**
-mobile (mês compacto, grade semana/dia com scroll horizontal em vez de esmagar colunas, agenda da IA
-como cartão de largura total), **Kanban** com scroll-snap (uma coluna por ecrã) e a barra de ações do
-**Meet** a quebrar linha em vez de sair do ecrã. Files já usava `auto-fill minmax` (responsivo).
-Follow-up opcional (JS): o Calendário no telemóvel abrir por defeito na vista agenda/dia.
-→ `webmail.css`.
+**Round 4 — §3 responsiveness:** a correction to the diagnosis — Chat, Webmail, the shell (nav
+becomes a bottom bar), search, and Admin/Settings **were already responsive and wired** (drawers,
+list↔detail switch, `chat-burger`/`mobtop`). What was missing and has now been delivered (CSS,
+validated with `npm run build`): mobile **Calendar** (compact month, week/day grid with
+horizontal scroll instead of squeezing columns, the AI agenda as a full-width card), **Kanban**
+with scroll-snap (one column per screen), and the **Meet** action bar wrapping instead of running
+off-screen. Files already used `auto-fill minmax` (responsive). Optional follow-up (JS): Calendar
+on mobile opening by default in the agenda/day view. → `webmail.css`.
 
-**Rodada 3 — §5 M1: daemon de sync em Rust (nuvem → local, só leitura):** novo crate separado
-`sync-daemon/` (`mailin-sync`). Consome `/api/sync/files/changes` com o token de dispositivo,
-mantém índice em SQLite (id→caminho+hash+versão) e cursor, baixa o novo/alterado (dedup por hash) e
-aplica tombstones. **Segurança:** HTTPS obrigatório fora de localhost; token em ficheiro `0600`;
-**sanitização de path contra traversal** (`safepath.rs` + testes que passam); só apaga o que o
-próprio daemon indexou; escrita atómica (part+rename). `cargo build`/`cargo test` limpos; adicionado
-job no CI. Limitações do M1 (documentadas no `sync-daemon/README.md`): estrutura plana (árvore = M2),
-sem upload local→nuvem ainda. → `sync-daemon/*`, `.github/workflows/ci.yml`.
+**Round 3 — §5 M1: Rust sync daemon (cloud → local, read-only):** a new separate crate
+`sync-daemon/` (`mailin-sync`). Consumes `/api/sync/files/changes` with the device token, keeps
+an index in SQLite (id→path+hash+version) and a cursor, downloads new/changed files (hash-based
+dedup) and applies tombstones. **Security:** HTTPS required outside localhost; token in a `0600`
+file; **path traversal sanitization** (`safepath.rs` + passing tests); only deletes what the
+daemon itself indexed; atomic writes (part+rename). `cargo build`/`cargo test` clean; job added
+to CI. M1 limitations (documented in `sync-daemon/README.md`): flat structure (tree = M2), no
+local→cloud upload yet. → `sync-daemon/*`, `.github/workflows/ci.yml`.
 
-**Correções ao diagnóstico (já existia, ao contrário do que a v1 dizia):**
-- **§1** As preferências **já são server-side por app**: coluna JSONB `mail_users.settings` (migração
-  00029) com merge de topo, rotas `GET/PATCH /api/settings`, e `SettingsView` **já tem rail de secções**
-  (Geral/E-mail/Notificações). O fuso do calendário já usa o `Intl` do dispositivo (item 🔴 do GAPS
-  satisfeito). Logo, "prefs server-side" e "settings por app" **não são lacuna** — o que resta é
-  decisão (abaixo), não código em falta.
-- **§6** O compose **já tem** healthchecks (Postgres/MinIO/OnlyOffice/api) e a maioria das imagens
-  **já está pinada por digest** (MinIO/OnlyOffice/LiveKit/Egress); faltam pinar Redis e LiveKit-server.
+**Corrections to the diagnosis (already existed, contrary to what v1 said):**
+- **§1** Preferences are **already server-side per app**: the JSONB column `mail_users.settings`
+  (migration 00029) with top-level merge, `GET/PATCH /api/settings` routes, and `SettingsView`
+  **already has a section rail** (General/Email/Notifications). The calendar timezone already
+  uses the device's `Intl` (the 🔴 GAPS item is satisfied). So "server-side prefs" and "settings
+  per app" **are not a gap** — what's left is a decision (below), not missing code.
+- **§6** The compose file **already has** healthchecks (Postgres/MinIO/OnlyOffice/api) and most
+  images **are already pinned** by digest (MinIO/OnlyOffice/LiveKit/Egress); Redis and
+  LiveKit-server are still missing.
 
-**Estado final do código (após rodadas 1–10):** todos os pontos **implementáveis e verificáveis
-neste ambiente estão feitos**. O que resta depende de recursos externos que só você fornece — não é
-código pendente:
-- **Push nativo mobile** — contas Firebase (FCM) + certificado APNs (Apple).
-- **Publicação nas lojas** — conta Apple Developer + keystore Android + política de privacidade.
-- **Spike WebRTC iOS** — correr `tauri ios dev` num dispositivo/simulador seu (init, permissões e
-  runbook já prontos em `src-tauri/MOBILE.md`).
-- **Entregabilidade de e-mail** (DKIM/SPF/DMARC/rDNS) — depende do seu DNS e IPs.
-- **Observabilidade** (Prometheus/Sentry) — você optou por não adicionar dependências agora (reversível).
-- **Polimento de sync** (UI de status; propagar move/delete locais) — melhorias futuras, não bloqueiam.
+**Final code state (after rounds 1–10):** every point **implementable and verifiable in this
+environment is done**. What remains depends on external resources only you can provide — it's
+not pending code:
+- **Native mobile push** — Firebase (FCM) accounts + an APNs certificate (Apple).
+- **Store publication** — Apple Developer account + Android keystore + a privacy policy.
+- **iOS WebRTC spike** — run `tauri ios dev` on your own device/simulator (init, permissions and
+  runbook already ready in `src-tauri/MOBILE.md`).
+- **Email deliverability** (DKIM/SPF/DMARC/rDNS) — depends on your DNS and IPs.
+- **Observability** (Prometheus/Sentry) — you chose not to add dependencies for now (reversible).
+- **Sync polish** (status UI; propagating local moves/deletes) — future improvements, not
+  blocking.
 
-## Sumário executivo
+## Executive summary
 
-| Frente | Estado atual | Gap principal | Esforço |
+| Front | Current state | Main gap | Effort |
 |---|---|---|---|
-| 1. Configurações por app | ✅ Prefs server-side por app (JSONB) + rail de secções **já existem** | Só decisão: mais secções (YAGNI) e se tema/idioma sincronizam entre aparelhos | P (se decidido) |
-| 2. Design dos modos de ver (Meet) | ✅ Layout de gravação + PiP **entregues** nesta rodada | Grid adaptativo no mobile (parte da frente 3) | — |
-| 3. Responsividade real | Desktop-first: ~7 `@media` em 2.091 linhas de CSS | Estratégia de breakpoints + refactor por módulo | G |
-| 4. App mobile Tauri | Tauri 2 desktop **já existe** (`frontend/src-tauri`); mobile não inicializado | `tauri android/ios init` + push nativo + UI mobile (depende da frente 3) + spike WebRTC iOS | G |
-| 5. Sync de diretórios (Rust) | Zero. Files = MinIO via API (`internal/storage`) | Motor de sync em Rust + API de deltas (feed de changes é o pré-requisito) | G |
-| 6. Produção | ✅ Backup/restauro, CI e `/readyz` **entregues**; compose já tinha healthchecks + digests | Métricas/observabilidade (decisão de dep), pinar Redis/LiveKit, updater Tauri | M |
+| 1. Per-app settings | ✅ Server-side per-app prefs (JSONB) + section rail **already exist** | Just a decision: more sections (YAGNI) and whether theme/language sync across devices | S (once decided) |
+| 2. "Viewing mode" design (Meet) | ✅ Recording layout + PiP **delivered** this round | Adaptive mobile grid (part of front 3) | — |
+| 3. Real responsiveness | Desktop-first: ~7 `@media` in 2,091 lines of CSS | Breakpoint strategy + per-module refactor | L |
+| 4. Tauri mobile app | Tauri 2 desktop **already exists** (`frontend/src-tauri`); mobile not initialized | `tauri android/ios init` + native push + mobile UI (depends on front 3) + iOS WebRTC spike | L |
+| 5. Directory sync (Rust) | Zero. Files = MinIO via API (`internal/storage`) | Rust sync engine + delta API (the changes feed is the prerequisite) | L |
+| 6. Production | ✅ Backup/restore, CI and `/readyz` **delivered**; compose already had healthchecks + digests | Metrics/observability (dependency decision), pin Redis/LiveKit, Tauri updater | M |
 
 ---
 
-## 1. Configurações individuais por app
+## 1. Individual per-app settings
 
-### Estado atual
-- Uma única página: `frontend/src/webmail/SettingsView.tsx` — idioma, tema e notificações.
-- **Tudo em localStorage** (`mailin.lang`, tema, flags de web push). Consequência: preferências
-  não seguem o usuário entre aparelhos — inaceitável a partir do momento em que existem web,
-  desktop e mobile (frentes 3–5).
-- Configurações que já existem espalhadas: assinatura (`SignatureEditor.tsx`), regras
-  (`RulesView.tsx`), férias — todas do webmail, sem um "lar" comum.
+### Current state
+- A single page: `frontend/src/webmail/SettingsView.tsx` — language, theme, and notifications.
+- **Everything in localStorage** (`mailin.lang`, theme, web push flags). Consequence:
+  preferences don't follow the user across devices — unacceptable from the moment web, desktop,
+  and mobile all exist (fronts 3–5).
+- Settings that already exist scattered around: signature (`SignatureEditor.tsx`), rules
+  (`RulesView.tsx`), vacation — all in the webmail, with no common "home".
 
-### O que fazer
-- [x] 🔴 **Prefs server-side.** ✅ Feito — não numa tabela `user_prefs` nova, mas na coluna JSONB
-      `mail_users.settings` (merge por secção no servidor) já existente; cliente com escrita otimista
-      via `useSettings.ts`. Rodadas 5 e 12.
-- [x] 🔴 **Settings com navegação por app** ✅ (Rodada 12): rail com Geral · E-mail · Chat ·
-      Calendário · Ficheiros · Meet · Kanban · Notificações · Dispositivos. (Contactos não entrou —
-      sem preferência real a ligar.)
-- [x] 🔴 Chaves i18n de cada preferência em pt-BR **e** en ✅ (Rodada 12).
+### What to do
+- [x] 🔴 **Server-side prefs.** ✅ Done — not in a new `user_prefs` table, but in the existing
+      `mail_users.settings` JSONB column (per-section merge on the server); the client writes
+      optimistically via `useSettings.ts`. Rounds 5 and 12.
+- [x] 🔴 **Settings with per-app navigation** ✅ (Round 12): a rail with General · Email · Chat ·
+      Calendar · Files · Meet · Kanban · Notifications · Devices. (Contacts wasn't included — no
+      real preference to wire up.)
+- [x] 🔴 i18n keys for each preference in pt-BR **and** en ✅ (Round 12).
 
-### Preferências propostas por app (primeira leva)
-| App | Preferências |
+### Proposed per-app preferences (first pass)
+| App | Preferences |
 |---|---|
-| Geral | idioma, tema (claro/escuro/sistema), densidade, página inicial |
-| Webmail | assinatura, janela de undo-send, comportamento de arquivar, confirmação de leitura, imagens remotas on/off, atalhos on/off |
-| Chat | notificar (all/menções/nada) default, sons, presença default, Enter envia |
-| Calendário | fuso horário, primeiro dia da semana, horário visível da grade, duração default, lembrete default |
-| Ficheiros | visão (grid/lista), ordenação, expiração default de link |
-| Meet | câmera/mic/alto-falante default, entrar mutado, fundo virtual default, qualidade |
-| Kanban | quadro inicial, visão default (kanban/lista/calendário) |
+| General | language, theme (light/dark/system), density, home page |
+| Webmail | signature, undo-send window, archive behavior, read receipts, remote images on/off, shortcuts on/off |
+| Chat | default notify (all/mentions/none), sounds, default presence, Enter sends |
+| Calendar | timezone, first day of week, visible grid hours, default duration, default reminder |
+| Files | view (grid/list), sort order, default link expiration |
+| Meet | default camera/mic/speaker, join muted, default virtual background, quality |
+| Kanban | initial board, default view (kanban/list/calendar) |
 
-Nota: fuso horário do calendário já é 🔴 no GAPS (§Calendário) — resolver junto, guardando em `user_prefs`.
-
----
-
-## 2. Design responsivo dos modos de "ver" (Meet e afins)
-
-### Estado atual
-- Meet usa o prebuilt `<VideoConference />` do LiveKit (`MeetRoom.tsx`, `Guest.tsx`) + camada
-  própria de apresentação (`MeetPresentation.tsx`, estilo BBB), efeitos, reações, notas.
-- Pendentes no GAPS (§Meet, 🟡): **layout de gravação configurável; PiP**.
-
-### O que fazer
-- [x] 🔴 **Layout de apresentação responsivo:** ✅ (Rodada 8) — no telemóvel o palco fica em largura
-      total e as câmaras viram uma fita horizontal por baixo.
-- [x] 🟡 **PiP nativo** ✅ (Rodada 2) — botão de Picture-in-Picture na barra de ações, feature-detected.
-- [x] 🟡 **Layout de gravação configurável** ✅ (Rodada 2) — host escolhe grid/orador/só-orador,
-      validado no backend (`recordLayout`).
-- [ ] 🟡 Grid de tiles com regras por largura (1 col <480px, 2 col <900px…) — **não feito**; o grid
-      normal ainda usa o default do prebuilt do LiveKit (só a apresentação foi tornada responsiva).
+Note: the calendar timezone was already 🔴 in GAPS (§Calendar) — resolve it together, storing it
+in `user_prefs`.
 
 ---
 
-## 3. Responsividade real (desktop e mobile)
+## 2. Responsive design of "viewing" modes (Meet and similar)
 
-### Estado atual — o gap mais estrutural do frontend
-- `webmail.css`: **2.091 linhas com apenas 7 `@media`**, e só 3 breakpoints reais
-  (720/860/1024px), quase todos para o burger do chat. `index.css`: zero. Tailwind está
-  configurado, mas só **1 arquivo** usa prefixos responsivos (`sm:`/`md:`/`lg:`).
-- Na prática a UI é desktop-only: webmail 3 colunas, calendário em grade, kanban horizontal —
-  nada disso opera bem <768px hoje. A janela Tauri já permite `minWidth: 380`, ou seja, o
-  desktop atual já expõe o problema.
+### Current state
+- Meet uses LiveKit's prebuilt `<VideoConference />` (`MeetRoom.tsx`, `Guest.tsx`) + our own
+  presentation layer (`MeetPresentation.tsx`, BBB-style), effects, reactions, notes.
+- Pending in GAPS (§Meet, 🟡): **configurable recording layout; PiP**.
 
-### Estratégia proposta
-- [x] 🔴 **Contrato de breakpoints único** ✅ (Rodada 10) — Tailwind `sm 640 / md 721 / lg 1024 /
-      xl 1280` (md=721 casa o `max-width:720` que o `webmail.css` já usava), `important:true`.
-- [x] 🔴 **Padrão "lista → detalhe" empilhado no mobile** ✅ — já existia e wired em webmail e chat
-      (drawers, `mobtop`, `chat-burger`); confirmado na Rodada 4.
-- [x] 🔴 **Rail de módulos vira bottom-nav** ✅ — já existia (`@media ≤720` no shell).
-- [x] 🔴 **Calendário mobile** ✅ (Rodada 4) — mês compacto + semana/dia com scroll horizontal +
-      agenda como cartão. (Abrir por defeito na vista agenda no telemóvel fica como opção JS.)
-- [x] 🟡 Kanban mobile: scroll-snap, uma coluna por ecrã ✅ (Rodada 4).
-- [~] 🟡 Compose/modais full-screen sheet <md ✅ (já existia: `.cmp`/`.tk` a 96vw); **falta** só
-      "tabelas do admin viram cards" (o painel admin fica desktop-first por agora).
-- [ ] 🟡 Auditoria de toque (long-press/swipe, alvos ≥44px, `safe-area-inset`) — **não feito**;
-      refinamento para quando o mobile for a sério (frente 4).
-
-**Ordem por módulo (impacto × uso mobile):** Chat → Webmail → Meet (frente 2) → Calendário →
-Ficheiros → Contatos → Kanban → Painel admin (pode ficar desktop-first 🟢).
-
-**Decisão a tomar (lei 6.2):** migrar gradualmente para utilitários Tailwind responsivos
-(recomendado — já está instalado; evita crescer os .css monolíticos) vs. continuar em CSS puro
-com `@media`. Recomendo Tailwind para código novo/refatorado, sem reescrita big-bang.
+### What to do
+- [x] 🔴 **Responsive presentation layout:** ✅ (Round 8) — on mobile the stage takes the full
+      width and the cameras become a horizontal strip underneath.
+- [x] 🟡 **Native PiP** ✅ (Round 2) — Picture-in-Picture button in the action bar,
+      feature-detected.
+- [x] 🟡 **Configurable recording layout** ✅ (Round 2) — the host picks
+      grid/speaker/speaker-only, validated on the backend (`recordLayout`).
+- [ ] 🟡 Tile grid with width-based rules (1 col <480px, 2 col <900px…) — **not done**; the
+      regular grid still uses the LiveKit prebuilt's default (only the presentation was made
+      responsive).
 
 ---
 
-## 4. App mobile com Tauri
+## 3. Real responsiveness (desktop and mobile)
 
-### Estado atual — melhor do que parece
-- `frontend/src-tauri` já existe em **Tauri 2**, com o crate `mailin_lib` já preparado para
-  mobile (`crate-type = ["staticlib", "cdylib", "rlib"]` — exatamente o que iOS/Android pedem)
-  e ícones android/ios no scaffold. Plugins: opener, notification.
-- **Mobile não inicializado:** `gen/schemas` só tem desktop/macOS — falta `tauri android init`
-  / `tauri ios init` (geram `gen/android` e `gen/apple`).
-- Integrações desktop já existentes reaproveitáveis: `tauriNotify.ts`, `nativeWindow.ts`.
+### Current state — the frontend's most structural gap
+- `webmail.css`: **2,091 lines with only 7 `@media` rules**, and only 3 real breakpoints
+  (720/860/1024px), almost all for the chat burger menu. `index.css`: zero. Tailwind is
+  configured, but only **1 file** uses responsive prefixes (`sm:`/`md:`/`lg:`).
+- In practice the UI is desktop-only: 3-column webmail, grid calendar, horizontal kanban — none
+  of it works well below 768px today. The Tauri window already allows `minWidth: 380`, meaning
+  the current desktop build already exposes the problem.
 
-### O que fazer
-- [x] 🔴 `tauri android init` + `tauri ios init` ✅ (Rodada 6) — projetos nativos gerados em
-      `src-tauri/gen/{android,apple}`; job no CI (`cargo check`). Runbook em `src-tauri/MOBILE.md`.
-- [x] 🔴 **Pré-requisito: frente 3** ✅ — responsividade fechada (Rodadas 4/8/10).
-- [ ] 🔴 **Push real com app fechado (FCM/APNs)** — **não feito**; precisa de contas Firebase/Apple.
-- [ ] 🔴 Deep links (`tauri-plugin-deep-link`) — **não feito**.
-- [x] 🔴 Permissões nativas câmera/microfone no Info.plist/AndroidManifest ✅ (Rodada 6, validadas).
-      O **spike do WebRTC no WKWebView (iOS)** continua por fazer — precisa de dispositivo/simulador seu.
-- [ ] 🟡 Biometria (`tauri-plugin-biometric`) — **não feito**.
-- [ ] 🟡 Teclado virtual (`interactive-widget=resizes-content`) — **não feito**.
-- [ ] 🟢 Publicação nas lojas (contas, review Apple, política de privacidade) — **não feito** (contas).
+### Proposed strategy
+- [x] 🔴 **Single breakpoint contract** ✅ (Round 10) — Tailwind `sm 640 / md 721 / lg 1024 /
+      xl 1280` (md=721 matches the `max-width:720` `webmail.css` already used), `important:true`.
+- [x] 🔴 **Stacked "list → detail" pattern on mobile** ✅ — already existed and wired in webmail
+      and chat (drawers, `mobtop`, `chat-burger`); confirmed in Round 4.
+- [x] 🔴 **Module rail becomes a bottom nav** ✅ — already existed (`@media ≤720` in the shell).
+- [x] 🔴 **Mobile calendar** ✅ (Round 4) — compact month + week/day with horizontal scroll +
+      agenda as a card. (Opening by default in the agenda view on mobile stays as a JS option.)
+- [x] 🟡 Mobile Kanban: scroll-snap, one column per screen ✅ (Round 4).
+- [~] 🟡 Full-screen sheet compose/modals <md ✅ (already existed: `.cmp`/`.tk` at 96vw);
+      **missing** is just "admin tables become cards" (the admin panel stays desktop-first for
+      now).
+- [ ] 🟡 Touch audit (long-press/swipe, ≥44px targets, `safe-area-inset`) — **not done**;
+      refinement for when mobile becomes serious (front 4).
 
-**Custo recorrente a assumir:** matriz de teste passa a ser web + macOS/Windows/Linux + Android
-+ iOS. Vale definir 2 alvos de 1ª classe (ex.: web + Android) e o resto best-effort no início.
+**Order by module (impact × mobile usage):** Chat → Webmail → Meet (front 2) → Calendar →
+Files → Contacts → Kanban → Admin panel (can stay desktop-first 🟢).
 
----
-
-## 5. Sincronizar diretórios com a nuvem (Rust, desktop e mobile)
-
-### Estado atual
-- Zero sync. Ficheiros = upload manual via API (`internal/storage` → MinIO), com dedup,
-  versões, lixeira e partilha já entregues (GAPS §Ficheiros ✅).
-- Não há endpoint de **deltas/changes** nem identificador de conteúdo exposto (etag/hash) —
-  pré-requisitos de qualquer cliente de sync.
-
-### Arquitetura proposta (estilo Dropbox, simplificado)
-**Crate Rust `mailin-sync`** dentro de `src-tauri` (workspace), usado pelo desktop e mobile via
-comandos Tauri — mesma abordagem do `mailin_lib` atual, sem segundo binário.
-
-Componentes:
-1. **Watcher** — crate `notify` (FSEvents/inotify/ReadDirectoryChangesW) + varredura periódica
-   de reconciliação (watchers perdem eventos).
-2. **Índice local** — SQLite (`rusqlite`): caminho, tamanho, mtime, hash BLAKE3, `remote_id`,
-   `remote_version`, estado (`synced/dirty/conflict/pending`).
-3. **Protocolo com o backend (novo, Go):**
-   - `GET /api/files/changes?since=<cursor>` — feed incremental por tenant/pasta (cursor
-     monotônico; tabela `file_events` ou coluna `updated_seq`).
-   - Upload/download já existem; adicionar **hash BLAKE3 nos metadados** (dedup já existe —
-     alinhar o algoritmo) e upload condicional (`If-Match`) para detectar corrida.
-4. **Motor de decisão** — three-way (estado local vs. índice vs. remoto). Conflito = nunca
-   sobrescrever: gravar `nome (conflito de <dispositivo> 2026-07-19).ext`, marcar na UI.
-5. **Transferência** — fila com limite de concorrência, retomável, backoff; respeitar cota
-   (409 da API) e idempotência (lei 5.3).
-
-Etapas:
-- [x] 🔴 **M0 — backend:** feed de changes ✅ (`GET /api/files/changes`, migração 00078) + hash como
-      ETag ✅. Falta ainda o **upload condicional** (`If-Match` no save do OnlyOffice) — pequeno, mas
-      toca no caminho de gravação; deixado para o M1 quando o daemon precisar dele.
-- [x] 🔴 **M1 — desktop one-way** ✅ (download da nuvem → pasta local). Entregue no `sync-daemon/`.
-- [x] 🔴 **M2 — desktop bidirecional** ✅ completo: upload condicional (If-Match/412), cópias de
-      conflito, **espelho de subpastas**, **agente com ícone na barra** (estado + menu + autostart via
-      launchd/systemd), **delete local → lixeira** e **move local → move** (com guarda anti-apagão),
-      **watcher em tempo real** + pré-filtro mtime/size, **reconciliação horária** (apanha a purga),
-      **partilhados comigo** em `Partilhados/` (só-leitura) e **pastas seletivas**.
-      Falta só: transferências concorrentes e limite de banda (otimizações).
-- [ ] 🟡 **M3 — mobile.** Escopo reduzido e realista: **sem espelho contínuo de diretório**
-      (iOS não dá acesso a FS arbitrário nem daemon em background). Oferecer: pastas
-      "disponíveis offline" (cache gerido pelo app) + camera upload (Android primeiro;
-      WorkManager-like via tarefas ao abrir o app). Espelho real no iOS exigiria File Provider
-      Extension nativa — 🟢 adiar.
-- [x] 🟢 **M4 — delta de blocos** ✅ Enviado só o que muda em ficheiros grandes: o servidor expõe
-      hashes por bloco (`GET /sync/files/{id}/blocks`) e aceita `PUT .../delta` com apenas os blocos
-      alterados, **reconstruindo** o ficheiro (o resto é copiado do blob antigo). O armazenamento
-      continua a ser um blob inteiro por ficheiro — sem tocar em download/versões/OnlyOffice/zip.
-      Só acima de 8 MiB e quando muda <70%; senão (ou sem suporte) cai no envio completo. Reconstrução
-      com testes (crescer/encolher/bloco parcial/input inválido). → `files_sync_delta.go`, `sync.rs`.
-
-**Decisão a tomar (lei 6.2):** sync como parte do app Tauri (recomendado: 1 instalador, UI
-pronta, IPC simples) vs. daemon separado que roda sem o app aberto (mais "Dropbox", porém
-tray/autostart/empacotamento próprios). Dá para evoluir de A para B depois.
+**Decision to make (law 6.2):** migrate gradually to responsive Tailwind utilities (recommended
+— already installed; avoids growing the monolithic .css files) vs. staying in plain CSS with
+`@media`. I recommend Tailwind for new/refactored code, with no big-bang rewrite.
 
 ---
 
-## 6. O que mais falta para produção
+## 4. Mobile app with Tauri
 
-### Estado atual do deploy
-`deploy/docker-compose.yml` sobe stalwart, postgres, minio, api, onlyoffice, livekit, redis,
-egress e worker, com Caddy (TLS) na frente. Hardening de app já feito (CSRF, rate limit, TOTP
-cifrado, fail-closed). **Não existem:** backup, observabilidade, CI/CD, gestão de segredos,
-updater dos apps.
+### Current state — better than it looks
+- `frontend/src-tauri` already exists on **Tauri 2**, with the `mailin_lib` crate already
+  prepared for mobile (`crate-type = ["staticlib", "cdylib", "rlib"]` — exactly what iOS/Android
+  need) and android/ios icons in the scaffold. Plugins: opener, notification.
+- **Mobile not initialized:** `gen/schemas` only has desktop/macOS — `tauri android init` /
+  `tauri ios init` are missing (they generate `gen/android` and `gen/apple`).
+- Reusable existing desktop integrations: `tauriNotify.ts`, `nativeWindow.ts`.
 
-### Lacunas por ordem de risco
-- [x] 🔴 **Backups + restore.** Entregue: `scripts/backup.sh` (pg_dump lógico + tar dos volumes
-      MinIO/Stalwart, retenção via `RETENTION_DAYS`) e `scripts/restore.sh` (destrutivo, confirma,
-      pára api/worker). Falta agendar (cron/systemd-timer) e **ensaiar o restauro** num ambiente real.
-- [~] 🔴 **Observabilidade.** Parcial: `/readyz` (pinga o Postgres) + healthchecks no compose ✅
-      (Rodada 1). **Falta** `/metrics` (Prometheus) + Sentry — **por decisão sua** (sem dependências
-      novas por agora). Reversível quando quiser.
-- [x] 🔴 **CI/CD** ✅ (Rodada 1) — `.github/workflows/ci.yml`: gofmt+vet+build+test+sqlc (backend),
-      tsc+vitest (frontend), cargo check do Tauri e do `sync-daemon`. Árvore deixada gofmt-limpa.
-- [~] 🔴 **Itens arquiteturais de segurança:** credencial JMAP brokerada ✅ (existia; Caddyfile
-      corrigido na Rodada 11) · **pin de imagens por digest** ✅ (Rodada 3: postgres+redis, restantes
-      já estavam) · **rotação de segredos** — **não feito** (procedimento/tooling por definir).
-- [ ] 🔴 **Entregabilidade de e-mail** (produto é servidor de e-mail): checklist por domínio —
-      DKIM/SPF/DMARC no provisionamento, rDNS/PTR, aquecimento de IP, monitor de blacklists,
-      relatórios DMARC. Validar o que o Stalwart 0.16 já provisiona via JMAP `x:*` e registrar
-      divergências (DIVERGENCES.md).
-- [~] 🟡 **Updater dos apps.** `devtools` **removido do release** ✅ (Rodada 3). **Falta** o
-      `tauri-plugin-updater` + assinatura de builds — precisa de chaves de assinatura suas.
-- [ ] 🟡 **Compat de API versionada.** Com apps instalados (desktop/mobile), clientes velhos
-      passam a existir: política de compatibilidade (aditivo por padrão; `X-Client-Version`;
-      resposta 426 para mínimo suportado).
-- [ ] 🟡 **E2E smoke** (Playwright): login → enviar e-mail → receber → chat → subir arquivo →
-      criar evento. Roda contra a stack do compose no CI. Cobre o risco nº 1 (regressão entre
-      módulos integrados).
-- [ ] 🟡 **LGPD/privacidade:** política de privacidade (obrigatória nas lojas), exportação e
-      apagamento de conta/tenant, DPA para clientes, retenção de gravações do Meet.
-- [ ] 🟡 **Operação multi-tenant:** limites por plano aplicados no backend (cota já existe p/
-      arquivos; falta p/ gravações, participantes Meet — GAPS §Meet), página de status/uptime.
-- [~] 🟢 Docs de operação: já há `sync-daemon/README.md` e `src-tauri/MOBILE.md`; **falta** o
-      runbook geral (subir stack do zero, restaurar backup, girar segredos, onboarding de domínio).
+### What to do
+- [x] 🔴 `tauri android init` + `tauri ios init` ✅ (Round 6) — native projects generated in
+      `src-tauri/gen/{android,apple}`; a CI job (`cargo check`). Runbook in
+      `src-tauri/MOBILE.md`.
+- [x] 🔴 **Prerequisite: front 3** ✅ — responsiveness closed (Rounds 4/8/10).
+- [ ] 🔴 **Real push with the app closed (FCM/APNs)** — **not done**; needs Firebase/Apple
+      accounts.
+- [ ] 🔴 Deep links (`tauri-plugin-deep-link`) — **not done**.
+- [x] 🔴 Native camera/microphone permissions in Info.plist/AndroidManifest ✅ (Round 6,
+      validated). The **WebRTC spike in the WKWebView (iOS)** is still to be done — needs your own
+      device/simulator.
+- [ ] 🟡 Biometrics (`tauri-plugin-biometric`) — **not done**.
+- [ ] 🟡 Virtual keyboard (`interactive-widget=resizes-content`) — **not done**.
+- [ ] 🟢 Store publication (accounts, Apple review, privacy policy) — **not done** (accounts).
+
+**Recurring cost to accept:** the test matrix now spans web + macOS/Windows/Linux + Android +
+iOS. Worth designating 2 first-class targets (e.g. web + Android) and treating the rest as
+best-effort at the start.
 
 ---
 
-## Ordem de ataque sugerida
+## 5. Syncing directories with the cloud (Rust, desktop and mobile)
 
-1. **§6 Backups + observabilidade mínima + CI** — protege o que já existe; independe do resto. (M)
-2. **§1 Prefs server-side + Settings por app** — destrava fuso do calendário e é pré-requisito
-   de multi-dispositivo. (M)
-3. **§3 Responsividade: Chat → Webmail → Meet** (+ §2 no passo do Meet). (G, incremental)
-4. **§4 Tauri mobile init + spike WebRTC iOS + push FCM/APNs** — spike cedo; o resultado do
-   WebRTC no WKWebView pode mudar o plano do Meet mobile. (G)
-5. **§5 Sync M0 (backend) → M1/M2 desktop** — mobile (M3) só depois do app mobile estabilizar. (G)
+### Current state
+- Zero sync. Files = manual upload via the API (`internal/storage` → MinIO), with dedup,
+  versions, trash, and sharing already delivered (GAPS §Files ✅).
+- There's no **delta/changes** endpoint, nor an exposed content identifier (etag/hash) —
+  prerequisites for any sync client.
 
-## Débito técnico tocado por esta avaliação
-- `webmail.css` (2.091 linhas) e `panel.css` monolíticos — quebrar junto com o refactor
-  responsivo (lei 1.4 vale em espírito para CSS).
-- Preferências device-local espalhadas (`mailin.lang`, `mailin.theme`, flags de push) — migrar para
-  `mail_users.settings` **se** decidirmos sincronizar entre aparelhos (ver Perguntas, Q1).
-- `devtools` habilitado no build release do Tauri (comentário no próprio Cargo.toml pede remoção).
+### Proposed architecture (Dropbox-style, simplified)
+**Rust crate `mailin-sync`** inside `src-tauri` (workspace), used by desktop and mobile via
+Tauri commands — the same approach as the current `mailin_lib`, no second binary.
+
+Components:
+1. **Watcher** — the `notify` crate (FSEvents/inotify/ReadDirectoryChangesW) + a periodic
+   reconciliation sweep (watchers miss events).
+2. **Local index** — SQLite (`rusqlite`): path, size, mtime, BLAKE3 hash, `remote_id`,
+   `remote_version`, state (`synced/dirty/conflict/pending`).
+3. **Protocol with the backend (new, Go):**
+   - `GET /api/files/changes?since=<cursor>` — incremental feed per tenant/folder (a monotonic
+     cursor; a `file_events` table or an `updated_seq` column).
+   - Upload/download already exist; add **BLAKE3 hash in the metadata** (dedup already exists —
+     align the algorithm) and conditional upload (`If-Match`) to detect races.
+4. **Decision engine** — three-way (local state vs. index vs. remote). Conflict = never
+   overwrite: write `name (conflict from <device> 2026-07-19).ext`, flag it in the UI.
+5. **Transfer** — a queue with a concurrency limit, resumable, backoff; respect quota (API 409)
+   and idempotency (law 5.3).
+
+Steps:
+- [x] 🔴 **M0 — backend:** changes feed ✅ (`GET /api/files/changes`, migration 00078) + hash as
+      ETag ✅. Still missing: **conditional upload** (`If-Match` on the OnlyOffice save) — small,
+      but it touches the save path; left for M1 when the daemon needs it.
+- [x] 🔴 **M1 — one-way desktop** ✅ (cloud → local folder download). Delivered in
+      `sync-daemon/`.
+- [x] 🔴 **M2 — bidirectional desktop** ✅ complete: conditional upload (If-Match/412), conflict
+      copies, **subfolder mirroring**, **tray-icon agent** (state + menu + autostart via
+      launchd/systemd), **local delete → trash** and **local move → move** (with an anti-wipe
+      guard), **real-time watcher** + mtime/size pre-filter, **hourly reconciliation** (catches
+      the purge), **shared-with-me** in `Shared/` (read-only), and **selective folders**.
+      Only missing: concurrent transfers and bandwidth limiting (optimizations).
+- [ ] 🟡 **M3 — mobile.** Reduced, realistic scope: **no continuous directory mirroring** (iOS
+      doesn't grant arbitrary filesystem access or a background daemon). Offer: "available
+      offline" folders (app-managed cache) + camera upload (Android first;
+      WorkManager-like via tasks on app open). Real iOS mirroring would need a native File
+      Provider Extension — 🟢 defer.
+- [x] 🟢 **M4 — block-level delta** ✅ Only sends what changes in large files: the server
+      exposes per-block hashes (`GET /sync/files/{id}/blocks`) and accepts `PUT .../delta` with
+      only the changed blocks, **reconstructing** the file (the rest is copied from the old
+      blob). Storage is still one whole blob per file — no touching
+      download/versions/OnlyOffice/zip. Only above 8 MiB and when <70% changes; otherwise (or
+      without support) it falls back to a full upload. Reconstruction with tests (grow/shrink/
+      partial block/invalid input). → `files_sync_delta.go`, `sync.rs`.
+
+**Decision to make (law 6.2):** sync as part of the Tauri app (recommended: 1 installer, ready
+UI, simple IPC) vs. a separate daemon that runs without the app open (more "Dropbox"-like, but
+its own tray/autostart/packaging). Can evolve from A to B later.
 
 ---
 
-## Perguntas em aberto (decisões suas antes de eu avançar)
+## 6. What else is needed for production
 
-Estes itens ficaram **deliberadamente não implementados** — dependem de uma escolha estrutural
-(lei 6.2) ou de ferramentas/ambiente que exigem a sua direção. Ordem = maior impacto primeiro.
+### Current deploy state
+`deploy/docker-compose.yml` brings up stalwart, postgres, minio, api, onlyoffice, livekit, redis,
+egress, and worker, with Caddy (TLS) in front. App hardening already done (CSRF, rate limit,
+encrypted TOTP, fail-closed). **Missing:** backup, observability, CI/CD, secrets management, app
+updater.
 
-1. **§4 Meet mobile / WebRTC no iOS.** O caminho Tauri para o Meet no iOS depende de o LiveKit
-   (WebRTC) funcionar no WKWebView — historicamente frágil. Quer que eu faça um **spike** para
-   validar antes de comprometer o Meet mobile ao Tauri? Plano B é abrir o Meet no Safari.
-2. **§5 Sync em Rust — M1 (daemon) precisa de auth para cliente headless.** ✅ Decidido: daemon
-   separado; ✅ M0 (feed) entregue. **Novo bloqueio antes do M1:** a API só autentica por cookie de
-   sessão + CSRF (fluxo de browser). Um daemon headless precisa de outra via. Qual?
-   - (a) **Token de dispositivo** de longa duração, emitido no login e revogável (recomendado: simples,
-     revogação por dispositivo). Exige um endpoint de emissão + tabela `device_tokens`.
-     — decisão de schema/auth, por isso pergunto (lei 6.2).
-   - (b) Reusar a sessão do app Tauri (o daemon partilha o cookie) — só serve se o daemon viver dentro
-     do app; contradiz "daemon separado".
-   Escolhida a via, implemento o M1 (poll do feed → índice SQLite local → download one-way).
-3. **§6 Observabilidade — dependência.** Adiciono `prometheus/client_golang` para `/metrics` +
-   um SDK de erros (Sentry/GlitchTip)? São dependências novas (leis 2.5/6.2), por isso pergunto.
-   Sem sdk, deixe para depois
-4. **§1 Settings — sincronizar tema/idioma entre aparelhos?** Hoje são device-local (localStorage),
-   o que é defensável. Movo para `mail_users.settings` (seguem o usuário, custo: flash inicial a
-   resolver)? E quais preferências novas realmente quer agora (só crio secção nova com uso real —
-   YAGNI)?
-   Sim
-5. **§3 Responsividade — profundidade.** É um refactor grande (desktop-first hoje). Faço por módulo
-   na ordem Chat → Webmail → Meet → Calendário, entregando um de cada vez? Confirmo também a
-   estratégia: utilitários Tailwind responsivos no código novo (recomendado).
-   R. Sim
+### Gaps by risk order
+- [x] 🔴 **Backups + restore.** Delivered: `scripts/backup.sh` (logical pg_dump + tar of the
+      MinIO/Stalwart volumes, retention via `RETENTION_DAYS`) and `scripts/restore.sh`
+      (destructive, confirms, stops api/worker). Still need to schedule it (cron/systemd-timer)
+      and **rehearse a restore** in a real environment.
+- [~] 🔴 **Observability.** Partial: `/readyz` (pings Postgres) + compose healthchecks ✅
+      (Round 1). **Missing** `/metrics` (Prometheus) + Sentry — **your decision** (no new
+      dependencies for now). Reversible whenever you want.
+- [x] 🔴 **CI/CD** ✅ (Round 1) — `.github/workflows/ci.yml`: gofmt+vet+build+test+sqlc
+      (backend), tsc+vitest (frontend), cargo check for Tauri and for `sync-daemon`. Tree left
+      gofmt-clean.
+- [~] 🔴 **Architectural security items:** brokered JMAP credential ✅ (already existed;
+      Caddyfile fixed in Round 11) · **image pinning by digest** ✅ (Round 3: postgres+redis, the
+      rest already were) · **secret rotation** — **not done** (procedure/tooling still to be
+      defined).
+- [ ] 🔴 **Email deliverability** (the product is a mail server): a per-domain checklist —
+      DKIM/SPF/DMARC on provisioning, rDNS/PTR, IP warmup, blacklist monitoring, DMARC reports.
+      Validate what Stalwart 0.16 already provisions via JMAP `x:*` and record divergences
+      (DIVERGENCES.md).
+- [~] 🟡 **App updater.** `devtools` **removed from the release build** ✅ (Round 3).
+      **Missing** the `tauri-plugin-updater` + build signing — needs your own signing keys.
+- [ ] 🟡 **Versioned API compatibility.** With installed apps (desktop/mobile), old clients will
+      start to exist: a compatibility policy (additive by default; `X-Client-Version`; a 426
+      response for the minimum supported version).
+- [ ] 🟡 **E2E smoke** (Playwright): login → send email → receive → chat → upload a file →
+      create an event. Runs against the compose stack in CI. Covers risk #1 (regressions across
+      integrated modules).
+- [ ] 🟡 **GDPR/privacy:** a privacy policy (mandatory for the stores), account/tenant export
+      and deletion, a DPA for customers, Meet recording retention.
+- [ ] 🟡 **Multi-tenant operations:** per-plan limits enforced on the backend (quota already
+      exists for files; still needed for recordings, Meet participants — GAPS §Meet), a
+      status/uptime page.
+- [~] 🟢 Operations docs: `sync-daemon/README.md` and `src-tauri/MOBILE.md` already exist;
+      **missing** is the general runbook (bring up the stack from scratch, restore a backup,
+      rotate secrets, domain onboarding).
+
+---
+
+## Suggested order of attack
+
+1. **§6 Backups + minimal observability + CI** — protects what already exists; independent of
+   the rest. (M)
+2. **§1 Server-side prefs + per-app Settings** — unblocks the calendar timezone and is a
+   prerequisite for multi-device. (M)
+3. **§3 Responsiveness: Chat → Webmail → Meet** (+ §2 at the Meet step). (L, incremental)
+4. **§4 Tauri mobile init + iOS WebRTC spike + FCM/APNs push** — spike early; the WebRTC result
+   in WKWebView could change the mobile Meet plan. (L)
+5. **§5 Sync M0 (backend) → M1/M2 desktop** — mobile (M3) only after the mobile app stabilizes.
+   (L)
+
+## Technical debt touched by this assessment
+- Monolithic `webmail.css` (2,091 lines) and `panel.css` — split alongside the responsive
+  refactor (law 1.4 applies in spirit to CSS too).
+- Device-local preferences scattered around (`mailin.lang`, `mailin.theme`, push flags) —
+  migrate to `mail_users.settings` **if** we decide to sync across devices (see Open Questions,
+  Q1).
+- `devtools` enabled in the Tauri release build (a comment in Cargo.toml itself asks for it to
+  be removed).
+
+---
+
+## Open questions (your decisions before I move forward)
+
+These items were **deliberately left unimplemented** — they depend on a structural choice
+(law 6.2) or on tools/environment that require your direction. Order = highest impact first.
+
+1. **§4 Mobile Meet / WebRTC on iOS.** The Tauri path for Meet on iOS depends on LiveKit
+   (WebRTC) working in WKWebView — historically fragile. Do you want me to do a **spike** to
+   validate this before committing mobile Meet to Tauri? Plan B is opening Meet in Safari.
+2. **§5 Rust sync — M1 (daemon) needs auth for a headless client.** ✅ Decided: separate daemon;
+   ✅ M0 (feed) delivered. **New blocker before M1:** the API only authenticates via session
+   cookie + CSRF (browser flow). A headless daemon needs another path. Which one?
+   - (a) A long-lived, revocable **device token** issued at login (recommended: simple,
+     per-device revocation). Requires an issuance endpoint + a `device_tokens` table. — a
+     schema/auth decision, hence the question (law 6.2).
+   - (b) Reuse the Tauri app's session (the daemon shares the cookie) — only works if the daemon
+     lives inside the app; contradicts "separate daemon".
+   Once the path is chosen, I'll implement M1 (poll the feed → local SQLite index → one-way
+   download).
+3. **§6 Observability — dependency.** Should I add `prometheus/client_golang` for `/metrics` +
+   an error SDK (Sentry/GlitchTip)? These are new dependencies (laws 2.5/6.2), hence the
+   question.
+   Without an SDK, leave it for later
+4. **§1 Settings — sync theme/language across devices?** Today they're device-local
+   (localStorage), which is defensible. Should I move them to `mail_users.settings` (they'd
+   follow the user, at the cost of an initial flash to resolve)? And which new preferences do
+   you actually want now (I'll only add a new section with real use — YAGNI)?
+   Yes
+5. **§3 Responsiveness — depth.** It's a large refactor (desktop-first today). Should I go
+   module by module in the order Chat → Webmail → Meet → Calendar, delivering one at a time? I'm
+   also confirming the strategy: responsive Tailwind utilities in new code (recommended).
+   A. Yes
