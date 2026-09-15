@@ -1,12 +1,11 @@
-// Package provisioning implementa a máquina de estados de provisionamento de domínio
-// (brief §7), agora sobre JMAP (ver deploy/DIVERGENCES.md §D6).
+// Package provisioning implements the domain provisioning state machine, built on top of JMAP.
 //
 //	pending → domain_created → dkim_created → dns_pending → dns_verified → active
 //	                                                                   ↘ error
 //
-// Cada transição é idempotente e recuperável: o worker sempre retoma do último estado
-// salvo, nunca do zero (brief §7/§10). Interfaces (Mailserver, DNSVerifier, Store) permitem
-// testar a máquina sem um Stalwart real.
+// Every transition is idempotent and recoverable: the worker always resumes from the last saved
+// state, never from scratch. Interfaces (Mailserver, DNSVerifier, Store) let the machine be
+// tested without a real Stalwart.
 package provisioning
 
 import (
@@ -146,10 +145,11 @@ func (m *Machine) stepCreateDomain(ctx context.Context, d db.Domain) (bool, erro
 	return m.persist(ctx, d, StateDomainCreated, &stalwartID, d.DkimStatus, d.DnsStatus, d.DnsZone)
 }
 
-// domain_created → dkim_created: DKIM é auto-gerado no create, mas o TXT não aparece na hora
-// (DIVERGENCES §D4). Buscamos o zonefile e só avançamos quando o registro DKIM já existe.
-// Com relay (SES): regista a identidade AQUI e acrescenta à zona os CNAMEs de Easy DKIM, o
-// include:amazonses.com no SPF e um DMARC — o cliente publica tudo de uma vez (pedido 22/07/2026).
+// domain_created → dkim_created: DKIM is auto-generated on create, but the TXT record does not
+// appear immediately. We fetch the zonefile and only advance once the DKIM record actually
+// exists. With relay (SES): register the identity HERE and add the Easy DKIM CNAMEs, the
+// include:amazonses.com SPF entry, and a DMARC record to the zone — the client publishes
+// everything in one shot.
 func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error) {
 	zone, err := m.sw.GetDomainDNSZone(ctx, strval(d.StalwartID))
 	if err != nil {

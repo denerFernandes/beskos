@@ -76,8 +76,8 @@ func (p *StripeProvider) Checkout(ctx context.Context, tenantID string, plan Pla
 	// O Price espelhado é MENSAL; o anual é montado aqui (price_data com interval=year), senão
 	// escolher "anual" cobrava na mesma todos os meses.
 	if plan.StripePriceID != "" && cycle == CycleMonth {
-		// Catálogo espelhado na Stripe: usa o Price real — faturas/relatórios agrupam por produto.
-		// currency seleciona a currency_option do price (moeda por país, 24/07/2026).
+		// Mirrored catalog: use the real Price so invoices and reports group by product.
+		// currency selects the price's currency_option (per-country pricing).
 		form.Set("line_items[0][price]", plan.StripePriceID)
 		form.Set("currency", p.planCurrency(plan))
 	} else {
@@ -316,7 +316,7 @@ func (p *StripeProvider) SetCancelAtPeriodEnd(ctx context.Context, subID string,
 	return err
 }
 
-// PortalURL cria uma sessão do Billing Portal (forma de pagamento, faturas, histórico).
+// PortalURL creates a Billing Portal session (payment method, invoices, history).
 func (p *StripeProvider) PortalURL(ctx context.Context, customerID, returnURL string) (string, error) {
 	form := url.Values{}
 	form.Set("customer", customerID)

@@ -74,9 +74,9 @@ type SubscriptionInfo struct {
 // Provider abstrai o pagamento. Trocar Stripe↔Manual↔outro = só config (como ai/sms).
 type Provider interface {
 	Name() string
-	// Checkout inicia/atualiza a assinatura do tenant. seats = nº de usuários cobrados.
-	// Checkout recebe o Plan JÁ resolvido pelo chamador (catálogo da BD desde a M2 do manager) —
-	// o provedor nunca consulta o catálogo em código, senão o preço divergiria do editado no painel.
+	// Checkout starts or updates the tenant's subscription. seats is the number of billed users.
+	// The caller resolves Plan against the database catalog before calling — the provider never
+	// reads the in-code catalog, or its price could drift from what is edited in the operator panel.
 	Checkout(ctx context.Context, tenantID string, plan Plan, seats int, opts CheckoutOpts) (CheckoutResult, error)
 	// ParseWebhook valida a assinatura e normaliza o evento. (nil, nil) = ignorar/sem efeito.
 	ParseWebhook(payload []byte, sigHeader string) (*WebhookEvent, error)

@@ -1,6 +1,6 @@
-// cmd/manager-api: a API do Manager — painel do OPERADOR do SaaS (docs/manager.md).
-// Serviço separado do control plane de propósito: porta, sessões e utilizadores próprios.
-// Config mínima via ambiente (lei 2.6): só o que este serviço realmente usa.
+// cmd/manager-api: the Manager API — the SaaS OPERATOR's admin panel backend.
+// Deliberately a separate service from the control plane: its own port, sessions, and users.
+// Config comes from the environment only, limited to what this service actually uses.
 package main
 
 import (

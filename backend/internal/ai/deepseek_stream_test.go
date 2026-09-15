@@ -76,8 +76,8 @@ func TestReadSSESkipsBadChunks(t *testing.T) {
 	}
 }
 
-// O DeepSeek implementa a interface de streaming. Foi declarada na A0 sem nenhum provider a
-// cumpri-la; este teste é o que impede que volte a ser só uma declaração.
+// DeepSeek implements the streaming interface. The interface was declared with no provider
+// fulfilling it; this test is what stops that from silently happening again.
 func TestDeepSeekIsStreamingProvider(t *testing.T) {
 	var _ StreamingProvider = NewDeepSeek("k", "", "")
 }

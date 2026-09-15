@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
-// Tenants do SES — isolamento de reputação entre clientes.
+// SES tenants — reputation isolation between customers.
 //
-// O PROBLEMA QUE ISTO RESOLVE. Todas as identidades vivem na mesma conta AWS, e a reputação é da
-// CONTA: devoluções e queixas de um cliente degradam-na para todos, e a AWS estrangula ou suspende
-// a conta inteira. Um cliente com uma lista comprada pode parar o correio de toda a gente.
+// THE PROBLEM THIS SOLVES. All identities live in the same AWS account, and reputation belongs to
+// the ACCOUNT: one customer's bounces and complaints degrade it for everyone, and AWS throttles or
+// suspends the whole account. A customer with a purchased list can stop mail for everybody else.
 //
-// Um tenant é um contentor lógico com métricas e estado de envio PRÓPRIOS. Quando a reputação de um
-// tenant se degrada, a AWS pausa esse tenant — não a conta. É a diferença entre perder um cliente e
-// perder o serviço.
+// A tenant is a logical container with its OWN metrics and sending state. When a tenant's
+// reputation degrades, AWS pauses that tenant — not the account. That is the difference between
+// losing one customer and losing the service.
 //
-// COMO SE LIGA. Criar o tenant e associar-lhe a identidade do domínio não chega: o envio tem de
-// dizer a que tenant pertence. Pela API é um parâmetro; por SMTP — que é o nosso caso, porque o
-// Stalwart entrega ao SES por SMTP — é o cabeçalho `X-SES-TENANT`. Ver docs/manager.md: quem o
-// acrescenta é um Sieve do sistema na fase DATA, e não este pacote.
+// HOW IT IS WIRED. Creating the tenant and attaching the domain identity to it is not enough: the
+// send itself has to say which tenant it belongs to. Over the API that is a parameter; over SMTP —
+// which is our case, since Stalwart delivers to SES over SMTP — it is the `X-SES-TENANT` header,
+// added by a system Sieve script at the DATA stage, not by this package.
 
 // TenantName converte um domínio no nome do tenant SES correspondente.
 //

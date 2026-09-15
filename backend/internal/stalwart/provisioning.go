@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-// Operações de provisionamento mapeadas 1:1 do brief §6/§7 para os métodos JMAP reais
-// da v0.16.4. Ver deploy/DIVERGENCES.md §D4 para os payloads testados.
+// Provisioning operations, mapped from the product's domain lifecycle to the real JMAP methods
+// on v0.16.4.
 
 // CreateDomain cria um domínio (equivalente ao antigo type:domain). Com autoDKIM=true o Stalwart
 // gere e assina o DKIM (dkimManagement=Automatic). Com autoDKIM=false (modo relay/white-label) o
@@ -131,14 +131,15 @@ type Alias struct {
 	DomainID string // id do domínio no Stalwart (domains.stalwart_id)
 }
 
-// SetAccountAliases substitui a lista de aliases de uma conta. Manda a lista INTEIRA: a nossa base
-// é a fonte de verdade, e assim a operação é idempotente — repetir não duplica nem deixa buracos.
+// SetAccountAliases replaces an account's entire alias list. It always sends the WHOLE list: our
+// database is the source of truth, which makes the operation idempotent — repeating it neither
+// duplicates entries nor leaves gaps.
 //
-// FORMATO (DIVERGENCES §D4b, confirmado na fonte do Stalwart, crates/registry/src/schema/structs.rs):
-// `UserAccount.aliases` é `List<EmailAlias>`, o que em JSON significa um MAPA indexado
-// (`{"0":…,"1":…}`) cujos VALORES são OBJETOS `{name, domainId, enabled}` — não endereços em texto.
-// Um alias é descrito como uma caixa: parte local + domínio, sem campo `email`. Mandar strings dá
-// `invalidPatch: "Invalid value type for object"`, que foi o que apanhámos em produção (28/07/2026).
+// FORMAT, confirmed against the Stalwart source (crates/registry/src/schema/structs.rs):
+// `UserAccount.aliases` is `List<EmailAlias>`, which in JSON means an indexed MAP (`{"0":…,"1":…}`)
+// whose VALUES are OBJECTS `{name, domainId, enabled}` — not plain-text addresses. An alias is
+// described as a mailbox: local part + domain, with no `email` field. Sending plain strings gets
+// `invalidPatch: "Invalid value type for object"`, which is exactly what we hit in production.
 func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliases []Alias) error {
 	m := make(map[string]any, len(aliases))
 	for i, a := range aliases {
@@ -234,8 +235,8 @@ func (c *Client) GetDomainDNSZone(ctx context.Context, domainID string) (string,
 //
 // WHY THIS AND NOT A FLAG: an account in Stalwart 0.16 has no "enabled" field -- the object carries
 // name, quotas, roles, permissions, aliases and credentials, and nothing that says "off". Probed
-// against a live account (01/08/2026): removing the credentials map denies the next login
-// immediately, and writing a new secret lets it back in immediately. See deploy/DIVERGENCES.md.
+// against a live account: removing the credentials map denies the next login immediately, and
+// writing a new secret lets it back in immediately.
 //
 // Reactivating therefore needs a NEW password (SetAccountPassword) -- the old one is gone. That is
 // not a workaround dressed up as a feature: reinstating a suspended person's old password is the
@@ -266,8 +267,8 @@ func (c *Client) SuspendAccount(ctx context.Context, accountID string) error {
 // one is told the recipient does not exist -- which is the truth, and is what every other provider
 // does. Renaming it back is the whole of "restore".
 //
-// Verified against a live account (01/08/2026): emailAddress follows the name in both directions
-// and the stored mail is untouched.
+// Verified against a live account: emailAddress follows the name in both directions and the
+// stored mail is untouched.
 func (c *Client) RenameAccount(ctx context.Context, accountID, newLocal string) error {
 	args := map[string]any{
 		"update": map[string]any{accountID: map[string]any{"name": newLocal}},
