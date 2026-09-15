@@ -70,7 +70,7 @@ function PublicFileView() {
   const [session, setSession] = useState<Session | null>(null);
   const [needPassword, setNeedPassword] = useState(false);
   const [password, setPassword] = useState("");
-  const [pw, setPw] = useState("");        // senha confirmada (só muda ao submeter)
+  const [pw, setPw] = useState("");        // confirmed password (only changes on submit)
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -131,7 +131,7 @@ function PublicFileView() {
   if (loading) return <div className="pub-gate"><div className="pub-msg">{t("editor.loading")}</div></div>;
   if (error && !session) return <div className="pub-gate"><div className="pub-msg">{error}</div></div>;
 
-  // Ficheiro não-office: descarga (se permitida) ou aviso de que não há pré-visualização.
+  // Non-office file: download (if allowed) or a notice that there is no preview.
   if (session?.kind === "file") {
     const dl = apiUrl(`/api/public/files/${token}/download${pw ? `?pw=${encodeURIComponent(pw)}` : ""}`);
     return (
@@ -146,7 +146,7 @@ function PublicFileView() {
     );
   }
 
-  // Office: barra de marca no topo + OnlyOffice a ocupar o resto.
+  // Office: brand bar on top + OnlyOffice filling the rest.
   return (
     <div className="editor-full">
       <PublicBar brand={session?.brand} name={session?.name ?? ""} canWrite={session?.canWrite} />

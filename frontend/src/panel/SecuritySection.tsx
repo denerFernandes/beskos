@@ -21,7 +21,7 @@ export function TotpDrawer({ onClose, onDone }: { onClose: () => void; onDone: (
       {!data ? <div className="pnl-empty">…</div> : (
         <>
           <p className="desc" style={{ marginTop: 0 }}>{t("mfa.scanHint")}</p>
-          {/* QR do otpauth://: fundo branco fixo para contraste também no tema escuro. */}
+          {/* otpauth:// QR code: fixed white background for contrast even in dark theme. */}
           <div style={{ display: "flex", justifyContent: "center", background: "#fff", borderRadius: 12, padding: 14, margin: "4px 0 12px" }}>
             <QRCodeSVG value={data.otpauth_uri} size={172} marginSize={1} />
           </div>
