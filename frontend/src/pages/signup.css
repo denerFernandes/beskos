@@ -1,6 +1,6 @@
-/* Registo self-service. Uma coluna centrada, muito espaço, uma pergunta de cada vez — o formato
-   que Stripe, Linear e companhia usam por bons motivos: menos ruído, menos desistências.
-   Página própria (não é o webmail nem o painel), por isso traz a sua paleta.
+/* Self-service signup. One centered column, lots of space, one question at a time — the format
+   Stripe, Linear and the like use for good reasons: less noise, fewer drop-offs.
+   Its own page (not the webmail nor the panel), so it brings its own palette.
 
    THE PALETTE IS NO LONGER ITS OWN, only its own copy. This was the third one in the product: a
    cool near-black on white with a teal accent, while the webmail and the console ran one thing and
@@ -42,13 +42,13 @@
 .sg-login { font-size: 13.5px; font-weight: 600; color: var(--muted); text-decoration: none; }
 .sg-login:hover { color: var(--ink); }
 
-/* O miolo: 460px de largura, tudo empilhado. Nada de barras laterais nem cartões dentro de cartões. */
+/* The core: 460px wide, everything stacked. No sidebars, no cards inside cards. */
 .sg-main { width: min(460px, 100% - 40px); margin: 0 auto; padding: 22px 0 72px; display: flex; flex-direction: column; gap: 14px; }
 .sg-main.center { align-items: center; text-align: center; padding-top: 70px; }
 .sg-main h1 { margin: 0; font-size: 27px; line-height: 1.2; letter-spacing: -.03em; font-weight: 700; }
 .sg-sub { margin: -8px 0 6px; color: var(--muted); font-size: 14.5px; }
 
-/* Progresso discreto: quatro traços, sem números nem rótulos a competir com o título. */
+/* Discreet progress: four bars, no numbers or labels competing with the title. */
 .sg-dots { display: flex; gap: 6px; margin-bottom: 8px; }
 .sg-dots i { flex: 1; height: 3px; border-radius: 3px; background: var(--line); }
 .sg-dots i.done { background: color-mix(in srgb, var(--accent) 45%, transparent); }
@@ -72,13 +72,13 @@
 .sg-email b { padding: 0 14px; color: var(--muted); font-weight: 600; font-size: 14.5px; white-space: nowrap; }
 .sg-row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 12px; }
 
-/* Mensal/anual e empresa/particular: o mesmo par de botões segmentados. */
+/* Monthly/yearly and company/individual: the same pair of segmented buttons. */
 .sg-cycle, .sg-kind { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--paper); border: 1px solid var(--line); border-radius: 13px; }
 .sg-cycle button, .sg-kind button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; height: 38px; border: none; background: none; color: var(--muted); border-radius: 10px; font: inherit; font-weight: 600; font-size: 14px; cursor: pointer; }
 .sg-cycle button.on, .sg-kind button.on { background: var(--accent-tint); color: var(--accent-ink); }
 .sg-cycle em { font-style: normal; font-size: 11.5px; font-weight: 700; color: #fff; background: var(--accent); border-radius: 20px; padding: 2px 7px; }
 
-/* Planos: linhas selecionáveis (nome à esquerda, preço à direita) — lê-se de uma passagem de olhos. */
+/* Plans: selectable rows (name on the left, price on the right) — readable at a glance. */
 .sg-plans { display: flex; flex-direction: column; gap: 9px; }
 .sg-plan { display: flex; align-items: center; gap: 12px; text-align: left; padding: 14px 16px; background: var(--paper); border: 1.5px solid var(--line); border-radius: 14px; font: inherit; cursor: pointer; transition: border-color .12s, box-shadow .12s; }
 .sg-plan:hover { border-color: var(--line-2); }
@@ -91,7 +91,7 @@
 .sg-plan .pp { display: flex; flex-direction: column; align-items: flex-end; font-size: 19px; font-weight: 700; letter-spacing: -.02em; }
 .sg-plan .pp em { font-style: normal; font-size: 11.5px; font-weight: 500; color: var(--muted); letter-spacing: 0; }
 
-/* Recapitulação antes do cartão: as quatro linhas que importam. */
+/* Recap before the card: the four lines that matter. */
 .sg-recap { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
 .sg-recap .rl { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .sg-recap .rl .dim { color: var(--muted); }
@@ -104,7 +104,7 @@
 .sg-fine.center { text-align: center; }
 
 .sg-nav { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-/* O botão principal ocupa a largura toda: numa coluna estreita é o que se vê primeiro. */
+/* The primary button spans the full width: in a narrow column, it's the first thing seen. */
 .sg-cta { display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 22px; background: var(--accent); color: #fff; border: none; border-radius: 12px; font: inherit; font-weight: 650; font-size: 15.5px; cursor: pointer; text-decoration: none; }
 .sg-cta:hover { filter: brightness(1.07); }
 .sg-cta:disabled { opacity: .55; cursor: default; filter: none; }
@@ -120,8 +120,8 @@
   .sg-row { grid-template-columns: 1fr; }
 }
 
-/* Página "em breve": a mesma marca, uma mensagem e uma saída. As variáveis são as deste ficheiro
-   (--accent-tint, não --sg-accent-tint) — com o nome errado o crachá ficava sem fundo. */
+/* "Coming soon" page: the same brand, one message and one exit. The variables are this file's own
+   (--accent-tint, not --sg-accent-tint) — with the wrong name the badge was left with no background. */
 .sg-badge { display: inline-block; padding: 5px 12px; border-radius: 20px; background: var(--accent-tint); color: var(--accent-ink); font-size: 12.5px; font-weight: 700; letter-spacing: .01em; }
 .sg-main.center h1 { max-width: 18ch; }
 .sg-main.center .sg-sub { max-width: 46ch; }

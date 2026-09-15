@@ -20,8 +20,8 @@ import { GlobalTooltip } from "./webmail/GlobalTooltip";
 
 const qc = new QueryClient();
 
-// No app nativo (Tauri), lê a permissão de notificações do SO para a cache (a UI lê-a de forma
-// síncrona). Na web é no-op.
+// In the native app (Tauri), reads the OS's notification permission into the cache (the UI reads
+// it synchronously). On the web it's a no-op.
 if (isTauri()) void initTauriNotify();
 
 // Unlocks audio on the app's first gesture. The browser keeps the AudioContext suspended until
@@ -29,13 +29,13 @@ if (isTauri()) void initTauriNotify();
 // swallowed in silence.
 unlockSounds();
 
-// Janela dedicada da sala (Tauri): abre-se em index.html?wpath=/room/:room (o asset server não faz
-// fallback SPA). Reescreve a URL para a rota real ANTES do BrowserRouter montar, para renderizar a
-// sala em vez do fallback /mail.
+// The room's dedicated window (Tauri): opens at index.html?wpath=/room/:room (the asset server
+// doesn't do SPA fallback). Rewrites the URL to the real route BEFORE BrowserRouter mounts, so it
+// renders the room instead of the /mail fallback.
 const wpath = new URLSearchParams(window.location.search).get("wpath");
 if (wpath && wpath.startsWith("/")) {
-  // Marca esta como janela dedicada (sala/editor): o botão fechar deve fechar a janela nativa em vez
-  // de navegar para o Drive. Ver isDedicatedWindow()/closeSelfWindow() em nativeWindow.ts.
+  // Marks this as a dedicated window (room/editor): the close button should close the native
+  // window instead of navigating to Drive. See isDedicatedWindow()/closeSelfWindow() in nativeWindow.ts.
   (window as unknown as { __mailinDedicated?: boolean }).__mailinDedicated = true;
   window.history.replaceState(null, "", wpath);
 }
@@ -52,20 +52,20 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/mail/:view" element={<MailPage />} />
           <Route path="/mail/:view/:sub" element={<MailPage />} />
           <Route path="/mail/:view/:sub/:sub2" element={<MailPage />} />
-          {/* Sala em janela dedicada: só a chamada, sem os menus do webmail. */}
+          {/* Room in a dedicated window: just the call, no webmail menus. */}
           <Route path="/room/:room" element={<RoomPage />} />
           <Route path="/j/:room" element={<GuestPage />} />
-          {/* Ficheiro partilhado por link público (sem login): abre no OnlyOffice anónimo ou descarrega. */}
+          {/* File shared via a public link (no login): opens in anonymous OnlyOffice or downloads. */}
           <Route path="/p/:token" element={<PublicFilePage />} />
-          {/* Wiki pública só-leitura (sem login): árvore de páginas published + leitor. */}
+          {/* Read-only public wiki (no login): published page tree + reader. */}
           <Route path="/w/:slug" element={<PublicWikiPage />} />
           <Route path="/w/:slug/:pageSlug" element={<PublicWikiPage />} />
-          {/* Registo self-service (é para aqui que aponta o "Get started" do site). */}
+          {/* Self-service signup (this is where the site's "Get started" points to). */}
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/invite/:token" element={<AcceptInvitePage />} />
-          {/* Agendamento público (estilo Calendly): externos marcam reunião com um colaborador. */}
+          {/* Public booking (Calendly-style): outsiders schedule a meeting with a team member. */}
           <Route path="/b/:org/:user" element={<BookingPage />} />
-          {/* Tela única: o webmail. A administração é uma view dele (o /app foi eliminado). */}
+          {/* Single screen: the webmail. Administration is a view of it (/app was removed). */}
           <Route path="*" element={<Navigate to="/mail" replace />} />
         </Routes>
       </BrowserRouter>

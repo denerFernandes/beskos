@@ -21,8 +21,8 @@ export function DomainsSection({ me, detail, onOpen }: { me: Me | undefined; det
     onError: (e) => setErr((e as Error).message),
   });
 
-  // Com um domínio na URL, a página dele toma conta do ecrã — era uma gaveta e a informação não
-  // cabia lá (18 registos com valores longos, mais o estado de cada um).
+  // With a domain in the URL, its page takes over the screen — it used to be a drawer and the
+  // information didn't fit there (18 records with long values, plus each one's status).
   if (detail) return <DomainPage id={detail} canManage={canManage} onBack={() => onOpen("")} />;
 
   return (

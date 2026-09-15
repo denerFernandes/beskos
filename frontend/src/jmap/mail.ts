@@ -1,4 +1,4 @@
-// Operações de webmail em cima do JmapClient. Payloads conforme DIVERGENCES §D7 (testados).
+// Webmail operations on top of JmapClient. Payloads per DIVERGENCES §D7 (tested).
 import { JmapClient, USING_MAIL, USING_SEND } from "./client";
 import type { Mailbox, EmailSummary, EmailFull, EmailPage, SendDraft, UploadedBlob } from "./types";
 import { SieveApi } from "./sieve";
@@ -6,20 +6,20 @@ import { SieveApi } from "./sieve";
 export class MailService {
   constructor(private c: JmapClient, private accountId: string) {}
 
-  // rules devolve a API de Sieve desta conta. Fica atrás do serviço em vez de expor o client
-  // cru: quem precisa de regras pede regras, não uma porta aberta para o JMAP inteiro.
+  // rules returns this account's Sieve API. Kept behind the service instead of exposing the raw
+  // client: whoever needs rules asks for rules, not an open door to the whole of JMAP.
   rules(): SieveApi {
     return new SieveApi(this.c, this.accountId);
   }
 
-  // URL same-origin (via proxy) para baixar um anexo/blob. Path conforme DIVERGENCES §D7.
+  // Same-origin URL (via proxy) to download an attachment/blob. Path per DIVERGENCES §D7.
   attachmentUrl(blobId: string, name: string, type: string): string {
     return `/jmap/download/${encodeURIComponent(this.accountId)}/${encodeURIComponent(blobId)}/` +
       `${encodeURIComponent(name)}?accept=${encodeURIComponent(type)}`;
   }
 
-  // Baixa um anexo autenticado e devolve um object URL (blob:) usável em <img>/<iframe>/<a>.
-  // Quem chama deve revogar com URL.revokeObjectURL quando terminar.
+  // Downloads an authenticated attachment and returns an object URL (blob:) usable in <img>/<iframe>/<a>.
+  // The caller must revoke it with URL.revokeObjectURL when done.
   async attachmentObjectUrl(blobId: string, name: string, type: string): Promise<string> {
     const blob = await this.c.downloadBlob(this.accountId, blobId, name, type);
     return URL.createObjectURL(blob);
@@ -57,8 +57,9 @@ export class MailService {
   }
 
 
-  // unreadThreads devolve os threads com ALGUMA mensagem por ler. Uma ida só: pede as keywords dos
-  // irmãos das conversas com mais de uma mensagem (as de uma só já se sabem pela própria linha).
+  // unreadThreads returns the threads with SOME unread message. A single round trip: it asks for
+  // the keywords of the siblings in conversations with more than one message (single-message
+  // threads are already known from their own row).
   private async unreadThreads(threadList: { id: string; emailIds: string[] }[], shown: string[]): Promise<Set<string>> {
     const shownSet = new Set(shown);
     const siblings: string[] = [];
@@ -66,7 +67,7 @@ export class MailService {
       for (const id of th.emailIds) if (!shownSet.has(id)) siblings.push(id);
     }
     if (siblings.length === 0) return new Set();
-    // Teto de segurança: uma página de conversas longas não pode virar um pedido gigante.
+    // Safety cap: a page of long conversations can't turn into a giant request.
     const ids = siblings.slice(0, 300);
     const [get] = await this.c.request(USING_MAIL, [
       ["Email/get", { accountId: this.accountId, ids, properties: ["id", "threadId", "keywords"] }, "s"],
@@ -78,14 +79,14 @@ export class MailService {
     return out;
   }
 
-  // Lista emails de uma pasta: colapsa por conversa (uma linha por thread, como o Gmail).
+  // Lists a folder's emails: collapses by conversation (one row per thread, like Gmail).
   async listEmails(mailboxId: string, position = 0, limit = 50): Promise<EmailPage> {
     return this.queryAndGet({ inMailbox: mailboxId }, position, limit, true);
   }
 
-  // Busca simples. O FTS do Stalwart casa palavras INTEIRAS (com stemming), então "reser" não
-  // encontra "reservas". Para dar a experiência do Gmail (parcial), tentamos o FTS primeiro (rápido,
-  // toda a caixa) e, se vier vazio, fazemos um scan por SUBSTRING sobre os e-mails recentes.
+  // Plain search. Stalwart's FTS matches WHOLE words (with stemming), so "reser" doesn't find
+  // "reservation". To give the Gmail experience (partial match), we try FTS first (fast, whole
+  // mailbox) and, if it comes back empty, fall back to a SUBSTRING scan over recent emails.
   async search(text: string, position = 0, limit = 50): Promise<EmailPage> {
     const term = text.trim();
     if (!term) return { items: [], total: 0, position: 0 };
@@ -94,8 +95,8 @@ export class MailService {
     return this.substringSearch(term.toLowerCase(), position, limit);
   }
 
-  // Scan por substring sobre os e-mails mais recentes de todas as pastas (casa parciais). Cobre o
-  // caso comum (procurar algo recente); consultas profundas usam o FTS ou a busca avançada.
+  // Substring scan over the most recent emails across all folders (matches partials). Covers the
+  // common case (looking for something recent); deep queries use FTS or advanced search.
   private async substringSearch(term: string, position: number, limit: number): Promise<EmailPage> {
     const [query] = await this.c.request(USING_MAIL, [
       ["Email/query", { accountId: this.accountId, sort: [{ property: "receivedAt", isAscending: false }], limit: 400 }, "q"],
@@ -117,24 +118,25 @@ export class MailService {
     return { items: matched.slice(position, position + limit), total: matched.length, position };
   }
 
-  // Busca avançada (estilo Gmail): recebe um filtro JMAP já montado (from/to/subject/text/
-  // hasAttachment/after/before/minSize/maxSize/inMailbox + NOT). Colapsa por conversa.
+  // Advanced search (Gmail-style): receives an already-built JMAP filter (from/to/subject/text/
+  // hasAttachment/after/before/minSize/maxSize/inMailbox + NOT). Collapses by conversation.
   async searchAdvanced(filter: Record<string, unknown>, position = 0, limit = 50, collapse = true): Promise<EmailPage> {
     return this.queryAndGet(filter, position, limit, collapse);
   }
 
-  // Importantes: uma VISTA, não uma pasta. Filtra pela marca $flagged em toda a conta — a
-  // mensagem continua na pasta onde estava. NÃO colapsa: aqui cada mensagem estrelada é uma linha
-  // (colapsar esconderia a estrelada se o representante da conversa fosse outra mensagem).
+  // Starred: a VIEW, not a folder. Filters by the $flagged mark across the whole account -- the
+  // message stays in whatever folder it was in. Does NOT collapse: here every starred message is
+  // its own row (collapsing would hide the starred one if the thread's representative was another
+  // message).
   async listStarred(position = 0, limit = 50): Promise<EmailPage> {
     return this.queryAndGet({ hasKeyword: "$flagged" }, position, limit, false);
   }
 
-  // calculateTotal dá o "de 35.547"; position é o salto de página (0, 50, 100…). Uma request só:
-  // a query calcula os ids desta página, o get busca-os e o Thread/get conta as mensagens de cada
-  // conversa (para o "(3)" na linha), tudo encadeado por back-reference.
-  // Nota: com collapseThreads o Stalwart devolve o total NÃO-colapsado — a paginação usa-o como
-  // aproximação (pode sobrar uma linha na última página); é a limitação conhecida do servidor.
+  // calculateTotal gives the "of 35,547"; position is the page offset (0, 50, 100…). A single
+  // request: the query computes this page's ids, the get fetches them, and Thread/get counts each
+  // conversation's messages (for the "(3)" on the row), all chained via back-reference.
+  // Note: with collapseThreads, Stalwart returns the NON-collapsed total -- pagination uses it as
+  // an approximation (the last page can be one row short); this is a known server limitation.
   private async queryAndGet(filter: Record<string, unknown>, position: number, limit: number, collapse: boolean): Promise<EmailPage> {
     const [query, get, threads] = await this.c.request(USING_MAIL, [
       ["Email/query", {
@@ -152,7 +154,7 @@ export class MailService {
         "#ids": { resultOf: "g", name: "Email/get", path: "/list/*/threadId" },
       }, "t"],
     ]);
-    // nº de mensagens por conversa, para o badge "(3)". Só interessa quando colapsado e >1.
+    // Message count per conversation, for the "(3)" badge. Only matters when collapsed and >1.
     const threadList = (threads.list as { id: string; emailIds: string[] }[]) ?? [];
     const sizeByThread = new Map(threadList.map((th) => [th.id, th.emailIds.length]));
     const byId = new Map((get.list as EmailSummary[] ?? []).map((e) => [e.id, e]));
@@ -180,8 +182,8 @@ export class MailService {
     "receivedAt", "sentAt", "preview", "hasAttachment", "keywords", "bodyValues", "textBody",
     "htmlBody", "attachments"];
 
-  // Propriedades de uma LINHA da lista. Inclui mailboxIds para o chip "em que pasta está" nas vistas
-  // que misturam pastas (Importantes, busca, marcador) — como no Gmail.
+  // Properties for a list ROW. Includes mailboxIds for the "which folder is this in" chip in views
+  // that mix folders (Starred, search, label) — as in Gmail.
   private static readonly SUMMARY_PROPS = ["id", "threadId", "from", "to", "subject", "receivedAt",
     "preview", "hasAttachment", "keywords", "mailboxIds"];
 
@@ -195,12 +197,13 @@ export class MailService {
       }, "0"],
     ]);
     const list = (r.list as EmailFull[]) ?? [];
-    if (!list.length) throw new Error("email não encontrado");
+    if (!list.length) throw new Error("email not found");
     return list[0];
   }
 
-  // A conversa inteira (mesmo threadId), em ordem cronológica. Uma só ida ao servidor: Email/get
-  // do email pedido para descobrir o thread → Thread/get pelos ids → Email/get de todos por ref.
+  // The whole conversation (same threadId), in chronological order. A single round trip: Email/get
+  // for the requested email to discover the thread → Thread/get by id → Email/get for all of them
+  // by reference.
   async getThread(id: string): Promise<EmailFull[]> {
     const resp = await this.c.request(USING_MAIL, [
       ["Email/get", { accountId: this.accountId, ids: [id], properties: ["id", "threadId"] }, "e"],
@@ -215,9 +218,9 @@ export class MailService {
     ]);
     const list = (resp[2]?.list as EmailFull[]) ?? [];
     const sorted = list.sort((a, b) => (a.receivedAt ?? "").localeCompare(b.receivedAt ?? ""));
-    // Enviar para si próprio deixa a MESMA mensagem em Enviados E na Inbox (mesmo Message-ID): são
-    // dois objetos JMAP, mas uma só mensagem. No fio mostra-se uma vez. Sem Message-ID (ex.: rascunho)
-    // não se deduplica — não há como afirmar que são a mesma.
+    // Sending to yourself leaves the SAME message in Sent AND in the Inbox (same Message-ID): two
+    // JMAP objects, but a single message. It's shown once in the thread. Without a Message-ID
+    // (e.g. a draft) it isn't deduplicated -- there's no way to assert they're the same message.
     const seen = new Set<string>();
     return sorted.filter((e) => {
       const mid = (e.messageId ?? []).join(",");
@@ -234,9 +237,10 @@ export class MailService {
     ]);
   }
 
-  // markThreadRead marca a CONVERSA inteira como lida. Abrir uma conversa mostra-a toda, por isso
-  // deixar irmãs por ler faria a caixa continuar a contar mensagens que a pessoa já viu — era o
-  // "1 por ler" que não se encontrava. Uma ida só: descobrir os ids da conversa e marcá-los.
+  // markThreadRead marks the WHOLE conversation as read. Opening a conversation shows all of it,
+  // so leaving sibling messages unread would keep the mailbox counting messages the person already
+  // saw -- that was the "1 unread" that couldn't be found. A single round trip: find the
+  // conversation's ids and mark them.
   async markThreadRead(threadId: string): Promise<void> {
     if (!threadId) return;
     const [th] = await this.c.request(USING_MAIL, [
@@ -246,29 +250,29 @@ export class MailService {
     await this.markReadMany(ids, true);
   }
 
-  // Estrela/tira a estrela. É só uma marca ($flagged, o mesmo que o IMAP e o Sieve usam), então
-  // não mexe na pasta: a mensagem fica onde está e passa a aparecer também em Importantes.
+  // Star/unstar. Just a mark ($flagged, the same one IMAP and Sieve use), so it doesn't touch the
+  // folder: the message stays where it is and starts also showing up in Starred.
   async setStarred(id: string, starred: boolean): Promise<void> {
     await this.c.request(USING_MAIL, [
       ["Email/set", { accountId: this.accountId, update: { [id]: { "keywords/$flagged": starred ? true : null } } }, "0"],
     ]);
   }
 
-  // Marcadores (labels): aplicados como keyword JMAP (o catálogo nome/cor vive na nossa API). Como
-  // estrela/spam, é só uma marca — não muda de pasta. `keyword` vem de labelKeyword(labelId).
+  // Labels: applied as a JMAP keyword (the name/color catalog lives in our own API). Like
+  // starring/spam, it's just a mark -- it doesn't change folder. `keyword` comes from labelKeyword(labelId).
   async setLabel(id: string, keyword: string, on: boolean): Promise<void> {
     await this.c.request(USING_MAIL, [
       ["Email/set", { accountId: this.accountId, update: { [id]: { [`keywords/${keyword}`]: on ? true : null } } }, "0"],
     ]);
   }
 
-  // Vista por marcador: filtra a conta inteira pela keyword do label (não colapsa, como Importantes).
+  // Label view: filters the whole account by the label's keyword (doesn't collapse, like Starred).
   async listByLabel(keyword: string, position = 0, limit = 50): Promise<EmailPage> {
     return this.queryAndGet({ hasKeyword: keyword }, position, limit, false);
   }
 
-  // Move o email para uma pasta (substitui a membership → tira das demais). Usado por
-  // "marcar como spam" / "não é spam" e arquivar. Limpa o marcador $junk conforme o destino.
+  // Moves the email to a folder (replaces membership → removes it from the others). Used by
+  // "mark as spam" / "not spam" and archiving. Clears the $junk keyword according to the destination.
   async moveTo(id: string, mailboxId: string, junk?: boolean): Promise<void> {
     const patch: Record<string, unknown> = { mailboxIds: { [mailboxId]: true } };
     if (junk !== undefined) patch["keywords/$junk"] = junk ? true : null;
@@ -277,9 +281,9 @@ export class MailService {
     ]);
   }
 
-  // --- Operações em LOTE ---
-  // Um Email/set aceita muitos ids de uma vez: mover/marcar/apagar 50 mensagens é UMA request,
-  // não 50. Menos ida-e-volta, e o servidor aplica tudo atomicamente.
+  // --- BATCH operations ---
+  // A single Email/set accepts many ids at once: moving/marking/deleting 50 messages is ONE
+  // request, not 50. Fewer round trips, and the server applies everything atomically.
 
   async moveMany(ids: string[], mailboxId: string, junk?: boolean): Promise<void> {
     if (!ids.length) return;
@@ -306,8 +310,8 @@ export class MailService {
     ]);
   }
 
-  // deleteMany apaga DE VEZ (destroy). Usado só quando já se está no Lixo/Spam — no resto, "apagar"
-  // é mover para o Lixo, que dá para desfazer.
+  // deleteMany deletes PERMANENTLY (destroy). Used only when already in Trash/Spam -- everywhere
+  // else, "delete" means moving to Trash, which can be undone.
   async deleteMany(ids: string[]): Promise<void> {
     if (!ids.length) return;
     await this.c.request(USING_MAIL, [
@@ -315,8 +319,8 @@ export class MailService {
     ]);
   }
 
-  // allIds devolve TODOS os ids da pasta — para "selecionar todas as N", não só a página visível.
-  // Em blocos de 500: numa caixa enorme, uma query única traria ids a mais de uma vez.
+  // allIds returns ALL ids in the folder -- for "select all N", not just the visible page.
+  // In batches of 500: in a huge mailbox, a single query would bring back too many ids at once.
   async allIds(mailboxId: string): Promise<string[]> {
     const out: string[] = [];
     for (;;) {
@@ -330,9 +334,9 @@ export class MailService {
     return out;
   }
 
-  // emptyMailbox esvazia uma pasta inteira (Lixo/Spam): pergunta os ids todos e destrói-os. Um
-  // Email/set só destrói ids conhecidos, então há mesmo de os listar primeiro — em blocos, para
-  // não montar uma request gigante numa caixa com milhares.
+  // emptyMailbox empties a whole folder (Trash/Spam): asks for all the ids and destroys them. A
+  // single Email/set only destroys known ids, so they really do need listing first -- in batches,
+  // to avoid building a giant request on a mailbox with thousands of messages.
   async emptyMailbox(mailboxId: string): Promise<number> {
     let removed = 0;
     for (;;) {
@@ -348,15 +352,16 @@ export class MailService {
     return removed;
   }
 
-  // Abre o push JMAP (SSE): chama onState() sempre que a conta muda (novo e-mail, leitura…).
-  // Delegado ao client (fetch streaming). Encerra quando a conexão cai ou o signal aborta.
+  // Opens the JMAP push (SSE): calls onState() whenever the account changes (new email, read…).
+  // Delegated to the client (fetch streaming). Ends when the connection drops or the signal aborts.
   async streamPush(onState: () => void, signal: AbortSignal): Promise<void> {
     return this.c.streamEvents(onState, signal);
   }
 
-  // Cria uma pasta (Mailbox) no nível raiz (ou sob parentId). Retorna o id novo.
-  // Garante a pasta Arquivo (role archive): devolve a existente ou cria uma. Se o servidor recusar
-  // o role no create, cria só pelo nome — o importante é ter para onde arquivar.
+  // Creates a folder (Mailbox) at the root level (or under parentId). Returns the new id.
+  // Ensures the Archive folder (role archive): returns the existing one or creates one. If the
+  // server refuses the role on create, creates it by name alone -- what matters is having
+  // somewhere to archive to.
   async ensureArchiveMailbox(): Promise<string> {
     const boxes = await this.mailboxes();
     const found = boxes.find((b) => b.role === "archive");
@@ -380,8 +385,8 @@ export class MailService {
     if ((r.notUpdated as Record<string, unknown> | undefined)?.[id]) throw new Error("rename failed");
   }
 
-  // Apaga a pasta. SEM remover e-mails (onDestroyRemoveEmails ausente): se não estiver vazia, o
-  // servidor recusa e sinalizamos — não apagamos mensagens por baixo do utilizador.
+  // Deletes the folder. WITHOUT removing emails (onDestroyRemoveEmails absent): if it isn't empty,
+  // the server refuses and we surface it -- we don't delete messages out from under the user.
   async deleteMailbox(id: string): Promise<void> {
     const [r] = await this.c.request(USING_MAIL, [
       ["Mailbox/set", { accountId: this.accountId, destroy: [id] }, "0"],
@@ -390,7 +395,7 @@ export class MailService {
     if (nd[id]) throw new Error(nd[id].type === "mailboxHasChild" ? "hasChild" : "notEmpty");
   }
 
-  // Pasta "Snoozed" (sem role JMAP padrão): guarda as mensagens adiadas até o worker as devolver.
+  // "Snoozed" folder (no standard JMAP role): holds postponed messages until the worker returns them.
   async ensureSnoozedMailbox(): Promise<string> {
     const boxes = await this.mailboxes();
     const found = boxes.find((b) => b.name.toLowerCase() === "snoozed");
@@ -411,14 +416,14 @@ export class MailService {
     return box.id;
   }
 
-  // Sobe um anexo para o blobstore JMAP (same-origin via proxy). Path padrão /jmap/upload/{accountId}/.
+  // Uploads an attachment to the JMAP blobstore (same-origin via proxy). Standard path /jmap/upload/{accountId}/.
   async uploadBlob(file: File): Promise<UploadedBlob> {
     const meta = await this.c.upload(this.accountId, file);
     return { blobId: meta.blobId, type: file.type || meta.type || "application/octet-stream", name: file.name, size: file.size };
   }
 
-  // Monta o objeto Email a partir do rascunho. O corpo é o "content" (text/plain, ou
-  // multipart/alternative text+html quando há HTML); com anexos, embrulha-se em multipart/mixed.
+  // Builds the Email object from the draft. The body is the "content" (text/plain, or
+  // multipart/alternative text+html when there's HTML); with attachments, it's wrapped in multipart/mixed.
   private buildEmail(draft: SendDraft, draftsId: string): Record<string, unknown> {
     const atts = draft.attachments ?? [];
     const email: Record<string, unknown> = {
@@ -434,7 +439,7 @@ export class MailService {
     const hasHtml = !!draft.htmlBody;
     const bodyValues: Record<string, { value: string }> = { p1: { value: draft.textBody } };
     if (hasHtml) bodyValues.p2 = { value: draft.htmlBody! };
-    // O "content" do e-mail: só texto, ou alternativa texto+HTML (o cliente escolhe o que renderiza).
+    // The email's "content": text only, or a text+HTML alternative (the client picks what to render).
     const content = hasHtml
       ? { type: "multipart/alternative", subParts: [{ type: "text/plain", partId: "p1" }, { type: "text/html", partId: "p2" }] }
       : { type: "text/plain", partId: "p1" };
@@ -451,12 +456,13 @@ export class MailService {
     return email;
   }
 
-  // Salva/atualiza um rascunho na pasta Drafts. Retorna o id do rascunho.
+  // Saves/updates a draft in the Drafts folder. Returns the draft's id.
   async saveDraft(draft: SendDraft, existingId?: string): Promise<string> {
     const draftsId = await this.draftsMailboxId();
     const email = this.buildEmail(draft, draftsId);
     if (existingId) {
-      // Recria (Email é imutável em conteúdo): destrói o antigo e cria o novo, atômico no mesmo /set.
+      // Recreates it (an Email's content is immutable): destroys the old one and creates the new
+      // one, atomically in the same /set.
       const [r] = await this.c.request(USING_MAIL, [
         ["Email/set", { accountId: this.accountId, create: { d: email }, destroy: [existingId] }, "0"],
       ]);
@@ -472,8 +478,8 @@ export class MailService {
     return created["d"].id;
   }
 
-  // Identidades de envio (endereços "De:" que a conta pode usar — o principal + aliases). O servidor
-  // popula a partir das moradas da conta; a UI oferece a escolha quando há mais de uma.
+  // Sending identities ("From:" addresses the account can use — the primary one + aliases). The
+  // server populates them from the account's addresses; the UI offers a choice when there's more than one.
   async identities(): Promise<{ id: string; email: string; name: string }[]> {
     const [r] = await this.c.request(USING_SEND, [
       ["Identity/get", { accountId: this.accountId, ids: null }, "0"],
@@ -482,11 +488,11 @@ export class MailService {
       .map((i) => ({ id: i.id, email: i.email ?? "", name: i.name ?? "" }));
   }
 
-  // identityId escolhe a identidade cujo e-mail casa o "De:" pedido (para o Identity e o envelope
-  // baterem); sem correspondência, cai na primeira.
+  // identityId picks the identity whose email matches the requested "From:" (so the Identity and
+  // the envelope line up); with no match, falls back to the first one.
   private async identityId(fromEmail?: string): Promise<string> {
     const list = await this.identities();
-    if (!list.length) throw new Error("nenhuma identidade de envio disponível");
+    if (!list.length) throw new Error("no sending identity available");
     if (fromEmail) {
       const m = list.find((i) => i.email.toLowerCase() === fromEmail.toLowerCase());
       if (m) return m.id;
@@ -500,15 +506,16 @@ export class MailService {
     return drafts.id;
   }
 
-  // Id da pasta Enviados, ou null se não existir. Usado para guardar lá a cópia do e-mail enviado.
+  // Sent folder id, or null if it doesn't exist. Used to keep a copy of the sent email there.
   private async sentMailboxId(): Promise<string | null> {
     const boxes = await this.mailboxes();
     return boxes.find((b) => b.role === "sent")?.id ?? null;
   }
 
-  // prepareOutbox cria só o rascunho (Email/set) e devolve o que o servidor precisa para submeter
-  // depois (outbox server-side: undo-send e agendados). O envio real é feito pelo worker via JMAP —
-  // por isso NÃO submete aqui. Devolve o id do e-mail, a identidade e o envelope.
+  // prepareOutbox only creates the draft (Email/set) and returns what the server needs to submit
+  // it later (server-side outbox: undo-send and scheduled sends). The actual sending is done by
+  // the worker via JMAP -- so this does NOT submit here. Returns the email's id, the identity, and
+  // the envelope.
   async prepareOutbox(draft: SendDraft, draftId?: string): Promise<{ emailId: string; identityId: string; from: string; rcpts: string[] }> {
     const [identityId, draftsId] = await Promise.all([this.identityId(draft.from.email), this.draftsMailboxId()]);
     const [r] = await this.c.request(USING_SEND, [
@@ -524,11 +531,12 @@ export class MailService {
     return { emailId: created["draft"].id, identityId, from: draft.from.email, rcpts: rcpt.map((t) => t.email) };
   }
 
-  // Envia um email: cria o rascunho (Email/set) e submete (EmailSubmission/set). No sucesso, MOVE o
-  // e-mail para Enviados (onSuccessUpdateEmail) em vez de o destruir — senão o enviado desaparecia,
-  // pois o Stalwart não guarda cópia em Enviados sozinho. Sem pasta Enviados, cai no destruir.
-  // mailboxIds usa o id REAL de Drafts; identityId é obrigatório (§D7).
-  // draftId opcional: rascunho existente a destruir junto (evita duplicata em Rascunhos).
+  // Sends an email: creates the draft (Email/set) and submits it (EmailSubmission/set). On
+  // success, it MOVES the email to Sent (onSuccessUpdateEmail) instead of destroying it --
+  // otherwise the sent message would vanish, since Stalwart doesn't keep a copy in Sent on its
+  // own. Without a Sent folder, it falls back to destroying it.
+  // mailboxIds uses Drafts's REAL id; identityId is mandatory (§D7).
+  // draftId optional: an existing draft to destroy along with it (avoids a duplicate in Drafts).
   async send(draft: SendDraft, draftId?: string, sendAt?: Date): Promise<void> {
     const [identityId, draftsId, sentId] = await Promise.all([
       this.identityId(draft.from.email),
@@ -553,8 +561,8 @@ export class MailService {
             emailId: "#draft",
             identityId,
             envelope: {
-              // HOLDUNTIL: o servidor segura a mensagem até este instante (RFC 8621 futureRelease).
-              // Testado contra o Stalwart 0.16.4 — aceita mesmo sem anunciar a capacidade.
+              // HOLDUNTIL: the server holds the message until this instant (RFC 8621 futureRelease).
+              // Tested against Stalwart 0.16.4 — it accepts it even without advertising the capability.
               mailFrom: { email: draft.from.email, ...(sendAt ? { parameters: { HOLDFOR: String(holdForSecs(sendAt)) } } : {}) },
               rcptTo: rcpt.map((t) => ({ email: t.email })),
             },
@@ -564,13 +572,13 @@ export class MailService {
     ]);
     const submitResp = responses[1] as { notCreated?: Record<string, unknown> };
     if (submitResp.notCreated && Object.keys(submitResp.notCreated).length) {
-      throw new Error(`envio falhou: ${JSON.stringify(submitResp.notCreated)}`);
+      throw new Error(`send failed: ${JSON.stringify(submitResp.notCreated)}`);
     }
   }
 }
 
-// Segundos de espera para o HOLDFOR (RFC 4865). O Stalwart 0.16.4 aceita HOLDFOR mas rejeita
-// HOLDUNTIL (testado), por isso convertemos o instante-alvo para um atraso em segundos.
+// Seconds to wait for HOLDFOR (RFC 4865). Stalwart 0.16.4 accepts HOLDFOR but rejects HOLDUNTIL
+// (tested), so we convert the target instant into a delay in seconds.
 function holdForSecs(sendAt: Date): number {
   return Math.max(1, Math.round((sendAt.getTime() - Date.now()) / 1000));
 }

@@ -1,5 +1,5 @@
-// Import de asset com sufixo ?url (Vite): devolve a URL final do ficheiro empacotado. Usado pelo
-// worker do pdf.js (pdfjs.ts). Sem depender de vite/client completo.
+// Asset import with the ?url suffix (Vite): returns the bundled file's final URL. Used by
+// pdf.js's worker (pdfjs.ts). Without depending on the full vite/client.
 declare module "*?url" {
   const src: string;
   export default src;

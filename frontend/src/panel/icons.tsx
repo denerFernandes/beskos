@@ -1,12 +1,12 @@
-// Ícones monocromáticos (stroke, currentColor). Comportam-se como icon-font: cor herdada, tamanho por prop.
+// Monochrome icons (stroke, currentColor). They behave like an icon font: inherited color, size via prop.
 type P = { size?: number };
 const S = (size = 18) => ({
   width: size, height: size, viewBox: "0 0 24 24", fill: "none",
   stroke: "currentColor", strokeWidth: 1.9, strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
 });
 
-// A estrela é o único ícone com estado: contornada = por marcar, cheia = marcada. `filled` pinta
-// o interior com a cor herdada, então a cor vem do CSS como nos outros.
+// The star is the only icon with state: outlined = unstarred, filled = starred. `filled` paints
+// the interior with the inherited color, so the color comes from CSS just like the others.
 export const IcRefresh = ({ size }: P) => (<svg {...S(size)}><path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" /></svg>);
 export const IcPrinter = ({ size }: P) => (<svg {...S(size)}><path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="7" rx="1" /></svg>);
 export const IcChevron = ({ size, className }: P & { className?: string }) => (<svg {...S(size)} className={className}><path d="m6 9 6 6 6-6" /></svg>);
@@ -32,8 +32,8 @@ export const IcCopy = ({ size }: P) => (<svg {...S(size)}><rect x="9" y="9" widt
 export const IcPresent = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4" width="18" height="12" rx="1.5" /><path d="M12 16v4M8.5 20h7" /><path d="M7 11l2.5-2.5 2 2L16 7" /></svg>);
 export const IcLogout = ({ size }: P) => (<svg {...S(size)}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>);
 export const IcExternal = ({ size }: P) => (<svg {...S(size)}><path d="M15 3h6v6M10 14 21 3M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" /></svg>);
-// Maximizar (cantos para FORA) e restaurar/voltar ao normal (cantos para DENTRO) — como o "ecrã
-// inteiro" da janela de escrita do Gmail. Dois ícones distintos para os dois estados.
+// Maximize (corners pointing OUT) and restore/back to normal (corners pointing IN) — like Gmail's
+// compose window "full screen". Two distinct icons for the two states.
 export const IcMaximize = ({ size }: P) => (<svg {...S(size)}><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" /></svg>);
 export const IcRestoreWin = ({ size }: P) => (<svg {...S(size)}><path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3" /></svg>);
 export const IcCheck = ({ size }: P) => (<svg {...S(size)}><path d="m5 12 5 5L20 7" /></svg>);
@@ -75,9 +75,9 @@ export const IcPin = ({ size }: P) => (<svg {...S(size)}><path d="M12 17v5" /><p
 export const IcPencilBox = ({ size }: P) => (<svg {...S(size)}><path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6" /><path d="M17.5 3.5a2.1 2.1 0 0 1 3 3L12 15l-4 1 1-4Z" /></svg>);
 export const IcVideo = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="6" width="13" height="12" rx="2.5" /><path d="m16 10 5-3v10l-5-3z" /></svg>);
 
-// --- Formatação de texto (barra do editor do chat, estilo Slack) ---
-// Traço em vez de tipografia: as letras (B/I/S) de antes mudavam de peso com a fonte do sistema e
-// não casavam com o resto dos ícones. Aqui é tudo o mesmo desenho de contorno, herdando a cor.
+// --- Text formatting (chat editor toolbar, Slack-style) ---
+// Strokes instead of typography: the old letters (B/I/S) changed weight with the system font and
+// didn't match the rest of the icons. Here it's all the same outline drawing, inheriting the color.
 export const IcBold = ({ size }: P) => (<svg {...S(size)}><path d="M7 5h6a3.5 3.5 0 0 1 0 7H7Z" /><path d="M7 12h7a3.5 3.5 0 0 1 0 7H7Z" /></svg>);
 export const IcItalic = ({ size }: P) => (<svg {...S(size)}><path d="M15 5h-5M14 19H9M13.5 5 10.5 19" /></svg>);
 export const IcUnderline = ({ size }: P) => (<svg {...S(size)}><path d="M7 4v6a5 5 0 0 0 10 0V4" /><path d="M6 20h12" /></svg>);
@@ -88,6 +88,6 @@ export const IcCode = ({ size }: P) => (<svg {...S(size)}><path d="m9 8-5 4 5 4M
 export const IcCodeBlock = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4.5" width="18" height="15" rx="2" /><path d="m9.5 10-2 2 2 2M14.5 10l2 2-2 2" /></svg>);
 export const IcAt = ({ size }: P) => (<svg {...S(size)}><circle cx="12" cy="12" r="4" /><path d="M16 8v5a2.6 2.6 0 0 0 5 0v-1a9 9 0 1 0-3.5 7.1" /></svg>);
 export const IcSlash = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4" width="18" height="16" rx="3" /><path d="m14 8.5-4 7" /></svg>);
-// "Aa": mostra/esconde a barra de formatação (mesmo botão do Slack).
+// "Aa": shows/hides the formatting toolbar (same button as Slack's).
 export const IcTextSize = ({ size }: P) => (<svg {...S(size)}><path d="M2.5 18 7 7l4.5 11M4 14.5h6" /><circle cx="16.6" cy="15.4" r="3.1" /><path d="M19.7 12.3v6.3" /></svg>);
 export const IcTable = ({ size }: P) => (<svg {...S(size)}><rect x="3" y="4.5" width="18" height="15" rx="2" /><path d="M3 9.5h18M9 9.5V19.5M15 9.5V19.5" /></svg>);

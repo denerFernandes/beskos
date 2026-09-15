@@ -1,5 +1,5 @@
-// Client JMAP de baixo nível. Agnóstico de ambiente: no browser usa baseUrl "" (mesma origem
-// via reverse proxy — DIVERGENCES §D7); nos testes aponta direto para o Stalwart.
+// Low-level JMAP client. Environment-agnostic: in the browser it uses baseUrl "" (same origin
+// via reverse proxy — DIVERGENCES §D7); in tests it points straight at Stalwart.
 //
 // Auth (brokering): in production the browser never sends the mailbox credential. It talks to
 // OUR proxy, authenticated via the session -- a same-origin cookie (web) or a session-token
@@ -20,13 +20,13 @@ export class JmapError extends Error {}
 export class JmapClient {
   private baseUrl: string;
   private authHeader: string;
-  private sessionAuth: boolean; // true = auth pela NOSSA sessão (web/nativo); 401 → volta ao login
+  private sessionAuth: boolean; // true = auth via OUR session (web/native); 401 → back to login
 
-  // Produção: passe { bearer } (app nativo) ou nada (web usa o cookie). Testes: { basic: base64(email:senha) }.
+  // Production: pass { bearer } (native app) or nothing (web uses the cookie). Tests: { basic: base64(email:password) }.
   constructor(baseUrl = "", opts: { basic?: string; bearer?: string } = {}) {
     this.baseUrl = baseUrl;
     this.authHeader = opts.basic ? "Basic " + opts.basic : opts.bearer ? "Bearer " + opts.bearer : "";
-    this.sessionAuth = !opts.basic; // Basic = testes de integração; não mexe no ecrã de login
+    this.sessionAuth = !opts.basic; // Basic = integration tests; doesn't touch the login screen
   }
 
   // guard401: when the proxy returns 401 the session has died (expired, MFA forced, password
@@ -52,10 +52,10 @@ export class JmapClient {
       headers: this.h(),
       credentials: "include",
     });
-    if (!res.ok) { this.guard401(res.status); throw new JmapError(`sessão JMAP: HTTP ${res.status}`); }
+    if (!res.ok) { this.guard401(res.status); throw new JmapError(`JMAP session: HTTP ${res.status}`); }
     const s = await res.json();
     const accountId = s.primaryAccounts?.[MAIL];
-    if (!accountId) throw new JmapError("conta de email não encontrada na sessão");
+    if (!accountId) throw new JmapError("mail account not found in session");
     return {
       accountId,
       identityId: s.primaryAccounts?.[SUBMISSION],
@@ -64,7 +64,7 @@ export class JmapClient {
     };
   }
 
-  // request executa um lote de chamadas JMAP e devolve os payloads na ordem enviada.
+  // request executes a batch of JMAP calls and returns the payloads in the order sent.
   async request(using: string[], calls: MethodCall[]): Promise<Record<string, unknown>[]> {
     const res = await fetch(`${this.baseUrl}/jmap/`, {
       method: "POST",
@@ -74,15 +74,15 @@ export class JmapClient {
     });
     if (!res.ok) { this.guard401(res.status); throw new JmapError(`JMAP: HTTP ${res.status}`); }
     const body = await res.json();
-    if (!Array.isArray(body.methodResponses)) throw new JmapError("resposta JMAP inválida");
+    if (!Array.isArray(body.methodResponses)) throw new JmapError("invalid JMAP response");
     return body.methodResponses.map((mr: [string, Record<string, unknown>, string]) => {
-      if (mr[0] === "error") throw new JmapError(`método JMAP: ${JSON.stringify(mr[1])}`);
+      if (mr[0] === "error") throw new JmapError(`JMAP method: ${JSON.stringify(mr[1])}`);
       return mr[1];
     });
   }
 
-  // downloadBlob baixa um anexo autenticado (Basic por header) e devolve o Blob. Necessário
-  // porque <img>/<iframe>/<a download> não mandam Authorization → dariam 401 no path direto.
+  // downloadBlob downloads an authenticated attachment (Basic via header) and returns the Blob.
+  // Needed because <img>/<iframe>/<a download> don't send Authorization → would get a 401 on the direct path.
   async downloadBlob(accountId: string, blobId: string, name: string, type: string): Promise<Blob> {
     const url = `${this.baseUrl}/jmap/download/${encodeURIComponent(accountId)}/` +
       `${encodeURIComponent(blobId)}/${encodeURIComponent(name)}?accept=${encodeURIComponent(type)}`;
@@ -91,9 +91,9 @@ export class JmapClient {
     return res.blob();
   }
 
-  // streamEvents consome o EventSource do JMAP (push de StateChange, RFC 8620 §7.3). O
-  // EventSource nativo não deixa mandar Authorization, então lemos o SSE via fetch streaming.
-  // Chama onState() a cada evento que não seja ping. Retorna quando a conexão encerra.
+  // streamEvents consumes JMAP's EventSource (StateChange push, RFC 8620 §7.3). The native
+  // EventSource doesn't let us send Authorization, so we read the SSE via fetch streaming.
+  // Calls onState() on every event that isn't a ping. Returns when the connection closes.
   async streamEvents(onState: () => void, signal: AbortSignal): Promise<void> {
     const url = `${this.baseUrl}/jmap/eventsource?types=*&closeafter=no&ping=30`;
     const res = await fetch(url, {
@@ -121,8 +121,8 @@ export class JmapClient {
     }
   }
 
-  // upload sobe um blob para a conta e devolve {blobId, type, size}. Path same-origin via proxy
-  // (/jmap/upload/{accountId}/ — padrão do Stalwart, DIVERGENCES §D7).
+  // upload sends a blob to the account and returns {blobId, type, size}. Same-origin path via
+  // proxy (/jmap/upload/{accountId}/ — Stalwart's own pattern, DIVERGENCES §D7).
   async upload(accountId: string, file: File): Promise<{ blobId: string; type: string; size: number }> {
     const res = await fetch(`${this.baseUrl}/jmap/upload/${encodeURIComponent(accountId)}/`, {
       method: "POST",
@@ -132,7 +132,7 @@ export class JmapClient {
     });
     if (!res.ok) { this.guard401(res.status); throw new JmapError(`upload: HTTP ${res.status}`); }
     const b = await res.json();
-    if (!b.blobId) throw new JmapError("upload sem blobId");
+    if (!b.blobId) throw new JmapError("upload without blobId");
     return { blobId: b.blobId, type: b.type ?? "", size: b.size ?? file.size };
   }
 
@@ -140,7 +140,7 @@ export class JmapClient {
   // rewritten to the current origin (not the mail server's own hostname, which the browser
   // cannot reach directly).
   downloadUrl(session: JmapSession, accountId: string, blobId: string, name: string, type: string): string {
-    const path = new URL(session.downloadUrlTemplate, "http://x").pathname; // pega só o path
+    const path = new URL(session.downloadUrlTemplate, "http://x").pathname; // grab just the path
     return (
       this.baseUrl +
       path

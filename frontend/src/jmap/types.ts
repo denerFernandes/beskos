@@ -5,7 +5,7 @@ export interface JmapSession {
   accountId: string; // primaryAccounts["urn:ietf:params:jmap:mail"]
   identityId?: string;
   capabilities: Record<string, unknown>;
-  // Paths (não hosts — os hosts vêm com o serverHostname configurado, DIVERGENCES §D7).
+  // Paths (not hosts — hosts come with the configured serverHostname, DIVERGENCES §D7).
   downloadUrlTemplate: string;
 }
 
@@ -13,7 +13,7 @@ export interface Mailbox {
   id: string;
   name: string;
   role: string | null; // inbox | drafts | sent | trash | junk | archive | null
-  parentId?: string | null; // pasta-pai (aninhamento); null = raiz
+  parentId?: string | null; // parent folder (nesting); null = root
   totalEmails: number;
   unreadEmails: number;
   sortOrder?: number;
@@ -33,10 +33,10 @@ export interface EmailSummary {
   preview: string;
   hasAttachment: boolean;
   keywords?: Record<string, boolean>;
-  mailboxIds?: Record<string, boolean>; // pastas onde a mensagem está — p/ o chip de pasta (Importantes/busca)
+  mailboxIds?: Record<string, boolean>; // folders the message is in — for the folder chip (Starred/search)
   threadId?: string;
-  threadCount?: number; // nº de mensagens na conversa (só quando a lista está colapsada e >1)
-  /** Alguma mensagem da conversa está por ler (a linha colapsada mostra só a mais recente). */
+  threadCount?: number; // number of messages in the conversation (only when the list is collapsed and >1)
+  /** Some message in the conversation is unread (the collapsed row shows only the most recent one). */
   threadUnread?: boolean;
 }
 
@@ -46,16 +46,16 @@ export interface EmailAttachment {
   type: string;
   name?: string | null;
   size: number;
-  cid?: string | null;   // Content-ID: imagem embutida no HTML (src="cid:...")
+  cid?: string | null;   // Content-ID: image embedded in the HTML (src="cid:...")
 }
 
-// Uma página de resultados: as mensagens + o total, para "1–50 de 35.547" e as setas.
+// A page of results: the messages + the total, for "1-50 of 35,547" and the arrows.
 export interface EmailPage { items: EmailSummary[]; total: number; position: number }
 
 export interface EmailFull extends EmailSummary {
-  threadId?: string;            // id da conversa (mensagens relacionadas partilham-no)
-  messageId?: string[];         // Message-ID RFC822; a MESMA mensagem em pastas diferentes partilha-o
-  sentAt?: string;              // data que o remetente carimbou (pode diferir da entrega)
+  threadId?: string;            // conversation id (related messages share it)
+  messageId?: string[];         // RFC822 Message-ID; the SAME message in different folders shares it
+  sentAt?: string;               // date stamped by the sender (can differ from delivery)
   cc?: EmailAddress[];
   replyTo?: EmailAddress[];
   textBody: { partId: string; type?: string }[];
@@ -78,6 +78,6 @@ export interface SendDraft {
   bcc?: EmailAddress[];
   subject: string;
   textBody: string;
-  htmlBody?: string;          // quando presente, envia-se text/html (com text/plain alternativo)
+  htmlBody?: string;          // when present, sends text/html (with text/plain as the alternative)
   attachments?: UploadedBlob[];
 }

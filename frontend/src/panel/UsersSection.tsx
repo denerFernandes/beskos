@@ -10,14 +10,14 @@ import { MailboxActions, MailboxStatusPill } from "./MailboxLifecycle";
 
 const ROLES = ["owner", "admin", "member", "billing"];
 
-// Usuários = membros (papéis) + caixa de email. Users e Members são a mesma coisa; diferem no papel.
+// Users = members (roles) + mailbox. Users and Members are the same thing; they differ by role.
 export function UsersSection({ me }: { me: Me | undefined }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const canManage = hasPerm(me, "members.manage");
   const canDeleteMailbox = hasPerm(me, "mailboxes.delete");
   const members = useQuery({ queryKey: ["members"], queryFn: api.members, retry: false });
-  // Chave "admin-mailboxes": NÃO usar ["mailboxes"] — essa é das pastas JMAP do webmail.
+  // Key "admin-mailboxes": do NOT use ["mailboxes"] — that one is for the webmail's JMAP folders.
   const mailboxes = useQuery({ queryKey: ["admin-mailboxes"], queryFn: api.mailboxes, retry: false });
   const domains = useQuery({ queryKey: ["domains"], queryFn: api.domains, retry: false });
   const activeDomains = (domains.data ?? []).filter((d) => d.provision_state === "active");
@@ -26,8 +26,8 @@ export function UsersSection({ me }: { me: Me | undefined }) {
   const [reset, setReset] = useState<string | null>(null);
   const [groupsOf, setGroupsOf] = useState<{ id: string; label: string } | null>(null);
 
-  // Une membros (contas do painel, com papel) + caixas (mailboxes) por email: um usuário pode
-  // ter conta de painel, caixa, ou ambos. Assim TODOS aparecem (bug: caixas sem conta sumiam).
+  // Merges members (panel accounts, with a role) + mailboxes by email: a user can have a panel
+  // account, a mailbox, or both. This way ALL of them show up (bug: mailboxes without an account used to vanish).
   const users = useMemo(() => {
     const byEmail = new Map<string, { email: string; role: string; panelId?: string; mailboxId?: string; mailbox?: Mailbox }>();
     for (const m of members.data ?? []) byEmail.set(m.email, { email: m.email, role: m.role, panelId: m.id });
@@ -98,8 +98,8 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
   const { t } = useTranslation();
   const [domainId, setDomainId] = useState(domains[0]?.id ?? "");
   const [login, setLogin] = useState(""), [name, setName] = useState(""), [pwd, setPwd] = useState(""), [role, setRole] = useState("member"), [err, setErr] = useState("");
-  const [groups, setGroups] = useState<string[]>([]); // pode entrar em vários grupos de uma vez
-  const pwOk = useRef(false); // o medidor decide se a senha passa (o Stalwart recusa as fracas)
+  const [groups, setGroups] = useState<string[]>([]); // can join several groups at once
+  const pwOk = useRef(false); // the strength meter decides whether the password passes (Stalwart rejects weak ones)
   const roles = actorRole === "owner" ? ROLES : ROLES.filter((r) => r !== "owner");
   const m = useMutation({
     mutationFn: () => api.createUser(domainId, login, name, pwd, role, groups),
@@ -154,7 +154,7 @@ function ResetModal({ email, onClose }: { email: string; onClose: () => void }) 
   );
 }
 
-// Grupos DO usuário: marca/desmarca vários. Salvar sincroniza os canais do chat correspondentes.
+// The user's OWN groups: check/uncheck several. Saving syncs the corresponding chat channels.
 function UserGroupsModal({ userId, label, onClose }: { userId: string; label: string; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -181,10 +181,11 @@ function UserGroupsModal({ userId, label, onClose }: { userId: string; label: st
   );
 }
 
-// Permissões de um membro: o papel dá um conjunto de partida e aqui ajusta-se pessoa a pessoa.
-// Três estados por capacidade — herdada do papel, concedida à mão, retirada à mão — porque sem os
-// distinguir não se percebe porque é que alguém tem (ou não) uma coisa. Só se mostra como editável
-// o que quem está a mexer também tem: o backend recusa o resto, e a UI não promete o que não pode.
+// A member's permissions: the role gives a starting set and here it's adjusted person by person.
+// Three states per capability — inherited from the role, granted by hand, revoked by hand —
+// because without distinguishing them there's no telling why someone has (or lacks) something.
+// Only what the person editing also has is shown as editable: the backend refuses the rest, and
+// the UI doesn't promise what it can't deliver.
 function UserPermissionsModal({ userId, label, onClose }: { userId: string; label: string; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -201,8 +202,8 @@ function UserPermissionsModal({ userId, label, onClose }: { userId: string; labe
       const allow: string[] = [], deny: string[] = [];
       for (const p of d!.all) {
         const on = !!state[p];
-        if (on && !fromRole.has(p)) allow.push(p);   // concedida além do papel
-        if (!on && fromRole.has(p)) deny.push(p);    // retirada ao papel
+        if (on && !fromRole.has(p)) allow.push(p);   // granted beyond the role
+        if (!on && fromRole.has(p)) deny.push(p);    // revoked from the role
       }
       return api.setMemberPermissions(userId, allow, deny);
     },
@@ -247,9 +248,9 @@ function UserPermissionsModal({ userId, label, onClose }: { userId: string; labe
   );
 }
 
-// Aliases: um endereço extra que entrega na caixa de outra pessoa (contacto@empresa.com → caixa da
-// Ana). NÃO é um membro — não entra no chat, nos grupos nem na lista de pessoas; é só correio. Conta
-// como uma caixa para efeitos de plano e faturação, e é por isso que aparece aqui, ao lado delas.
+// Aliases: an extra address that delivers to another person's mailbox (contact@company.com → Ana's
+// mailbox). NOT a member — it doesn't join chat, groups, or the people list; it's just mail. It
+// counts as a mailbox for plan and billing purposes, which is why it shows up here, next to them.
 function AliasesCard({ domains, canManage }: { domains: { id: string; domain: string }[]; canManage: boolean }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

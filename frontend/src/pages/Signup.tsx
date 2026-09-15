@@ -7,9 +7,9 @@ import { BESKOS_MARK } from "../webmail/branding";
 import { IcCheck, IcArrowLeft } from "../panel/icons";
 import "./signup.css";
 
-// Registo self-service: plano → conta → empresa e faturação → pagamento. Quatro ecrãs, uma coluna,
-// uma pergunta de cada vez. O resto (senha de admin, marca, equipa) fica para o primeiro acesso
-// dentro da app — pedir tudo antes do cartão é o caminho mais curto para desistirem a meio.
+// Self-service signup: plan → account → company and billing → payment. Four screens, one column,
+// one question at a time. The rest (admin password, branding, team) is left for the first access
+// inside the app — asking for everything before the card is the shortest path to a mid-flow drop-off.
 
 type Step = 0 | 1 | 2 | 3;
 const STEPS: Step[] = [0, 1, 2, 3];
@@ -44,7 +44,7 @@ export function SignupPage() {
 
   const signup = useMutation({
     mutationFn: () => api.publicSignup({
-      // A organização chama-se como está na fatura: uma pergunta a menos no formulário.
+      // The organization is named as on the invoice: one less question in the form.
       org_name: form.legal_name || acc.domain, domain: acc.domain, login: acc.login, name: acc.name,
       password: "", plan: planId, cycle, billing: form,
     }),
@@ -86,8 +86,8 @@ export function SignupPage() {
   };
 
   if (done) return <SignupDone email={done.email} domain={done.domain} />;
-  // Registo fechado (SIGNUPS_OPEN=false): mostra "em breve" em vez do formulário. A API recusa de
-  // qualquer forma — isto é para quem chega pelo site não bater num erro.
+  // Signup closed (SIGNUPS_OPEN=false): shows "coming soon" instead of the form. The API refuses
+  // either way — this is so whoever arrives from the site doesn't hit an error.
   if (cat.data && cat.data.signups_open === false) return <ComingSoon />;
 
   return (
@@ -220,7 +220,7 @@ export function SignupPage() {
   );
 }
 
-// Registo fechado: uma página só, com a marca e para onde ir a seguir.
+// Signup closed: a single page, with the brand and where to go next.
 function ComingSoon() {
   const { t } = useTranslation();
   return (
@@ -296,7 +296,7 @@ function SoonWaitlist() {
   );
 }
 
-// Sem checkout (provedor manual): a conta já existe, é só entrar.
+// No checkout (manual provider): the account already exists, just log in.
 function SignupDone({ email, domain }: { email: string; domain: string }) {
   const { t } = useTranslation();
   return (

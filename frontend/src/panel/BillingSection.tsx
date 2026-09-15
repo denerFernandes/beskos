@@ -5,12 +5,12 @@ import { api, hasPerm, type Me, type Plan } from "../api";
 import { Modal, toast } from "./ui";
 import { SubscribeWizard } from "./SubscribeWizard";
 
-// Billing por usuário: uso vs. limites, planos com preço por usuário (moeda configurável),
-// total estimado (preço × max(usuários, mínimo pago)). Escolher um plano abre o assistente de
-// subscrição (dados de faturação + IVA + pagamento).
+// Per-user billing: usage vs. limits, plans with a per-user price (configurable currency),
+// estimated total (price × max(users, minimum paid)). Choosing a plan opens the subscription
+// wizard (billing data + VAT + payment).
 export function BillingSection({ me, detail, onDetail }: {
   me: Me | undefined;
-  /** "subscribe" abre o assistente de subscrição (vive na URL: /mail/admin/billing/subscribe). */
+  /** "subscribe" opens the subscription wizard (lives in the URL: /mail/admin/billing/subscribe). */
   detail?: string;
   onDetail?: (id: string) => void;
 }) {
@@ -19,13 +19,13 @@ export function BillingSection({ me, detail, onDetail }: {
   const canManage = hasPerm(me, "billing.manage");
   const usage = useQuery({ queryKey: ["usage"], queryFn: api.usage, retry: false });
   const billing = useQuery({ queryKey: ["billing"], queryFn: api.billing, retry: false });
-  // Plano escolhido na tabela → o assistente abre já nesse plano. O passo fica na URL para o
-  // refresh (e o botão "voltar" do browser) não perderem o que se estava a fazer.
+  // Plan chosen in the table → the wizard opens already on that plan. The step lives in the URL so
+  // a refresh (and the browser's "back" button) don't lose what was being done.
   const [wizardPlan, setWizardPlan] = useState("");
   const openSubscribe = (id: string) => { setWizardPlan(id); onDetail?.("subscribe"); };
 
   const refresh = () => { qc.invalidateQueries({ queryKey: ["usage"] }); qc.invalidateQueries({ queryKey: ["billing"] }); };
-  // Gestão da assinatura (Stripe): cancelar no fim do período, retomar, portal de pagamento.
+  // Subscription management (Stripe): cancel at the end of the period, resume, payment portal.
   const [cancelAsk, setCancelAsk] = useState(false);
   const cancelSub = useMutation({ mutationFn: () => api.billingCancel(), onSuccess: () => { refresh(); setCancelAsk(false); toast(t("billing.cancelDone")); }, onError: (e) => toast((e as Error).message) });
   const resumeSub = useMutation({ mutationFn: () => api.billingResume(), onSuccess: () => { refresh(); toast(t("billing.resumeDone")); }, onError: (e) => toast((e as Error).message) });
@@ -37,7 +37,7 @@ export function BillingSection({ me, detail, onDetail }: {
   const gb = (n: number) => `${(n / (1 << 30)).toFixed(1)} GB`;
   const seats = b ? Math.max(b.seats, b.min_paid_users) : 1;
 
-  // Linha da tabela de planos: um recurso, valor por plano (coluna do plano atual destacada).
+  // Plan table row: one feature, value per plan (current plan's column highlighted).
   function Row({ label, val, strong }: { label: string; val: (p: Plan) => string; strong?: boolean }) {
     return (
       <tr className={strong ? "strong" : ""}>
