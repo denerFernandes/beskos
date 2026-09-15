@@ -53,7 +53,7 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 			out = append(out, invitedOccurrences(iv, from, to)...)
 		}
 	}
-	// Anexa os CONVIDADOS de todos os eventos numa ida só (avatares nos cards — 23/07/2026).
+	// Attaches the INVITEES of every event in a single pass (avatars on the cards).
 	ids := make([]uuid.UUID, 0, len(out))
 	seen := map[uuid.UUID]bool{}
 	for _, e := range out {
@@ -79,8 +79,8 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 				invitedEmails[a.EventID][a.Email] = true
 			}
 		}
-		// O ORGANIZADOR também "está no evento" (pedido 23/07/2026): entra primeiro, exceto se for
-		// o próprio utilizador ou se já estiver na lista de convidados.
+		// The ORGANIZER also "is in the event": added first, unless it's the current user or they
+		// are already in the invitee list.
 		if cols, cerr := s.q.ListColleagues(r.Context(), mu.TenantID); cerr == nil {
 			byID := map[uuid.UUID]db.ListColleaguesRow{}
 			for _, c := range cols {

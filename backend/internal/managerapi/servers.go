@@ -9,8 +9,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Servidores da infra (custo fixo POR VPS — pedido 22/07/2026, migração 00108). O custo fixo das
-// finanças = soma dos servidores ativos + "outros fixos" do cost_model. Escritas admin-only + audit.
+// Infra servers (fixed cost PER VPS). The fixed cost in finance is the sum of active servers plus
+// the cost model's "other fixed" line. Writes are admin-only and audited.
 
 func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.q.ListManagerServers(r.Context())

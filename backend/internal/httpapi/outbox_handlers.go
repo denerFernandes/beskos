@@ -32,8 +32,8 @@ func (s *Server) handleCreateOutbox(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "outbox.invalid")
 		return
 	}
-	// Limite diário de envio do plano (docs/manager.md §4): recusa já na criação — melhor UX do
-	// que falhar depois no worker (que revalida na mesma, pois o limite pode esgotar entretanto).
+	// The plan's daily send limit: reject at creation time already — better UX than failing later
+	// in the worker (which re-validates anyway, since the limit can be exhausted in the meantime).
 	if !s.mailSendAllowed(r.Context(), mu.TenantID, len(req.Rcpts)) {
 		writeErr(w, http.StatusTooManyRequests, "mail.daily_limit_reached")
 		return
@@ -46,8 +46,8 @@ func (s *Server) handleCreateOutbox(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "outbox.failed")
 		return
 	}
-	// Acorda o worker de envio (LISTEN/NOTIFY): ele dorme até ao próximo send_at, sem polling — o
-	// e-mail sai quase logo após a janela de "desfazer", em vez de esperar por um tick (24/07/2026).
+	// Wakes the send worker (LISTEN/NOTIFY): it sleeps until the next send_at, no polling — the
+	// email goes out almost right after the "undo" window closes, instead of waiting for a tick.
 	_ = s.q.NotifyOutbox(r.Context())
 	writeJSON(w, http.StatusCreated, map[string]string{"id": row.ID.String()})
 }

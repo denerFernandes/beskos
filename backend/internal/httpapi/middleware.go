@@ -37,10 +37,11 @@ func redactSensitiveQuery(u *url.URL) string {
 	return u.Path + "?" + q.Encode()
 }
 
-// csrfGuard protege as rotas de sessão contra CSRF. Requisições que mudam estado precisam ou de um
-// Authorization: Bearer (app nativo — token não-ambiente, sem risco de CSRF) ou do header custom
-// X-Mailin-Client que só o nosso cliente envia. Um POST cross-site "simples" (form) não consegue
-// setar header custom sem preflight, e o preflight bate na allow-list do CORS (auditoria M5).
+// csrfGuard protects session routes against CSRF. State-changing requests need either an
+// Authorization: Bearer header (native app — not an ambient credential, so no CSRF risk) or the
+// custom X-Mailin-Client header that only our own client sends. A "simple" cross-site POST (a
+// plain form) can't set a custom header without a preflight, and the preflight hits the CORS
+// allowlist.
 func (s *Server) csrfGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -89,8 +90,8 @@ func requestLogger(next http.Handler) http.Handler {
 	})
 }
 
-// requirePerm exige que o usuário autenticado (sessão de painel) tenha a permissão. Fonte de
-// verdade é o papel salvo (nunca vindo do request). Fail-closed (lei §5.2).
+// requirePerm requires the authenticated user (panel session) to hold the permission. The source
+// of truth is the stored role, never one coming from the request. Fails closed.
 func (s *Server) requirePerm(perm rbac.Permission) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

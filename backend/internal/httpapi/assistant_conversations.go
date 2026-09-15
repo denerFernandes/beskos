@@ -29,7 +29,8 @@ type assistantConvJSON struct {
 type assistantMsgJSON struct {
 	ID   uuid.UUID `json:"id"`
 	Role string    `json:"role"`
-	// Agent é quem respondeu. Vazio nas mensagens do utilizador e nas gravadas antes da fase A3.
+	// Agent is who answered. Empty for user messages and for ones recorded before agent
+	// attribution was tracked.
 	Agent     string          `json:"agent,omitempty"`
 	Content   string          `json:"content"`
 	Steps     json.RawMessage `json:"steps"`

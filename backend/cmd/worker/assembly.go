@@ -16,10 +16,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
-// Montagem OFFLINE das gravações (docs/manager.md §1): o LiveKit gravou uma faixa crua por
-// participante (track egress); aqui o ffmpeg compõe o MP4 final (grelha de vídeos + mix de áudio,
-// com offsets pelo instante de início de cada faixa) fora do caminho quente da reunião.
-// Fila por prioridade no ClaimAssemblyJob (planos offline_priority montam primeiro).
+// OFFLINE recording assembly: LiveKit records one raw track per participant (track egress);
+// here ffmpeg composes the final MP4 (video grid + audio mix, offset by each track's start time)
+// outside the meeting's hot path. Jobs are claimed by priority in ClaimAssemblyJob, so
+// offline_priority plans assemble first.
 
 // startAssembly liga o consumidor da fila (ticker de 30s; cada tick drena os jobs prontos).
 func startAssembly(q *db.Queries, st *storage.Service) {

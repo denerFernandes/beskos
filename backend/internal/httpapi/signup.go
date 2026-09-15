@@ -219,7 +219,7 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		TenantID: pgtype.UUID{Bytes: tenant.ID, Valid: true}, Actor: email, Action: "signup", Target: req.Domain,
 	})
 
-	// Sessão: quem se regista entra na app a seguir ao pagamento, sem repetir a senha.
+	// Session: whoever signs up enters the app right after payment, without re-entering the password.
 	token, ok := s.issueSession(w, r.Context(), owner)
 	if !ok {
 		return
@@ -260,7 +260,7 @@ func (s *Server) signupCheckoutURL(r *http.Request, tid uuid.UUID, plan billing.
 	return res.URL
 }
 
-// --- Catálogo e simulação PÚBLICOS (a página de registo ainda não tem sessão) ---
+// --- Public catalog and simulation endpoints (the signup page has no session yet) ---
 
 // handlePublicPlans devolve os planos ativos com o preço na moeda base. Não expõe nada que já não
 // esteja na página de preços do site.

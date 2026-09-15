@@ -7,9 +7,9 @@ import (
 	"time"
 )
 
-// rateLimiter: janela deslizante em memória por chave (mesma implementação da httpapi — mantida
-// local porque os pacotes são isolados de propósito; ver docs/manager.md §2). Trava brute-force
-// no login do operador numa instância única, que é o caso do manager.
+// rateLimiter is an in-memory sliding window per key — the same implementation as httpapi's, kept
+// local because the packages are deliberately isolated. Enough to stop brute-force login attempts
+// on a single instance, which is the manager's deployment case.
 type rateLimiter struct {
 	mu     sync.Mutex
 	hits   map[string][]int64

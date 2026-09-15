@@ -16,7 +16,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// handleUsage devolve uso vs. limites do plano do tenant (painel de uso, brief §9 Fase 4).
+// handleUsage returns usage vs. the tenant's plan limits (the usage panel).
 func (s *Server) handleUsage(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	tid := u.TenantID
@@ -134,8 +134,8 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	// Valida contra o CATÁLOGO DA BD (M2): plano tem de existir e estar ativo; a organização tem
-	// de caber no teto do plano; o mínimo de seats cobrados é o piso do plano (faixa).
+	// Validates against the DATABASE CATALOG: the plan must exist and be active; the organization
+	// must fit within the plan's ceiling; the minimum billed seats is the plan's floor (tier).
 	plan, ok := s.catalogPlanByKey(r.Context(), req.Plan)
 	if !ok || !plan.IsActive {
 		writeErr(w, http.StatusBadRequest, "billing.invalid_plan")
@@ -288,10 +288,10 @@ func (s *Server) handleBillingWebhook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "applied"})
 }
 
-// syncSeats espelha o nº de utilizadores na QUANTIDADE da assinatura Stripe, com rateio: um
-// utilizador adicionado a meio do período entra proporcional na próxima fatura; um removido gera
-// crédito. Chamado após criar/remover utilizador/caixa (24/07/2026). Best-effort em goroutine —
-// nunca bloqueia nem falha a operação de origem.
+// syncSeats mirrors the user count into the Stripe subscription QUANTITY, with proration: a user
+// added mid-period is prorated onto the next invoice; a removed one generates credit. Called
+// after creating/removing a user or mailbox. Best-effort, in a goroutine — never blocks or fails
+// the originating operation.
 func (s *Server) syncSeats(tid uuid.UUID) {
 	if s.billing.Name() != "stripe" {
 		return
@@ -356,7 +356,7 @@ func (s *Server) tenantPlanByID(ctx context.Context, tid uuid.UUID) billing.Plan
 }
 
 func (s *Server) applyPlan(r *http.Request, tid uuid.UUID, plan, stripeID, status string) {
-	// Valida contra o catálogo da BD (M2); plano desconhecido cai no default (fail-safe).
+	// Validates against the database catalog; an unknown plan falls back to the default (fail-safe).
 	p, ok := s.catalogPlanByKey(r.Context(), plan)
 	if !ok {
 		p = s.planByKey(r.Context(), billing.DefaultPlanID)

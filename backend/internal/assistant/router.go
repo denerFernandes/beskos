@@ -45,9 +45,10 @@ func routerPrompt(choices []AgentChoice) string {
 		b.WriteString("\n")
 		keys = append(keys, c.Key)
 	}
-	// Pedido que atravessa áreas (ex.: tarefa + evento, ficheiro + e-mail) tem de ir para um
-	// perfil que cubra tudo — um agente especializado faz metade e trava na outra (23/07/2026:
-	// "task para o Bob + evento" foi para Documentos, que não tem contactos nem calendário).
+	// A request that spans multiple areas (e.g. a task AND a calendar event, a file AND an email)
+	// has to go to a profile that covers all of them — a specialized agent handles half of it and
+	// gets stuck on the rest. Seen in production: "task for Bob + event" was routed to Docs, which
+	// has neither contacts nor a calendar.
 	if contains(keys, AgentGeneral) {
 		b.WriteString("\nIf the request spans MORE THAN ONE area (e.g. a task AND a calendar event, " +
 			"a file AND an email), reply " + AgentGeneral + " — a specialised profile can only do part of it.")

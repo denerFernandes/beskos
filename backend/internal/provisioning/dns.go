@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-// NetDNSVerifier confirma publicação checando resolução real de DNS: o domínio precisa ter
-// pelo menos um registro MX e um TXT de DKIM (_domainkey). Verificação mínima da Fase 1;
-// SPF/DMARC/MTA-STS podem ser adicionados depois.
+// NetDNSVerifier confirms publication by checking real DNS resolution: the domain needs at least
+// one MX record and one DKIM TXT record (_domainkey). This is a minimal verification; SPF, DMARC,
+// and MTA-STS can be added later.
 type NetDNSVerifier struct {
 	resolver *net.Resolver
 }

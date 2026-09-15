@@ -225,10 +225,10 @@ func scanSnoozes(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwar
 	}
 }
 
-// outboxLoop envia a outbox ORIENTADA A EVENTOS: dorme até ao próximo send_at (ou até um NOTIFY em
-// 'outbox_new', que a API dispara ao enfileirar), varre os vencidos e volta a dormir. Sem polling
-// constante — o e-mail sai quase logo após a janela de "desfazer". Cap de 60s como rede de segurança
-// caso um NOTIFY se perca ou o LISTEN caia. (24/07/2026)
+// outboxLoop sends the outbox EVENT-DRIVEN: it sleeps until the next send_at (or until a NOTIFY on
+// 'outbox_new', which the API fires when it enqueues), sweeps due rows, then sleeps again. No
+// constant polling — email goes out almost right after the "undo" window closes. The 60s cap is a
+// safety net in case a NOTIFY is missed or the LISTEN connection drops.
 func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartURL string) {
 	ctx := context.Background()
 	const safetyCap = 60 * time.Second
@@ -293,8 +293,8 @@ func scanOutbox(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwart
 	}
 	sent := 0
 	for _, o := range rows {
-		// Limite diário de envio do plano (docs/manager.md §4): revalida no envio real — a criação
-		// no outbox já checou, mas o limite pode ter esgotado entre agendar e vencer.
+		// Re-checks the plan's daily send limit at actual send time — the outbox entry was already
+		// checked on creation, but the limit may have run out between scheduling and delivery.
 		if limit, lerr := q.TenantDailySendLimit(ctx, o.TenantID); lerr == nil && limit > 0 {
 			if today, terr := q.MailSentToday(ctx, o.TenantID); terr == nil && int(today)+len(o.Rcpts) > int(limit) {
 				log.Printf("outbox-scan: %s over daily send limit (%d), marking failed", o.ID, limit)
@@ -417,10 +417,10 @@ func main() {
 	}
 	// Outbox (undo-send/agendados) num ticker rápido (10s): o undo-send precisa sair logo após a
 	// janela curta; 1 min seria lento demais para o utilizador.
-	// Envio da outbox ORIENTADO A EVENTOS (24/07/2026): em vez de sondar a BD num intervalo fixo, o
-	// worker dorme EXATAMENTE até ao próximo send_at e a API acorda-o com pg_notify('outbox_new') ao
-	// enfileirar. Resultado: o e-mail sai quase logo após a janela de "desfazer", sem polling
-	// constante. Um cap de 60s serve de rede de segurança (se um NOTIFY se perder).
+	// The outbox send is EVENT-DRIVEN rather than polled at a fixed interval: the worker sleeps
+	// EXACTLY until the next send_at, and the API wakes it with pg_notify('outbox_new') when it
+	// enqueues. Email goes out almost right after the "undo" window, with no constant polling. The
+	// 60s cap is a safety net in case a NOTIFY is missed.
 	go outboxLoop(pool, q, box, cfg.StalwartURL)
 	go func() {
 		due := time.NewTicker(time.Minute)
@@ -441,7 +441,7 @@ func main() {
 		}
 	}()
 
-	// Metering do manager (M3): rollup diário de uso + retenção de gravações por plano.
+	// Manager metering: daily usage rollup plus recording retention per plan.
 	startMetering(q)
 
 	// Montagem offline das gravações (track egress → MP4 via ffmpeg; fila por prioridade).

@@ -11,9 +11,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/notify"
 )
 
-// Avisos por e-mail nos momentos que importam ao cliente: conta criada, teste iniciado, subscrição
-// ativa, cobrança e novo início de sessão. Todos best-effort e fora do caminho crítico (goroutine):
-// um servidor de e-mail lento não pode atrasar um login nem falhar um registo.
+// Email alerts at the moments that matter to the customer: account created, trial started,
+// subscription active, billing, and new login. All best-effort and off the critical path
+// (goroutine): a slow email server must not delay a login or fail a signup.
 
 // sendMsg entrega um aviso já montado. Sem SMTP configurado é um no-op silencioso.
 func (s *Server) sendMsg(to string, m notify.Msg) {
@@ -89,8 +89,8 @@ func clientDevice(r *http.Request) string {
 	return browser + " · " + os
 }
 
-// alertNewLogin avisa do início de sessão com o que permite reconhecê-lo — ou perceber que não foi
-// a pessoa. É o aviso que dá a alguém a hipótese de reagir a uma senha roubada.
+// alertNewLogin notifies about a new login with enough detail to recognize it — or to notice it
+// wasn't them. It's the alert that gives someone a chance to react to a stolen password.
 func (s *Server) alertNewLogin(r *http.Request, u db.MailUser) {
 	s.sendMsg(u.Email, notify.NewLogin(u.Language, u.Email, clientIP(r), clientLocation(r),
 		clientDevice(r), time.Now().UTC(), s.appURL("/mail/profile/security")))

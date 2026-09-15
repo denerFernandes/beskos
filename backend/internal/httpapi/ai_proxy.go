@@ -227,12 +227,13 @@ func pipeAndCountTokens(w http.ResponseWriter, body io.Reader, stream bool) int 
 	return tokens
 }
 
-// handleAIEnvelopeProxy é o proxy do MODO SERVIDOR do plugin de IA do OnlyOffice (aiSettings.proxy).
-// O plugin envia um envelope {target, method, headers, data} com o JWT do EDITOR no Bearer. Daqui:
-// valida o JWT (prova a sessão), tira o utilizador (editorConfig.user.id) → tenant, verifica a quota,
-// e reencaminha o pedido de dentro (data) ao DeepSeek com a NOSSA chave — ignorando o target/headers
-// do envelope (a chave do DeepSeek nunca vem do browser). Assim: config no servidor, sem colar chave,
-// e a cota é a do próprio utilizador.
+// handleAIEnvelopeProxy is the proxy for the SERVER MODE of the OnlyOffice AI plugin
+// (aiSettings.proxy). The plugin sends an envelope {target, method, headers, data} with the
+// EDITOR's JWT as the Bearer token. From here it validates the JWT (proves the session), derives
+// the user (editorConfig.user.id) -> tenant, checks the quota, and forwards the inner request
+// (data) to DeepSeek with OUR OWN key — ignoring the envelope's target/headers (the DeepSeek key
+// never comes from the browser). This keeps the config on the server, with no key pasted into the
+// client, and the quota charged is the user's own.
 func (s *Server) handleAIEnvelopeProxy(w http.ResponseWriter, r *http.Request) {
 	if s.aiCORS(w, r) || !s.aiProxyReady(w) {
 		return

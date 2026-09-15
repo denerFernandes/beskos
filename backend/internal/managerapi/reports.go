@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Relatórios e exports CSV (M5, docs/manager.md §5.2). Coortes de churn ficam para o billing real
-// (sem eventos de cancelamento ainda) — registado no doc.
+// Reports and CSV exports. Churn cohorts are left for when real billing is wired up — there are
+// no cancellation events yet.
 
 func (s *Server) handleGrowth(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.q.ManagerGrowth(r.Context())

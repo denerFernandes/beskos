@@ -13,11 +13,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Integração com o OnlyOffice Document Server para edição de office (docx/xlsx/pptx).
-// O Document Server (container rede-only, com o patch de branding do arranque — ver
-// deploy/DIVERGENCES.md) carrega o config
-// que ASSINAMOS por JWT; ele então busca o arquivo e devolve o salvo via callback, ambos
-// autenticados por um token HMAC nosso ligado a arquivo+usuário+tenant+permissão.
+// Integration with the OnlyOffice Document Server for office editing (docx/xlsx/pptx).
+// The Document Server (a network-only container, with a startup branding patch) loads a config
+// that WE SIGN with JWT; it then fetches the file and returns the saved version via a callback,
+// both authenticated by our own HMAC token tied to file+user+tenant+permission.
 
 type onlyoffice struct {
 	publicURL    string // URL do Document Server que o BROWSER usa (api.js + editor)

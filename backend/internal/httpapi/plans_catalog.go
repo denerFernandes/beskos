@@ -12,10 +12,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Catálogo de planos com a BD como fonte de verdade (manager M2, docs/manager.md §4): o manager
-// escreve na tabela `plans`; o produto LÊ daqui, com cache curto (evita uma query por request) e
-// fallback para o catálogo em código de internal/billing quando a tabela está vazia ou a leitura
-// falha (fail-safe: nunca deixa o produto sem limites definidos).
+// Plan catalog with the database as the source of truth: the manager writes to the `plans`
+// table; the product READS from here, with a short cache (avoids a query per request) and a
+// fallback to the internal/billing code catalog when the table is empty or the read fails
+// (fail-safe: the product is never left without defined limits).
 
 const planCacheTTL = time.Minute
 
@@ -117,8 +117,8 @@ func parsePlanPrices(raw []byte) map[string]int {
 	return m
 }
 
-// disabledAppsEffective une as apps desligadas pelo admin do tenant com as EXCLUÍDAS pelo plano
-// (enforcement de apps_enabled — manager M2). Lista vazia de apps_enabled no plano = todas ligadas.
+// disabledAppsEffective merges the apps the tenant admin turned off with the ones EXCLUDED by the
+// plan (apps_enabled enforcement). An empty apps_enabled list on the plan means all apps are on.
 func (s *Server) disabledAppsEffective(ctx context.Context, tenantID uuid.UUID) []string {
 	disabled, _ := s.q.GetTenantDisabledApps(ctx, tenantID)
 	t, err := s.q.GetTenant(ctx, tenantID)
