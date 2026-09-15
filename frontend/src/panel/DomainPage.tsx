@@ -5,21 +5,21 @@ import { api, type DomainDetail, type DNSRecord, type DNSCheck, type DNSCheckRes
 import { toast } from "./ui";
 import { IcArrowLeft, IcChevron } from "./icons";
 
-// Página do domínio (era um sidecar). Passou a página porque a informação não cabe numa gaveta:
-// são ~18 registos com valores longos (DKIM, MTA-STS) mais o estado de cada um — na gaveta a tabela
-// espremia-se ao ponto de a coluna "Copiar" sair em letras verticais.
+// Domain page (used to be a sidecar). Became a page because the information doesn't fit in a
+// drawer: there are ~18 records with long values (DKIM, MTA-STS) plus each one's status — in the
+// drawer the table got squeezed to the point the "Copy" column came out in vertical letters.
 //
-// Três blocos, por esta ordem de utilidade: o que falta publicar, como publicar no teu fornecedor,
-// e a zona de perigo.
+// Three blocks, in this order of usefulness: what's left to publish, how to publish it with your
+// provider, and the danger zone.
 
-// O que o correio precisa mesmo: entregar (MX), ser aceite lá fora (SPF/DKIM/MAIL FROM) e a política
-// que os liga (DMARC). O resto — SRV de descoberta, MTA-STS, TLS-RPT, auto-config — é conveniência
-// para clientes de e-mail e reforço de transporte: o correio funciona sem eles, e por isso vão para
-// "avançados", fechados. Pedir 18 registos quando 4 bastam é o que fazia esta página assustar.
+// What mail actually needs: delivery (MX), being accepted out there (SPF/DKIM/MAIL FROM) and the
+// policy that ties them together (DMARC). The rest — discovery SRV, MTA-STS, TLS-RPT, auto-config
+// — is convenience for email clients and transport hardening: mail works without them, so they go
+// under "advanced", collapsed. Asking for 18 records when 4 are enough is what made this page scary.
 const ESSENTIAL_PURPOSES = ["mx", "spf", "dkim", "dkim_ses", "mailfrom", "dmarc"];
 
-// Fornecedores cobertos pelo guia. `import` marca os que aceitam ficheiro de zona BIND — nesses, a
-// exportação resolve tudo de uma vez e é o caminho a recomendar primeiro.
+// Providers covered by the guide. `import` marks the ones that accept a BIND zone file — for
+// those, the export resolves everything at once and is the path to recommend first.
 const PROVIDERS = [
   { key: "cloudflare", importsZone: true },
   { key: "route53", importsZone: true },
@@ -69,7 +69,7 @@ export function DomainPage({ id, canManage, onBack }: { id: string; canManage: b
       </div>
 
       <div className="pnl-content dom-page">
-        {/* Resumo: quantos faltam e se o que falta é essencial. É a única linha que a maioria lê. */}
+        {/* Summary: how many are missing and whether what's missing is essential. It's the only line most people read. */}
         <div className="pnl-card">
           <div className="pnl-card-b dom-summary">
             <StatePill state={d?.provision_state ?? ""} />
@@ -121,8 +121,8 @@ function StatePill({ state }: { state: string }) {
   return <span className={"pnl-pill " + cls}>{t(`domains.states.${state}`, { defaultValue: state })}</span>;
 }
 
-// Guia por fornecedor: passos concretos de onde clicar. Quem importa a zona (Cloudflare, Route 53)
-// resolve tudo de uma vez — por isso esses aparecem primeiro e com o botão de exportar à mão.
+// Per-provider guide: concrete steps on where to click. Whoever imports the zone (Cloudflare,
+// Route 53) resolves everything at once — that's why those appear first, with the export button at hand.
 function ProviderGuide({ domain, onExport }: { domain: string; onExport: () => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<string | null>("cloudflare");
@@ -160,14 +160,14 @@ function ProviderGuide({ domain, onExport }: { domain: string; onExport: () => v
   );
 }
 
-// Tabela de registos com estado. Numa página há largura para o valor respirar; o que for grande
-// rola dentro da própria célula em vez de empurrar a tabela.
+// Table of records with status. A page has room for the value to breathe; anything large scrolls
+// inside its own cell instead of pushing the table wider.
 function RecordsCard({ title, hint, records, checks, collapsible }: {
   title: string; hint?: string; records: DNSRecord[]; checks: Map<string, DNSCheck>; collapsible?: boolean;
 }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState(-1);
-  // Os opcionais começam fechados: quem quiser afina, quem não quiser nem os vê.
+  // Optional ones start collapsed: whoever wants to fine-tune can, whoever doesn't won't even see them.
   const [open, setOpen] = useState(!collapsible);
   if (records.length === 0) return null;
   return (
@@ -199,14 +199,14 @@ function RecordsCard({ title, hint, records, checks, collapsible }: {
               const cls = !c ? "muted" : c.status === "ok" ? "ok" : c.required ? "err" : "warn";
               return (
                 <tr key={i}>
-                  {/* data-label alimenta o modo empilhado (ecrã estreito), onde o cabeçalho some. */}
+                  {/* data-label feeds the stacked mode (narrow screen), where the header disappears. */}
                   <td data-label={t("domains.colStatus")}><span className={"dns-pill " + cls}>{c ? t(`domains.dnsStatus.${c.status}`) : "…"}</span></td>
                   <td data-label={t("domains.colPurpose")}><span className="pnl-pill muted">{t(`domains.purpose.${r.purpose}`, { defaultValue: r.purpose })}</span></td>
                   <td className="mono" data-label={t("domains.colType")}>{r.type}</td>
                   <td className="mono" data-label={t("domains.colHost")}>{r.host}</td>
                   <td data-label={t("domains.colValue")}>
-                    {/* Quando diverge, as DUAS linhas etiquetadas: sem dizer qual é qual, ver dois
-                        valores lado a lado não ajuda ninguém a decidir o que corrigir. */}
+                    {/* When it diverges, BOTH rows labeled: without saying which is which, seeing
+                        two values side by side doesn't help anyone decide what to fix. */}
                     {c?.status === "mismatch" ? (
                       <div className="dns-diff">
                         <div className="dns-diff-row"><span className="dns-lbl">{t("domains.dnsExpected")}</span><span className="dns-val mono">{r.value}</span></div>

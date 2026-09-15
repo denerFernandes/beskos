@@ -1,52 +1,53 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Reverse proxy same-origin (obrigatório — o Stalwart não envia headers CORS, ver DIVERGENCES §D7).
-// TUDO passa pela NOSSA API Go (:8000): /api são os handlers do control plane; /jmap, /auth,
-// /.well-known caem no proxy JMAP com BROKERING (H11) — a API autentica pela sessão e injeta a
-// credencial da caixa server-to-server, então o browser nunca segura a senha (ver jmap_proxy.go).
+// Same-origin reverse proxy (mandatory — Stalwart doesn't send CORS headers, see DIVERGENCES §D7).
+// EVERYTHING goes through OUR Go API (:8000): /api are the control plane handlers; /jmap, /auth,
+// /.well-known fall to the JMAP proxy with BROKERING (H11) — the API authenticates via the session
+// and injects the mailbox credential server-to-server, so the browser never holds the password
+// (see jmap_proxy.go).
 const API = process.env.API_URL ?? "http://localhost:8000";
 
-// Apontar o proxy à API DE PRODUÇÃO para trabalhar no frontend sem levantar o backend:
+// Point the proxy at the PRODUCTION API to work on the frontend without spinning up the backend:
 //     API_URL=https://app.beskos.com npm run dev
 //
-// changeOrigin é obrigatório quando o destino é remoto: sem ele o pedido chega com
-// `Host: localhost:5173` e o nginx de produção, que encaminha por nome, não sabe a quem entregar.
-// Contra um backend local não faz diferença nenhuma.
+// changeOrigin is mandatory when the target is remote: without it the request arrives with
+// `Host: localhost:5173`, and the production nginx, which forwards by name, doesn't know who to
+// deliver it to. Against a local backend it makes no difference at all.
 //
-// O cookie de sessão de produção é Secure+SameSite=None. Funciona porque os browsers tratam
-// `localhost` como contexto seguro mesmo em http — e é por isso que isto tem de correr em
-// localhost e não num IP da rede local, onde o cookie seria recusado em silêncio.
-const REMOTO = /^https:/.test(API);
+// The production session cookie is Secure+SameSite=None. It works because browsers treat
+// `localhost` as a secure context even over http — which is why this has to run on localhost and
+// not on a local network IP, where the cookie would be silently rejected.
+const REMOTE = /^https:/.test(API);
 
-// Duas variáveis parecidas, efeitos opostos — e é fácil trocá-las:
-//   API_URL        destino do PROXY. O browser continua a falar com localhost (mesma origem).
-//   VITE_API_BASE  base ABSOLUTA embutida no pacote. O browser passa a ir direto ao endereço,
-//                  o proxy deixa de ser usado, e as chamadas ficam cross-site.
-// Em desenvolvimento web quer-se a primeira. A segunda só faz sentido no pacote Tauri, que não
-// tem proxy nenhum. Trocá-las dá erros de certificado ou de CORS que não apontam para a causa.
+// Two similar-looking variables, opposite effects — and easy to swap by mistake:
+//   API_URL        the PROXY's destination. The browser still talks to localhost (same origin).
+//   VITE_API_BASE  the ABSOLUTE base embedded in the bundle. The browser goes straight to that
+//                  address instead, the proxy stops being used, and calls become cross-site.
+// In web development you want the first one. The second only makes sense in the Tauri bundle,
+// which has no proxy at all. Swapping them gives certificate or CORS errors that don't point to the cause.
 if (process.env.VITE_API_BASE && !process.env.TAURI_ENV_PLATFORM) {
   console.warn(
-    `\n[aviso] VITE_API_BASE=${process.env.VITE_API_BASE} está definida.\n` +
-    `        As chamadas vão DIRETAS a esse endereço e o proxy não é usado.\n` +
-    `        Para trabalhar contra outro backend em desenvolvimento, use antes:\n` +
+    `\n[warning] VITE_API_BASE=${process.env.VITE_API_BASE} is set.\n` +
+    `        Calls go DIRECTLY to that address and the proxy is not used.\n` +
+    `        To work against a different backend in development, use instead:\n` +
     `            API_URL=${process.env.VITE_API_BASE} npm run dev\n`,
   );
 }
 
-// SEGURANÇA DO PACOTE (desktop/mobile Tauri): o Vite injeta em TEXTO CLARO no bundle qualquer
-// variável de ambiente com prefixo VITE_. Como o app é distribuído (e um utilizador pode inspecionar
-// o pacote), NENHUM segredo pode ser VITE_. Só a allow-list abaixo é permitida — o build FALHA se
-// aparecer outra VITE_*. Segredos (chaves de IA, admin do Stalwart, DB, VAPID privado) vivem só no
-// backend Go e nunca chegam ao frontend.
-// VITE_API_BASE: URL do backend (app nativo). VITE_PUBLIC_BASE: origem pública da web para links
-// partilháveis gerados no app nativo (convites de reunião etc.). Ambas são URLs públicas, não-secretas.
+// BUNDLE SECURITY (Tauri desktop/mobile): Vite injects any environment variable with the VITE_
+// prefix into the bundle IN PLAIN TEXT. Since the app is distributed (and a user can inspect the
+// bundle), NO secret may be a VITE_ one. Only the allow-list below is permitted — the build FAILS
+// if another VITE_* shows up. Secrets (AI keys, Stalwart admin, DB, private VAPID) live only in
+// the Go backend and never reach the frontend.
+// VITE_API_BASE: the backend's URL (native app). VITE_PUBLIC_BASE: the web's public origin for
+// shareable links generated in the native app (meeting invites etc.). Both are public, non-secret URLs.
 const ALLOWED_VITE_VARS = ["VITE_API_BASE", "VITE_PUBLIC_BASE"];
 const leaked = Object.keys(process.env).filter((k) => k.startsWith("VITE_") && !ALLOWED_VITE_VARS.includes(k));
 if (leaked.length) {
   throw new Error(
-    `[segurança] Variáveis VITE_ não permitidas seriam embutidas no pacote: ${leaked.join(", ")}. ` +
-    `Só ${ALLOWED_VITE_VARS.join(", ")} é permitida (não-secreta). Segredos ficam no backend.`,
+    `[security] Disallowed VITE_ variables would be embedded in the bundle: ${leaked.join(", ")}. ` +
+    `Only ${ALLOWED_VITE_VARS.join(", ")} is allowed (non-secret). Secrets stay in the backend.`,
   );
 }
 
@@ -55,14 +56,14 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": { target: API, ws: true, changeOrigin: REMOTO },
-      "/jmap": { target: API, ws: true, changeOrigin: REMOTO }, // ws para o eventsource SSE do JMAP
-      "/auth": { target: API, changeOrigin: REMOTO },
-      "/.well-known": { target: API, changeOrigin: REMOTO },
+      "/api": { target: API, ws: true, changeOrigin: REMOTE },
+      "/jmap": { target: API, ws: true, changeOrigin: REMOTE }, // ws for JMAP's SSE eventsource
+      "/auth": { target: API, changeOrigin: REMOTE },
+      "/.well-known": { target: API, changeOrigin: REMOTE },
     },
   },
   build: {
-    // Sem sourcemaps no pacote distribuído — não expor o código-fonte completo do app.
+    // No sourcemaps in the distributed bundle — don't expose the app's full source code.
     sourcemap: false,
   },
 });

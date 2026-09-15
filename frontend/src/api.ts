@@ -22,14 +22,14 @@ export interface Me {
   email: string;
   role: string;
   tenant_id: { Bytes?: string; Valid?: boolean } | string;
-  mfa_setup_required?: boolean; // política da org exige 2FA e o utilizador ainda não configurou
-  org_mfa_required?: boolean; // política de 2FA da organização está ligada
+  mfa_setup_required?: boolean; // the org's policy requires 2FA and the user hasn't set it up yet
+  org_mfa_required?: boolean; // the organization's 2FA policy is turned on
   mfa_required_method?: string; // any | totp | sms
-  language: string; // "" = automático (browser); senão a preferência salva na conta
-  permissions: string[]; // gates da UI (ver internal/rbac)
+  language: string; // "" = automatic (browser); otherwise the preference saved on the account
+  permissions: string[]; // UI gates (see internal/rbac)
   mfa: { totp: boolean; sms: boolean };
-  disabled_apps?: string[]; // apps que o admin desligou p/ a org — o rail some com elas
-  assistant_enabled?: boolean; // falso se o admin desligou o assistente (ou IA não configurada) — a bolha some
+  disabled_apps?: string[]; // apps the admin turned off for the org — the rail hides them
+  assistant_enabled?: boolean; // false if the admin turned off the assistant (or AI isn't configured) — the bubble disappears
   // The organisation's billing state and whether its own domain is live. Both ride on /api/me so
   // the warning bar is on screen at the first render -- see AccountBanner.
   account?: { state: "ok" | "ending" | "past_due" | "send_blocked" | "locked"; blocked: boolean; until?: string; days_left?: number };
@@ -64,7 +64,7 @@ export interface Usage {
   limits: { max_mailboxes: number; max_storage_bytes: number; max_daily_send: number };
 }
 
-// Idiomas suportados na UI (espelha o backend). "" = automático pelo browser.
+// Languages supported in the UI (mirrors the backend). "" = automatic via the browser.
 export type Language = "" | "pt-BR" | "en";
 
 export interface Domain {
@@ -91,8 +91,8 @@ export interface DomainDetail {
 
 import i18n from "./i18n";
 
-// Traduz o erro pela CHAVE estável do backend (error_code — lei §4.4), com fallback
-// para a mensagem do servidor e depois para um genérico. Nunca mostra HTTP cru ao usuário.
+// Translates the error via the backend's stable KEY (error_code — law §4.4), falling back to the
+// server's message and then to a generic one. Never shows raw HTTP to the user.
 function translateError(code: string | undefined, serverMsg: string | undefined, status: number): string {
   if (code) {
     return i18n.t(`server.${code}`, {
@@ -113,7 +113,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
     headers: { "Content-Type": "application/json", ...authHeaders(), ...(opts.headers || {}) },
   });
   if (!res.ok) {
-    if (res.status === 401) notifyUnauthorized(path); // sessão morta → volta ao login (global)
+    if (res.status === 401) notifyUnauthorized(path); // dead session → back to login (global)
     const body = await res.json().catch(() => ({}));
     // Access withdrawn while signed in: an admin suspended this person, or the organisation's grace
     // period ran out. The server has already destroyed the session; without this the app carries on
@@ -124,7 +124,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// Estado de um registo DNS no mundo real: o que pedimos, o que está publicado e o veredito.
+// A DNS record's state in the real world: what we asked for, what's published, and the verdict.
 export interface EmailAlias {
   id: string; address: string; domain?: string;
   owner_id: string; owner_email?: string; owner_name?: string; created_at?: string;
@@ -147,12 +147,12 @@ export type Mailbox = {
 export const api = {
   me: () => req<Me>("/api/me"),
   edition: () => req<Edition>("/api/edition"),
-  // Aliases de e-mail (endereço extra que entrega noutra caixa). Não são membros: só correio.
+  // Email aliases (an extra address that delivers to another mailbox). Not members: just mail.
   aliases: () => req<{ aliases: EmailAlias[] }>("/api/aliases"),
   createAlias: (local: string, domain_id: string, owner_id: string) =>
     req<EmailAlias>("/api/aliases", { method: "POST", body: JSON.stringify({ local, domain_id, owner_id }) }),
   deleteAlias: (id: string) => req<{ status: string }>(`/api/aliases/${id}`, { method: "DELETE" }),
-  // Verificação do DNS a pedido (informativa: quem promove o domínio é o worker).
+  // On-demand DNS check (informational: it's the worker that promotes the domain).
   dnsCheck: (id: string) => req<DNSCheckResult>(`/api/domains/${id}/dns/check`),
   // Exports the zone: downloads it via fetch (with the session) and saves it as a file -- this
   // way the token never ends up in a URL inside an href.
@@ -171,7 +171,7 @@ export const api = {
     a.remove();
     URL.revokeObjectURL(url);
   },
-  // Apps da organização: lista alternáveis + desligadas; PUT grava as desligadas (só admin/owner).
+  // Organization apps: list of toggleable + disabled ones; PUT saves the disabled ones (admin/owner only).
   appsGet: () => req<{ apps: string[]; disabled: string[] }>("/api/apps"),
   appsSet: (disabled: string[]) => req<{ disabled: string[] }>("/api/apps", { method: "PUT", body: JSON.stringify({ disabled }) }),
   signup: (org_name: string, email: string, password: string) =>
@@ -202,9 +202,9 @@ export const api = {
       body: JSON.stringify({ language }),
     }),
 
-  // Membros / RBAC
+  // Members / RBAC
   members: () => req<Member[]>("/api/members"),
-  // Grupos de utilizadores (criar grupo cria o canal privado no chat).
+  // User groups (creating a group creates the private channel in chat).
   groups: () => req<Group[]>("/api/groups"),
   createGroup: (name: string, members: string[] = []) => req<Group>("/api/groups", { method: "POST", body: JSON.stringify({ name, members }) }),
   renameGroup: (id: string, name: string) => req<Group>(`/api/groups/${id}`, { method: "PATCH", body: JSON.stringify({ name }) }),
@@ -212,15 +212,15 @@ export const api = {
   groupMembers: (id: string) => req<GroupMember[]>(`/api/groups/${id}/members`),
   addGroupMember: (id: string, user_id: string) => req<{ status: string }>(`/api/groups/${id}/members`, { method: "POST", body: JSON.stringify({ user_id }) }),
   removeGroupMember: (id: string, userId: string) => req<{ status: string }>(`/api/groups/${id}/members/${userId}`, { method: "DELETE" }),
-  // Grupos DO usuário — um usuário pode estar em vários.
+  // The user's OWN groups — a user can be in several.
   userGroups: (id: string) => req<{ id: string; name: string }[]>(`/api/members/${id}/groups`),
   setUserGroups: (id: string, group_ids: string[]) => req<{ id: string; name: string }[]>(`/api/members/${id}/groups`, { method: "PUT", body: JSON.stringify({ group_ids }) }),
   invites: () => req<Invite[]>("/api/invites"),
   createInvite: (email: string, role: string) =>
     req<Invite>("/api/invites", { method: "POST", body: JSON.stringify({ email, role }) }),
   revokeInvite: (id: string) => req<unknown>(`/api/invites/${id}`, { method: "DELETE" }),
-  // Permissões efetivas de um membro: o que vem do papel, o que foi ajustado à mão e o que EU
-  // posso mexer (não se concede o que não se tem).
+  // A member's effective permissions: what comes from the role, what was adjusted by hand, and
+  // what I myself am allowed to change (you can't grant what you don't have).
   memberPermissions: (id: string) => req<MemberPermissions>(`/api/members/${id}/permissions`),
   setMemberPermissions: (id: string, allow: string[], deny: string[]) =>
     req<{ effective: string[]; allow: string[]; deny: string[] }>(`/api/members/${id}/permissions`, { method: "PUT", body: JSON.stringify({ allow, deny }) }),
@@ -243,7 +243,7 @@ export const api = {
   mfaVerify: (challenge: string, code: string) =>
     req<{ user_id: string }>("/api/auth/mfa/verify", { method: "POST", body: JSON.stringify({ challenge, code }) }),
 
-  // Caixas de email (gestão pelo painel)
+  // Mailboxes (managed from the panel)
   mailboxes: () => req<Mailbox[]>("/api/mailboxes"),
   resetMailboxPassword: (id: string, password: string) =>
     req<{ status: string }>(`/api/mailboxes/${id}/password`, { method: "POST", body: JSON.stringify({ password }) }),
@@ -296,7 +296,7 @@ export const api = {
       xhr.send(file);
     }),
 
-  // Usuários unificados = caixa + papel. Criar provisiona os dois juntos.
+  // Unified users = mailbox + role. Creating one provisions both together.
   createUser: (domain_id: string, login: string, name: string, password: string, role: string, groups: string[] = []) =>
     req<{ id: string; email: string; role: string }>("/api/users", { method: "POST", body: JSON.stringify({ domain_id, login, name, password, role, quota_gb: 5, groups }) }),
   resetUserPassword: (email: string, password: string) =>
@@ -307,7 +307,7 @@ export const api = {
   usage: () => req<Usage>("/api/usage"),
   checkout: (plan: string, cycle: BillingCycle = "month") =>
     req<{ url?: string; applied: boolean }>("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan, cycle }) }),
-  // Dados de faturação (quem assina, para onde vai a fatura) e simulação com IVA.
+  // Billing data (who's subscribing, where the invoice goes) and a VAT simulation.
   billingProfile: () => req<BillingProfile>("/api/billing/profile"),
   saveBillingProfile: (p: BillingProfile) => req<{ status: string }>("/api/billing/profile", { method: "PUT", body: JSON.stringify(p) }),
   billingQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string }) =>
@@ -331,7 +331,7 @@ export const api = {
 };
 
 
-// --- Faturação: perfil do cliente e simulação com IVA (a regra vive no backend) ---
+// --- Billing: customer profile and VAT simulation (the rule lives in the backend) ---
 export type BillingCycle = "month" | "year";
 export interface BillingProfile {
   kind: "company" | "individual";

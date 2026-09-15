@@ -1,5 +1,5 @@
-/* Design system do painel administrativo — layout estilo Google Workspace Admin.
-   Sidebar + conteúdo, ícones monocromáticos, modais e drawers. Escopo em .pnl. */
+/* Admin panel design system — Google Workspace Admin-style layout.
+   Sidebar + content, monochrome icons, modals and drawers. Scoped under .pnl. */
 .pnl {
   color-scheme: light;
   --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
@@ -104,7 +104,7 @@
 .pnl-card-h h3{margin:0;font-size:15px;font-weight:600;}
 .pnl-card-h .grow{flex:1;}
 .pnl-card-b{padding:8px 20px 16px;}
-/* Linha de app (ligar/desligar): nome à esquerda, interruptor à direita. */
+/* App row (turn on/off): name on the left, switch on the right. */
 .apps-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);font-size:14px;cursor:pointer;}
 .apps-row:last-child{border-bottom:none;}
 .pnl-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:16px;}
@@ -165,7 +165,7 @@
   .pnl-content,.pnl-top{padding-left:20px;padding-right:20px;}
 }
 
-/* Aparência (branding): swatches de cor + preview do logo */
+/* Appearance (branding): color swatches + logo preview */
 .brand-swatches{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 6px;}
 .brand-swatch{width:36px;height:36px;border-radius:9px;border:2px solid transparent;cursor:pointer;display:grid;place-items:center;color:#fff;font-weight:700;box-shadow:0 0 0 1px rgba(0,0,0,.06) inset;}
 .brand-swatch.on{border-color:var(--ink);}
@@ -174,33 +174,33 @@
 .brand-logo-preview{height:56px;min-width:120px;padding:8px 14px;border:1px dashed var(--border-strong);border-radius:10px;display:grid;place-items:center;background:var(--surface-2);}
 .brand-logo-preview img{max-height:40px;max-width:180px;object-fit:contain;}
 
-/* Ferramentas de um agente do assistente: grelha de caixas. Cada uma é uma capacidade real —
-   o que está marcado é o que o agente consegue fazer (§3.2 do desenho do assistente). */
+/* An assistant agent's tools: a grid of boxes. Each one is a real capability —
+   what's checked is what the agent can actually do (§3.2 of the assistant's design). */
 .agent-tools{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px 16px;margin-top:6px;}
-/* Cada ferramenta é um <label> DENTRO de .pnl-field, e `.pnl-field label` (linha 98) impõe
-   display:block/negrito/cinza/margin. Anulamos aqui com especificidade suficiente para o layout
-   voltar a ser uma linha flex: interruptor + rótulo lado a lado, centrados. */
+/* Each tool is a <label> INSIDE .pnl-field, and `.pnl-field label` (line 98) imposes
+   display:block/bold/gray/margin. We override it here with enough specificity for the layout to
+   go back to being a flex row: switch + label side by side, centered. */
 .agent-tools .agent-tool{display:flex;align-items:center;gap:11px;margin:0;font-size:13px;font-weight:400;line-height:1.2;color:var(--ink);cursor:pointer;}
-/* Fixa o interruptor no tamanho pequeno de FORMULÁRIO (34×20), independentemente de qual regra base
-   de .switch vença a cascata, e dá folga entre ele e o rótulo. */
+/* Pins the switch to the small FORM size (34×20), regardless of which base rule for .switch wins
+   the cascade, and gives it breathing room from the label. */
 .wm .agent-tools .agent-tool > .switch{width:34px;height:20px;flex:none;background:transparent;}
 .wm .agent-tools .agent-tool > .switch > .track{border-radius:20px;}
 .wm .agent-tools .agent-tool > .switch > .track::before{width:14px;height:14px;top:3px;left:3px;}
 .wm .agent-tools .agent-tool > .switch > input:checked + .track::before{transform:translateX(14px);}
 .agent-tools .agent-tool > span:last-child{flex:1;min-width:0;}
-/* Aviso ao lado do interruptor-mestre do assistente (agente geral). Curto e à direita, para não
-   empurrar o switch nem competir com o nome do agente. */
+/* Warning next to the assistant's master switch (general agent). Short and on the right, so it
+   doesn't push the switch or compete with the agent's name. */
 .agent-master-hint{max-width:230px;text-align:right;font-size:11.5px;line-height:1.25;}
 
-/* Memória do assistente: acrescentar à mão + lista. */
+/* Assistant memory: add by hand + list. */
 .mem-add{display:flex;gap:8px;}
 .mem-add .pnl-input{flex:1;}
 
-/* Registo de auditoria no ecrã do assistente. */
+/* Audit log on the assistant screen. */
 .mem-audit{display:flex;flex-direction:column;gap:3px;padding:6px 0;}
 .mem-audit .sub{font-size:11px;}
 
-/* Aparência (23/07/2026): preview do logo nos dois temas + barra de ações. */
+/* Appearance: logo preview in both themes + action bar. */
 .brand-logo-duo{display:flex;gap:10px;flex-wrap:wrap;}
 .brand-logo-preview{position:relative;}
 .brand-logo-preview .tag{position:absolute;bottom:4px;right:8px;font-size:10px;color:var(--faint);}
@@ -209,7 +209,7 @@
 .brand-logo-preview.dark .desc{color:#9E9A91;}
 .brand-actions{display:flex;justify-content:flex-end;margin-top:16px;}
 
-/* Tabela comparativa de planos (catálogo do manager) */
+/* Plan comparison table (manager's catalog) */
 .plans-scroll{overflow-x:auto;}
 .plans-table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px;}
 .plans-table th,.plans-table td{padding:10px 14px;text-align:center;border-bottom:1px solid var(--border);}
@@ -224,7 +224,7 @@
 .plans-table .pt-actions td{padding:14px;border-bottom:none;}
 .pnl-note{margin-top:4px;padding:9px 12px;border-radius:10px;font-size:12.5px;line-height:1.5;background:color-mix(in srgb,var(--accent) 8%,transparent);border:1px solid color-mix(in srgb,var(--accent) 25%,transparent);color:var(--ink);}
 
-/* Permissões por membro: lista de capacidades com o estado (do papel / concedida / retirada). */
+/* Per-member permissions: a list of capabilities with their state (from role / granted / revoked). */
 .perm-list{display:flex;flex-direction:column;gap:2px;max-height:52vh;overflow-y:auto;}
 .perm-row{display:flex;align-items:flex-start;gap:10px;padding:8px 6px;border-radius:8px;cursor:pointer;}
 .perm-row:hover{background:var(--surface-2);}
@@ -234,8 +234,8 @@
 .perm-nm{font-size:14px;}
 .perm-sub{font-size:12px;color:var(--muted);}
 
-/* DNS: barra de resumo + estado por registo. O valor publicado que diverge aparece por baixo do
-   esperado, para se ver a diferença sem sair da página. */
+/* DNS: summary bar + per-record status. A published value that diverges appears below the
+   expected one, so the difference is visible without leaving the page. */
 .dns-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 6px;}
 .dns-bar .grow{flex:1;}
 .dns-sum{font-size:12.5px;color:var(--muted);}
@@ -248,50 +248,51 @@
 .dns-val{max-width:420px;overflow-x:auto;}
 .dns-found{margin-top:2px;font-size:11px;color:#b42318;max-width:420px;overflow-x:auto;}
 
-/* Criar alias: uma linha só — nome, @, domínio, caixa que recebe. Os campos têm largura própria
-   porque .pnl-input/.pnl-select são width:100% e, numa linha, esticavam cada um para o ecrã todo. */
+/* Create alias: a single row — name, @, domain, receiving mailbox. The fields have their own
+   width because .pnl-input/.pnl-select are width:100% and, in a row, each one would stretch to
+   fill the whole screen. */
 .alias-new{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 14px;}
 .alias-at{color:var(--muted);}
-/* Cartões seguidos na mesma página respiram entre si (a lista de utilizadores e a de aliases). */
+/* Consecutive cards on the same page breathe apart from each other (the users list and the aliases list). */
 .pnl-content > .pnl-card + .pnl-card{margin-top:16px;}
 
-/* ---- Página do domínio (era um sidecar; a informação não cabia lá) ---- */
-/* A página do domínio usa o ecrã todo: a tabela de DNS tem 6 colunas e valores longos, e o teto de
-   1080px das outras páginas deixava-a apertada com metade do monitor por usar. */
+/* ---- Domain page (used to be a sidecar; the information didn't fit there) ---- */
+/* The domain page uses the whole screen: the DNS table has 6 columns and long values, and the
+   1080px cap on the other pages left it cramped with half the monitor unused. */
 .dom-page{display:flex;flex-direction:column;gap:16px;max-width:none;}
 .dom-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:16px;}
 .dom-summary .grow{flex:1;}
 .dom-danger{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .pnl-card.danger{border-color:color-mix(in srgb,#b42318 35%,var(--border));}
 .pnl-btn.danger{color:#b42318;}
-/* Tabela de registos: numa página há largura para o valor respirar; o que for grande rola dentro
-   da própria célula em vez de empurrar a tabela (era o que partia a coluna "Copiar" em vertical). */
+/* Records table: a page has room for the value to breathe; anything large scrolls inside its own
+   cell instead of pushing the table wider (that was what broke the "Copy" column into vertical letters). */
 .dns-table{width:100%;border-collapse:collapse;font-size:12.5px;}
 .dns-table th{text-align:left;font-weight:600;color:var(--muted);font-size:11.5px;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
 .dns-table td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;}
 .dns-table tr:last-child td{border-bottom:0;}
 .dns-table td:last-child{text-align:right;white-space:nowrap;}
 .dns-table .dns-val{max-width:min(52vw,760px);overflow-x:auto;white-space:nowrap;}
-/* Rola dentro do cartão: numa janela estreita a tabela nunca empurra a página para o lado. */
+/* Scrolls inside the card: in a narrow window the table never pushes the page sideways. */
 .dns-scroll{overflow-x:auto;}
-/* Diferente: as duas linhas etiquetadas — o que deve estar e o que está publicado. */
+/* Diverging: both rows labeled — what should be there and what's actually published. */
 .dns-diff{display:flex;flex-direction:column;gap:4px;}
 .dns-diff-row{display:flex;gap:8px;align-items:baseline;}
 .dns-diff-row.bad .dns-val{color:#b42318;}
 .dns-lbl{flex:none;min-width:96px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
-/* Guia por fornecedor: uma lista fechada; abre o que interessa. */
+/* Per-provider guide: a collapsed list; opens whatever's relevant. */
 .guide-item{border-bottom:1px solid var(--border);}
 .guide-item:last-of-type{border-bottom:0;}
 .guide-head{display:flex;align-items:center;gap:8px;width:100%;padding:11px 2px;background:none;border:0;
   color:var(--ink);font:inherit;cursor:pointer;text-align:left;}
 .guide-head .chev-open{transform:rotate(180deg);}
-/* O guia é texto: numa página larga limita-se a medida de leitura, senão as linhas atravessam o
-   monitor. A tabela é que precisa da largura toda, não a prosa. */
+/* The guide is text: on a wide page it's capped to a readable line length, otherwise the lines
+   would stretch across the monitor. It's the table that needs the full width, not the prose. */
 .guide-body{padding:0 2px 14px 24px;max-width:760px;}
 .guide-body ol{margin:0 0 12px;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;line-height:1.5;}
 
-/* Tabela de DNS em ecrã estreito: cada registo vira um bloco com etiquetas, em vez de seis colunas
-   espremidas (era assim que o "Copiar" saía em letras verticais). */
+/* DNS table on a narrow screen: each record turns into a block with labels, instead of six
+   squeezed columns (that was what made "Copy" come out in vertical letters). */
 @media (max-width:900px){
   .dns-table,.dns-table tbody,.dns-table tr,.dns-table td{display:block;width:100%;}
   .dns-table thead{display:none;}
@@ -307,12 +308,12 @@
   .dns-lbl{min-width:0;}
 }
 
-/* ===== Assistente de subscrição (plano → cliente → morada → financeiro → resumo) ===== */
+/* ===== Subscription wizard (plan → customer → address → financial → summary) ===== */
 .sub-wrap{display:flex;flex-direction:column;gap:18px;padding:22px 26px 32px;max-width:1120px;}
 .sub-head{display:flex;flex-direction:column;gap:12px;align-items:flex-start;}
 .sub-head .sub-title h1{margin:0;font-size:24px;letter-spacing:-.02em;}
 .sub-head .sub-title p{margin:4px 0 0;}
-/* Passos: numerados, o feito com visto, o atual em destaque. A linha liga-os como um percurso. */
+/* Steps: numbered, done ones checked, the current one highlighted. The line connects them like a path. */
 .sub-steps{display:flex;list-style:none;margin:0;padding:0;gap:0;flex-wrap:wrap;}
 .sub-steps li{flex:1;min-width:120px;position:relative;}
 .sub-steps li+li::before{content:"";position:absolute;left:0;top:19px;width:100%;height:2px;background:var(--border);z-index:0;}
@@ -326,7 +327,7 @@
 .sub-body{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start;}
 .sub-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;}
 .sub-card h2{display:flex;align-items:center;gap:9px;margin:0;font-size:16px;}
-/* Mensal/anual: dois botões num só bloco, o escolhido preenchido. */
+/* Monthly/yearly: two buttons in one block, the chosen one filled in. */
 .sub-cycle{display:inline-flex;align-self:flex-start;padding:3px;background:var(--surface-2);border-radius:11px;gap:3px;}
 .sub-cycle button{display:inline-flex;align-items:center;gap:7px;border:none;background:none;color:var(--muted);border-radius:9px;padding:8px 16px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;}
 .sub-cycle button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12);}
@@ -341,7 +342,7 @@
 .sub-plan .pp{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:-.02em;}
 .sub-plan .pu,.sub-plan .pd{font-size:11.5px;color:var(--muted);}
 .sub-plan .pd.err{color:var(--danger);}
-/* Empresa vs particular: dois cartões, um deles marcado. */
+/* Company vs individual: two cards, one of them selected. */
 .sub-kind{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .sub-kind button{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;font:inherit;cursor:pointer;}
 .sub-kind button.on{border-color:var(--accent-solid);box-shadow:0 0 0 3px var(--accent-tint);}
@@ -362,7 +363,7 @@
 .sub-err{margin:0;}
 .sub-nav{display:flex;align-items:center;gap:10px;}
 .sub-nav .grow{flex:1;}
-/* Resumo: fica colado ao topo enquanto se percorre o formulário. */
+/* Summary: stays stuck to the top while scrolling through the form. */
 .sub-sum{position:sticky;top:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:9px;}
 .sub-sum h3{margin:0 0 4px;font-size:14px;}
 .sub-sum .sub-line{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink);}
