@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
 import { toast } from "../webmail/toast";
 
-// Alguns ids de app não batem com a chave i18n do rail (kanban→board, cal→calendar).
+// Some app ids don't match the rail's i18n key (kanban→board, cal→calendar).
 const APP_I18N: Record<string, string> = { kanban: "board", cal: "calendar" };
 
-// AppsSection: o admin liga/desliga apps da organização. Desligar faz a app sumir do menu para
-// todos, cortar a integração entre apps, e o assistente perde as ferramentas e o agente dela.
+// AppsSection: the admin turns organization apps on/off. Turning one off makes the app disappear
+// from the menu for everyone, cuts the integration between apps, and the assistant loses its tools
+// and its agent for that app.
 export function AppsSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -16,7 +17,7 @@ export function AppsSection() {
     mutationFn: (disabled: string[]) => api.appsSet(disabled),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-apps"] });
-      qc.invalidateQueries({ queryKey: ["me"] }); // o rail relê disabled_apps daqui
+      qc.invalidateQueries({ queryKey: ["me"] }); // the rail re-reads disabled_apps from here
       toast(t("panel.appsSaved"));
     },
     onError: (e) => toast((e as Error).message),

@@ -1,4 +1,4 @@
-// Setup do i18n (lei §4). Default pt-BR, en obrigatório. Detecta idioma do navegador.
+// i18n setup (law §4). Default pt-BR, en mandatory. Detects the browser's language.
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
@@ -16,7 +16,7 @@ i18n
     },
     fallbackLng: "pt-BR",
     defaultNS: "common",
-    interpolation: { escapeValue: false }, // React já escapa
+    interpolation: { escapeValue: false }, // React already escapes
   });
 
 export default i18n;

@@ -11,8 +11,8 @@ import { closeSelfWindow } from "../webmail/nativeWindow";
 import { ToastHost } from "../webmail/toast";
 import { backend, type MeetSession } from "../webmail/backend";
 
-// Rota /room/:room — janela dedicada da sala: SÓ a chamada, sem rail de apps nem topbar.
-// É para cá que o webmail e o chat abrem uma nova janela ao entrar numa reunião.
+// Route /room/:room — the room's dedicated window: ONLY the call, no app rail or topbar.
+// This is where the webmail and chat open a new window when joining a meeting.
 export function RoomPage() {
   const { room } = useParams<{ room: string }>();
   const [params] = useSearchParams();
@@ -21,8 +21,8 @@ export function RoomPage() {
   const { t } = useTranslation();
   const [call, setCall] = useState<MeetSession | null>(null);
   const joined = useRef(false);
-  // Janela dedicada da sala: aplica a cor da marca da organização (do cache) — o Meet segue o
-  // branding como o resto da app.
+  // The room's dedicated window: applies the organization's brand color (from cache) — Meet
+  // follows the branding like the rest of the app.
   useEffect(() => { applyBrandColor(cachedBrand()?.color ?? ""); }, []);
 
   const join = useMutation({
@@ -34,8 +34,8 @@ export function RoomPage() {
     if (session && room && !joined.current) { joined.current = true; join.mutate(); }
   }, [session, room, join]);
 
-  // Sala trancada ("organizador entra primeiro") ou cheia (limite do plano): tenta de novo sozinho
-  // até abrir/liberar uma vaga. Sem isto o convidado teria de recarregar para descobrir que já pode.
+  // Room locked ("host joins first") or full (plan limit): keeps retrying on its own until a spot
+  // opens up. Without this the guest would have to reload to find out a spot became available.
   useEffect(() => {
     if (!call?.locked && !call?.full) return;
     const id = setInterval(() => join.mutate(), 5000);

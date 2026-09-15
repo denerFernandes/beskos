@@ -6,15 +6,15 @@ import { toast } from "./ui";
 import { Drawer } from "../webmail/Drawer";
 import { IcPlus } from "./icons";
 
-// Agentes do assistente (RBAC org.settings). Duas listas com regras diferentes, e a diferença é
-// deliberada (§3.2 do desenho do assistente):
+// Assistant agents (RBAC org.settings). Two lists with different rules, and the difference is
+// deliberate (§3.2 of the assistant's design):
 //
-//   - os de ORIGEM são parte do produto: o administrador liga e desliga, não edita. Se pudesse
-//     mudar-lhes as instruções, o produto passaria a parecer mau sem o suporte conseguir distinguir
-//     um defeito nosso de uma edição local — e o conjunto de ferramentas de um agente é a sua
-//     superfície de risco;
-//   - os do CLIENTE são dele: cria, altera e apaga. Nunca com mais ferramentas do que o teto, e
-//     isso é validado no servidor — esconder uma caixa aqui não seria defesa nenhuma.
+//   - BUILT-IN ones are part of the product: the admin turns them on and off, doesn't edit them.
+//     If they could change their instructions, the product would end up looking bad without support
+//     being able to tell a bug of ours from a local edit — and an agent's tool set is its risk
+//     surface;
+//   - CUSTOMER ones are theirs: create, change and delete. Never with more tools than the cap, and
+//     that's validated on the server — hiding a checkbox here would be no defense at all.
 export function AssistantAgentsSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -25,8 +25,8 @@ export function AssistantAgentsSection() {
 
   const toggle = useMutation({
     mutationFn: ({ key, enabled }: { key: string; enabled: boolean }) => assistantApi.agentEnable(key, enabled),
-    // Também invalida ["me"]: desligar o agente geral esconde a bolha do assistente em toda a app, e
-    // isso lê-se do /api/me — sem isto só mudaria depois de recarregar.
+    // Also invalidates ["me"]: turning off the general agent hides the assistant bubble across the
+    // whole app, and that's read from /api/me — without this it would only change after a reload.
     onSuccess: () => { refresh(); qc.invalidateQueries({ queryKey: ["me"] }); },
     onError: (e: Error) => toast(e.message),
   });
@@ -63,8 +63,9 @@ export function AssistantAgentsSection() {
                 </div>
                 <div className="grow" />
                 {a.key === "assistant" && (
-                  // O geral É o assistente: desligá-lo desliga a IA para toda a organização. O aviso
-                  // torna a consequência explícita — o interruptor em si é igual aos outros.
+                  // The general agent IS the assistant: turning it off turns off the AI for the
+                  // whole organization. The warning makes the consequence explicit — the switch
+                  // itself looks the same as the others.
                   <span className="desc agent-master-hint">{t("agents.masterHint")}</span>
                 )}
                 <label className="switch" title={a.enabled ? t("agents.on") : t("agents.off")}>
@@ -110,7 +111,7 @@ export function AssistantAgentsSection() {
   );
 }
 
-// AgentEditor cria ou altera um perfil do cliente.
+// AgentEditor creates or changes a customer profile.
 function AgentEditor({
   agent, builtins, maxTools, onClose, onSaved,
 }: {
@@ -137,8 +138,8 @@ function AgentEditor({
     onError: (e: Error) => toast(e.message),
   });
 
-  // Duplicar traz as ferramentas do agente de origem como PONTO DE PARTIDA. A cópia é independente
-  // a partir daí — não recebe as nossas melhorias — e é isso que o aviso diz.
+  // Duplicating brings the source agent's tools as a STARTING POINT. The copy is independent from
+  // then on — it doesn't receive our improvements — and that's what the warning says.
   const applyDuplicate = (key: string) => {
     setDuplicateOf(key);
     const src = builtins.find((b) => b.key === key);
@@ -209,16 +210,17 @@ function AgentEditor({
   );
 }
 
-// Ferramentas do assistente, uma a uma. É o corte FINO por cima do ligar/desligar um agente inteiro:
-// desligar "enviar e-mail" aqui tira a capacidade a TODOS os agentes, de origem ou do cliente, e
-// vale também para as tarefas em fundo. Só restringe — nunca dá a um agente algo que ele não tinha.
+// Assistant tools, one by one. This is the FINE cut on top of turning a whole agent on/off:
+// turning off "send email" here removes the capability from ALL agents, built-in or customer's,
+// and it also applies to background tasks. It only restricts — never gives an agent something it
+// didn't already have.
 function ToolsCard() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["assistant-tools"], queryFn: () => assistantApi.tools(), retry: false });
   const set = useMutation({
     mutationFn: ({ tool, enabled }: { tool: string; enabled: boolean }) => assistantApi.toolEnable(tool, enabled),
-    // A lista de agentes mostra as ferramentas de cada um: tem de refletir o corte na hora.
+    // The agent list shows each one's tools: it has to reflect the cut immediately.
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["assistant-tools"] }); qc.invalidateQueries({ queryKey: ["assistant-agents"] }); },
     onError: (e: Error) => toast(e.message),
   });

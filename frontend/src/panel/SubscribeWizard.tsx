@@ -6,12 +6,13 @@ import { EU_COUNTRIES, COUNTRIES } from "./countries";
 import { toast } from "./ui";
 import { IcCheck, IcArrowLeft, IcCard, IcUsers, IcGlobe, IcMail } from "./icons";
 
-// Assinatura passo a passo: plano e periodicidade → quem é o cliente → morada e NIF → responsável
-// financeiro → resumo com IVA. Os dados são NOSSOS (a fatura é obrigação nossa) e seguem para a
-// Stripe como cliente, de modo que o checkout só peça o cartão.
+// Step-by-step subscription: plan and billing cycle → who the customer is → address and tax id →
+// financial contact → summary with VAT. The data is OURS (the invoice is our obligation) and goes
+// to Stripe as the customer, so checkout only has to ask for the card.
 //
-// O IVA mostrado no resumo vem do backend (mesma conta que vai para a fatura). Repetir a regra em
-// JavaScript era garantir que um dia o total mostrado e o cobrado deixavam de bater certo.
+// The VAT shown in the summary comes from the backend (the same computation that goes on the
+// invoice). Repeating the rule in JavaScript would just guarantee that one day the total shown and
+// the total charged stop matching.
 
 type Step = 0 | 1 | 2 | 3 | 4;
 const STEPS: Step[] = [0, 1, 2, 3, 4];
@@ -32,9 +33,9 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
   const [form, setForm] = useState<BillingProfile>({ kind: "company" });
   const [err, setErr] = useState("");
 
-  // Perfil já guardado (no registo ou numa subscrição anterior): entra preenchido e, se estiver
-  // COMPLETO, salta direto para o resumo — quem já deu a morada e o NIF não os escreve outra vez.
-  // Os passos ficam clicáveis, por isso corrigir um dado continua a ser um clique.
+  // Profile already saved (at signup or in a previous subscription): comes in pre-filled and, if
+  // COMPLETE, jumps straight to the summary — whoever already gave the address and tax id doesn't
+  // type them again. The steps stay clickable, so fixing a field is still just one click.
   const saved = useQuery({ queryKey: ["billing-profile"], queryFn: api.billingProfile, retry: false });
   const jumped = useRef(false);
   useEffect(() => {
@@ -43,18 +44,18 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
     if (saved.data.filled && !jumped.current) {
       jumped.current = true;
       setSkipped(true);
-      // Sem plano escolhido ainda (entrou pelo menu, não pela tabela) fica no passo do plano.
+      // With no plan chosen yet (entered from the menu, not the table), stays on the plan step.
       setStep((s) => (planId ? 4 : s));
     }
   }, [saved.data, planId]);
-  // `skipped`: mostra no resumo que os dados vieram do registo, com atalho para os rever.
+  // `skipped`: shows in the summary that the data came from signup, with a shortcut to review it.
   const [skipped, setSkipped] = useState(false);
 
   const plan = useMemo(() => plans.find((p) => p.id === planId), [plans, planId]);
   const money = (cents: number, cur?: string) =>
     new Intl.NumberFormat(i18n.language, { style: "currency", currency: cur || plan?.currency || "EUR" }).format(cents / 100);
 
-  // Simulação (preço × utilizadores + IVA): recalcula ao mudar plano, ciclo, país ou NIF.
+  // Simulation (price × users + VAT): recalculates when the plan, cycle, country, or tax id changes.
   const quote = useQuery({
     queryKey: ["billing-quote", planId, cycle, form.kind, form.country, form.tax_id],
     queryFn: () => api.billingQuote({ plan: planId, cycle, kind: form.kind, country: form.country ?? "", tax_id: form.tax_id ?? "" }),
@@ -73,7 +74,7 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
   const isCompany = form.kind === "company";
   const set = (patch: Partial<BillingProfile>) => { setErr(""); setForm((f) => ({ ...f, ...patch })); };
 
-  // Cada passo diz o que lhe falta; sem isto o "Continuar" avança e o erro só aparece no fim.
+  // Each step says what it's missing; without this, "Continue" would advance and the error would only show up at the end.
   const stepError = (s: Step): string => {
     if (s === 0) return planId ? "" : t("subscribe.errPlan");
     if (s === 1) return (form.country ?? "").length === 2 ? "" : t("subscribe.errCountry");
@@ -91,7 +92,7 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
     const e = stepError(step);
     if (e) { setErr(e); return; }
     setErr("");
-    // Antes do resumo, grava o perfil: é o backend que valida o NIF a sério (e o resumo já lê daqui).
+    // Before the summary, saves the profile: it's the backend that really validates the tax id (and the summary already reads from here).
     if (step === 3) {
       try { await save.mutateAsync(); }
       catch (ex) { setErr((ex as Error).message); return; }
@@ -112,7 +113,7 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
         </div>
       </div>
 
-      {/* Passos: o percorrido fica marcado e é clicável para trás (rever sem perder o preenchido). */}
+      {/* Steps: the path covered stays marked and is clickable going back (review without losing what's filled in). */}
       <ol className="sub-steps">
         {STEPS.map((s) => (
           <li key={s} className={s === step ? "on" : s < step ? "done" : ""}>
@@ -257,8 +258,8 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
           </div>
         </div>
 
-        {/* Resumo sempre à vista: o valor muda com o plano, o ciclo e o país — esconder isso num
-            passo final é como pedir para assinar sem ver o preço. */}
+        {/* Summary always in view: the amount changes with the plan, the cycle and the country —
+            hiding that in a final step is like asking someone to subscribe without seeing the price. */}
         <aside className="sub-sum">
           <h3>{t("subscribe.summary")}</h3>
           {!plan ? <p className="desc">{t("subscribe.pickPlanFirst")}</p> : (
@@ -285,7 +286,7 @@ export function SubscribeWizard({ plans, currentPlanId, initialPlan, seats, minP
   );
 }
 
-// Nome do país no idioma do utilizador (Intl faz o trabalho; sem tabela de traduções à mão).
+// Country name in the user's language (Intl does the work; no hand-rolled translation table).
 function countryName(code: string, lang: string): string {
   if (!code) return "";
   try { return new Intl.DisplayNames([lang], { type: "region" }).of(code.toUpperCase()) ?? code; }

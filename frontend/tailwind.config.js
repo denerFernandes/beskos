@@ -3,8 +3,8 @@ export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {},
-    // Breakpoints do projeto. `md` = 721px para que `max-md:` case EXATAMENTE o breakpoint móvel
-    // que o webmail.css já usa (max-width:720px) — sem zona morta entre os dois sistemas.
+    // The project's breakpoints. `md` = 721px so that `max-md:` matches EXACTLY the mobile
+    // breakpoint webmail.css already uses (max-width:720px) — no dead zone between the two systems.
     screens: {
       sm: "640px",
       md: "721px",
@@ -12,9 +12,9 @@ export default {
       xl: "1280px",
     },
   },
-  // A app inteira vive sob `.wm` (CSS de alta especificidade). `important: true` faz os utilitários
-  // Tailwind ganharem essa disputa. É seguro porque a app quase não usava utilitários — logo não
-  // altera o layout existente; só habilita os utilitários responsivos (max-md:*) que adicionamos.
+  // The whole app lives under `.wm` (high-specificity CSS). `important: true` makes Tailwind's
+  // utilities win that fight. It's safe because the app barely used utility classes before — so it
+  // doesn't change the existing layout; it only enables the responsive utilities (max-md:*) we added.
   important: true,
   plugins: [],
 };

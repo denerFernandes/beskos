@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
 
-// Seletor de grupos por checkbox — um utilizador pode estar em VÁRIOS grupos.
-// Usado ao criar o usuário e ao editar os grupos dele depois.
+// Checkbox group picker — a user can be in SEVERAL groups.
+// Used when creating the user and when editing their groups afterward.
 export function GroupPicker({ value, onChange }: { value: string[]; onChange: (ids: string[]) => void }) {
   const { t } = useTranslation();
   const groups = useQuery({ queryKey: ["groups"], queryFn: api.groups, retry: false });

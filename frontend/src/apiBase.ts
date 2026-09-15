@@ -1,12 +1,12 @@
 import i18n from "./i18n";
 
-// Base absoluta da API/JMAP. Vazia na web (mesma origem: o proxy do Vite/Caddy trata /api e /jmap).
-// No app empacotado (Tauri desktop/mobile) NÃO há proxy — define-se VITE_API_BASE com a URL do
-// servidor (ex.: https://app.mailin.com) no build, e todas as chamadas passam a ser absolutas.
-// (import.meta as any) evita depender dos tipos vite/client no tsc; em runtime o Vite injeta env.
+// Absolute base for the API/JMAP. Empty on the web (same origin: the Vite/Caddy proxy handles
+// /api and /jmap). In the packaged app (Tauri desktop/mobile) there is NO proxy — VITE_API_BASE is
+// set with the server's URL (e.g. https://app.mailin.com) at build time, and all calls become absolute.
+// (import.meta as any) avoids depending on the vite/client types in tsc; at runtime Vite injects the env.
 export const API_BASE = String((import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? "").replace(/\/$/, "");
 
-// Prefixa um caminho da nossa API/JMAP com a base (no-op na web).
+// Prefixes a path in our API/JMAP with the base (no-op on the web).
 export function apiUrl(path: string): string {
   return API_BASE + path;
 }
@@ -32,7 +32,7 @@ const TOKEN_KEY = "mailin.session";
 // token stays in memory only; only the native app (cross-site, no cookie) persists it, to resend
 // it via Authorization.
 let memToken = "";
-const nativeApp = API_BASE !== ""; // build empacotado (Tauri) define VITE_API_BASE
+const nativeApp = API_BASE !== ""; // the packaged build (Tauri) sets VITE_API_BASE
 export function getSessionToken(): string {
   if (memToken) return memToken;
   if (!nativeApp) return "";
@@ -40,20 +40,21 @@ export function getSessionToken(): string {
 }
 export function setSessionToken(token: string): void {
   memToken = token;
-  if (!nativeApp) { try { localStorage.removeItem(TOKEN_KEY); } catch { /* modo privado */ } return; }
-  try { if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY); } catch { /* modo privado */ }
+  if (!nativeApp) { try { localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ } return; }
+  try { if (token) localStorage.setItem(TOKEN_KEY, token); else localStorage.removeItem(TOKEN_KEY); } catch { /* private mode */ }
 }
 export function authHeaders(): Record<string, string> {
   const t = getSessionToken();
   const h: Record<string, string> = {};
-  // Web (mesma origem, cookie): o X-Mailin-Client é o token anti-CSRF que o backend exige em
-  // mutações (um site terceiro não consegue setar este header sem cair no CORS). No app nativo
-  // (cross-site) autenticamos por Authorization Bearer — que já satisfaz o csrfGuard — e enviar um
-  // header custom só faria o preflight CORS falhar; por isso NÃO o enviamos no nativo.
+  // Web (same origin, cookie): X-Mailin-Client is the anti-CSRF token the backend requires on
+  // mutations (a third-party site can't set this header without hitting CORS). In the native app
+  // (cross-site) we authenticate via Authorization Bearer — which already satisfies csrfGuard —
+  // and sending a custom header would only make the CORS preflight fail; so we do NOT send it natively.
   if (!nativeApp) h["X-Mailin-Client"] = "1";
   if (t) h.Authorization = `Bearer ${t}`;
-  // Idioma da PÁGINA: a IA gera conteúdo (briefing, resumos…) neste idioma, não num fixo. Lê-se do
-  // i18next; permitido no CORS (X-Locale). O chat é à parte (espelha o idioma que a pessoa escreve).
+  // The PAGE's language: the AI generates content (briefing, summaries…) in this language, not a
+  // fixed one. Read from i18next; allowed in CORS (X-Locale). Chat is separate (it mirrors the
+  // language the person types in).
   const lang = i18n.language;
   if (lang) h["X-Locale"] = lang;
   return h;
@@ -71,9 +72,10 @@ export function mediaUrl(path: string): string {
   return url + (url.includes("?") ? "&" : "?") + "access_token=" + encodeURIComponent(t);
 }
 
-// triggerDownload baixa uma URL (já com token, via mediaUrl) sem navegar a janela para fora do app —
-// no webview do Tauri um location.assign quebraria a SPA. Usa um <a download> temporário; o backend
-// envia Content-Disposition: attachment, então o webview trata como transferência.
+// triggerDownload downloads a URL (already carrying the token, via mediaUrl) without navigating
+// the window out of the app -- in Tauri's webview a location.assign would break the SPA. Uses a
+// temporary <a download>; the backend sends Content-Disposition: attachment, so the webview
+// treats it as a download.
 export function triggerDownload(url: string, filename?: string): void {
   const a = document.createElement("a");
   a.href = url;

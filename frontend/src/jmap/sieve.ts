@@ -16,21 +16,21 @@ export interface SieveScript { id: string; name: string; isActive: boolean; blob
 export class SieveApi {
   constructor(private c: JmapClient, private accountId: string) {}
 
-  // list devolve os scripts da conta. Só mexemos no nosso (SCRIPT_NAME): se alguém tiver criado
-  // outro por fora, não é da nossa conta mexer.
+  // list returns the account's scripts. We only touch our own (SCRIPT_NAME): if someone created
+  // another one outside of us, it's not ours to touch.
   async list(): Promise<SieveScript[]> {
     const r = await this.c.request([SIEVE_CAP], [["SieveScript/get", { accountId: this.accountId }, "g"]]);
     return ((r[0] as { list?: SieveScript[] }).list ?? []);
   }
 
-  // download traz o conteúdo do script pelo blobId (é onde vive o JSON das regras, no comentário).
+  // download fetches the script's content by blobId (that's where the rules JSON lives, in the comment).
   async download(blobId: string): Promise<string> {
-    const blob = await this.c.downloadBlob(this.accountId, blobId, "regras.sieve", "application/sieve");
+    const blob = await this.c.downloadBlob(this.accountId, blobId, "rules.sieve", "application/sieve");
     return blob.text();
   }
 
-  // save sobe o script e ativa-o numa só request: se a ativação falhasse depois de um upload
-  // separado, ficaria um script guardado e inerte — pior que falhar.
+  // save uploads the script and activates it in a single request: if activation failed after a
+  // separate upload, a script would be left saved but inert -- worse than failing outright.
   async save(content: string): Promise<void> {
     const existing = (await this.list()).find((s) => s.name === SCRIPT_NAME);
     const b64 = b64encode(content);
@@ -56,7 +56,7 @@ export class SieveApi {
     if (err) throw new Error(err.description ?? "sieve");
   }
 
-  // deactivate desliga sem apagar: quem desliga as regras costuma querer voltar a ligá-las.
+  // deactivate turns it off without deleting it: whoever turns off the rules usually wants to turn them back on.
   async deactivate(): Promise<void> {
     await this.c.request([SIEVE_CAP],
       [["SieveScript/set", { accountId: this.accountId, onSuccessActivateScript: null }, "s"]]);
@@ -64,7 +64,7 @@ export class SieveApi {
 }
 
 function b64encode(s: string): string {
-  // btoa não aceita acentos; TextEncoder resolve ("férias" ia rebentar aqui).
+  // btoa doesn't accept non-ASCII characters; TextEncoder handles it (accented text would break here).
   const bytes = new TextEncoder().encode(s);
   let bin = "";
   bytes.forEach((b) => { bin += String.fromCharCode(b); });
