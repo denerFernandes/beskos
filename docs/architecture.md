@@ -80,8 +80,7 @@ Enterprise-only features live in `backend/ee` (Go, gated by the `pro` build tag)
 
 ## Further reading
 
-- [deploy/DIVERGENCES.md](../deploy/DIVERGENCES.md) -- every point where the running Stalwart
-  version disagrees with an assumption, verified empirically, kept as the integration's source
-  of truth.
+- [docs/adr/0001-jmap-not-rest.md](adr/0001-jmap-not-rest.md) -- why this project talks to
+  Stalwart over JMAP instead of the REST API a brief might assume.
 - [docs/configuration.md](configuration.md) -- every environment variable.
 - [CONTRIBUTING.md](../CONTRIBUTING.md) -- the coding rules referenced above, in full.
