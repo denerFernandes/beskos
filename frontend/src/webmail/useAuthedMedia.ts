@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { API_BASE, apiUrl, authHeaders } from "../apiBase";
 
-// useAuthedMedia devolve um src utilizável para <img>/<iframe>/<video>/<audio> a partir de um caminho
-// da nossa API que exige sessão.
+// useAuthedMedia returns a src usable by <img>/<iframe>/<video>/<audio> from a path on our API
+// that requires an authenticated session.
 //
 // - Na web (same-origin): usa a URL direta — o cookie autentica e o vídeo/áudio mantém streaming.
 // - No app nativo (cross-origin, API_BASE definido): <img>/<iframe> não enviam header nem cookie, e a

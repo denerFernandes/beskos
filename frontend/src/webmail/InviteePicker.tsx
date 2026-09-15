@@ -17,9 +17,9 @@ export interface Invitee {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-// InviteePicker (23/07/2026): UM padrão para escolher convidados em toda a app (evento, Meet):
-// busca por COLABORADORES + CONTACTOS enquanto escreve, e aceita E-MAIL EXTERNO digitado.
-// Chips com o avatar/inicial na cor da pessoa (hueFor) + ✕ — o mesmo visual dos convites.
+// InviteePicker: ONE pattern for picking invitees across the app (events, Meet): searches
+// COLLEAGUES + CONTACTS as you type, and accepts a typed EXTERNAL EMAIL. Chips show the
+// avatar/initial in the person's color (hueFor) + ✕ — the same look used for invites.
 export function InviteePicker({ value, onChange, autoFocus }: {
   value: Invitee[];
   onChange: (v: Invitee[]) => void;

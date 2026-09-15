@@ -91,9 +91,9 @@ function HtmlBody({ html, m, service, t, spam }: {
       ? `html{color-scheme:dark}html,body{background:transparent}` +
         `#mroot{background:#fff;filter:invert(0.93) hue-rotate(180deg)}` +
         `#mroot img,#mroot picture,#mroot video,#mroot svg,#mroot [style*="background-image"]{filter:invert(1) hue-rotate(180deg)}`
-      : // Claro: fundo TRANSPARENTE também — o e-mail funde-se com o --paper da página em vez
-        // de aparecer como um cartão branco destacado (feedback 23/07/2026). E-mails ricos que
-        // definem o próprio fundo continuam a mostrá-lo (só o exterior é transparente).
+      : // Light theme: background is TRANSPARENT too, so the email blends with the page's --paper
+        // instead of standing out as a white card. Rich emails that set their own background
+        // still show it (only the outer background is transparent).
         `html{color-scheme:light}html,body{background:transparent}`;
     // #mroot em flow-root: cria um contexto de formatação que INCLUI as margens dos filhos na sua
     // altura (senão a margem do último elemento "atravessa" e a medição fica curta → scroll).

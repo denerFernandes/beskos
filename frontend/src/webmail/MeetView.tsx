@@ -27,8 +27,8 @@ export function MeetView({ roomParam, meetingParam }: {
   const ag = useAgendaNav();
 
   const [playing, setPlaying] = useState<Recording | null>(null);
-  // Paginação SERVER-SIDE (24/07/2026): cada secção pede só a sua página; a lista completa
-  // (meetList) é usada apenas pela agenda dia/semana/mês.
+  // SERVER-SIDE pagination: each section requests only its own page; the full list (meetList)
+  // is used only by the day/week/month agenda.
   const PER = 6;
   const [upPage, setUpPage] = useState(1);
   const [pastPage, setPastPage] = useState(1);
@@ -292,7 +292,7 @@ function ScheduleModal({ onClose, onDone, edit }: { onClose: () => void; onDone:
   const [date, setDate] = useState(initD ? `${initD.getFullYear()}-${pad(initD.getMonth() + 1)}-${pad(initD.getDate())}` : "");
   const [start, setStart] = useState(initD ? `${pad(initD.getHours())}:${pad(initD.getMinutes())}` : "09:00");
   const [end, setEnd] = useState(initE ? `${pad(initE.getHours())}:${pad(initE.getMinutes())}` : "10:00");
-  // Convidados no padrão partilhado (colaboradores + contactos + e-mail externo — 23/07/2026).
+  // Guests use the shared pattern (colleagues + contacts + external email).
   const [guests, setGuests] = useState<Invitee[]>([]);
   const invitees = guests.map((g) => g.email);
   const [access, setAccess] = useState<"public" | "approval">("approval");

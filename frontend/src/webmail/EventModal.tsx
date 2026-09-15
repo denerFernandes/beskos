@@ -72,8 +72,8 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
   const [myRsvp, setMyRsvp] = useState(initial?.my_rsvp ?? "");
   const rsvp = useMutation({
     mutationFn: (status: string) => backend.rsvpEvent(initial!.id, status),
-    // Reflete a escolha NA HORA (botão fica marcado) e atualiza a agenda em segundo plano, sem
-    // fechar o sidecar — antes fechava tudo e parecia que "não funcionava" (24/07/2026).
+    // Reflects the choice IMMEDIATELY (button shows as selected) and updates the calendar in the
+    // background, without closing the sidecar — closing it made the action look like it had failed.
     onSuccess: (_r, status) => { setMyRsvp(status); toast(t("cal.rsvpSaved")); qc.invalidateQueries({ queryKey: ["events"] }); },
     onError: (e) => toast((e as Error).message),
   });

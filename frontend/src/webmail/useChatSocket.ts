@@ -3,10 +3,11 @@ import { API_BASE, getSessionToken } from "../apiBase";
 
 export interface ChatSocketEvent { type: string; channel_id: string; payload: Record<string, unknown> }
 
-// URL do WebSocket do chat. Na web usa a mesma origem (proxy same-origin). No app nativo (Tauri) a
-// origem é tauri://localhost — sem backend ali — por isso deriva o host/proto de API_BASE. O WS não
-// pode mandar Authorization, então o token da sessão vai na query (?access_token=); o backend
-// aceita-o só nesta rota (ver requireWebmailSession).
+// Chat WebSocket URL. On the web it uses the same origin (same-origin proxy). In the native app
+// (Tauri) the origin is tauri://localhost — no backend there — so it derives the host/protocol
+// from API_BASE instead. A WebSocket cannot send an Authorization header, so the session token
+// travels in the query string (?access_token=); the backend only accepts it on this route (see
+// requireWebmailSession).
 function chatWsUrl(): string {
   const base = API_BASE || location.origin; // API_BASE vazio na web
   const u = new URL(base);

@@ -32,10 +32,10 @@ export class MailService {
     return (r.list as Mailbox[]) ?? [];
   }
 
-  // Contagem REAL de não lidas por pasta. O `unreadEmails` do Mailbox/get é mantido pelo servidor
-  // à parte das mensagens e pode ficar preso num valor antigo — apanhámos uma caixa a dizer "1 por
-  // ler" com tudo lido (28/07/2026). Aqui conta-se o que existe mesmo, num só pedido com um
-  // Email/query por pasta (o JMAP aceita vários métodos por chamada).
+  // REAL per-folder unread count. Mailbox/get's `unreadEmails` is maintained by the server
+  // separately from the messages and can get stuck on a stale value -- we found a mailbox saying
+  // "1 unread" with everything actually read. This counts what really exists, in a single request
+  // with one Email/query per folder (JMAP allows several methods per call).
   async unreadCounts(mailboxIds: string[]): Promise<Record<string, number>> {
     if (mailboxIds.length === 0) return {};
     const calls = mailboxIds.map((id, i) => [
@@ -157,9 +157,9 @@ export class MailService {
     const sizeByThread = new Map(threadList.map((th) => [th.id, th.emailIds.length]));
     const byId = new Map((get.list as EmailSummary[] ?? []).map((e) => [e.id, e]));
     const ids = (query.ids as string[]) ?? [];
-    // Por ler ao nível da CONVERSA: colapsada, a linha mostrava o estado da mensagem mais recente,
-    // por isso uma resposta antiga por ler ficava invisível — a caixa dizia "1 por ler" com tudo a
-    // parecer lido (28/07/2026). Aqui vemos os irmãos de cada conversa e marcamos a linha.
+    // Unread at the THREAD level: collapsed, the row showed only the most recent message's state,
+    // so an older unread reply stayed invisible -- the mailbox said "1 unread" while everything
+    // looked read. Here we look at every message in the thread and flag the row accordingly.
     const unreadThreads = collapse ? await this.unreadThreads(threadList, ids) : new Set<string>();
     const items = ids.map((id) => byId.get(id)).filter(Boolean).map((e) => {
       const n = collapse ? sizeByThread.get(e!.threadId ?? "") ?? 1 : 1;

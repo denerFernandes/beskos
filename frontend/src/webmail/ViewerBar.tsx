@@ -2,9 +2,9 @@ import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { IcX } from "../panel/icons";
 
-// Barra PARTILHADA do visualizador em tela cheia (ficheiro do Drive, anexo de e-mail, anexo de
-// chat…): "Fechar" + as ações (ex.: Baixar) à ESQUERDA, título sempre ao CENTRO. Um só sítio para
-// o layout — as várias telas de pré-visualização passam a ter a mesma barra (24/07/2026).
+// Shared full-screen viewer bar (Drive file, email attachment, chat attachment…): "Close" +
+// actions (e.g. Download) on the LEFT, title always CENTERED. One place for the layout, so every
+// preview screen ends up with the same bar.
 export function ViewerBar({ title, onClose, children }: {
   title: string; onClose: () => void; children?: ReactNode; // children = ações extra (ex.: Baixar)
 }) {

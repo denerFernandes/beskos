@@ -44,11 +44,10 @@ export function NewConvoModal({ mode, me, onClose, onCreated }: { mode: "channel
   const [picked, setPicked] = useState<{ email: string; name: string }[]>([]); // DM: 1 pessoa = DM, 2+ = grupo
   const orgMembers = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false, enabled: mode === "dm" });
   const q = name.trim().toLowerCase();
-  // Conversa é com MEMBROS DA ORGANIZAÇÃO (colegas) — não contactos externos (não dá para lhes
-  // enviar mensagens internas). Exclui a própria pessoa (24/07/2026).
-  // Conversa é com MEMBROS DA ORGANIZAÇÃO (colegas) — não contactos externos. Mostra a lista LOGO
-  // (sem adivinhar nomes) e filtra ao escrever. INCLUI a própria pessoa: mandar mensagem a si mesmo
-  // é um espaço de notas pessoais (como no Slack/WhatsApp) — pedido 24/07/2026.
+  // Conversations are with ORGANIZATION MEMBERS (colleagues) — not external contacts, since they
+  // cannot receive internal messages. Shows the list RIGHT AWAY (no name guessing needed) and
+  // filters as you type. INCLUDES the person themself: messaging yourself is a personal notes
+  // space, the same pattern Slack/WhatsApp use.
   const people = mode === "dm"
     ? (orgMembers.data ?? []).filter((c) => c.email && !picked.some((p) => p.email === c.email) && (!q || (c.name ?? "").toLowerCase().includes(q) || c.email.toLowerCase().includes(q))).slice(0, 8)
     : [];

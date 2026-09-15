@@ -18,9 +18,9 @@ import { IcSparkle, IcPlus, IcUpload, IcDownload, IcSearch, IcVideo } from "../p
 import { useUserSettings } from "./useSettings";
 import "./calendar.css";
 
-// Página do calendário (24/07/2026): layout da referência SyncWise com o chrome no padrão da
-// casa (sidebar como a de Contactos; CATEGORIAS = tags do tenant com paleta pastel). Vista
-// padrão: SEMANA. Cartões com fundo suave da categoria em todas as vistas.
+// Calendar page: SyncWise-reference layout with the house chrome (sidebar like Contacts;
+// CATEGORIES = tenant tags with a pastel palette). Default view: WEEK. Cards use a soft
+// category-colored background in every view.
 type View = "month" | "week" | "day" | "list";
 // Cores para a agenda de COLEGAS (free-busy) — distintas das dos meus calendários.
 const COLLEAGUE_COLORS = ["#8257C7", "#3B6FB0", "#C0692F", "#0F766E", "#BE185D"];

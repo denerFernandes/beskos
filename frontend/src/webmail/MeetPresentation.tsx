@@ -252,10 +252,10 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   // Ao montar/reconectar, pergunta o estado (para entrar a meio da apresentação).
   useEffect(() => { post({ t: "hello" }); }, [post]);
 
-  // HEARTBEAT do apresentador: reemite "start" a TODOS a cada 4s. Sem isto, um participante que
-  // perca o único broadcast inicial de "start" fica em branco — em especial um CONVIDADO, que NÃO
-  // tem fallback REST (handleGetPresentation exige sessão → 401). Como o handler de "start" é
-  // idempotente (mesmo id não rebusca o PDF), reemitir é barato e auto-recupera quem entrou/perdeu.
+  // Presenter HEARTBEAT: re-broadcasts "start" to EVERYONE every 4s. Without this, a participant
+  // who misses the single initial "start" broadcast is left blank — especially a GUEST, who has
+  // no REST fallback (handleGetPresentation requires a session → 401). The "start" handler is
+  // idempotent (same id does not re-fetch the PDF), so re-broadcasting is cheap and self-heals.
   useEffect(() => {
     if (!pres || pres.by !== myId) return;
     const iv = setInterval(() => {
@@ -425,9 +425,9 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     setBusy(false);
   };
 
-  // Conceder/retirar a caneta. O envio pela rede fica FORA do updater do setState — pô-lo dentro
-  // fazia o React re-executar o updater (StrictMode/dev) e enviar grant+revoke, anulando a concessão
-  // (bug 24/07/2026). Calcula-se o próximo estado à parte e envia-se uma só mensagem.
+  // Grant/revoke the pen. The network send stays OUTSIDE the setState updater — putting it inside
+  // made React re-run the updater (StrictMode/dev) and send both grant+revoke, canceling the
+  // grant out. The next state is computed separately and sent as a single message.
   const toggleGrant = (id: string) => {
     const has = granted.has(id);
     const next = new Set(granted);
@@ -573,9 +573,9 @@ function GrantMenu({ peers, granted, onToggle, label }: {
   );
 }
 
-// Seletor: enviar ficheiro ou escolher do Drive. O separador "Do Drive" é um mini gestor de
-// ficheiros — pastas, busca e a secção "Partilhado comigo" — para não ficar inviável com muitos
-// ficheiros (24/07/2026). Só apresenta PDF/PPTX/PPT/ODP.
+// Picker: upload a file or choose one from the Drive. The "From Drive" tab is a mini file
+// manager — folders, search, and the "Shared with me" section — so it stays usable with many
+// files. Only shows PDF/PPTX/PPT/ODP.
 const okPresExt = (n: string) => /\.(pdf|pptx|ppt|odp)$/i.test(n);
 const fmtSz = (n: number) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 

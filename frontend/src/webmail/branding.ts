@@ -37,8 +37,8 @@ export const BRAND_COLORS: { id: string; name: string; hex: string }[] = [
 const STYLE_ID = "mailin-brand";
 
 // applyBrandColor overrides the accent colour across the whole app. An empty colour removes the
-// override and returns to the theme's own accent. THEME AWARE (23/07/2026): on the dark ground the
-// colour is LIGHTENED (mixed with white), the same thing the theme does to the default accent
+// override and returns to the theme's own accent. THEME AWARE: on the dark ground the colour is
+// LIGHTENED (mixed with white), the same thing the theme does to the default accent
 // (#B4785F -> #D2A28C). Without it, a dark brand (Black #111, say) went invisible against the dark
 // background and selections lost their contrast.
 export function applyBrandColor(color: string): void {
@@ -50,10 +50,11 @@ export function applyBrandColor(color: string): void {
     `--accent-solid:${color}!important;` +
     `--accent-ink:color-mix(in srgb, ${color} 82%, #000)!important;` +
     `--accent-tint:color-mix(in srgb, ${color} 16%, transparent)!important;`;
-  // Escuro: seleção/ativo em BRANCO (pedido 23/07/2026) — pill de seleção é um véu branco
-  // subtil e o texto/ícone ativo fica quase-branco; o accent "funcional" (botões/knobs) é a
-  // marca clareada para não desaparecer no fundo escuro. --accent-solid é o FILL dos botões:
-  // segue a cor da marca, mas pouco clareado (fica vivo, não pastel) e legível com texto branco.
+  // Dark theme: selection/active state uses WHITE — the selection pill is a subtle white veil
+  // and the active text/icon turns near-white; the "functional" accent (buttons/knobs) is the
+  // brand colour lightened so it does not disappear into the dark background. --accent-solid is
+  // the button FILL: follows the brand colour, lightened just a little (stays vivid, not pastel)
+  // and legible against white text.
   const dark =
     `--accent:color-mix(in srgb, ${color} 45%, #fff)!important;` +
     `--accent-solid:color-mix(in srgb, ${color} 85%, #fff)!important;` +

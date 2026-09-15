@@ -1,10 +1,10 @@
 // Client JMAP de baixo nível. Agnóstico de ambiente: no browser usa baseUrl "" (mesma origem
 // via reverse proxy — DIVERGENCES §D7); nos testes aponta direto para o Stalwart.
 //
-// Auth (H11 / brokering): em produção o browser NÃO manda a credencial da caixa. Fala com o NOSSO
-// proxy autenticado pela sessão — cookie same-origin (web) ou Bearer do token de sessão (app nativo)
-// — e o proxy injeta a Basic da caixa server-to-server. Os testes de integração ainda usam Basic
-// direto contra o Stalwart (opção `basic`).
+// Auth (brokering): in production the browser never sends the mailbox credential. It talks to
+// OUR proxy, authenticated via the session -- a same-origin cookie (web) or a session-token
+// Bearer (native app) -- and the proxy injects the mailbox's Basic auth server-to-server.
+// Integration tests still use Basic directly against Stalwart (the `basic` option).
 
 import { notifyUnauthorized } from "../apiBase";
 import type { JmapSession } from "./types";
@@ -29,9 +29,9 @@ export class JmapClient {
     this.sessionAuth = !opts.basic; // Basic = testes de integração; não mexe no ecrã de login
   }
 
-  // guard401: quando o proxy devolve 401 a sessão morreu (expirou, MFA forçado, senha trocada) — o
-  // JMAP é o caminho principal do e-mail, por isso PRECISA de acionar o logout global igual às
-  // chamadas /api/* (senão o app nativo abre numa app vazia sem voltar ao login). 24/07/2026.
+  // guard401: when the proxy returns 401 the session has died (expired, MFA forced, password
+  // changed) -- JMAP is the main path for email, so it MUST trigger the same global logout as
+  // /api/* calls (otherwise the native app would open into an empty app with no way back to login).
   private guard401(status: number): void {
     if (status === 401 && this.sessionAuth) notifyUnauthorized("/jmap");
   }
@@ -40,8 +40,9 @@ export class JmapClient {
     return btoa(`${email}:${password}`);
   }
 
-  // h monta os headers: Authorization só quando há credencial explícita (Basic teste / Bearer nativo);
-  // na web fica vazio e o cookie de sessão (same-origin) autentica no proxy.
+  // h builds the headers: Authorization only when there is an explicit credential (test Basic /
+  // native Bearer); on the web it stays empty and the same-origin session cookie authenticates
+  // against the proxy.
   private h(extra: Record<string, string> = {}): Record<string, string> {
     return this.authHeader ? { Authorization: this.authHeader, ...extra } : extra;
   }
@@ -135,8 +136,9 @@ export class JmapClient {
     return { blobId: b.blobId, type: b.type ?? "", size: b.size ?? file.size };
   }
 
-  // downloadUrl monta a URL de download de um blob (anexo) usando o path do template da sessão,
-  // reescrito para a origem atual (não o serverHostname — DIVERGENCES §D7).
+  // downloadUrl builds a blob's (attachment) download URL from the session's template path,
+  // rewritten to the current origin (not the mail server's own hostname, which the browser
+  // cannot reach directly).
   downloadUrl(session: JmapSession, accountId: string, blobId: string, name: string, type: string): string {
     const path = new URL(session.downloadUrlTemplate, "http://x").pathname; // pega só o path
     return (

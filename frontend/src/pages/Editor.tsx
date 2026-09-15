@@ -4,8 +4,8 @@ import { WebmailLogin } from "../webmail/WebmailLogin";
 import { EditorView } from "../webmail/EditorView";
 import { ToastHost } from "../webmail/toast";
 
-// Rota /mail/files/edit/:id — editor de office em tela cheia (Collabora/WOPI). Requer sessão
-// de webmail; sem ela, cai no login.
+// Route /mail/files/edit/:id -- full-screen office editor (Collabora/WOPI). Requires a webmail
+// session; without one, it falls back to login.
 export function EditorPage() {
   const { session } = useWebmail();
   if (!session) return <WebmailLogin />;
