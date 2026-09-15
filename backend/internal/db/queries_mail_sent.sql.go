@@ -24,7 +24,7 @@ type IncrementMailSentParams struct {
 	N        int32     `json:"n"`
 }
 
-// Medição + limite diário de envio (ver migração 00105 e docs/manager.md §4).
+// Send metering and the daily sending limit.
 func (q *Queries) IncrementMailSent(ctx context.Context, arg IncrementMailSentParams) error {
 	_, err := q.db.Exec(ctx, incrementMailSent, arg.TenantID, arg.N)
 	return err

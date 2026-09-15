@@ -1,4 +1,4 @@
--- Metering (manager M3): rollup diário escrito pelo WORKER; o manager só lê.
+-- Metering: daily rollup written by the worker; the manager only reads it.
 
 -- name: RollupTenantDailyUsage :exec
 -- Congela o uso de TODOS os tenants para um dia (idempotente: upsert). Contadores "de estado"
@@ -87,7 +87,7 @@ ORDER BY sum(a.tokens) DESC
 LIMIT 10;
 
 -- name: ManagerUsageAllRows :many
--- Export CSV (M5): rollup cru de todos os tenants no período, com o nome da organização.
+-- CSV export: raw rollup for all tenants in the period, including the organization name.
 SELECT t.name, u.* FROM tenant_daily_usage u
 JOIN tenants t ON t.id = u.tenant_id
 WHERE u.day >= cast(@since as date)
