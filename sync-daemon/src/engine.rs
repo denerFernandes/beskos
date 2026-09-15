@@ -103,7 +103,10 @@ impl Engine {
         let has_token = config::load_token().map(|t| !t.is_empty()).unwrap_or(false);
         let mut s = self.state.lock().unwrap_or_else(|e| e.into_inner());
         s.configured = cfg.is_some() && has_token;
-        s.server_url = cfg.as_ref().map(|c| c.server_url.clone()).unwrap_or_default();
+        s.server_url = cfg
+            .as_ref()
+            .map(|c| c.server_url.clone())
+            .unwrap_or_default();
         s.account = cfg.as_ref().map(|c| c.account.clone()).unwrap_or_default();
         s.pairs = cfg.map(|c| c.pairs).unwrap_or_default();
     }
@@ -141,8 +144,16 @@ impl Engine {
                 } else {
                     Vec::new()
                 },
-                workers: if same { prev.as_ref().map(|c| c.workers).unwrap_or(0) } else { 0 },
-                bandwidth_kbps: if same { prev.as_ref().map(|c| c.bandwidth_kbps).unwrap_or(0) } else { 0 },
+                workers: if same {
+                    prev.as_ref().map(|c| c.workers).unwrap_or(0)
+                } else {
+                    0
+                },
+                bandwidth_kbps: if same {
+                    prev.as_ref().map(|c| c.bandwidth_kbps).unwrap_or(0)
+                } else {
+                    0
+                },
             },
             token,
         )?;
@@ -257,10 +268,20 @@ fn spawn_loop(state: Arc<Mutex<Status>>, nudge: Receiver<()>, interval: u64) {
             match outcome {
                 Ok(st) => {
                     s.phase = Phase::Idle;
+                    // User-facing tray status text; not routed through the frontend's i18next (this
+                    // is native Rust, no JS runtime here). Not yet localized -- see docs/OPEN-SOURCE.md.
                     s.message = format!(
-                        "{} baixados, {} enviados, {} movidos, {} p/ lixeira, {} conflitos{}",
-                        st.downloaded, st.uploaded, st.moved, st.trashed, st.conflicts,
-                        if st.errors > 0 { format!(", {} erros", st.errors) } else { String::new() }
+                        "{} baixados, {} enviados, {} movidos, {} p/ lixeira, {} conflitos{}", // lang:ok
+                        st.downloaded,
+                        st.uploaded,
+                        st.moved,
+                        st.trashed,
+                        st.conflicts,
+                        if st.errors > 0 {
+                            format!(", {} erros", st.errors) // lang:ok
+                        } else {
+                            String::new()
+                        }
                     );
                     // Se houve erros de envio, o estado é de ERRO (não "tudo sincronizado") — assim a
                     // UI e o tray mostram que algo falhou em vez de fingir sucesso.

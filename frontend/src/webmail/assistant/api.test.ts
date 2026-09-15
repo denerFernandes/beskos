@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { assistantApi, type ChatEvent } from "./api";
+import i18n from "../../i18n";
 
 // Devolve uma Response falsa cujo corpo entrega os pedaços tal como foram dados — incluindo
 // pedaços que cortam um evento a meio, que é o que a rede faz de verdade.
@@ -15,6 +16,12 @@ function fakeStream(chunks: string[]): Response {
   return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
 }
 
+// LanguageDetector picks up whatever locale the machine running the tests reports (this CI
+// runner resolves to "en", a contributor's laptop might resolve to "pt-BR") -- a test asserting
+// translated TEXT has to pin the language itself, or it passes and fails depending on who runs
+// it (law 4.6: the frontend translates the error_code; which language it lands in is not this
+// test's business).
+beforeEach(async () => { await i18n.changeLanguage("pt-BR"); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("assistantApi.chat", () => {

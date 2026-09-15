@@ -18,8 +18,9 @@ pub struct SyncEngine(pub Arc<Engine>);
 #[tauri::command]
 pub fn sync_status(engine: State<'_, SyncEngine>, account: String, server_url: String) -> Status {
     let mut s = engine.0.status();
-    let mismatch = (!server_url.is_empty() && !s.server_url.is_empty() && s.server_url != server_url)
-        || (!account.is_empty() && !s.account.is_empty() && s.account != account);
+    let mismatch =
+        (!server_url.is_empty() && !s.server_url.is_empty() && s.server_url != server_url)
+            || (!account.is_empty() && !s.account.is_empty() && s.account != account);
     if mismatch {
         s.configured = false;
         s.pairs = Vec::new();

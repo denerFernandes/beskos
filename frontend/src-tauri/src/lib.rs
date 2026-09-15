@@ -93,7 +93,11 @@ pub fn run() {
                 // chega pelo RunEvent::Opened (tratado abaixo), por isso aqui é um no-op.
                 let opened = read_vcards(std::env::args());
                 if !opened.is_empty() {
-                    app.state::<PendingVcards>().0.lock().unwrap().extend(opened);
+                    app.state::<PendingVcards>()
+                        .0
+                        .lock()
+                        .unwrap()
+                        .extend(opened);
                 }
                 // Ícone na barra com o estado da sincronização + menu de ações.
                 tray::setup(app.handle(), tray_engine)?;
