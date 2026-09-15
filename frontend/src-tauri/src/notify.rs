@@ -1,25 +1,26 @@
-//! Notificações do SO **com clique**: mostrar o aviso é só metade do trabalho — clicar nele tem de
-//! abrir o elemento que o originou (o e-mail, a conversa, o ficheiro, o evento…).
+//! OS notifications **with a click**: showing the alert is only half the job -- clicking it has to
+//! open the item that raised it (the email, the conversation, the file, the event...).
 //!
-//! Porque não o plugin: o `tauri-plugin-notification` no desktop entrega a notificação e esquece-a
-//! (`notify_rust::…show()` e pronto). O `onAction`/`onNotificationReceived` do plugin só existe no
-//! Android/iOS. Daí este módulo: mostra a notificação, ESPERA pela interação numa thread própria e,
-//! se a pessoa clicou, traz a janela principal à frente e emite `notif-open` com o link para a UI
-//! navegar (mesmo contrato do `notificationclick` do service worker na web).
+//! Why not the plugin: `tauri-plugin-notification` on desktop delivers the notification and
+//! forgets about it (`notify_rust::…show()` and that is it). The plugin's
+//! `onAction`/`onNotificationReceived` only exists on Android/iOS. Hence this module: it shows the
+//! notification, WAITS for the interaction on its own thread and, if the person clicked, brings
+//! the main window to the front and emits `notif-open` with the link for the UI to navigate to
+//! (the same contract as the web service worker's `notificationclick`).
 //!
-//! Por plataforma:
-//!  - macOS: `mac-notification-sys` direto, com `wait_for_click` — o `notify-rust` só espera quando
-//!    a notificação tem botões, e não queremos um botão "Abrir" pendurado em cada aviso.
-//!  - Windows/Linux: `notify-rust` (toast WinRT / D-Bus). No Linux o clique no corpo só chega se a
-//!    notificação declarar a ação `default`.
+//! Per platform:
+//!  - macOS: `mac-notification-sys` directly, with `wait_for_click` -- `notify-rust` only waits
+//!    when the notification has buttons, and we do not want an "Open" button hanging off every alert.
+//!  - Windows/Linux: `notify-rust` (WinRT toast / D-Bus). On Linux the click on the body only
+//!    arrives if the notification declares the `default` action.
 
 use tauri::{AppHandle, Emitter, Manager, Runtime};
 
-/// Mostra uma notificação do SO. `link` é a rota da app a abrir no clique (ex.:
-/// `/mail/mail/inbox/<id>`); vazio = notificação sem destino (só avisa).
+/// Shows an OS notification. `link` is the app route to open on click (e.g.
+/// `/mail/mail/inbox/<id>`); empty = notification with no destination (just an alert).
 ///
-/// Devolve logo: a espera pela interação corre numa thread à parte, senão o bloqueio do
-/// `wait_for_*` prendia o invoke (e, no macOS, o run loop principal).
+/// Returns immediately: waiting for the interaction runs on a separate thread, otherwise the
+/// `wait_for_*` block would hold up the invoke (and, on macOS, the main run loop).
 #[tauri::command]
 pub fn notify_show<R: Runtime>(app: AppHandle<R>, title: String, body: String, link: String) {
     let identifier = app.config().identifier.clone();
@@ -30,41 +31,41 @@ pub fn notify_show<R: Runtime>(app: AppHandle<R>, title: String, body: String, l
     });
 }
 
-/// Traz a janela principal à frente e manda a UI navegar para o link.
+/// Brings the main window to the front and tells the UI to navigate to the link.
 fn open_link<R: Runtime>(app: &AppHandle<R>, link: &str) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
         let _ = w.unminimize();
         let _ = w.set_focus();
     }
-    // emit_to("main"): só o webview da janela principal navega. Um emit global levaria as janelas
-    // dedicadas (sala do Meet, editor) a saltar para outra rota a meio do que estão a fazer.
+    // emit_to("main"): only the main window's webview navigates. A global emit would send the
+    // dedicated windows (Meet room, editor) to another route in the middle of what they are doing.
     let _ = app.emit_to("main", "notif-open", link.to_string());
 }
 
-/// Mostra a notificação e bloqueia até o utilizador interagir. `true` = clicou (abrir o elemento);
-/// `false` = ignorou, fechou ou a notificação falhou.
+/// Shows the notification and blocks until the user interacts. `true` = clicked (open the item);
+/// `false` = dismissed, closed, or the notification failed.
 #[cfg(target_os = "macos")]
 fn show_and_wait_for_click(identifier: &str, title: &str, body: &str) -> bool {
     use mac_notification_sys::{Notification, NotificationResponse};
-    // O `NSUserNotificationCenter` exige um bundle registado. Em `tauri dev` o binário não está
-    // empacotado, por isso pedimos emprestado o do Terminal (mesma manha do plugin oficial).
+    // `NSUserNotificationCenter` requires a registered bundle. In `tauri dev` the binary is not
+    // packaged, so we borrow the Terminal's (the same trick the official plugin uses).
     let bundle = if tauri::is_dev() {
         "com.apple.Terminal"
     } else {
         identifier
     };
-    let _ = mac_notification_sys::set_application(bundle); // Err = já definido: nada a fazer
+    let _ = mac_notification_sys::set_application(bundle); // Err = already set: nothing to do
 
     let mut n = Notification::new();
     n.title(title).message(body).wait_for_click(true);
     match n.send() {
         Ok(r) => matches!(r, NotificationResponse::Click),
         Err(e) => {
-            // Rede de segurança: esperar pelo clique nunca pode custar o AVISO. Se a entrega com
-            // espera falhar, repete-se em modo dispara-e-esquece (o caminho de sempre) — fica sem
-            // clique, mas a pessoa vê a notificação.
-            eprintln!("aviso: notificação com clique falhou ({e}); a repetir sem espera");
+            // Safety net: waiting for the click must never cost the ALERT. If delivery with a
+            // wait fails, retry in fire-and-forget mode (the usual path) -- no click, but the
+            // person still sees the notification.
+            eprintln!("warning: notification with click failed ({e}); retrying without a wait");
             let mut plain = Notification::new();
             plain.title(title).message(body).asynchronous(true);
             let _ = plain.send();
@@ -80,14 +81,14 @@ fn show_and_wait_for_click(identifier: &str, title: &str, body: &str) -> bool {
 
     let mut n = notify_rust::Notification::new();
     n.summary(title).body(body);
-    // Em dev o executável não está registado no SO; um AppUserModelID desconhecido faz o toast
-    // falhar, por isso só o pomos na app instalada.
+    // In dev the executable is not registered with the OS; an unknown AppUserModelID makes the
+    // toast fail, so we only set it on the installed app.
     #[cfg(windows)]
     if !tauri::is_dev() {
         n.app_id(identifier);
     }
-    // No D-Bus o clique no corpo só é reportado se a notificação declarar a ação `default`; o
-    // rótulo não chega a aparecer (é a ação implícita da notificação).
+    // On D-Bus the click on the body is only reported if the notification declares the `default`
+    // action; the label never actually appears (it is the notification's implicit action).
     #[cfg(not(windows))]
     {
         let _ = identifier;
@@ -97,7 +98,7 @@ fn show_and_wait_for_click(identifier: &str, title: &str, body: &str) -> bool {
     let handle = match n.show() {
         Ok(h) => h,
         Err(e) => {
-            eprintln!("aviso: notificação não entregue: {e}");
+            eprintln!("warning: notification not delivered: {e}");
             return false;
         }
     };

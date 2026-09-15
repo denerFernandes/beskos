@@ -1,28 +1,27 @@
-//! Segurança: nunca escrever fora da pasta de sincronização. O nome do ficheiro vem do servidor;
-//! um servidor comprometido poderia enviar `../../.ssh/authorized_keys`. Aqui sanitizamos o nome
-//! para um único componente seguro e resolvemos o caminho final DENTRO da raiz, rejeitando qualquer
-//! coisa que escape.
+//! Security: never write outside the sync folder. The file name comes from the server; a
+//! compromised server could send `../../.ssh/authorized_keys`. Here we sanitize the name down to
+//! a single safe component and resolve the final path INSIDE the root, rejecting anything that escapes.
 
 use std::path::{Component, Path, PathBuf};
 
-/// Sanitiza um nome de ficheiro para um único componente seguro. Devolve None se não sobrar nada
-/// utilizável (o chamador trata como entrada inválida e ignora o ficheiro).
+/// Sanitizes a file name down to a single safe component. Returns None if nothing usable is left
+/// (the caller treats this as invalid input and skips the file).
 pub fn sanitize_name(name: &str) -> Option<String> {
-    // Corta qualquer separador de caminho (o nome tem de ser UM componente, nunca uma subárvore).
+    // Cuts off any path separator (the name has to be ONE component, never a subtree).
     let base = name
         .rsplit(|c| c == '/' || c == '\\')
         .next()
         .unwrap_or("")
         .trim();
-    // Rejeita vazios, "." e ".." e nomes com NUL (evita truncagem em chamadas de SO).
+    // Rejects empty names, "." and ".." and names with NUL (avoids truncation in OS calls).
     if base.is_empty() || base == "." || base == ".." || base.contains('\0') {
         return None;
     }
     Some(base.to_string())
 }
 
-/// Resolve um caminho RELATIVO com subpastas (segmentos separados por '/') DENTRO de `root`. Cada
-/// segmento é sanitizado; qualquer `..`/`.` inseguro faz erro e o resultado tem de ficar sob a raiz.
+/// Resolves a RELATIVE path with subfolders (segments separated by '/') INSIDE `root`. Each
+/// segment is sanitized; any unsafe `..`/`.` errors out and the result has to stay under the root.
 pub fn safe_join_rel(root: &Path, rel: &str) -> anyhow::Result<PathBuf> {
     let mut out = root.to_path_buf();
     for seg in rel.split('/') {
@@ -30,17 +29,17 @@ pub fn safe_join_rel(root: &Path, rel: &str) -> anyhow::Result<PathBuf> {
             continue;
         }
         let clean =
-            sanitize_name(seg).ok_or_else(|| anyhow::anyhow!("segmento de caminho inválido"))?;
+            sanitize_name(seg).ok_or_else(|| anyhow::anyhow!("invalid path segment"))?;
         out.push(clean);
     }
-    // Verificação final: nada de componentes `..` e o resultado tem de ficar sob a raiz.
+    // Final check: no `..` components, and the result has to stay under the root.
     for comp in out.components() {
         if matches!(comp, Component::ParentDir) {
-            anyhow::bail!("caminho tenta subir de diretório");
+            anyhow::bail!("path attempts to go up a directory");
         }
     }
     if !out.starts_with(root) {
-        anyhow::bail!("caminho resolvido fora da raiz de sincronização");
+        anyhow::bail!("resolved path is outside the sync root");
     }
     Ok(out)
 }
@@ -52,7 +51,7 @@ mod tests {
 
     #[test]
     fn rejects_traversal_names() {
-        assert_eq!(sanitize_name("../secret"), Some("secret".to_string())); // separador cortado
+        assert_eq!(sanitize_name("../secret"), Some("secret".to_string())); // separator cut off
         assert_eq!(sanitize_name(".."), None);
         assert_eq!(sanitize_name("."), None);
         assert_eq!(sanitize_name(""), None);
@@ -67,12 +66,12 @@ mod tests {
             safe_join_rel(root, "docs/2024/plano.txt").unwrap(),
             Path::new("/sync/root/docs/2024/plano.txt")
         );
-        // Barras iniciais/duplas são inofensivas (segmentos vazios ignorados).
+        // Leading/double slashes are harmless (empty segments are ignored).
         assert_eq!(
             safe_join_rel(root, "a//b.txt").unwrap(),
             Path::new("/sync/root/a/b.txt")
         );
-        // Qualquer segmento ".." é rejeitado (nunca escapa da raiz).
+        // Any ".." segment is rejected (never escapes the root).
         assert!(safe_join_rel(root, "docs/../etc/passwd").is_err());
         assert!(safe_join_rel(root, "../x").is_err());
     }

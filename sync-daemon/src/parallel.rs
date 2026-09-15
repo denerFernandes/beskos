@@ -1,14 +1,14 @@
-//! Pool de workers para as transferências. O trabalho pesado é rede (baixar/enviar), por isso
-//! paralelizar dá ganho real mesmo com o índice SQLite serializado por um mutex.
+//! Worker pool for the transfers. The heavy work is network I/O (download/upload), so
+//! parallelizing gives a real gain even with the SQLite index serialized behind a mutex.
 //!
-//! Usa `thread::scope` (threads com tempo de vida limitado ao escopo) para poder emprestar
-//! referências — `&Client`, `&Index`, `&Mutex<Stats>` — sem `Arc` nem `'static`.
+//! Uses `thread::scope` (threads whose lifetime is bound to the scope) so it can borrow
+//! references -- `&Client`, `&Index`, `&Mutex<Stats>` -- without `Arc` or `'static`.
 
 use std::sync::Mutex;
 
-/// Corre `f` sobre todos os `items` com até `workers` threads. Cada worker puxa o próximo item de
-/// uma fila partilhada, por isso itens lentos não bloqueiam os outros (ao contrário de dividir em
-/// blocos fixos). Com `workers <= 1` corre em série, sem criar threads.
+/// Runs `f` over all `items` with up to `workers` threads. Each worker pulls the next item from a
+/// shared queue, so slow items do not block the others (unlike splitting into fixed chunks). With
+/// `workers <= 1` it runs serially, without spawning threads.
 pub fn for_each<T, F>(items: Vec<T>, workers: usize, f: F)
 where
     T: Send,
@@ -26,7 +26,7 @@ where
     std::thread::scope(|scope| {
         for _ in 0..workers.min(64) {
             scope.spawn(move || loop {
-                // O lock só protege a fila — é largado antes de correr o trabalho.
+                // The lock only protects the queue -- it is released before running the work.
                 let next = queue.lock().unwrap_or_else(|e| e.into_inner()).next();
                 match next {
                     Some(item) => f(item),
