@@ -1,16 +1,17 @@
-/* ── Paleta Beskos no editor de office ─────────────────────────────────────────
-   Substitui o azul do ONLYOFFICE (#446995 e afins) pelo petróleo do Beskos. O
-   layout de abas é genérico, mas a cor é identidade — e a política de marcas da
-   Ascensio System SIA proíbe imitar a identidade visual deles.
+/* ── Beskos palette for the office editor ──────────────────────────────────────
+   Replaces ONLYOFFICE's blue (#446995 and friends) with Beskos's own teal. The
+   tab layout is generic, but color is identity -- and Ascensio System SIA's
+   trademark policy forbids imitating their visual identity.
 
-   Porquê CSS e não um tema em themes.json: no Docs 9.4 as cores de um tema
-   personalizado só são escritas quando o utilizador TROCA de tema (apply_theme);
-   no arranque o editor aplica a classe do tema mas nunca gera as variáveis
-   (`write_theme_css` está comentado em parse_themes_object). Resultado: o tema
-   era aceite e ficava azul na mesma. Isto aqui é determinístico.
+   Why CSS instead of a theme in themes.json: in Docs 9.4, a custom theme's
+   colors are only written when the user actually SWITCHES theme (apply_theme);
+   at startup the editor applies the theme class but never generates the CSS
+   variables (`write_theme_css` is commented out in parse_themes_object).
+   Result: the theme was accepted and the editor stayed blue anyway. This file
+   is deterministic instead.
 
-   O bloco é acrescentado ao FIM do app.css de cada editor pelo patch de arranque,
-   por isso ganha por ordem em igualdade de especificidade.
+   The startup patch appends this block to the END of each editor's app.css,
+   so it wins on source order at equal specificity.
    ────────────────────────────────────────────────────────────────────────────── */
 
 :root,

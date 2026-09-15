@@ -1,324 +1,362 @@
-# Divergências: brief (project.md) × Stalwart v0.16.4 real
+# Divergences: brief (project.md) × real Stalwart v0.16.4
 
-O brief §11 manda: *"Se algo conflitar com a realidade da versão do Stalwart, confie na versão real e me avise da divergência."*
-Este documento é a **fonte da verdade** para a integração com o Stalwart. Verificado empiricamente contra a
-imagem `stalwartlabs/stalwart:v0.16.4` (bootada localmente) + código-fonte na tag `v0.16.4`.
+The brief (§11) says: *"If something conflicts with the reality of the Stalwart version, trust the real
+version and flag the divergence."* This document is the **source of truth** for the Stalwart
+integration. Verified empirically against the `stalwartlabs/stalwart:v0.16.4` image (booted locally) +
+source code at tag `v0.16.4`.
 
 ---
 
-## D1 — A REST Management API foi REMOVIDA. Não há OpenAPI. (impacto máximo)
+## D1 — The REST Management API was REMOVED. There is no OpenAPI. (maximum impact)
 
-O brief §6/§7/§9 assume endpoints REST (`POST /api/principal`, `POST /api/dkim`, `GET /api/queue/messages`)
-e gerar um client Go a partir de um `openapi.yml`.
+The brief (§6/§7/§9) assumes REST endpoints (`POST /api/principal`, `POST /api/dkim`,
+`GET /api/queue/messages`) and generating a Go client from an `openapi.yml`.
 
-**Realidade 0.16:** toda a Management API REST foi removida. Confirmado: todo `/api/*` retorna **404**.
-Não existe `openapi.yml` servido nem embutido. Administração agora é **100% via JMAP**, sob a capability
-Stalwart-específica **`urn:stalwart:jmap`**, com métodos no namespace **`x:`**.
+**Reality in 0.16:** the entire REST Management API was removed. Confirmed: every `/api/*` returns
+**404**. There is no `openapi.yml` served or embedded. Administration is now **100% over JMAP**,
+under the Stalwart-specific capability **`urn:stalwart:jmap`**, with methods in the **`x:`**
+namespace.
 
-**Consequência no nosso projeto:**
-- ❌ Cai a tarefa "gerar client via oapi-codegen".
-- ✅ Escrevemos um **client Go JMAP tipado à mão** (`backend/internal/stalwart`).
-- Envelope padrão de toda chamada admin:
+**Consequence for this project:**
+- ❌ The "generate a client via oapi-codegen" task is gone.
+- ✅ We wrote a **hand-typed Go JMAP client** (`backend/internal/stalwart`).
+- Standard envelope for every admin call:
   ```json
   { "using": ["urn:ietf:params:jmap:core","urn:stalwart:jmap"], "methodCalls": [ ["x:Object/fn", {…}, "c0"] ] }
   ```
-- Endpoint: `POST /jmap/` · auth: Basic (admin global de recuperação) · `#creationId` refs funcionam entre calls.
+- Endpoint: `POST /jmap/` · auth: Basic (global recovery admin) · `#creationId` refs work across calls.
 
-Métodos admin (registry): `x:Domain/{get,set,query}`, `x:Account/{get,set,query}`,
-`x:DkimSignature/{get,set,query}`, `x:Bootstrap/{get,set}`, e ainda `x:Tenant`, `x:Role`, `x:BeskosgList`,
-`x:OAuthClient`, `x:ApiKey`, `x:AppPassword`.
+Admin methods (registry): `x:Domain/{get,set,query}`, `x:Account/{get,set,query}`,
+`x:DkimSignature/{get,set,query}`, `x:Bootstrap/{get,set}`, plus `x:Tenant`, `x:Role`,
+`x:BeskosgList`, `x:OAuthClient`, `x:ApiKey`, `x:AppPassword`.
 
-> Nota: `Principal/*` (capability `urn:ietf:params:jmap:principals`) NÃO é provisionamento — são os principals
-> padrão de sharing/calendário do JMAP. `Principal/set` para criar domínio falha com `notRequest`.
-
----
-
-## D2 — Admin de recuperação: `STALWART_RECOVERY_ADMIN`, não `[authentication.fallback-admin]`
-
-Brief/config inicial usava `[authentication.fallback-admin]`. **Real:** env `STALWART_RECOVERY_ADMIN=admin:<senha>`.
-Esse admin (accountId `d333333`) funciona sempre, inclusive após restart. É a credencial global que só o backend Go usa.
+> Note: `Principal/*` (capability `urn:ietf:params:jmap:principals`) is NOT provisioning — these
+> are JMAP's standard sharing/calendar principals. `Principal/set` to create a domain fails with
+> `notRequest`.
 
 ---
 
-## D3 — Passo de BOOTSTRAP obrigatório antes de qualquer provisionamento
+## D2 — Recovery admin: `STALWART_RECOVERY_ADMIN`, not `[authentication.fallback-admin]`
 
-Servidor novo sobe em **bootstrap mode**: qualquer método `x:` (exceto `x:Bootstrap`) retorna
-`forbidden: "The server is in bootstrap mode…"`. Fluxo real (uma vez por instância):
+The brief/initial config used `[authentication.fallback-admin]`. **Real:** env var
+`STALWART_RECOVERY_ADMIN=admin:<password>`. That admin (accountId `d333333`) always works, including
+after a restart. It's the global credential that only the Go backend uses.
 
-1. `x:Bootstrap/set` no singleton `"singleton"`:
+---
+
+## D3 — A BOOTSTRAP step is mandatory before any provisioning
+
+A fresh server boots in **bootstrap mode**: any `x:` method (except `x:Bootstrap`) returns
+`forbidden: "The server is in bootstrap mode…"`. The real flow (once per instance):
+
+1. `x:Bootstrap/set` on the `"singleton"`:
    ```json
    {"using":["urn:ietf:params:jmap:core","urn:stalwart:jmap"],
     "methodCalls":[["x:Bootstrap/set",{"update":{"singleton":{
       "serverHostname":"mail.example.org","defaultDomain":"example.org",
       "requestTlsCertificate":false,"generateDkimKeys":true}}},"0"]]}
    ```
-   Resposta devolve o admin gerado `admin@<domain>` + secret (**mostrado só uma vez**).
-2. **Reiniciar o processo** (`docker restart`) — o update só passa a valer após restart.
+   The response returns the generated admin `admin@<domain>` + secret (**shown only once**).
+2. **Restart the process** (`docker restart`) — the update only takes effect after a restart.
 
-Só `serverHostname` + `defaultDomain` são obrigatórios. `requestTlsCertificate:false` evita ACME/Let's Encrypt no dev.
-→ Modelamos isso como um passo de setup idempotente do control plane (não é o mesmo que provisionar tenant).
+Only `serverHostname` + `defaultDomain` are required. `requestTlsCertificate:false` avoids
+ACME/Let's Encrypt in development. → We model this as an idempotent control-plane setup step (not
+the same thing as provisioning a tenant).
 
 ---
 
-## D4 — Mapeamento das operações da §6 → JMAP real (payloads TESTADOS)
+## D4 — Mapping the §6 operations to real JMAP (TESTED payloads)
 
-### Criar domínio (auto-gera DKIM) — `x:Domain/set`
+### Create a domain (auto-generates DKIM) — `x:Domain/set`
 ```json
-["x:Domain/set",{"create":{"d1":{"name":"cliente.com.br","isEnabled":true,"description":"tenant_id=42"}}},"0"]
+["x:Domain/set",{"create":{"d1":{"name":"customer.com","isEnabled":true,"description":"tenant_id=42"}}},"0"]
 ```
-→ `{"created":{"d1":{"id":"c"}}}`. `dkimManagement` default `{"@type":"Automatic"}` gera Ed25519+RSA na hora.
-Guardamos o `id` retornado em `domains.stalwart_id`.
+→ `{"created":{"d1":{"id":"c"}}}`. The default `dkimManagement` `{"@type":"Automatic"}` generates
+Ed25519+RSA on the spot. We store the returned `id` in `domains.stalwart_id`.
 
-### Criar mailbox individual — `x:Account/set`
-Endereço = `name` + `domainId` (NÃO existe campo `email`). `credentials`/`aliases`/`quotas` são **mapas** (`{"0":…}`), não arrays.
+### Create an individual mailbox — `x:Account/set`
+Address = `name` + `domainId` (there is NO `email` field). `credentials`/`aliases`/`quotas` are
+**maps** (`{"0":…}`), not arrays.
 
-#### D4b — `aliases` é um mapa de OBJETOS, não de endereços
+#### D4b — `aliases` is a map of OBJECTS, not of addresses
 
-Confirmado na fonte (`crates/registry/src/schema/structs.rs`): `UserAccount.aliases` é
-`List<EmailAlias>`, e `EmailAlias` é `{enabled, name, domainId, description}`. Em JSON, `List<T>`
-serializa como mapa indexado — logo o valor certo é:
+Confirmed in the source (`crates/registry/src/schema/structs.rs`): `UserAccount.aliases` is
+`List<EmailAlias>`, and `EmailAlias` is `{enabled, name, domainId, description}`. In JSON,
+`List<T>` serializes as an indexed map — so the correct value is:
 
 ```json
 ["x:Account/set",{"update":{"<accountId>":{"aliases":{
-  "0":{"name":"noreply","domainId":"<id do domínio no Stalwart>","enabled":true}}}}},"0"]
+  "0":{"name":"noreply","domainId":"<the domain's Stalwart id>","enabled":true}}}}},"0"]
 ```
 
-Um alias é descrito **como uma caixa** (parte local + `domainId`, sem campo `email`), tal como a
-conta. Mandar strings — `{"0":"noreply@dominio.com"}` ou `["noreply@dominio.com"]` — dá
-`invalidPatch: "Invalid value type for object", properties:["aliases"]` (apanhado em produção,
-28/07/2026). E `enabled` não pode faltar: por omissão é `false` e o alias existiria sem entregar.
+An alias is described **like a mailbox** (local part + `domainId`, no `email` field), just like the
+account itself. Sending strings — `{"0":"noreply@domain.com"}` or `["noreply@domain.com"]` — gives
+`invalidPatch: "Invalid value type for object", properties:["aliases"]` (caught in production,
+2026-07-28). And `enabled` can't be missing: it defaults to `false`, which would leave the alias
+existing without ever delivering.
 
-Ver `SetAccountAliases` em `internal/stalwart/provisioning.go`.
+See `SetAccountAliases` in `internal/stalwart/provisioning.go`.
 ```json
 ["x:Account/set",{"create":{"u1":{
-  "@type":"User","name":"joao","domainId":"c","description":"João",
-  "credentials":{"0":{"@type":"Password","secret":"<senha-forte>"}},
+  "@type":"User","name":"john","domainId":"c","description":"John",
+  "credentials":{"0":{"@type":"Password","secret":"<strong-password>"}},
   "quotas":{"maxDiskQuota":5368709120}}}},"0"]
 ```
-→ `{"created":{"u1":{"id":"c"}}}`; `emailAddress` resolve para `joao@cliente.com.br`. Guardamos em `mail_users.stalwart_account_id`.
-`domainId` aceita id vivo (`"c"`) ou ref de mesma request (`"#d1"`) → dá pra criar domínio + mailbox num só round-trip.
-⚠️ Senha passa por checador de força (zxcvbn); senhas fracas → `invalidProperties`.
+→ `{"created":{"u1":{"id":"c"}}}`; `emailAddress` resolves to `john@customer.com`. We store this in
+`mail_users.stalwart_account_id`. `domainId` accepts either a live id (`"c"`) or a same-request ref
+(`"#d1"`) → so a domain + mailbox can be created in a single round trip.
+⚠️ The password goes through a strength checker (zxcvbn); weak passwords → `invalidProperties`.
 
 ### DKIM — `x:DkimSignature`
-Recomendado: deixar `dkimManagement` Automatic (default). Ler chaves p/ montar DNS: `x:DkimSignature/query` → `/get`
-(retorna `selector`, `publicKey`, `@type`, `stage`). Criação manual exige fornecer `privateKey.secret` (PEM).
+Recommended: leave `dkimManagement` on Automatic (the default). To read the keys for building DNS:
+`x:DkimSignature/query` → `/get` (returns `selector`, `publicKey`, `@type`, `stage`). Manual
+creation requires supplying `privateKey.secret` (PEM).
 
-### Ler/editar/remover — `x:Account/set` / `x:Domain/set`
-- Editar (JSON-pointer nas subpropriedades): `{"update":{"c":{"quotas/maxDiskQuota":2147483648,"credentials/0/secret":"<nova>"}}}`
-- Remover: `{"destroy":["c"]}`. **Integridade referencial:** destruir domínio com DKIM/contas ligadas falha
-  com `objectIsLinked`. Ordem correta: contas → DkimSignatures do domínio → domínio.
+### Read/edit/remove — `x:Account/set` / `x:Domain/set`
+- Edit (JSON pointer into subproperties):
+  `{"update":{"c":{"quotas/maxDiskQuota":2147483648,"credentials/0/secret":"<new>"}}}`
+- Remove: `{"destroy":["c"]}`. **Referential integrity:** destroying a domain with linked
+  DKIM/accounts fails with `objectIsLinked`. Correct order: accounts → the domain's
+  DkimSignatures → the domain.
 
-### Suspender uma conta — **não existe campo "ativa"** (01/08/2026)
+### Suspending an account — **there is no "active" field** (2026-08-01)
 
-Uma conta na 0.16 traz `name`, `domainId`, `credentials`, `roles`, `permissions`, `quotas`,
-`aliases`, `description`, `locale`, `encryptionAtRest`, `usedDiskQuota`, `emailAddress` — e **nada**
-que a desligue. Suspender faz-se **removendo as credenciais**:
+An account in 0.16 carries `name`, `domainId`, `credentials`, `roles`, `permissions`, `quotas`,
+`aliases`, `description`, `locale`, `encryptionAtRest`, `usedDiskQuota`, `emailAddress` — and
+**nothing** to switch it off. Suspending is done by **removing the credentials**:
 
 ```json
-["x:Account/set",{"update":{"<id>":{"credentials":{}}}},"c0"]   // suspende
-["x:Account/set",{"update":{"<id>":{"credentials/0/secret":"<nova>"}}},"c0"]  // reativa
+["x:Account/set",{"update":{"<id>":{"credentials":{}}}},"c0"]   // suspend
+["x:Account/set",{"update":{"<id>":{"credentials/0/secret":"<new>"}}},"c0"]  // reactivate
 ```
 
-Verificado contra uma conta viva: o login seguinte é recusado **de imediato** (sem cache pelo meio),
-e escrever um novo segredo devolve o acesso também de imediato. A caixa mantém tudo e o correio
-continua a ser entregue — é suspensão, não é apagar.
+Verified against a live account: the next login attempt is refused **immediately** (no caching in
+between), and writing a new secret restores access just as immediately. The mailbox keeps
+everything and mail keeps being delivered — it's a suspension, not a deletion.
 
-⚠️ **`credentials` não se aceita a patch parcial.** Escrever `credentials/0/expiresAt` **destrói a
-credencial inteira**, e escrever-lhe `null` deixa `credentials: {}` — descobri isto a partir uma
-conta de teste, que ficou sem forma de entrar. Ou se escreve `credentials/0/secret` (recria), ou se
-substitui o mapa todo. Não há meio-termo, e o `expiresAt` que o objeto mostra **não** serve para
-suspender.
+⚠️ **`credentials` does not accept a partial patch.** Writing `credentials/0/expiresAt`
+**destroys the entire credential**, and writing it `null` leaves `credentials: {}` — discovered
+this the hard way on a test account that ended up with no way in. Either write
+`credentials/0/secret` (which recreates it) or replace the whole map. There is no middle ground,
+and the `expiresAt` the object shows does **not** work for suspension.
 
-Consequência de desenho: **reativar exige uma senha nova**. Ver `SuspendAccount` em
+Design consequence: **reactivating requires a new password**. See `SuspendAccount` in
 `internal/stalwart/provisioning.go`.
 
-### Registros DNS p/ o cliente publicar — propriedade `dnsZoneFile`
+### DNS records for the customer to publish — the `dnsZoneFile` property
 ```json
 ["x:Domain/get",{"ids":["c"],"properties":["dnsZoneFile"]},"0"]
 ```
-⚠️ **Timing do DKIM (verificado no teste de integração):** num domínio **recém-criado**, o registro
-DKIM TXT (`_domainkey`) **não** aparece imediatamente no `dnsZoneFile` — só SPF/MX/DMARC/MTA-STS/SRV estão lá na hora.
-A geração das assinaturas não é síncrona com o create. → A tela de DNS (`dns_pending`) deve fazer **polling**
-do zonefile até o DKIM surgir antes de considerar a lista de registros completa.
+⚠️ **DKIM timing (verified in the integration test):** on a **freshly created** domain, the DKIM
+TXT record (`_domainkey`) does **not** appear immediately in `dnsZoneFile` — only SPF/MX/DMARC/
+MTA-STS/SRV are there right away. Signature generation isn't synchronous with the create. → The
+DNS screen (`dns_pending`) should **poll** the zonefile until DKIM shows up before treating the
+record list as complete.
 
-Retorna um trecho de zona BIND pronto com **todos** os registros calculados pelo servidor:
-DKIM TXT (por selector), SPF (`v=spf1 mx -all`), `MX 10 mail.<domain>.`, `_dmarc` (`p=reject`), MTA-STS, TLS-RPT,
-autoconfig/autodiscover, SRV (imaps/submissions/jmap/…). `dnsManagement` default `Manual` (servidor reporta, cliente publica).
-→ É a fonte para a tela de DNS do estado `dns_pending` (§7). Parsear esse zonefile em vez de montar registros à mão.
-
----
-
-## D5 — Sem `stalwart` CLI de provisionamento nesta imagem
-
-O binário `stalwart` é só o servidor (`--config/--export/--import/--console`). Não há `stalwart-cli`/`apply`.
-Confirma a escolha de integrar por JMAP/HTTP (mais testável, sem acoplar ao binário).
+Returns a ready BIND zone snippet with **every** record the server computed: DKIM TXT (per
+selector), SPF (`v=spf1 mx -all`), `MX 10 mail.<domain>.`, `_dmarc` (`p=reject`), MTA-STS, TLS-RPT,
+autoconfig/autodiscover, SRV (imaps/submissions/jmap/…). Default `dnsManagement` is `Manual` (the
+server reports, the customer publishes). → This is the source for the `dns_pending` DNS screen
+(§7). Parse this zonefile instead of building records by hand.
 
 ---
 
-## D6 — Impacto na máquina de estados de provisionamento (§7)
+## D5 — No provisioning `stalwart` CLI in this image
 
-O mapeamento continua válido, com as chamadas trocadas:
+The `stalwart` binary is server-only (`--config/--export/--import/--console`). There is no
+`stalwart-cli`/`apply`. This confirms the choice to integrate over JMAP/HTTP (more testable, no
+coupling to the binary).
+
+---
+
+## D6 — Impact on the provisioning state machine (§7)
+
+The mapping still holds, with the calls swapped in:
 ```
-pending → domain_created (x:Domain/set) → dkim_created (automático no create; só ler p/ DNS)
-        → dns_pending (ler dnsZoneFile) → dns_verified (polling DNS próprio) → active (x:Account/set)
+pending → domain_created (x:Domain/set) → dkim_created (automatic on create; just read it for DNS)
+        → dns_pending (read dnsZoneFile) → dns_verified (our own DNS polling) → active (x:Account/set)
 ```
-`dkim_created` deixa de ser uma chamada separada quando `dkimManagement=Automatic` — vira "ler as assinaturas geradas".
+`dkim_created` stops being a separate call once `dkimManagement=Automatic` — it becomes "read the
+generated signatures".
 
 ---
 
-## D7 — Webmail (Fase 2): CORS ausente, sem password-grant, `.test` quebra envio
+## D7 — Webmail (Phase 2): no CORS, no password grant, `.test` breaks sending
 
-Verificado contra Stalwart 0.16.4 real (usuário final `alice@wm.test`):
+Verified against real Stalwart 0.16.4 (end user `alice@wm.test`):
 
-- **CORS não existe e não é configurável.** Preflight `OPTIONS /jmap/` responde 204 **sem** nenhum
-  header `Access-Control-Allow-*`; POSTs com `Origin` cross-site retornam 200 mas o browser bloqueia a
-  leitura. Doc oficial só cobre restrição por IP/listener. → **O React NÃO fala direto com o Stalwart.**
-  **Arquitetura obrigatória: reverse proxy same-origin** (nginx/Caddy/Vite proxy) servindo o SPA e
-  repassando `/jmap`, `/jmap/download`, `/jmap/upload`, `/auth`, `/.well-known` para o Stalwart.
-- **Auth do usuário final:** Basic auth (`email:senha`) no `/jmap/session` **funciona** (200, devolve o
-  accountId do usuário). OAuth 2.0 existe (`authorization_code`+PKCE S256, `device_code`) mas **não há
-  `password`/`client_credentials` grant** — não dá para trocar user+senha por Bearer sem consentimento
-  interativo. O `POST /api/auth` (código→token) do brief §8 **sumiu** (404). → Fase 2: **Basic auth /
-  app-password atrás do proxy**; OAuth interativo fica para login unificado depois.
-- **URLs da sessão** (`apiUrl`, `downloadUrl`, `uploadUrl`) usam o `serverHostname` configurado, não a
-  origin. Confie nos **paths** (`/jmap/`, `/jmap/download/{accountId}/{blobId}/{name}`), não nos hosts.
-- **TLD `.test`/`.local` quebra ENVIO:** `Identity/get` vem vazia (falha na validação de public-suffix),
-  impossibilitando `EmailSubmission`. Leitura/auth funcionam. → Provisionar sempre com **TLD público real**.
-- **Fluxos JMAP testados:** `Mailbox/get` (usar `role`, ids são opacos); `Email/query`+`Email/get` com
-  back-reference `#ids`; leitura com `fetchTextBodyValues`/`fetchHTMLBodyValues`; envio =
-  `Email/set` (draft, `mailboxIds` com id real de Drafts, `identityId` obrigatório de `Identity/get`) +
-  `EmailSubmission/set` com `onSuccessDestroyEmail`; busca via `filter.text`.
+- **CORS doesn't exist and isn't configurable.** A preflight `OPTIONS /jmap/` answers 204 with
+  **no** `Access-Control-Allow-*` header; POSTs with a cross-site `Origin` return 200 but the
+  browser blocks reading the response. The official docs only cover IP/listener restriction. →
+  **React never talks to Stalwart directly.** **Mandatory architecture: a same-origin reverse
+  proxy** (nginx/Caddy/Vite proxy) serving the SPA and forwarding `/jmap`, `/jmap/download`,
+  `/jmap/upload`, `/auth`, `/.well-known` to Stalwart.
+- **End-user auth:** Basic auth (`email:password`) against `/jmap/session` **works** (200, returns
+  the user's accountId). OAuth 2.0 exists (`authorization_code`+PKCE S256, `device_code`) but
+  **there is no `password`/`client_credentials` grant** — there's no way to exchange a
+  user+password for a Bearer token without interactive consent. The brief's (§8) `POST /api/auth`
+  (code→token) is **gone** (404). → Phase 2: **Basic auth / app-password behind the proxy**;
+  interactive OAuth is left for unified login later.
+- **Session URLs** (`apiUrl`, `downloadUrl`, `uploadUrl`) use the configured `serverHostname`, not
+  the request origin. Trust the **paths** (`/jmap/`, `/jmap/download/{accountId}/{blobId}/{name}`),
+  not the hosts.
+- **The `.test`/`.local` TLD breaks SENDING:** `Identity/get` comes back empty (public-suffix
+  validation fails), which blocks `EmailSubmission`. Reading/auth still work. → Always provision
+  with a **real public TLD**.
+- **JMAP flows tested:** `Mailbox/get` (use `role`, ids are opaque); `Email/query`+`Email/get` with
+  the `#ids` back-reference; reading with `fetchTextBodyValues`/`fetchHTMLBodyValues`; sending =
+  `Email/set` (draft, `mailboxIds` with the real Drafts id, `identityId` required from
+  `Identity/get`) + `EmailSubmission/set` with `onSuccessDestroyEmail`; search via `filter.text`.
 
-## D8 — Webmail: brokering da credencial JMAP (hardening H11, 2026-07)
+## D8 — Webmail: brokering the JMAP credential (hardening H11, 2026-07)
 
-Decorrência direta de D7 (sem password-grant; React não fala direto com o Stalwart). Antes, o webmail
-guardava a credencial Basic (`base64(email:senha)`) no `localStorage` e a enviava a cada request JMAP —
-uma senha reversível exposta a qualquer XSS. Como o Stalwart 0.16.4 **não** oferece bearer/app-password
-não-interativo trocável por senha (D7), adotou-se o padrão **BFF (backend-for-frontend)**:
+A direct consequence of D7 (no password grant; React never talks to Stalwart directly). Before
+this, the webmail stored the Basic credential (`base64(email:password)`) in `localStorage` and sent
+it on every JMAP request — a reversible password exposed to any XSS. Since Stalwart 0.16.4 offers
+no non-interactive bearer/app-password exchangeable for a password (D7), we adopted the
+**BFF (backend-for-frontend)** pattern:
 
-- No login (`/api/webmail/login`), o backend verifica a senha no Stalwart e **guarda a credencial Basic
-  CIFRADA** (AES-256-GCM, `internal/secretbox`, chave `MFA_ENC_KEY`) em `mail_users.jmap_cred`.
-- **Todo** o tráfego JMAP passa pelo nosso proxy (`/jmap`, `/auth`, `/.well-known` → API Go, **não**
-  direto ao Stalwart). O proxy autentica pela **sessão** (cookie HttpOnly na web, Bearer do token opaco
-  no app nativo) e **injeta** a Basic da caixa server-to-server (`jmap_proxy.go` → `jmapBrokerAuth`).
-- O browser **nunca** segura a senha da caixa. Só persiste dados não-secretos (email/accountId) + o token
-  de sessão opaco (revogável), e só no app nativo; na web a sessão é o cookie HttpOnly.
+- On login (`/api/webmail/login`), the backend verifies the password against Stalwart and **stores
+  the Basic credential ENCRYPTED** (AES-256-GCM, `internal/secretbox`, key `MFA_ENC_KEY`) in
+  `mail_users.jmap_cred`.
+- **All** JMAP traffic goes through our own proxy (`/jmap`, `/auth`, `/.well-known` → the Go API,
+  **not** straight to Stalwart). The proxy authenticates via the **session** (an HttpOnly cookie on
+  the web, an opaque Bearer token in the native app) and **injects** the mailbox's Basic credential
+  server-to-server (`jmap_proxy.go` → `jmapBrokerAuth`).
+- The browser **never** holds the mailbox password. It only persists non-secret data
+  (email/accountId) plus the opaque, revocable session token, and only in the native app; on the
+  web the session is the HttpOnly cookie.
 
-Implicações operacionais:
-- **Deploy:** o reverse proxy (Caddy/nginx/Vite) roteia `/jmap`, `/auth`, `/.well-known` para a **API Go**
-  (`:8000`), não mais para o Stalwart. A API alcança o Stalwart pela rede interna (`STALWART_URL`).
-- **`MFA_ENC_KEY` é obrigatória em produção** (a config falha fechado sem ela) — cifra a cred JMAP e o
-  segredo TOTP. Trocar a chave invalida as creds guardadas (usuários re-logam).
-- **Login expira** (token de sessão, 7 dias): sem a senha guardada, ao expirar o usuário re-loga — some o
-  "login eterno" antigo, que era exatamente o vetor de risco.
-- Sessões/anteriores à migração (`jmap_cred` vazio) recebem 401 no JMAP → re-login (que popula a cred).
-- **Verificação:** exige teste de integração end-to-end com a stack completa (Stalwart + API + proxy). O
-  brokering usa só Basic auth (comprovado em D7); o risco está na fiação, não no Stalwart.
+Operational implications:
+- **Deploy:** the reverse proxy (Caddy/nginx/Vite) routes `/jmap`, `/auth`, `/.well-known` to the
+  **Go API** (`:8000`), no longer to Stalwart. The API reaches Stalwart over the internal network
+  (`STALWART_URL`).
+- **`MFA_ENC_KEY` is required in production** (the config fails closed without it) — it encrypts
+  the JMAP credential and the TOTP secret. Rotating the key invalidates every stored credential
+  (users have to log in again).
+- **Login expires** (session token, 7 days): with no stored password, the user just logs in again
+  on expiry — the old "eternal login," which was exactly the risk vector, is gone.
+- Sessions from before this migration (empty `jmap_cred`) get a 401 on JMAP → re-login (which
+  populates the credential).
+- **Verification:** needs an end-to-end integration test against the full stack (Stalwart + API +
+  proxy). The brokering only uses Basic auth (proven in D7); the risk is in the wiring, not in
+  Stalwart.
 
-## White-label do envio (SES) — custom MAIL FROM (25/07/2026)
-O Gmail (e afins) mostram **"enviado por" = domínio do envelope MAIL FROM (Return-Path)**. Sem custom
-MAIL FROM na identidade SES, esse domínio é o default `<região>.amazonses.com` → **todos os
-destinatários viam o Amazon**, apesar do DKIM (`assinado por`) já ser `beskos.com`.
+## White-labeling outbound mail (SES) — custom MAIL FROM (2026-07-25)
+Gmail (and similar clients) show **"sent by" = the envelope MAIL FROM (Return-Path) domain**.
+Without a custom MAIL FROM on the SES identity, that domain is the default
+`<region>.amazonses.com` → **every recipient saw Amazon**, even though the DKIM ("signed by") was
+already `beskos.com`.
 
-**Decisão:** configurar custom MAIL FROM `bounce.<domínio>` por tenant (`ses.SetMailFrom`,
-`BehaviorOnMxFailure=USE_DEFAULT_VALUE` para não travar o envio antes do MX propagar). O
-`AugmentZoneForSES` passa a emitir, no subdomínio de bounce, `MX 10 feedback-smtp.<região>.amazonses.com`
-+ `TXT "v=spf1 include:amazonses.com ~all"`.
+**Decision:** configure a custom MAIL FROM `bounce.<domain>` per tenant (`ses.SetMailFrom`,
+`BehaviorOnMxFailure=USE_DEFAULT_VALUE` so sending doesn't stall before the MX propagates).
+`AugmentZoneForSES` now emits, on the bounce subdomain,
+`MX 10 feedback-smtp.<region>.amazonses.com` + `TXT "v=spf1 include:amazonses.com ~all"`.
 
-**Trade-off aceite:** este é o **único** ponto do DNS do cliente que referencia o amazonses, e só no
-subdomínio `bounce.<domínio>` (visível apenas a quem faz `dig` nesse subdomínio). Os registos do
-domínio apex continuam sem qualquer Amazon (SPF via `_spf.<brand>`, DKIM da nossa chave, DMARC). Ganha-se
-o white-label no que **todos os destinatários** veem, ao custo de um MX de bounce técnico. Alternativa
-descartada (sem custom MAIL FROM): DNS 100% limpo mas `mailed-by: amazonses` para todos. Ver
-`provisioning/zone.go`, `ses/ses.go`, testes `zone_ses_test.go`/`machine_test.go`.
+**Trade-off accepted:** this is the **only** place in the customer's DNS that references
+amazonses, and only on the `bounce.<domain>` subdomain (visible only to someone who runs `dig`
+against that subdomain). The apex domain's own records stay entirely Amazon-free (SPF via
+`_spf.<brand>`, DKIM from our own key, DMARC). We gain the white-label appearance that **every
+recipient** sees, at the cost of one technical bounce MX. Rejected alternative (no custom MAIL
+FROM): fully clean DNS but `mailed-by: amazonses` for everyone. See `provisioning/zone.go`,
+`ses/ses.go`, tests `zone_ses_test.go`/`machine_test.go`.
 
-## Marca própria no editor de office — patch ao Document Server (27/07/2026)
+## Our own branding in the office editor — a patch to Document Server (2026-07-27)
 
-Até aqui a postura era "imagem oficial, sem modificação, só rede" (como o Stalwart). **Deixa de valer
-para o OnlyOffice** — e só para ele. O Stalwart continua intocado (lei §5.4).
+Until now the stance was "official image, unmodified, network only" (same as Stalwart). **That
+stops applying to OnlyOffice** — and only to it. Stalwart stays untouched (law §5.4).
 
-**Realidade medida** (imagem pinada, `onlyoffice-documentserver 9.4.0-129`, arm64):
-- A doc oficial marca `customization.logo` e `customization.customer` como exclusivos da **Developer
-  Edition**. Confirmado empiricamente: no Community o servidor reporta a licença com `branding: false`
-  e `customization: false`, e o cliente **descarta os parâmetros em silêncio** — nem erro, nem aviso.
-- O gate são **duas linhas por editor**, em `web-apps/apps/<editor>/main/app/controller/Main.js`:
+**Measured reality** (pinned image, `onlyoffice-documentserver 9.4.0-129`, arm64):
+- The official docs mark `customization.logo` and `customization.customer` as exclusive to the
+  **Developer Edition**. Confirmed empirically: on Community the server reports the license with
+  `branding: false` and `customization: false`, and the client **silently drops the
+  parameters** — no error, no warning.
+- The gate is **two lines per editor**, in
+  `web-apps/apps/<editor>/main/app/controller/Main.js`:
   ```js
   this.appOptions.canBrandingExt = params.asc_getCanBranding() && (...)   // layout, loaderLogo, about
-  this.appOptions.canBranding    = params.asc_getCustomization()          // logo do cabeçalho + "Sobre"
+  this.appOptions.canBranding    = params.asc_getCustomization()          // header logo + "About"
   ```
-  (Note a inversão: `asc_getCanBranding` alimenta o `Ext`, não o básico.)
-- O `web-apps` do 9.4 vem **sem minificação** — daí o patch caber num `sed`. O `DocService` do 9.4, ao
-  contrário, é um ELF único de ~263 MB com o JS embutido: patchar o servidor seria muito mais caro, e é
-  desnecessário, porque o veredito da licença só é *aplicado* no cliente.
-- O nginx do DS serve com `gzip_static`: sem regenerar o `.gz` ao lado, o browser recebe o ficheiro
-  original e o patch parece não ter efeito. É o erro fácil desta modificação.
-- **O logo NÃO pode ser um `data:` URI.** O `api.js` do DS passa `customization.logo.{image,imageDark,
-  imageLight}` na **query string do iframe** do editor (linhas ~1216-1219). Três data URIs de ~7 KB,
-  percent-encoded, dão ~57 KB de linha de pedido → **`414 Request-URI Too Large`** ao abrir qualquer
-  documento. Solução: o patch copia os SVG para dentro do webroot do DS
-  (`web-apps/apps/common/main/resources/img/beskos/`) e o backend manda a URL — 362 chars, mesma
-  origem do editor, sem CORS e sem depender de a app estar publicamente exposta.
+  (Note the inversion: `asc_getCanBranding` feeds `Ext`, not the base one.)
+- The 9.4 `web-apps` ships **unminified** — which is why the patch fits in a `sed`. The 9.4
+  `DocService`, by contrast, is a single ~263 MB ELF binary with the JS embedded: patching the
+  server would be far more expensive, and unnecessary, because the license verdict is only
+  *applied* on the client.
+- The DS's nginx serves with `gzip_static`: without regenerating the `.gz` alongside it, the
+  browser gets the original file and the patch looks like it had no effect. This is the easy
+  mistake with this modification.
+- **The logo CANNOT be a `data:` URI.** The DS's `api.js` passes `customization.logo.{image,
+  imageDark,imageLight}` in the editor iframe's **query string** (lines ~1216-1219). Three ~7 KB
+  data URIs, percent-encoded, add up to a ~57 KB request line → **`414 Request-URI Too Large`**
+  when opening any document. Fix: the patch copies the SVGs into the DS's own webroot
+  (`web-apps/apps/common/main/resources/img/beskos/`) and the backend sends the URL instead — 362
+  characters, same origin as the editor, no CORS and no dependency on the app being publicly
+  reachable.
 
-**Decisão:** aplicar o patch no arranque do container (`deploy/onlyoffice-branding-patch.sh`, chamado
-pelo entrypoint), mantendo a imagem oficial pinada por digest. Idempotente e fail-safe: se o padrão
-mudar numa versão futura do DS, o script avisa e o editor arranca na mesma, só sem marca.
+**Decision:** apply the patch at container startup (`deploy/onlyoffice-branding-patch.sh`, called
+by the entrypoint), keeping the official image pinned by digest. Idempotent and fail-safe: if the
+pattern changes in a future DS version, the script warns and the editor still starts, just without
+the branding.
 
-**Conformidade (AGPL v3 + política de marcas da Ascensio System SIA):**
-- Os termos adicionais do 9.4 já **não** exigem manter o logo ONLYOFFICE na UI de versões modificadas —
-  a antiga cláusula *badgeware* caiu; o cabeçalho do ficheiro remete para a **secção 5** da AGPL
-  ("Appropriate Legal Notices") e diz "No trademark rights are granted under this License".
-- O que continua obrigatório e nós cumprimos: aviso de versão modificada **com data**, identificação do
-  software original, licença ligada, e a oferta do fonte modificado (§13, porque servimos pela rede).
-  Tudo isso vai em `customization.customer.info` (ver `backend/internal/httpapi/onlyoffice_branding.go`),
-  e o próprio `setLicInfo` do DS mantém o bloco *"Powered by / Ascensio System SIA / onlyoffice.com"*
-  no "Sobre" quando enviamos `customer`.
-- `ONLYOFFICE_SOURCE_URL` é **obrigatório em produção** (a config recusa arrancar sem ele) — é o
-  endereço do fonte modificado. Enquanto não existir esse repositório público, não subir em produção.
-- Nota: o *FAQ comercial* deles continua a dizer que remover a marca exige licença paga, o que
-  contradiz os termos do LICENSE. O que vincula é a licença; o risco residual é de disputa, não de
-  incumprimento claro. Decisão tomada com esse risco à vista.
+**Compliance (AGPL v3 + Ascensio System SIA's trademark policy):**
+- The 9.4 additional terms no longer require keeping the ONLYOFFICE logo in modified versions'
+  UI — the old *badgeware* clause is gone; the file header points to **section 5** of the AGPL
+  ("Appropriate Legal Notices") and says "No trademark rights are granted under this License".
+- What's still required, and what we do: a **dated** modified-version notice, identification of
+  the original software, a link to the license, and the offer of the modified source (§13,
+  because we serve it over the network). All of this goes in
+  `customization.customer.info` (see `backend/internal/httpapi/onlyoffice_branding.go`), and the
+  DS's own `setLicInfo` keeps the *"Powered by / Ascensio System SIA / onlyoffice.com"* block in
+  the "About" panel whenever we send `customer`.
+- `ONLYOFFICE_SOURCE_URL` is **required in production** (the config refuses to boot without it) —
+  it's the address of the modified source. Point it at your own fork before running this in
+  production.
+- Note: their *commercial FAQ* still says removing the branding requires a paid license, which
+  contradicts the terms of the LICENSE itself. The license is what binds; the residual risk is a
+  dispute, not a clear breach. This decision was made with that risk in view.
 
-**Paleta (27/07/2026):** o layout de abas é genérico, mas a cor é identidade — a política de marcas
-proíbe imitar a identidade visual deles, e um editor idêntico ao das imagens oficiais é exatamente
-o que não queremos. Trocamos o azul (`#446995`) pelo petróleo Beskos. Duas armadilhas medidas:
+**Color palette (2026-07-27):** the tab layout is generic, but color is identity — their trademark
+policy forbids imitating their visual identity, and an editor that looks identical to the official
+images is exactly what we don't want. We swapped their blue (`#446995`) for Beskos's own teal. Two
+measured pitfalls:
 
-- **Tema personalizado via `themes.json` NÃO funciona no arranque.** Quem serve os temas é o
-  DocService (não o nginx): lê os ficheiros de `services.CoAuthoring.themes.uri` e publica-os em
-  `GET /themes.json`, **embrulhando cada ficheiro num array `themes`** — logo cada ficheiro tem de
-  conter UM tema, não uma lista, senão fica aninhado a mais e é ignorado em silêncio. Mesmo depois
-  disso: o editor aplica a classe (`body class="theme-beskos"`) mas **nunca escreve as variáveis
-  CSS**, porque `write_theme_css()` está comentado em `parse_themes_object` e só corre em
-  `apply_theme()` — ou seja, apenas quando o utilizador TROCA de tema no menu. Medido:
-  `--toolbar-header-document` continuava `#446995` com o tema Beskos ativo.
-- **Solução:** o patch acrescenta `beskos-theme.css` ao fim do `app.css` de cada editor, sobre
-  `:root`/`.theme-type-light` e `.theme-dark`/`.theme-type-dark` — ganha por ordem em igualdade de
-  especificidade, vale para qualquer tema que o utilizador escolha, e não depende do mecanismo de
-  temas deles. `uiTheme` volta a ser o `theme-light`/`theme-dark` padrão.
+- **A custom theme via `themes.json` does NOT work at startup.** The one serving themes is
+  DocService (not nginx): it reads files from `services.CoAuthoring.themes.uri` and publishes them
+  at `GET /themes.json`, **wrapping each file in a `themes` array** — so each file has to contain
+  ONE theme, not a list, or it ends up nested one level too deep and is silently ignored. Even past
+  that: the editor applies the class (`body class="theme-beskos"`) but **never writes the CSS
+  variables**, because `write_theme_css()` is commented out in `parse_themes_object` and only runs
+  inside `apply_theme()` — i.e. only when the user actually SWITCHES theme from the menu. Measured:
+  `--toolbar-header-document` stayed `#446995` with the Beskos theme active.
+- **Fix:** the patch appends `beskos-theme.css` to the end of each editor's `app.css`, targeting
+  `:root`/`.theme-type-light` and `.theme-dark`/`.theme-type-dark` — it wins on source order at
+  equal specificity, applies no matter which theme the user picks, and doesn't depend on their
+  theme mechanism at all. `uiTheme` goes back to the standard `theme-light`/`theme-dark`.
 
-**Verificação:** `docker compose logs onlyoffice | grep branding` → `5 editor(es) modificado(s)`; e
+**Verification:** `docker compose logs onlyoffice | grep branding` → `5 editor(s) modified`; and
 `curl -sL -H 'Accept-Encoding: gzip' --compressed http://127.0.0.1:8082/web-apps/apps/documenteditor/main/app/controller/Main.js | grep beskos-branding-patch`
-tem de encontrar o marcador (é o teste que apanha o `.gz` desatualizado).
+has to find the marker (this is the test that catches a stale `.gz`).
 
-## D9 — A configuração da 0.16.4 é JSON e vive no registo, não no `config.toml` (29/07/2026)
+## D9 — 0.16.4's configuration is JSON and lives in the registry, not in `config.toml` (2026-07-29)
 
-**Descoberto ao preparar a migração do correio para Postgres.** Provado contra a imagem oficial
-`stalwartlabs/stalwart:v0.16.4`, localmente.
+**Discovered while preparing the Postgres migration for mail.** Proven against the official
+`stalwartlabs/stalwart:v0.16.4` image, locally.
 
-O `deploy/stalwart/config.toml` deste repositório **não é o formato que esta versão lê**:
+This repository's `deploy/stalwart/config.toml` **is not the format this version reads**:
 
-1. O comando por omissão da imagem é `stalwart --config /etc/stalwart/config.json` — o nosso
-   ficheiro está montado em `/opt/stalwart/etc/config.toml`, que **não é lido**.
-2. Esse ficheiro deixou de ser a configuração toda. É só a definição do **armazenamento de dados**;
-   listeners, TLS, domínios, autenticação e o resto passaram para um **registo** guardado dentro
-   desse armazenamento e editado pela interface de administração.
-3. Sem ficheiro nenhum, a 0.16.4 arranca em **modo de arranque com armazenamento efémero** — não
-   escreve nada em disco (confirmado: nem `/opt/stalwart` chega a existir).
+1. The image's default command is `stalwart --config /etc/stalwart/config.json` — our file was
+   mounted at `/opt/stalwart/etc/config.toml`, which is **never read**.
+2. That file is no longer the whole configuration. It's just the **data store** definition;
+   listeners, TLS, domains, authentication and everything else moved into a **registry** kept
+   inside that store and edited through the admin interface.
+3. With no file at all, 0.16.4 boots in **ephemeral-storage bootstrap mode** — it writes nothing to
+   disk (confirmed: `/opt/stalwart` never even comes into existence).
 
-**Consequência prática, e é séria:** o bloco do relay SES comentado no nosso `config.toml`, com
-instruções a dizer "descomente para produção", **não faria absolutamente nada**. O mesmo vale para
-qualquer outra afinação que alguém julgue estar a fazer ali.
+**Practical consequence, and a serious one:** the SES relay block commented out in our
+`config.toml`, with instructions saying "uncomment for production", **would have done absolutely
+nothing**. The same goes for any other tuning someone might think they're doing there.
 
-**Formato provado do ficheiro de arranque** (arrancou e ficou saudável, com 27 tabelas criadas):
+**Proven startup file format** (booted and came up healthy, with 27 tables created):
 
 ```json
 {
@@ -329,29 +367,32 @@ qualquer outra afinação que alguém julgue estar a fazer ali.
 }
 ```
 
-Duas armadilhas encontradas pelo caminho:
+Two pitfalls found along the way:
 
-- O `@type` é `PostgreSql` (as variantes aceites são `RocksDb`, `Sqlite`, `FoundationDb`,
-  `PostgreSql`, `MySql`) — `postgresql` em minúsculas é recusado.
-- O segredo é um enum etiquetado: `{"@type":"Value","secret":"..."}`. Escrever `"value"` em vez de
-  `"secret"` **não dá erro** — dá uma senha vazia e uma falha de autenticação obscura no Postgres.
-  As outras variantes são `None`, `EnvironmentVariable` e `File`.
+- `@type` is `PostgreSql` (the accepted variants are `RocksDb`, `Sqlite`, `FoundationDb`,
+  `PostgreSql`, `MySql`) — lowercase `postgresql` is rejected.
+- The secret is a tagged enum: `{"@type":"Value","secret":"..."}`. Writing `"value"` instead of
+  `"secret"` **gives no error** — it gives an empty password and an obscure Postgres
+  authentication failure. The other variants are `None`, `EnvironmentVariable` and `File`.
 
-**Confirmado em produção (29/07/2026), com acesso ao VPS-1:**
+**Confirmed in production (2026-07-29), with access to VPS-1:**
 
-- A plataforma **não corre por `docker compose`** — são **serviços de swarm**. O
-  `deploy/docker-compose.yml` deste repositório também não descreve o que lá está.
-- O serviço `stalwart` arranca com `--config /etc/stalwart/config.json`, montado a partir de
-  **`/opt/beskos/stalwart/config.json`** no host.
-- Esse ficheiro tem exatamente o formato acima — e **já aponta para PostgreSQL**: base `stalwart`,
-  no mesmo servidor da aplicação. Ou seja, as mensagens, os anexos e as contas do correio estão
-  todos em SQL, e são exportáveis a quente (é o que o serviço de backup passou a fazer).
+- The platform does **not** run via `docker compose` — these are **swarm services**. This
+  repository's `deploy/docker-compose.yml` also doesn't describe what's actually running there.
+- The `stalwart` service boots with `--config /etc/stalwart/config.json`, mounted from
+  **`/opt/beskos/stalwart/config.json`** on the host.
+- That file has exactly the format above — and **already points at PostgreSQL**: database
+  `stalwart`, on the same server as the application. In other words, mail messages, attachments,
+  and accounts are all in SQL, and exportable hot (which is what the backup service has been doing
+  ever since).
 
-**O que fazer com o `deploy/stalwart/config.toml`:** removê-lo, ou substituí-lo pelo ficheiro real.
-Enquanto lá estiver, com comentários a dizer "descomente para produção", vai continuar a enganar
-quem o ler — foi o que me aconteceu, e levou-me a planear uma migração que não era precisa.
+**What to do with `deploy/stalwart/config.toml`:** remove it, or replace it with the real file.
+As long as it sits there, with comments saying "uncomment for production", it will keep misleading
+whoever reads it — which is exactly what happened, and led to planning a migration that wasn't
+actually needed.
 
 
-## Como reproduzir / re-verificar
-Container de teste: `docker run -d --name mailin-sw-probe -e STALWART_RECOVERY_ADMIN='admin:probe-secret' -p 18080:8080 stalwartlabs/stalwart:v0.16.4`
-Auth: `admin:probe-secret`. Ver `backend/internal/stalwart/*_test.go` (testes de integração que exercem estes payloads).
+## How to reproduce / re-verify
+Test container: `docker run -d --name beskos-sw-probe -e STALWART_RECOVERY_ADMIN='admin:probe-secret' -p 18080:8080 stalwartlabs/stalwart:v0.16.4`
+Auth: `admin:probe-secret`. See `backend/internal/stalwart/*_test.go` (integration tests that
+exercise these payloads).
