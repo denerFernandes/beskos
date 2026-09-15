@@ -1,55 +1,56 @@
-# Abertura do código — Community e Pro
+# Opening the code — Community and Pro
 
-> Estado: **proposta para decisão** (2026-09-15). Documento vivo. Depois das decisões da §8 passa a
-> plano de execução, uma fase de cada vez (lei §6.1).
+> Status: **decided, implementing** (2026-09-15). Living document. Once the §8 decisions are
+> answered it becomes an execution plan, one phase at a time (law §6.1).
 
-## 0. Resumo
+## 0. Summary
 
-O objetivo tem duas metades que a definição de open source não deixa juntar:
+The goal has two halves the open source definition won't let sit together:
 
-1. código público, que qualquer empresa pode instalar e usar internamente;
-2. proibição de o oferecer a terceiros como serviço.
+1. public code, that any company can install and use internally;
+2. a ban on offering it to third parties as a service.
 
-A [Open Source Definition](https://opensource.org/osd) (critério 6) proíbe qualquer restrição ao
-campo de utilização. Uma licença que impede a revenda como serviço **não é open source** por
-definição, e chamar-lhe open source é a forma mais rápida de perder a confiança da comunidade que se
-quer atrair. Há duas saídas honestas:
+The [Open Source Definition](https://opensource.org/osd) (criterion 6) forbids any restriction
+on field of use. A license that blocks resale as a service **is not open source** by definition,
+and calling it that is the fastest way to lose the trust of the community we want to attract.
+There are two honest ways out:
 
-| Caminho | Licença do núcleo | O que se ganha | O que se perde |
+| Path | Core license | What's gained | What's lost |
 |---|---|---|---|
-| **A. Source-available com conversão** (decidido) | BUSL-1.1 | Proíbe legalmente o uso concorrente (SaaS de terceiros); cada versão converte-se em Apache 2.0 quatro anos depois de publicada | Não pode usar a expressão "open source"; diz-se "source-available" ou "fair source" |
-| **B. Open source** | AGPL-3.0 | Selo OSI, listagens (awesome-selfhosted, distribuições), máxima credibilidade | Qualquer um pode revender como serviço, desde que publique as alterações; o travão é apenas prático |
+| **A. Source-available with conversion** (decided) | BUSL-1.1 | Legally forbids competing use (third-party SaaS); every version converts to Apache 2.0 four years after release | Can't use the phrase "open source"; it's "source-available" or "fair source" |
+| **B. Open source** | AGPL-3.0 | OSI seal, listings (awesome-selfhosted, distros), maximum credibility | Anyone can resell it as a service as long as they publish their changes; the brake is only practical |
 
-**Decisão (2026-09-15): caminho A com BUSL-1.1**, com cláusula de uso adicional que permite produção
-interna e proíbe o serviço concorrente. A conversão automática dá a garantia que a comunidade pede: o
-código nunca fica preso, a versão de 2026 é Apache 2.0 em 2030. É o modelo da MariaDB, HashiCorp e
-CockroachDB.
+**Decision (2026-09-15): path A with BUSL-1.1**, with an additional-use clause that permits
+internal production use and bans the competing service. The automatic conversion gives the
+guarantee the community asks for: the code never stays locked away, the 2026 version becomes
+Apache 2.0 in 2030. It's the model MariaDB, HashiCorp, and CockroachDB use.
 
-Em cima do núcleo, uma edição **Pro** a 1 €/utilizador/mês, com código no mesmo repositório em
-`ee/` sob licença comercial própria e ativação por chave (modelo Cal.com/PostHog/GitLab). O
-**Manager** (consola do operador do SaaS) sai do repositório público para um repositório privado.
+On top of the core, a **Pro** edition at €1/user/month, with code in the same repository under
+`ee/` under its own commercial license and key-based activation (the Cal.com/PostHog/GitLab
+model). The **Manager** (the SaaS operator console) moves out of the public repository into a
+private one.
 
-## 1. Licença
+## 1. License
 
-### 1.1 Comparação
+### 1.1 Comparison
 
-| Licença | OSI | Proíbe SaaS concorrente | Conversão | Notas |
+| License | OSI | Bans competing SaaS | Conversion | Notes |
 |---|---|---|---|---|
-| **FSL-1.1-ALv2** (Functional Source License) | não | sim ("Competing Use") | Apache 2.0 após 2 anos, por versão | Texto curto (uma página), permite uso interno, não comercial e serviços profissionais. Desenhada para empresas SaaS. |
-| BUSL-1.1 (Business Source License) | não | sim, via *Additional Use Grant* redigido por nós | licença à escolha após ≤4 anos | Mais conhecida (HashiCorp, MariaDB, CockroachDB), mais parametrizável, texto mais longo e mais ambíguo no que é "produção". |
-| ELv2 (Elastic License) | não | sim (serviço gerido) | nunca | Sem conversão, pior receção. |
-| SSPL | não | indiretamente | nunca | Rejeitada pela OSI e pela Debian/Fedora. Evitar. |
-| AGPL-3.0 | sim | não | — | Copyleft de rede: quem opera o serviço tem de publicar alterações. Travão prático, não legal. |
-| Commons Clause / CC BY-NC | não | sim | nunca | Redação problemática (Commons Clause) ou inadequada a software (CC). Evitar. |
+| **FSL-1.1-ALv2** (Functional Source License) | no | yes ("Competing Use") | Apache 2.0 after 2 years, per version | Short text (one page), allows internal use, non-commercial use, and professional services. Designed for SaaS companies. |
+| BUSL-1.1 (Business Source License) | no | yes, via an *Additional Use Grant* we write ourselves | license of our choice after ≤4 years | Better known (HashiCorp, MariaDB, CockroachDB), more parameterizable, longer text and more ambiguous about what "production" means. |
+| ELv2 (Elastic License) | no | yes (managed service) | never | No conversion, worse reception. |
+| SSPL | no | indirectly | never | Rejected by the OSI and by Debian/Fedora. Avoid. |
+| AGPL-3.0 | yes | no | — | Network copyleft: whoever operates the service has to publish their changes. A practical brake, not a legal one. |
+| Commons Clause / CC BY-NC | no | yes | never | Problematic wording (Commons Clause) or a poor fit for software (CC). Avoid. |
 
-### 1.2 Decisão e parâmetros
+### 1.2 Decision and parameters
 
-**Núcleo (Community): BUSL-1.1.** O texto da licença é fixo (MariaDB, versão 1.1) e não se altera;
-o que é nosso são os cinco parâmetros do cabeçalho do `LICENSE.md`:
+**Core (Community): BUSL-1.1.** The license text itself is fixed (MariaDB, version 1.1) and
+doesn't change; what's ours are the five parameters in `LICENSE.md`'s header:
 
 ```
 Licensor:             Beskos, Lda.
-Licensed Work:        Beskos <versão>
+Licensed Work:        Beskos <version>
                       The Licensed Work is (c) 2026 Beskos, Lda.
 Additional Use Grant: You may make production use of the Licensed Work, including
                       for internal business purposes and for providing professional
@@ -61,453 +62,479 @@ Additional Use Grant: You may make production use of the Licensed Work, includin
                       the Licensed Work. Hosting the Licensed Work for a single
                       organisation's own users, including its affiliates, is not a
                       Competing Offering.
-Change Date:          <data de publicação desta versão + 4 anos>
+Change Date:          <this version's publication date + 4 years>
 Change License:       Apache License, Version 2.0
 ```
 
-Notas de redação:
+Drafting notes:
 
-- A BUSL exige que o *Additional Use Grant* seja uma **permissão**, não uma proibição; a proibição
-  entra como condição da permissão. A redação acima segue esse formato.
-- Definir "Competing Offering" pela **forma de disponibilização** (a terceiros, como serviço) e não
-  por "concorre com os produtos da Beskos". A redação da HashiCorp usou o segundo critério e a
-  ambiguidade custou-lhe a comunidade e o fork OpenTofu. A nossa não depende de saber o que a Beskos
-  vende.
-- "Single organisation's own users, including its affiliates" cobre o caso que se quer permitir: uma
-  empresa, ou um grupo de empresas, a operar o Beskos para si. Um integrador que instala e mantém o
-  Beskos na infraestrutura do cliente também está coberto (serviços profissionais).
-- **Change Date por versão.** Cada release leva a sua data: a versão publicada em 2026-10 converte em
-  2030-10, a de 2028-10 em 2032-10. Quatro anos é o máximo que a BUSL permite. O `LICENSE.md` é
-  atualizado pelo pipeline de release (GoReleaser corre um script que preenche `Licensed Work` e
-  `Change Date` a partir da tag), nunca à mão; uma versão sem data herda a anterior, o que é um
-  bug a evitar.
-- **Change License Apache 2.0**: permissiva, com cláusula de patentes, compatível com tudo o que
-  usamos. MPL-2.0 seria a alternativa se se quisesse copyleft ao nível do ficheiro após a conversão.
-- Antes de publicar, uma revisão jurídica do parágrafo (1 a 2 horas de um advogado de TI; a MariaDB
-  publica FAQ e exemplos aprovados em <https://mariadb.com/bsl-faq-adopting/>).
+- BUSL requires the *Additional Use Grant* to be a **permission**, not a prohibition; the
+  prohibition enters as a condition of the permission. The wording above follows that shape.
+- Define "Competing Offering" by **how it's made available** (to third parties, as a service),
+  not by "competes with Beskos's products." HashiCorp's wording used the second criterion, and
+  that ambiguity cost it the community and the OpenTofu fork. Ours doesn't depend on knowing
+  what Beskos happens to sell.
+- "Single organisation's own users, including its affiliates" covers the case we want to allow: a
+  company, or a group of companies, operating Beskos for itself. An integrator who installs and
+  maintains Beskos on a customer's infrastructure is also covered (professional services).
+- **Change Date per version.** Each release carries its own date: the version published in
+  2026-10 converts in 2030-10, the one from 2028-10 in 2032-10. Four years is the maximum BUSL
+  allows. `LICENSE.md` gets updated by the release pipeline (GoReleaser runs a script that fills
+  in `Licensed Work` and `Change Date` from the tag), never by hand; a version with no date
+  inherits the previous one's, which is a bug to avoid.
+- **Change License Apache 2.0**: permissive, with a patent clause, compatible with everything we
+  use. MPL-2.0 would be the alternative if we wanted file-level copyleft after conversion.
+- Before publishing, a legal review of the paragraph (1–2 hours with a tech lawyer; MariaDB
+  publishes an approved FAQ and examples at <https://mariadb.com/bsl-faq-adopting/>).
 
-**Pro:** `ee/LICENSE` com a "Beskos Enterprise License": uso permitido apenas com chave válida,
-proibida a alteração ou contorno do mecanismo de licença, código visível para auditoria. Base: a
-*Cal.com Commercial License* ou a *PostHog Enterprise License*, ambas curtas e testadas.
+**Pro:** `ee/LICENSE` carries the "Beskos Enterprise License": use permitted only with a valid
+key, altering or bypassing the license mechanism forbidden, code visible for audit. Based on the
+*Cal.com Commercial License* or the *PostHog Enterprise License*, both short and battle-tested.
 
-**Marca:** `TRADEMARK.md`. A licença cobre o código, não o nome. Registar **Beskos** no EUIPO
-antes do lançamento (≈ 850 € por classe, 4 a 6 meses). É o que impede alguém de operar o
-"Beskos hospedado por X" mesmo dentro do que a licença permite.
+**Trademark:** `TRADEMARK.md`. The license covers the code, not the name. Register **Beskos**
+with the EUIPO before launch (≈€850 per class, 4–6 months). This is what stops someone from
+running "Beskos, hosted by X" even within what the license otherwise permits.
 
-**Contribuições:** CLA (Contributor License Agreement) via CLA Assistant no GitHub. Sem CLA, uma
-contribuição de terceiros não pode entrar em `ee/` nem ser relicenciada. DCO não basta aqui.
+**Contributions:** a CLA (Contributor License Agreement) via CLA Assistant on GitHub. Without a
+CLA, a third party's contribution can't go into `ee/` or be relicensed. A DCO isn't enough here.
 
-**Cabeçalho SPDX** em todos os ficheiros: `// SPDX-License-Identifier: BUSL-1.1` no núcleo e
-`// SPDX-License-Identifier: LicenseRef-Beskos-Enterprise` em `ee/`. Verificado no CI.
+**SPDX header** on every file: `// SPDX-License-Identifier: BUSL-1.1` in the core and
+`// SPDX-License-Identifier: LicenseRef-Beskos-Enterprise` in `ee/`. Checked in CI.
 
-**Comunicação:** "source-available, converts to Apache 2.0 after four years". Nunca "open source".
+**Messaging:** "source-available, converts to Apache 2.0 after four years." Never "open source."
 
-### 1.2.1 Licenciamento dual: o serviço concorrente compra a licença comercial
+### 1.2.1 Dual licensing: a competing service buys the commercial license
 
-A BUSL foi desenhada para isto. O texto padrão termina com "For information about alternative
-licensing arrangements for the Licensed Work, please visit: <URL>"; preenche-se com
-`https://beskos.com/licensing`. Quem quer fazer o que a BUSL proíbe não fica bloqueado: compra o
-direito. Ficam por isso **três licenças** sobre o mesmo código, e convém não as confundir:
+BUSL was designed for exactly this. Its standard text ends with "For information about
+alternative licensing arrangements for the Licensed Work, please visit: <URL>"; ours reads
+`https://beskos.com/licensing`. Whoever wants to do what BUSL forbids isn't simply blocked: they
+buy the right. That leaves **three licenses** over the same code, worth not confusing:
 
-| Licença | Quem | Dá o direito a | Preço |
+| License | Who | Grants the right to | Price |
 |---|---|---|---|
-| BUSL-1.1 (`LICENSE.md`) | qualquer pessoa ou empresa | usar, alterar, correr em produção para a própria organização | grátis |
-| Beskos Enterprise License (`ee/LICENSE`) | clientes self-hosted | ativar as funcionalidades Pro em `ee/` com chave | 1 €/utilizador/mês |
-| **Beskos Commercial License** (contrato) | quem quer oferecer o Beskos a terceiros como serviço, revender, ou embutir num produto | o que a BUSL proíbe: *Competing Offering*, marca branca, OEM | negociado; ver abaixo |
+| BUSL-1.1 (`LICENSE.md`) | anyone, any company | use, modify, run in production for their own organization | free |
+| Beskos Enterprise License (`ee/LICENSE`) | self-hosted customers | activate the Pro features in `ee/` with a key | €1/user/month |
+| **Beskos Commercial License** (contract) | anyone who wants to offer Beskos to third parties as a service, resell it, or embed it in a product | what BUSL forbids: a *Competing Offering*, white-labeling, OEM | negotiated; see below |
 
-**Modelo de preço da Commercial License** (proposta, decidir em F0):
+**Commercial License pricing model** (proposal, to decide in F0):
 
-- **Hosting partner:** percentagem da receita (15 a 20 %) com mínimo anual, ou preço por utilizador
-  final ativo (2 a 3 €/mês) que já inclui o Pro. Auditoria anual por declaração.
-- **OEM / embedded:** valor fixo anual por produto, escalonado por número de instalações.
-- Inclui sempre: direito de usar `ee/` sem limite de lugares, acesso antecipado a releases, canal de
-  suporte, e o direito de **não** publicar as alterações (que a BUSL também não obriga). Não inclui a
-  marca: o parceiro opera com o nome dele ou com "powered by Beskos" mediante `TRADEMARK.md`.
-- O contrato é por versão maior e renovável; termina, e o parceiro volta a ficar sujeito à BUSL.
+- **Hosting partner:** a percentage of revenue (15–20%) with an annual minimum, or a price per
+  active end user (€2–3/month) that already includes Pro. Annual audit by self-reporting.
+  Annual audit by self-declaration.
+- **OEM / embedded:** a fixed annual fee per product, scaled by number of installations.
+- Always includes: the right to use `ee/` with no seat limit, early access to releases, a support
+  channel, and the right to **not** publish their changes (which BUSL doesn't require either). It
+  does not include the trademark: the partner operates under their own name, or "powered by
+  Beskos" per `TRADEMARK.md`.
+- The contract runs per major version and is renewable; once it ends, the partner falls back
+  under BUSL.
 
-**Consequências para o código e o processo:**
+**Consequences for the code and the process:**
 
-- O CLA é agora indispensável: sem ele não podemos licenciar comercialmente código de terceiros. O
-  CLA cede à Beskos o direito de relicenciar (modelo Apache ICLA, ou o da HashiCorp).
-- O copyright tem de estar todo em nome da **Beskos, Lda.**, incluindo o do `sync-daemon` e o de
-  contribuições antigas (hoje só há dois autores no histórico; obter a cessão do segundo por escrito).
-- `beskos.com/licensing`: página com as três licenças, uma tabela "posso fazer X?" com dez casos
-  concretos (usar na minha empresa, instalar para um cliente, oferecer como SaaS, fork interno,
-  embutir, etc.) e formulário de contacto para a comercial. Escrever em F6.
-- Um parceiro comercial recebe a mesma imagem e o mesmo binário; o que muda é o contrato e uma chave
-  Pro do tipo `partner` sem limite de lugares. Não há build separado.
+- The CLA is now indispensable: without it we can't commercially license third-party code. The
+  CLA assigns Beskos the right to relicense (the Apache ICLA model, or HashiCorp's).
+- Copyright has to sit entirely under **Beskos, Lda.**, including `sync-daemon`'s and any older
+  contributions' (today the history has only two authors; get the second one's assignment in
+  writing).
+- `beskos.com/licensing`: a page with all three licenses, a "can I do X?" table with ten concrete
+  cases (use it at my company, install it for a client, offer it as SaaS, an internal fork, embed
+  it, etc.), and a contact form for the commercial one. Write it in F6.
+- A commercial partner gets the same image and the same binary; what changes is the contract and
+  a Pro key of type `partner` with no seat limit. There is no separate build.
 
-### 1.3 Compatibilidade com dependências
+### 1.3 Dependency compatibility
 
-| Componente | Licença | Situação |
+| Component | License | Status |
 |---|---|---|
-| Stalwart (motor de email) | AGPL-3.0 | Usado apenas via rede (JMAP), sem modificação (lei §5.4). Sem contaminação. |
-| OnlyOffice Document Server | AGPL-3.0 | Via rede, container separado. O `onlyoffice-branding-patch.sh` altera a UI deles: publicá-lo cumpre a AGPL. |
-| LiveKit + Egress | Apache 2.0 | Sem restrições. |
-| PostgreSQL | PostgreSQL License | Sem restrições. |
-| Redis ≥ 7.4 | RSALv2/SSPL (8.x: AGPL) | Trocar por **Valkey** no `docker-compose.yml` público. |
-| MinIO | AGPL-3.0, edição community descontinuada em 2025 | Só em dev. No compose público usar Garage ou RustFS, ou documentar S3/R2. |
-| Go (10 dependências diretas) | MIT/BSD/Apache | Todas permissivas. |
-| Frontend (177 pacotes) | MIT/Apache/BSD; BlockNote MPL-2.0; libvips LGPL (só build) | Sem problema. O `package.json` diz `UNLICENSED`: corrigir. |
+| Stalwart (email engine) | AGPL-3.0 | Used only over the network (JMAP), unmodified (law §5.4). No contamination. |
+| OnlyOffice Document Server | AGPL-3.0 | Over the network, separate container. `onlyoffice-branding-patch.sh` changes their UI: publishing it satisfies the AGPL. |
+| LiveKit + Egress | Apache 2.0 | No restrictions. |
+| PostgreSQL | PostgreSQL License | No restrictions. |
+| Redis ≥ 7.4 | RSALv2/SSPL (8.x: AGPL) | Swap for **Valkey** in the public `docker-compose.yml`. |
+| MinIO | AGPL-3.0, Community edition discontinued in 2025 | Dev only. Use Garage or RustFS in the public compose, or document S3/R2. |
+| Go (10 direct dependencies) | MIT/BSD/Apache | All permissive. |
+| Frontend (177 packages) | MIT/Apache/BSD; BlockNote MPL-2.0; libvips LGPL (build-only) | No issue. `package.json` says `UNLICENSED`: fix it. |
 
-Automatizar: `go-licenses report` e `license-checker --failOn 'GPL;SSPL'` no CI.
+Automate: `go-licenses report` and `license-checker --failOn 'GPL;SSPL'` in CI.
 
-## 2. Estado do repositório (auditoria de 2026-09-15)
+## 2. Repository status (audit of 2026-09-15)
 
-O que está bem: CI com gofmt/vet/testes/sqlc/vitest/cargo; verificador de leis em hook; `.gitignore`
-cobre `*.env`; **nenhum segredo, chave ou IP** nos ficheiros versionados; histórico sem ficheiros
-`.env`.
+What's already in good shape: CI with gofmt/vet/tests/sqlc/vitest/cargo; a law checker on a
+write hook; `.gitignore` covers `*.env`; **no secret, key, or IP** in tracked files; no `.env`
+file in the history.
 
-Esta tabela é a fotografia do dia da auditoria; o progresso real fica nas fases F1–F7 abaixo, que
-já resolveram vários dos itens aqui listados (marcados nas respetivas secções).
+This table is a photograph from audit day; the real progress is in phases F1–F7 below, which
+have already resolved several of the items listed here (marked in their own sections).
 
-O que impede a publicação tal como está:
+What stands in the way of publishing as-is:
 
-| Problema | Medida | Onde |
+| Problem | Extent | Where |
 |---|---|---|
-| Manager (consola do operador) misturado com o produto | 1 616 linhas em `internal/managerapi`, `cmd/manager-api`, app Next `manager/`, metering em `cmd/worker`, migrações `00101`, `00106`… | §3.3 |
-| Comentários em português | 241 de 262 ficheiros Go; 145 ficheiros TS | §5 |
-| Comentários-diário ("bug 24/07/2026", "decisão desta sessão", "M2 do manager, ver docs/manager.md §3.5") | 194 no backend, 40 no frontend | §5 |
-| Densidade de comentário | 12,1 % das linhas Go, 9,2 % TS; ficheiros com 25–36 % | §5 |
-| Ficheiros acima das 600 linhas (lei §1.4) | `chat_handlers.go` 1 508; `wiki_handlers.go` 729; `files_handlers.go` 723; `MailView.tsx` 832; `backend.ts` 818; `MeetPresentation.tsx` 671; `FilesView.tsx` 607 | §4 F4 |
-| `internal/httpapi` é um monólito | 26 239 linhas num só pacote | §4 F4 |
-| Pacotes sem testes | `auth`, `chat`, `config`, `mailbox` | §4 F4 |
-| Nome do módulo | `mailin/backend` (190 imports), crate `mailin-sync` | §4 F4 |
-| Marca embutida no código | `beskos.com` em 8 sítios do backend (`config.go`, `mail_alerts.go`, `onlyoffice_branding.go`, `notify/email.go`, `cmd/api/main.go`…), "Powered by Beskos" em `Guest.tsx`/`Booking.tsx`, `dns-beskos.zone` | §4 F3 |
-| Dados pessoais | e-mail pessoal do fundador semeado na migração `00106_manager_admin.sql` | §4 F1 |
-| Lixo versionado | `deploy/__pycache__/*.pyc`, `frontend/tsconfig.tsbuildinfo` | §4 F1 |
-| Gitlink para repositório privado | `landing` (commit `f2b33ff`) | §4 F1 |
-| Documentação interna | `project.md` (brief), `docs/manager.md`, `AVALIACAO-PLATAFORMA-PRODUCAO.md`, `ROADMAP*.md`, `GAPS-FUNCIONALIDADES.md`, `landing-europa.md`, `deploy/provision/*` (CapRover nosso) | §4 F1 |
-| Documentação toda em português | 13 documentos em `docs/`, README, `CLAUDE.md` | §4 F6 |
-| Só 2 idiomas na app | `pt-BR`, `en` (a landing tem 8) | opcional |
+| The Manager (operator console) mixed into the product | 1,616 lines across `internal/managerapi`, `cmd/manager-api`, the Next app `manager/`, metering in `cmd/worker`, migrations `00101`, `00106`… | §3.3 |
+| Comments in Portuguese | 241 of 262 Go files; 145 TS files | §5 |
+| Diary-style comments ("bug 07/24/2026," "this session's decision," "manager's M2, see docs/manager.md §3.5") | 194 in the backend, 40 in the frontend | §5 |
+| Comment density | 12.1% of Go lines, 9.2% TS; some files 25–36% | §5 |
+| Files over 600 lines (law §1.4) | `chat_handlers.go` 1,508; `wiki_handlers.go` 729; `files_handlers.go` 723; `MailView.tsx` 832; `backend.ts` 818; `MeetPresentation.tsx` 671; `FilesView.tsx` 607 | §4 F4 |
+| `internal/httpapi` is a monolith | 26,239 lines in one package | §4 F4 |
+| Packages with no tests | `auth`, `chat`, `config`, `mailbox` | §4 F4 |
+| Module name | `mailin/backend` (190 imports), crate `mailin-sync` | §4 F4 |
+| Brand hardcoded into the code | `beskos.com` in 8 places in the backend (`config.go`, `mail_alerts.go`, `onlyoffice_branding.go`, `notify/email.go`, `cmd/api/main.go`…), "Powered by Beskos" in `Guest.tsx`/`Booking.tsx`, `dns-beskos.zone` | §4 F3 |
+| Personal data | the founder's personal email seeded in migration `00106_manager_admin.sql` | §4 F1 |
+| Junk under version control | `deploy/__pycache__/*.pyc`, `frontend/tsconfig.tsbuildinfo` | §4 F1 |
+| Gitlink to a private repository | `landing` (commit `f2b33ff`) | §4 F1 |
+| Internal documentation | `project.md` (the brief), `docs/manager.md`, the production-readiness assessment doc, `ROADMAP*.md`, `GAPS-FUNCIONALIDADES.md`, `landing-europa.md`, `deploy/provision/*` (our own CapRover setup) | §4 F1 |
+| All documentation in Portuguese | 13 documents in `docs/`, the README, `CLAUDE.md` | §4 F6 |
+| Only 2 languages in the app | `pt-BR`, `en` (the landing page has 8) | optional |
 
-## 3. Arquitetura Community / Pro / Cloud
+## 3. Community / Pro / Cloud architecture
 
-### 3.1 Três camadas, dois repositórios
+### 3.1 Three layers, two repositories
 
 ```
-github.com/beskosorg/beskos         (público, BUSL-1.1 + ee/ comercial)
-├── backend/                         núcleo Go
-│   └── ee/                          Pro: só compila com -tags pro
-├── frontend/                        webmail + painel
-│   └── src/ee/                      Pro: componentes ativados por capability
-├── sync-daemon/                     motor Rust (MIT hoje; alinhar com o núcleo)
-├── deploy/                          docker-compose de referência (self-hosted)
-└── docs/                            em inglês
+github.com/beskosorg/beskos         (public, BUSL-1.1 + ee/ commercial)
+├── backend/                         Go core
+│   └── ee/                          Pro: only builds with -tags pro
+├── frontend/                        webmail + panel
+│   └── src/ee/                      Pro: components gated by capability
+├── sync-daemon/                     Rust engine (MIT today; align with the core)
+├── deploy/                          reference docker-compose (self-hosted)
+└── docs/                            in English
 
-github.com/beskosorg/beskos-cloud   (privado)
-├── manager/ + cmd/manager-api       consola do operador
-├── billing Stripe, signup, waitlist, metering, SES por tenant
-├── licensing/                       emissão e renovação de chaves Pro
-└── deploy prod (CapRover, secrets, zona DNS, provision/)
+github.com/beskosorg/beskos-cloud   (private)
+├── manager/ + cmd/manager-api       operator console
+├── Stripe billing, signup, waitlist, metering, per-tenant SES
+├── licensing/                       issuing and renewing Pro keys
+└── production deploy (CapRover, secrets, DNS zone, provision/)
 ```
 
-Regra: **o repositório privado importa o público, nunca ao contrário.** `beskos-cloud` é um módulo
-Go que depende de `github.com/beskosorg/beskos/backend` e acrescenta os seus binários. Assim o
-produto público continua a ser exatamente o que corremos em produção.
+Rule: **the private repository imports the public one, never the other way around.**
+`beskos-cloud` is a Go module that depends on `github.com/beskosorg/beskos/backend` and adds its
+own binaries. This way the public product stays exactly what we run in production.
 
-### 3.2 Distribuição das funcionalidades (proposta a validar)
+### 3.2 Feature split (proposal to validate)
 
-| Community (gratuito, sem limite de utilizadores) | Pro (1 €/utilizador/mês) | Cloud (só nós) |
+| Community (free, no user limit) | Pro (€1/user/month) | Cloud (us only) |
 |---|---|---|
-| Email (Stalwart), calendário, contactos, Drive, chat, Wiki, Kanban, "Hoje" | Gravação e transcrição de reuniões (Egress + montagem) | Manager |
-| Meet sem gravação | Marca própria: logótipo, cores, domínio, sem "Powered by", tema OnlyOffice | Billing Stripe, planos, IVA |
-| Edição office (OnlyOffice CE) | Registo de auditoria e políticas de retenção | Signup self-service, lista de espera |
-| Assistente de IA com a chave do cliente (DeepSeek/OpenAI) | Agentes de IA de organização (`AssistantAgentsSection`) | Metering, relatórios, alertas |
-| RBAC, grupos, convites, MFA (TOTP/SMS) | Políticas de segurança da organização (MFA obrigatório, sessões, IP) | SES por tenant, reputação |
-| Migração IMAP/ficheiros | Migração assistida em massa (vários domínios) | |
-| App desktop e sincronização de pastas | Suporte prioritário, SLA | |
+| Email (Stalwart), calendar, contacts, Drive, chat, Wiki, Kanban, "Today" | Meeting recording and transcription (Egress + assembly) | Manager |
+| Meet, without recording | Own branding: logo, colors, domain, no "Powered by," OnlyOffice theme | Stripe billing, plans, VAT |
+| Office editing (OnlyOffice CE) | Audit log and retention policies | Self-service signup, waitlist |
+| AI assistant with the customer's own key (DeepSeek/OpenAI) | Organization-wide AI agents (`AssistantAgentsSection`) | Metering, reports, alerts |
+| RBAC, groups, invites, MFA (TOTP/SMS) | Organization security policies (mandatory MFA, sessions, IP) | Per-tenant SES, reputation |
+| IMAP/file migration | Assisted bulk migration (several domains) | |
+| Desktop app and folder sync | Priority support, SLA | |
 | i18n pt-BR/en | | |
 
-Critério: fica em Pro o que uma empresa **paga sem hesitar** e um particular ou uma equipa pequena
-não sente falta. Nada que seja segurança básica vai para Pro.
+Rule of thumb: a feature goes into Pro when a business **pays for it without hesitating** and an
+individual or a small team wouldn't miss it. Nothing that's basic security ever goes into Pro.
 
-### 3.3 Mecanismo técnico
+### 3.3 Technical mechanism
 
-**Backend.** Novo pacote `internal/edition` com:
+**Backend.** A new `internal/edition` package with:
 
 ```go
 type Capabilities struct {
     Recording, Branding, AuditLog, OrgPolicies, Agents bool
-    Seats  int        // 0 = ilimitado (Community)
+    Seats  int        // 0 = unlimited (Community)
     Expiry time.Time
 }
 func Load(ctx context.Context, licenseKey string) (Capabilities, error)
 ```
 
-Community devolve tudo `false`, `Seats: 0`. A chave Pro é um JSON assinado com **Ed25519**
-(`org`, `seats`, `expires_at`, `features`), verificado **offline** com a chave pública embutida;
-período de tolerância de 14 dias após a expiração; renovação por download no portal. Os handlers
-Pro vivem em `backend/ee/...` com `//go:build pro` e registam-se em `httpapi` através de um
-`func RegisterEE(r chi.Router, deps)`; sem a tag, o ficheiro `ee_stub.go` regista nada. Um só
-binário na imagem publicada, compilado com `-tags pro`: a Community é o mesmo binário sem chave.
+Community returns everything `false`, `Seats: 0`. The Pro key is a JSON payload signed with
+**Ed25519** (`org`, `seats`, `expires_at`, `features`), verified **offline** against the embedded
+public key; a 14-day grace period after expiry; renewal by downloading it again from the portal.
+Pro handlers live in `backend/ee/...` behind `//go:build pro` and register themselves in
+`httpapi` through a `func RegisterEE(r chi.Router, deps)`; without the tag, `ee_stub.go`
+registers nothing. A single binary in the published image, compiled with `-tags pro`: Community
+is the same binary without a key.
 
-**Frontend.** `GET /api/edition` devolve as capabilities. Os componentes Pro ficam em
-`src/ee/` e só se montam com a capability ligada; sem chave aparece o cartão "disponível na edição
-Pro" com ligação ao portal. Um só bundle.
+**Frontend.** `GET /api/edition` returns the capabilities. Pro components live in `src/ee/` and
+only mount when the capability is on; without a key, a "available in the Pro edition" card shows
+instead, linking to the portal. A single bundle.
 
-**Planos.** A tabela `plans` fica, mas na Community é semeada com uma única linha `self_hosted`
-sem limites. `billing_handlers.go`, `signup.go`, `plans_catalog.go` (Stripe) migram para
-`beskos-cloud`; a Community tem as rotas de billing desligadas por ausência de `STRIPE_*`.
+**Plans.** The `plans` table stays, but in Community it's seeded with a single `self_hosted` row
+with no limits. `billing_handlers.go`, `signup.go`, `plans_catalog.go` (Stripe) migrate to
+`beskos-cloud`; Community has its billing routes off by the absence of `STRIPE_*`.
 
-**Remoção do Manager (checklist).**
+**Removing the Manager (checklist).**
 
-1. Mover `manager/`, `cmd/manager-api`, `internal/managerapi` para `beskos-cloud`.
-2. Extrair `cmd/worker/metering.go` e a retenção de gravações por plano para um worker do Cloud.
-3. Migrações `00101` (seed de planos), `00106` (admin do manager) e as tabelas `operators`,
-   `usage_daily`, `waitlist`, `alerts`: squash numa migração inicial limpa do público, e as tabelas
-   do operador passam para as migrações do Cloud.
-4. `docs/manager.md`, `deploy/provision/`, `dns-beskos.zone`, `secrets.env` e `deploy.py` seguem
-   para o privado.
-5. `docker-compose.yml` público fica com: stalwart, postgres, valkey, garage (ou S3 externo),
-   api, worker, onlyoffice, livekit, caddy. Um comando: `docker compose up`.
+1. Move `manager/`, `cmd/manager-api`, `internal/managerapi` to `beskos-cloud`.
+2. Extract `cmd/worker/metering.go` and per-plan recording retention into a Cloud worker.
+3. Migrations `00101` (plan seed), `00106` (manager admin), and the `operators`, `usage_daily`,
+   `waitlist`, `alerts` tables: squash into a clean initial migration for the public repo, and
+   the operator's own tables move into the Cloud's migrations.
+4. `docs/manager.md`, `deploy/provision/`, `dns-beskos.zone`, `secrets.env`, and `deploy.py`
+   follow into the private repo.
+5. The public `docker-compose.yml` keeps: stalwart, postgres, valkey, garage (or external S3),
+   api, worker, onlyoffice, livekit, caddy. One command: `docker compose up`.
 
-## 4. Fases
+## 4. Phases
 
-Estimativas para uma pessoa a tempo inteiro; F3–F6 são paralelizáveis.
+Estimates for one person full-time; F3–F6 can run in parallel.
 
-### F0 — Decisões (1 semana)
+### F0 — Decisions (1 week)
 
-Responder ao que resta da §8, registar as respostas neste documento, abrir o repositório `beskos-cloud`
-privado. **Pronto quando:** licença, nome da organização GitHub e tabela §3.2 aprovados.
+Answer what's left of §8, record the answers in this document, open the private `beskos-cloud`
+repository. **Done when:** the license, the GitHub org name, and the §3.2 table are approved.
 
-### F1 — Higiene e segurança do histórico (1 semana) — em curso desde 2026-09-15
+### F1 — History hygiene and security (1 week) — in progress since 2026-09-15
 
-Feito: gitleaks sobre os 219 commits (8 alertas: 7 fixtures de testes, 1 chave `sk_live_` da
-Stripe no primeiro commit, já fora do HEAD; **rotar na Stripe**); gitleaks no CI com allowlist;
-CI corrigido para o ramo `master` (apontava para `main` e nunca correu em push); CodeQL e
-Dependabot; `deploy/__pycache__` e `tsconfig.tsbuildinfo` deixam de ser versionados;
-`scripts/export_public.py` com a lista de exclusão e o relatório de resíduo; repositórios
-`beskosorg/beskos` e `beskosorg/beskos-cloud` criados (privados).
+Done: gitleaks over the 219 commits (8 alerts: 7 test fixtures, 1 Stripe `sk_live_` key in the
+first commit, already out of HEAD; **rotate it on Stripe**); gitleaks in CI with an allowlist; CI
+fixed to target the `master` branch (it pointed at `main` and never ran on push); CodeQL and
+Dependabot; `deploy/__pycache__` and `tsconfig.tsbuildinfo` no longer tracked;
+`scripts/export_public.py` with the exclusion list and the residue report; the
+`beskosorg/beskos` and `beskosorg/beskos-cloud` repositories created (private).
 
-~~Cessão de copyright do segundo autor~~ **resolvido:** `katisuhara@gmail.com` é a mesma pessoa
-(`dener.php@gmail.com`) noutra configuração local de `git`; sem terceiros no histórico, sem CLA
-retroativo necessário. **Chave Stripe `sk_live_...` do primeiro commit:** o utilizador confirmou
-que vai rodar na Stripe, mas só no final do processo (antes do lançamento, F9) — decisão dele,
-registada aqui para não se perder. Por fazer: rotar a senha do operador cujo hash bcrypt está na
-migração 00106; secret scanning e push protection nos repositórios da organização (gratuitos
-quando o `beskos` passar a público).
+~~Second author's copyright assignment~~ **resolved:** `katisuhara@gmail.com` is the same person
+(`dener.php@gmail.com`) under a different local `git` configuration; no third party in the
+history, no retroactive CLA needed. **The first commit's Stripe `sk_live_...` key:** the user
+confirmed he'll rotate it on Stripe, but only at the very end of the process (before launch, F9)
+— his call, recorded here so it isn't lost. **`beskos-cloud` populated 2026-09-15:** a single
+initial commit with the full working-tree state at the time, deliberately **without any of the
+history** — the user asked to start fresh rather than mirror the 217+ commits, and a full-history
+push was blocked twice by the auto-mode classifier as a likely data-exfiltration pattern anyway.
+Left to do: rotate the operator's password whose bcrypt hash sits in migration 00106; secret
+scanning and push protection on the org's repositories (free once `beskos` goes public).
 
+- Run `gitleaks detect --source . --log-opts=--all` and `trufflehog git` over **the whole
+  history**. If a single real secret turns up, publish with **fresh history** (squashed into one
+  initial commit) and keep the current history private-only. With no findings, the history could
+  ship as-is, but the 217 commits are in Portuguese and narrate the internal story: starting
+  clean is recommended regardless.
+- Remove: the `landing` gitlink, `deploy/__pycache__`, `frontend/tsconfig.tsbuildinfo` (add to
+  `.gitignore`), the personal email in migration `00106`.
+- Move the internal documentation (§2) to the private repo; `project.md` turns into a public
+  `docs/architecture.md` with no commercial brief.
+- Enable on GitHub: secret scanning, push protection, Dependabot, CodeQL.
+- **Done when:** `gitleaks` is clean, `git ls-files` has nothing from the §2 list, CodeQL runs.
 
-- Correr `gitleaks detect --source . --log-opts=--all` e `trufflehog git` sobre **todo o histórico**.
-  Se aparecer um único segredo real, publicar com **histórico novo** (squash num commit inicial) e
-  manter o histórico atual só no privado. Sem achados, o histórico pode ir, mas os 217 commits estão
-  em português e contam a história interna: recomenda-se de qualquer forma começar limpo.
-- Remover: gitlink `landing`, `deploy/__pycache__`, `frontend/tsconfig.tsbuildinfo` (juntar ao
-  `.gitignore`), e-mail pessoal da migração `00106`.
-- Mover a documentação interna (§2) para o privado; `project.md` transforma-se em `docs/architecture.md`
-  público e sem brief comercial.
-- Ativar no GitHub: secret scanning, push protection, Dependabot, CodeQL.
-- **Pronto quando:** `gitleaks` limpo, `git ls-files` sem nada da lista da §2, CodeQL a correr.
+### F2 — Community / Pro / Cloud split (3–4 weeks) — started 2026-09-15
 
-### F2 — Separação Community / Pro / Cloud (3 a 4 semanas) — iniciada em 2026-09-15
+Done: the `backend/internal/edition` package (offline Ed25519 verification of a Pro key, 14-day
+grace period, `Community()`/`Load()`, 11 tests); a public `GET /api/edition` endpoint wired into
+the `Server` in `cmd/api` and `cmd/worker`; an `Edition` type and `api.edition()` in the frontend
+(`src/api.ts`). Backend build, `go vet`, tests (35 packages), and frontend `tsc --noEmit` all
+green; `check_laws.py` clean.
 
-Feito: pacote `backend/internal/edition` (verificação Ed25519 offline de chave Pro, período de
-tolerância de 14 dias, `Community()`/`Load()`, 11 testes); endpoint público `GET /api/edition`
-ligado ao `Server` de `cmd/api` e `cmd/worker`; tipo `Edition` e `api.edition()` no frontend
-(`src/api.ts`). Build, `go vet`, testes do backend (35 pacotes) e `tsc --noEmit` do frontend
-verdes; `check_laws.py` limpo.
+**Found while fixing the CI branch (F1):** `ci.yml` had never actually run — it targeted `main`,
+the repository uses `master`. Its first real run turned up three pre-existing breakages, none
+related to this work, hidden for who knows how long behind a CI that looked on and never ran
+(the same pattern as law §2.8/§2.9, now inside CI itself): unformatted `cargo fmt` in
+`sync-daemon` and `frontend/src-tauri` (fixed); the Frontend job's `npm ci` missing
+`--legacy-peer-deps`, which the `Makefile` already uses but the workflow didn't (fixed); and a
+test (`assistant/api.test.ts`) that assumed the detected locale would be pt-BR and failed
+whenever the runner resolves `en` (this machine's case, and likely GitHub's runners too) — fixed
+by pinning the locale in `beforeEach`. New item, out of scope for that fix: `sync-daemon` and
+`frontend/src-tauri` have ~27 Portuguese UI strings (system tray messages) that don't go through
+the frontend's i18next since they're native Rust — candidates for an explicit `lang:ok` or their
+own i18n solution in F4/F6.
 
-**Achado ao corrigir o ramo do CI (F1):** o `ci.yml` nunca tinha realmente corrido — apontava
-para `main`, o repositório usa `master`. A primeira execução real revelou três avarias
-pré-existentes, nenhuma relacionada com este trabalho, escondidas há quem sabe quanto tempo por
-trás de um CI que parecia ligado e nunca correu (é o mesmo padrão da lei §2.8/§2.9, agora no
-próprio CI): `cargo fmt` por aplicar em `sync-daemon` e em `frontend/src-tauri` (corrigido);
-`npm ci` sem `--legacy-peer-deps` no job Frontend, que o `Makefile` já usa mas o workflow não
-(corrigido); e um teste (`assistant/api.test.ts`) que assumia o idioma detectado pt-BR e falhava
-sempre que o executor resolve `en` (o caso desta máquina e provavelmente o dos runners do
-GitHub) — corrigido fixando o idioma no `beforeEach`. Pendência nova, fora do âmbito desta
-correção: `sync-daemon` e `frontend/src-tauri` têm ~27 strings de UI em português (mensagens da
-bandeja do sistema) que não passam pelo i18next do frontend por serem Rust nativo — candidatas a
-`lang:ok` explícito ou a uma solução de i18n própria na F4/F6.
+The bulk of F2 remains: issuing real keys (private repository, no such service yet — F8); moving
+`manager/`, `cmd/manager-api`, `internal/managerapi`, `cmd/ses-tenants`, and the worker's metering
+to `beskos-cloud`; extracting the Stripe billing routes; `ee_stub.go` files and `//go:build pro`
+for the Pro features in the §3.2 table; adjusting the public `docker-compose.yml` (Valkey instead
+of Redis, an alternative to MinIO). Still executing §3.3 below. Order: `internal/edition` and the
+`ee/` stub → move the Manager and billing to `beskos-cloud` → the public compose boots clean on a
+fresh machine → move Pro features into `ee/` one at a time, with a test proving that without a
+key the route returns `403 edition_required`. **Done when:** `go build ./...` and
+`go build -tags pro ./...` are green; `docker compose up` on a clean VM produces a working Beskos
+in under 10 minutes; production keeps running out of `beskos-cloud`.
 
-Falta o grosso da F2: emitir chaves reais (repositório privado, ainda sem esse serviço — F8);
-mover `manager/`, `cmd/manager-api`, `internal/managerapi`, `cmd/ses-tenants` e a metering do
-worker para `beskos-cloud`; extrair as rotas de billing Stripe; ficheiros `ee_stub.go` e
-`//go:build pro` para as funcionalidades Pro da tabela §3.2; ajustar `docker-compose.yml` público
-(Valkey em vez de Redis, alternativa ao MinIO). Continua a executar a §3.3 abaixo. Ordem: `internal/edition` e stub `ee/` → mover Manager e billing para
-`beskos-cloud` → compose público a arrancar do zero numa máquina limpa → mover funcionalidades Pro
-para `ee/` uma a uma, com teste que prova que sem chave a rota devolve `403 edition_required`.
-**Pronto quando:** `go build ./...` e `go build -tags pro ./...` verdes; `docker compose up` em
-VM limpa dá um Beskos funcional em menos de 10 minutos; produção continua a correr a partir do
-`beskos-cloud`.
+### F3 — Decouple the brand (1 week)
 
-### F3 — Desacoplar a marca (1 semana)
+`BRAND_NAME`, `BRAND_URL`, `PUBLIC_URL`, `NOTIFY_FROM`, `SUPPORT_EMAIL` in `internal/config`, with
+no `beskos.com` defaults. "Powered by" becomes a capability (`Branding` turns it off). The
+OnlyOffice theme and `onlyoffice-branding-patch.sh` become optional. `mailprobe` stops assuming
+`mail.beskos.com`. **Done when:** `git grep beskos.com -- backend frontend/src` returns only
+tests and the Cloud's own defaults file.
 
-`BRAND_NAME`, `BRAND_URL`, `PUBLIC_URL`, `NOTIFY_FROM`, `SUPPORT_EMAIL` em `internal/config`, sem
-defaults `beskos.com`. "Powered by" passa a capability (`Branding` desliga-o). Tema OnlyOffice e
-`onlyoffice-branding-patch.sh` passam a opcionais. O `mailprobe` deixa de assumir `mail.beskos.com`.
-**Pronto quando:** `git grep beskos.com -- backend frontend/src` só devolve testes e o ficheiro de
-defaults do Cloud.
+### F4 — Code quality (3 weeks) — diary-style comments and oversized files done
 
-### F4 — Qualidade do código (3 semanas) — comentários-diário e ficheiros grandes feitos
+- **Comments:** `scripts/comment_audit.py` went from **301 to 0** on 2026-09-15, in five parallel
+  batches (SQL/sqlc, Rust, `frontend/src/webmail`, the rest of the frontend, `internal/httpapi`,
+  the rest of the backend), each verified with a build/vet/test pass before merging. `make check`
+  still runs the script in report mode — it stays clean only until the next write, not a
+  permanent guarantee. **Left to do, bigger and separate:** the script only catches diary-style
+  tone (dates, internal references, phase numbers); Portuguese comments WITHOUT those markers
+  fall outside its purpose — `scripts/export_public.py --check` still flags ~382 files with
+  ordinary Portuguese, a much larger, full-translation job, not attempted.
+- **Files over 600 lines: done.** `internal/httpapi/server.go` (split in F2) and the remaining
+  six (`chat_handlers.go` 1508, `wiki_handlers.go` 729, `files_handlers.go` 723, `MailView.tsx`
+  832, `backend.ts` 818, `MeetPresentation.tsx` 671, `FilesView.tsx` 607) were all split by
+  responsibility — no file in the repository exceeds 600 lines today. The backend split was
+  verified twice, independently: each declaration's syntax tree, before and after, is identical
+  byte for byte — only the import blocks change.
+- **Names: done.** Go module `github.com/beskosorg/beskos/backend` (197 files), crate
+  `beskos-sync`, the desktop app's crate `beskos`, `frontend/package.json` `beskos-web`.
+- **Tests:** `auth`, `chat`, `config`, `mailbox` still have no `_test.go`; a minimum coverage gate
+  in CI (70% on business-logic packages) is still to do.
+- **Tooling:** `golangci-lint`, strict `eslint`+`typescript-eslint`, `cargo clippy -D warnings` —
+  none of them in CI yet.
+- **CLAUDE.md/AGENTS.md → CONTRIBUTING.md:** partly done — `CONTRIBUTING.md` already summarizes
+  the laws in English; `CLAUDE.md` and `AGENTS.md` are now also in English (translated
+  2026-09-15, along with every other doc in this pass) and remain the full, canonical document;
+  `CONTRIBUTING.md` doesn't yet point to them as the fuller reference.
+- **Found this round:** `scripts/check_laws.py` itself had a git rename-detection bug — a file
+  split that git recognizes as a rename (≥50% similarity) hid the old path from the diff, and the
+  "a moved line doesn't count as new" mechanism (`moved_pool`) never saw the original content.
+  Fixed with `--no-renames` on the diff that feeds the list of changed files (`427e801`),
+  reproduced and confirmed locally before and after. **Found again on 2026-09-15, same day:** the
+  language check itself exempted every `.md` file — law 4.6 said "code and documentation," but
+  the machine only ever checked code. Fixed by making `.md` files checkable for language (never
+  for the 600-line ceiling, which was written for source files). CLAUDE.md and AGENTS.md
+  translated in the same commit as the fix, since it was blocking on their existing Portuguese
+  text the moment it started checking new lines in them properly.
+- **Done when:** `comment_audit.py` reads zero, `check_laws.py` has no exceptions, linting is green.
 
-- **Comentários:** `scripts/comment_audit.py` foi de **301 a 0** em 2026-09-15, em cinco lotes
-  paralelos (SQL/sqlc, Rust, `frontend/src/webmail`, resto do frontend, `internal/httpapi`, resto
-  do backend), cada um verificado com build/vet/test antes de integrar. `make check` continua a
-  correr o script em modo relatório — fica limpo até a próxima escrita, não é uma garantia
-  permanente. **Por fazer, maior e à parte:** o script só apanha o tom de diário (datas,
-  referências internas, números de fase); comentários em português SEM esses marcadores não
-  entram no seu alcance de propósito — `scripts/export_public.py --check` continua a apontar
-  ~382 ficheiros com português comum, um trabalho de tradução completa muito maior, não tentado.
-- **Ficheiros >600 linhas: feito.** `internal/httpapi/server.go` (dividido em F2) e os seis
-  restantes (`chat_handlers.go` 1508, `wiki_handlers.go` 729, `files_handlers.go` 723,
-  `MailView.tsx` 832, `backend.ts` 818, `MeetPresentation.tsx` 671, `FilesView.tsx` 607) foram
-  todos divididos por responsabilidade — nenhum ficheiro do repositório excede hoje as 600 linhas.
-  O split do backend foi verificado duas vezes de forma independente (a árvore sintática de cada
-  declaração, antes e depois, é idêntica byte a byte — só os blocos de import mudam).
-- **Nomes: feito.** Módulo Go `github.com/beskosorg/beskos/backend` (197 ficheiros), crate
-  `beskos-sync`, crate do app desktop `beskos`, `frontend/package.json` `beskos-web`.
-- **Testes:** `auth`, `chat`, `config`, `mailbox` continuam sem `_test.go`; cobertura mínima no CI
-  (70% nos pacotes de regra de negócio) por fazer.
-- **Ferramentas:** `golangci-lint`, `eslint`+`typescript-eslint` estrito, `cargo clippy -D
-  warnings` — nenhum ainda no CI.
-- **CLAUDE.md/AGENTS.md → CONTRIBUTING.md:** feito parcialmente — `CONTRIBUTING.md` já resume as
-  leis em inglês; `CLAUDE.md` continua a ser o documento completo (em português, com as crónicas),
-  não apontando ainda para o resumo.
-- **Achado nesta ronda:** o próprio `scripts/check_laws.py` tinha um bug de deteção de rename do
-  git — uma divisão de ficheiro que o git reconhece como rename (≥50% de semelhança) escondia o
-  caminho antigo do diff, e o mecanismo de "linha movida não conta como nova" (`moved_pool`)
-  nunca via o conteúdo original. Corrigido com `--no-renames` no diff que alimenta a lista de
-  ficheiros alterados (`427e801`), reproduzido e confirmado localmente antes e depois.
-- **Pronto quando:** `comment_audit.py` a zero, `check_laws.py` sem exceções, lint verde.
+### F5 — Security (2 weeks, before publishing) — in progress
 
-### F5 — Segurança (2 semanas, antes de publicar) — em curso
+Done (2026-09-15): `govulncheck` in CI (Go) — found 21 stdlib CVEs on its very first run, fixed
+by the `1.25.7` pin, with a real call path (TLS, `net/url`, `net/http`, `encoding/xml`,
+`encoding/asn1`); resolved by upgrading to `1.25.13` (`6ded514`). `cargo audit` on both Rust
+workspaces — caught an outdated `rustls` (RUSTSEC-2026-0285), fixed in `Cargo.lock` only.
+`npm audit --audit-level=critical` blocks (clean); `--audit-level=high` stays report-only (12
+pre-existing findings, no fix published upstream yet). `SECURITY.md` written (§ pending a
+decision: pentest budget and date).
 
-Feito (2026-09-15): `govulncheck` no CI (Go) — encontrou logo à primeira 21 CVEs da stdlib
-corrigidos pelo pin em `1.25.7`, com caminho de chamada real (TLS, `net/url`, `net/http`,
-`encoding/xml`, `encoding/asn1`); resolvido subindo para `1.25.13` (`6ded514`). `cargo audit` nos
-dois workspaces Rust — apanhou um `rustls` desatualizado (RUSTSEC-2026-0285), corrigido só no
-`Cargo.lock`. `npm audit --audit-level=critical` bloqueia (limpo); `--audit-level=high` fica
-report-only (12 achados pré-existentes, sem correção publicada a montante). `SECURITY.md` escrito
-(§ pendente de decisão: orçamento e data do pentest).
+Left to do: a threat model (`docs/security/threat-model.md`); automated verification of law §5.1
+(every sqlc query against a table with `tenant_id` filters by it); `gosec`; Go fuzzing
+(`filecrypt/format.go`, `blobgw/sigv4.go`, the JMAP client); a review of rate limiting/CSRF/
+timeouts; an external pentest (budget and date to decide, §8).
+- **Done when:** security CI is green (✅), the threat model is reviewed, the pentest has no open criticals.
 
-Por fazer: modelo de ameaças (`docs/security/threat-model.md`); verificação automática da lei
-§5.1 (toda query sqlc sobre tabela com `tenant_id` filtra por ele); `gosec`; fuzzing Go
-(`filecrypt/format.go`, `blobgw/sigv4.go`, cliente JMAP); revisão de rate limit/CSRF/timeouts;
-pentest externo (orçamento e data por decidir, §8).
-- **Pronto quando:** CI de segurança verde (✅), modelo de ameaças revisto, pentest sem críticos abertos.
+### F6 — Documentation (2–3 weeks) — core written
 
-### F6 — Documentação (2 a 3 semanas) — núcleo escrito
+Done (2026-09-15), all in English: `README.md` (lives at `docs/README-oss.md`, wired to the
+export via `OVERRIDES`), `docs/getting-started.md`, `docs/self-hosting.md`,
+`docs/architecture.md`, `docs/configuration.md` (**generated** from `internal/config` by
+`scripts/gen_env_docs.py`, so it can't drift), `docs/editions.md` (the public Community/Pro
+table, standing on its own instead of depending on this internal file), `docs/FUNCTIONALITY.md`
+(an area-by-area map, no status table — the internal one drifts from the code, and publishing
+that drift would be worse than not publishing at all), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
+`SECURITY.md`, `TRADEMARK.md`, `LICENSE.md`, `ee/LICENSE`, `docs/adr/` (six architecture decision
+records), `docs/api/README.md`, `docs/pro/README.md`, `CHANGELOG.md`.
 
-Feito (2026-09-15), tudo em inglês: `README.md` (fica em `docs/README-oss.md`, ligado ao export
-por `OVERRIDES`), `docs/getting-started.md`, `docs/self-hosting.md`, `docs/architecture.md`,
-`docs/configuration.md` (**gerado** de `internal/config` por `scripts/gen_env_docs.py`, não
-desatualiza), `docs/editions.md` (a tabela Community/Pro pública, sem depender deste ficheiro
-interno), `docs/FUNCTIONALITY.md` (mapa por área, sem tabela de status — a interna diverge do
-código e publicar essa divergência seria pior que não publicar nada), `CONTRIBUTING.md`,
-`CODE_OF_CONDUCT.md`, `SECURITY.md`, `TRADEMARK.md`, `LICENSE.md`, `ee/LICENSE`.
+Left to do: a published site (MkDocs Material/Docusaurus at `docs.beskos.com`); a full OpenAPI
+spec for the chi routes.
 
-Por fazer: site publicado (MkDocs Material/Docusaurus em `docs.beskos.com`); `docs/api/` (OpenAPI
-das rotas chi); `docs/pro/`; `CHANGELOG.md`; `docs/adr/` com as decisões estruturais existentes.
+**Done when:** someone who has never seen the project installs it and sends an email using only
+the documentation, without asking anything (test it with someone from outside).
 
-**Pronto quando:** uma pessoa que nunca viu o projeto instala e envia um email só com a
-documentação, sem perguntar nada (testar com alguém de fora).
+### F7 — Open-source project infrastructure (2 weeks) — partial
 
-### F7 — Infraestrutura do projeto aberto (2 semanas) — parcial
+Done: `.goreleaser.yaml` (`api`/`worker`/`bootstrap` binaries, linux+darwin, amd64+arm64;
+validated with `goreleaser release --snapshot --clean`, releases ship as drafts);
+`.github/workflows/release.yml` (fires on `v*` tags); issue/PR templates; `.github/CODEOWNERS`
+(points at a `@beskosorg/maintainers` team still to create); Discussions enabled on the
+repository; `good first issue`/`help wanted` labels created; description and topics set on both
+GitHub repositories.
 
-Feito: `.goreleaser.yaml` (binários `api`/`worker`/`bootstrap`, linux+darwin, amd64+arm64;
-validado com `goreleaser release --snapshot --clean`, release como `draft`);
-`.github/workflows/release.yml` (dispara em tag `v*`); templates de issue/PR;
-`.github/CODEOWNERS` (aponta para uma equipa `@beskosorg/maintainers` a criar); Discussions
-ligado no repositório; labels `good first issue`/`help wanted` criadas.
+**Branch protection deliberately NOT enabled:** requiring a PR+review on `master` would block the
+direct push workflow this session (and the user) uses while the repository is still internal
+work — that's a workflow change, not a cleanup, and makes more sense near launch (F9) or on the
+user's explicit request.
 
-**Branch protection deliberadamente NÃO ligada:** exigir PR+review em `master` bloquearia o
-próprio fluxo de push direto que esta sessão (e o utilizador) usa enquanto o repositório é
-trabalho interno — é uma mudança de fluxo, não uma limpeza, e faz mais sentido perto do
-lançamento (F9) ou por pedido explícito do utilizador.
+Left to do: multi-arch images at `ghcr.io/beskosorg/{api,worker,web}`, signed with **cosign**,
+with an SBOM (syft) attached — need registry credentials this repository doesn't have configured
+yet; an `edge` image built from `master`; a public roadmap (GitHub Projects); CLA Assistant;
+branch protection; a support policy (Community with no SLA, Pro with one).
+- **Done when:** `git tag v0.1.0` produces a complete release with no manual step.
 
-Por fazer: imagens multi-arch em `ghcr.io/beskosorg/{api,worker,web}`, assinadas com **cosign**,
-SBOM (syft) anexado — precisam de credenciais de registo que este repositório ainda não tem
-configuradas; imagem `edge` a partir de `master`; roadmap público (GitHub
-Projects); CLA Assistant; branch protection; política de suporte (Community sem SLA, Pro com).
-- **Pronto quando:** `git tag v0.1.0` produz release completa sem intervenção manual.
+### F8 — Licensing and selling Pro (2 weeks, in `beskos-cloud`)
 
-### F8 — Licenciamento e venda do Pro (2 semanas, no `beskos-cloud`)
+- A key-issuing service: an Ed25519 keypair (private key in the Cloud, public key embedded in the
+  binary), issued per organization with a `seats` count and a 12-month validity, auto-renewed via
+  a Stripe webhook.
+- A portal at `beskos.com/pro`: purchase (Stripe Checkout, €1/user/month, per-country VAT using
+  the code that already exists in `billing/vat.go`), download the key, manage seats.
+- Seat counting: active users in the tenant; past the limit, a 30-day panel warning, then the Pro
+  features turn off — never the product itself.
+- Telemetry **opt-in** only, documented (version, user count, active features).
+- **Done when:** purchase → key → activation on a self-hosted test instance works end to end.
 
-- Serviço de chaves: par Ed25519 (privada no Cloud, pública embutida no binário), emissão por
-  organização com `seats` e validade de 12 meses, renovação automática por webhook Stripe.
-- Portal em `beskos.com/pro`: comprar (Stripe Checkout, 1 €/utilizador/mês, IVA por país com o
-  código já existente em `billing/vat.go`), descarregar chave, gerir lugares.
-- Contagem de lugares: utilizadores ativos no tenant; acima do limite, aviso no painel 30 dias, depois
-  as funcionalidades Pro desligam-se, nunca o produto.
-- Telemetria **opt-in** apenas, documentada (versão, número de utilizadores, funcionalidades ativas).
-- **Pronto quando:** compra → chave → ativação num self-hosted de teste funciona ponta a ponta.
+### F9 — Launch (1 week)
 
-### F9 — Lançamento (1 semana)
+A blog announcement (what it is, why source-available, what Pro is, how to license a service),
+Hacker News ("Show HN"), r/selfhosted, Product Hunt, a PR to `awesome-selfhosted` (it accepts
+source-available with a label). The landing page gains a "Self-hosted" section and the pricing
+page gains a Community/Pro column.
 
-Anúncio no blog (o que é, porquê source-available, o que é Pro, como licenciar um serviço), Hacker News ("Show HN"), r/selfhosted,
-Product Hunt, PR em `awesome-selfhosted` (aceita source-available com etiqueta). Landing ganha a
-secção "Self-hosted" e a página de preços ganha a coluna Community/Pro.
+**Total:** 16–20 weeks for one person; 10–12 with two (F3–F6 running in parallel with F2).
 
-**Total:** 16 a 20 semanas para uma pessoa; 10 a 12 com duas (F3–F6 em paralelo com F2).
+## 5. Comment policy
 
-## 5. Política de comentários
+Whoever reads the repository will conclude, from the comments, whether the code was thought
+through or generated. Existing comments carried three marks of agent authorship: they narrated
+history ("bug on 07/24/2026: Growth with no BRL showed R$"), pointed at internal documents
+("docs/manager.md §3.5, M3"), and explained the obvious. Rules, checked by
+`scripts/comment_audit.py` and applied in F4:
 
-Quem lê o repositório vai concluir, pelos comentários, se o código foi pensado ou gerado. Os
-comentários atuais têm três marcas de escrita por agente: contam a história ("bug 24/07/2026:
-Growth sem BRL mostrava R$"), apontam para documentos internos ("docs/manager.md §3.5, M3") e
-explicam o óbvio. Regras, verificadas por `scripts/comment_audit.py` e aplicadas em F4:
+1. **English** (law §4.6), no exception outside `lang:ok`.
+2. **Godoc on every exported symbol**, one sentence, starting with the name. Nothing else is
+   required.
+3. A comment in the body says **why**, never **what**. If the code needs a comment to say what it
+   does, rename something or extract a function instead.
+4. **No dates, no "this session," no "decision," no phase numbers (M2, A3b), no references to
+   internal documents.** That information lives in `git log`, in ADRs, and in the CHANGELOG.
+5. **No narrative file headers.** `package billing` carries a two-line godoc in `doc.go`; the
+   package's other files don't repeat it.
+6. A `TODO` has an issue: `// TODO(#123): ...`.
+7. Density target: **≤6%** comment lines per package (12.1% today).
 
-1. **Inglês** (lei §4.6), sem exceção fora de `lang:ok`.
-2. **Godoc em todo o símbolo exportado**, uma frase, começa pelo nome. Nada mais é obrigatório.
-3. Um comentário no corpo diz **porquê**, nunca **o quê**. Se o código precisa de um comentário
-   para dizer o que faz, muda-se o nome ou extrai-se a função.
-4. **Sem datas, sem "sessão", sem "decisão", sem números de fase (M2, A3b), sem referências a
-   documentos internos.** Essa informação vive no `git log`, nos ADR e no CHANGELOG.
-5. **Sem cabeçalhos de ficheiro** narrativos. `package billing` leva um godoc de duas linhas no
-   `doc.go`; os outros ficheiros do pacote não repetem.
-6. Um `TODO` tem issue: `// TODO(#123): ...`.
-7. Alvo de densidade: **≤ 6 %** de linhas de comentário por pacote (hoje 12,1 %).
-
-Exemplo real, `internal/billing/plans.go`:
+A real example, `internal/billing/plans.go`:
 
 ```go
-// antes
+// before
 // Plan é uma faixa de assinatura. O preço é POR USUÁRIO/mês (por seat).
 // Desde a M2 do manager a fonte de verdade é a tabela `plans` (editável no painel do operador);
 // o catálogo em código abaixo é o FALLBACK (tabela vazia/erro) e o seed da migração 00101.
 
-// depois
+// after
 // Plan is a subscription tier. Prices are per seat per month; the plans table
 // is the source of truth and this catalog is the fallback when it is empty.
 ```
 
-## 6. Riscos
+## 6. Risks
 
-| Risco | Mitigação |
+| Risk | Mitigation |
 |---|---|
-| Reação negativa por não ser OSI ("open source de mentira") | Nunca usar a expressão. Dizer "source-available, Apache 2.0 após 4 anos" em todo o lado. |
-| Fork comercial depois da conversão a Apache (4 anos) | É o preço da honestidade da cláusula; a marca e o ritmo de desenvolvimento são a defesa. |
-| Alguém usa o nome sem operar o serviço (agregadores, "Beskos hosting") | Registo EUIPO e `TRADEMARK.md` antes do anúncio. |
-| Contribuidor externo recusa CLA | Aceitar só sob CLA; sem CLA a contribuição fica de fora. Explicar no `CONTRIBUTING.md`. |
-| Carga de suporte da Community | Discussions e FAQ; sem promessas de resposta; canal pago é o Pro. |
-| Fuga de segredo no histórico não detetada | Histórico novo na publicação (F1). |
-| Distribuir imagens de terceiros AGPL (OnlyOffice, Stalwart) | Não redistribuir: o compose aponta para as imagens oficiais deles. |
-| Pro a 1 € não paga suporte com SLA | Mínimo de 10 lugares por chave, ou SLA só a partir de N lugares. Decidir em F0. |
-| Produção diverge do público depois da separação | Regra §3.1: o Cloud importa o público; deploy de produção constrói a partir dos dois. |
+| Backlash for not being OSI ("fake open source") | Never use the phrase. Say "source-available, Apache 2.0 after 4 years" everywhere. |
+| A commercial fork after the Apache conversion (4 years) | The price of the clause's honesty; the trademark and the pace of development are the defense. |
+| Someone uses the name without operating the service (aggregators, "Beskos hosting") | EUIPO registration and `TRADEMARK.md` before the announcement. |
+| An external contributor refuses the CLA | Accept only under the CLA; without one, the contribution stays out. Explain it in `CONTRIBUTING.md`. |
+| Community support load | Discussions and an FAQ; no response-time promises; the paid channel is Pro. |
+| An undetected secret leak in the history | Fresh history at publication time (F1). |
+| Redistributing third-party AGPL images (OnlyOffice, Stalwart) | Don't redistribute: the compose file points at their official images. |
+| A €1 Pro tier doesn't cover SLA-backed support | A minimum of 10 seats per key, or SLA only past N seats. Decide in F0. |
+| Production diverges from the public repo after the split | Rule §3.1: the Cloud imports the public repo; the production deploy builds from both. |
 
-## 7. Práticas a manter depois do lançamento
+## 7. Practices to keep after launch
 
-- Uma fase por vez continua (lei §6.1); cada release tem changelog e notas de migração.
-- Todo o PR passa CI, lint, `check_laws`, `comment_audit`, licenças e uma revisão.
-- Vulnerabilidades: advisory, correção em todas as versões suportadas (última minor e a anterior),
-  CVE pedido pelo GitHub.
-- Roadmap público trimestral; decisões estruturais como ADR no repositório antes de código.
-- Reunião de comunidade mensal em Meet (o nosso), gravada e publicada.
+- One phase at a time continues (law §6.1); every release ships with a changelog and migration
+  notes.
+- Every PR goes through CI, linting, `check_laws`, `comment_audit`, license checks, and a review.
+- Vulnerabilities: an advisory, a fix in every supported version (the latest minor and the one
+  before it), a CVE requested through GitHub.
+- A quarterly public roadmap; structural decisions land as an ADR in the repository before the
+  code that implements them.
+- A monthly community meeting on Meet (our own), recorded and published.
 
-## 8. Decisões pendentes
+## 8. Pending decisions
 
-1. ~~Licença do núcleo~~ **Decidido 2026-09-15: BUSL-1.1 com licenciamento dual** (§1.2 e §1.2.1). Falta a revisão jurídica do *Additional Use Grant* e do contrato comercial.
-1b. **Preço da Commercial License:** percentagem de receita ou por utilizador final; mínimo anual.
-2. ~~Nome da organização~~ **Decidido 2026-09-15: `beskosorg`**, repositórios `beskosorg/beskos`
-   (público na F9, privado até lá) e `beskosorg/beskos-cloud` (privado). Ambos criados. O nome
-   interno `mailin` desaparece na F4.
-3. ~~Tabela Community/Pro~~ **Aprovada 2026-09-15 tal como proposta na §3.2.** Destrava a F2.
-4. ~~Histórico~~ **Decidido 2026-09-15: histórico novo.** O repositório atual continua a ser o de
-   trabalho até ao fim da F2 e passa então a `beskos-cloud`; o público nasce por exportação
-   (`scripts/export_public.py`) num único commit inicial.
-5. **Pro:** mínimo de lugares por chave; validade 12 meses; tolerância 14 dias.
-6. **Telemetria** opt-in: sim ou não.
-7. **Pentest externo:** orçamento e data.
-8. **sync-daemon:** manter MIT ou passar a BUSL-1.1 como o núcleo.
+1. ~~Core license~~ **Decided 2026-09-15: BUSL-1.1 with dual licensing** (§1.2 and §1.2.1). Still
+   needs legal review of the *Additional Use Grant* and of the commercial contract.
+1b. **Commercial License pricing:** revenue share or per end user; annual minimum.
+2. ~~Organization name~~ **Decided 2026-09-15: `beskosorg`**, repositories `beskosorg/beskos`
+   (public at F9, private until then) and `beskosorg/beskos-cloud` (private). Both created. The
+   internal name `mailin` disappears in F4.
+3. ~~Community/Pro table~~ **Approved 2026-09-15 as proposed in §3.2.** Unblocks F2.
+4. ~~History~~ **Decided 2026-09-15: fresh history, for both repositories.** The current
+   repository stays the working repo through the end of F2; `beskos-cloud` already received a
+   single fresh commit with a full snapshot (no mirrored history, per the user's explicit
+   request); the public repo is born the same way, via export
+   (`scripts/export_public.py`), once its residue check is clean.
+5. **Pro:** minimum seats per key; 12-month validity; 14-day grace period.
+6. **Telemetry** opt-in: yes or no.
+7. **External pentest:** budget and date.
+8. **sync-daemon:** keep MIT, or switch to BUSL-1.1 like the core.
