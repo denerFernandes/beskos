@@ -1,6 +1,6 @@
-// Package storage é o serviço de arquivos sobre MinIO (S3-compatível, self-hosted, brief §3).
-// Isolamento por tenant via prefixo de chave (tenant_id/…) e checagem no control plane.
-// Credenciais só no backend (lei §10).
+// Package storage is the file service on top of MinIO (S3-compatible, self-hosted, brief §3).
+// Tenant isolation via key prefix (tenant_id/…) and checking in the control plane.
+// Credentials only in the backend (law §10).
 package storage
 
 import (
@@ -19,20 +19,21 @@ import (
 type Service struct {
 	client *minio.Client
 	bucket string
-	// keys é nil quando a cifra está desligada: nesse caso o serviço escreve em claro, como antes.
-	// Ver crypto.go e docs/cifra-ficheiros.md.
+	// keys is nil when encryption is off: in that case the service writes in the clear, as before.
+	// See crypto.go and docs/cifra-ficheiros.md. lang:ok
 	keys *keyring
 }
 
-// New conecta a um storage S3-compatível e garante o bucket. Funciona com MinIO (endpoint
-// "minio:9000", region "") E com Cloudflare R2 (endpoint "<acct>.r2.cloudflarestorage.com",
-// useSSL=true, region "auto"). No R2 o bucket é pré-criado no painel — se não conseguirmos criá-lo
-// (o R2 restringe o CreateBucket por S3), assumimos que já existe em vez de rebentar.
+// New connects to an S3-compatible storage backend and ensures the bucket exists. Works with MinIO
+// (endpoint "minio:9000", region "") AND with Cloudflare R2 (endpoint
+// "<acct>.r2.cloudflarestorage.com", useSSL=true, region "auto"). On R2 the bucket is pre-created in
+// the dashboard — if we can't create it (R2 restricts CreateBucket over S3), we assume it already
+// exists instead of blowing up.
 func New(endpoint, accessKey, secretKey, bucket, region string, useSSL bool) (*Service, error) {
 	c, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKey, secretKey, ""),
 		Secure: useSSL,
-		Region: region, // R2 assina com "auto"; MinIO fica com "" (default)
+		Region: region, // R2 signs with "auto"; MinIO stays with "" (default)
 	})
 	if err != nil {
 		return nil, err
@@ -45,7 +46,7 @@ func New(endpoint, accessKey, secretKey, bucket, region string, useSSL bool) (*S
 		return nil, err
 	}
 	if !exists {
-		// No R2 os buckets criam-se no painel; o CreateBucket via S3 pode ser negado — não é fatal.
+		// On R2, buckets are created in the dashboard; the CreateBucket over S3 may be denied — not fatal.
 		if err := c.MakeBucket(ctx, bucket, minio.MakeBucketOptions{Region: region}); err != nil {
 			return nil, fmt.Errorf("bucket %q does not exist and could not be created (create it in the storage panel): %w", bucket, err)
 		}
@@ -53,11 +54,11 @@ func New(endpoint, accessKey, secretKey, bucket, region string, useSSL bool) (*S
 	return s, nil
 }
 
-// Put envia um blob. key deve ser prefixado por tenant (ex.: "<tenant>/<hash>").
+// Put uploads a blob. key must be prefixed by tenant (e.g. "<tenant>/<hash>").
 //
-// Com a cifra ligada, o que chega ao armazenamento é cifrado e o fornecedor nunca vê o conteúdo. É
-// UMA escrita: a chave do objeto viaja dentro do próprio objeto, embrulhada, e por isso não há uma
-// segunda escrita para ordenar — ver docs/cifra-ficheiros.md §2d.
+// With encryption on, what reaches storage is encrypted and the provider never sees the content.
+// It's ONE write: the object's key travels wrapped inside the object itself, so there's no second
+// write to order — see docs/cifra-ficheiros.md §2d. lang:ok
 func (s *Service) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
 	if s.keys == nil {
 		_, err := s.client.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
@@ -69,8 +70,8 @@ func (s *Service) Put(ctx context.Context, key string, r io.Reader, size int64, 
 		return fmt.Errorf("object key %q: %w", key, err)
 	}
 
-	// O cifrado sai de um pipe enquanto o envio o consome: um ficheiro de 2 GB nunca fica em
-	// memória nem em disco.
+	// The encrypted content comes out of a pipe while the upload consumes it: a 2 GB file never
+	// sits in memory nor on disk.
 	pr, pw := io.Pipe()
 	go func() {
 		pw.CloseWithError(filecrypt.EncryptTo(pw, r, size, dek, h))
@@ -78,25 +79,26 @@ func (s *Service) Put(ctx context.Context, key string, r io.Reader, size int64, 
 	defer pr.Close()
 
 	cifrado := filecrypt.EncryptedSize(size, h.ChunkSize, h.WrappedKeyLen())
-	// O tipo de conteúdo deixa de ir para o armazenamento: é metadado sobre o que está lá dentro, e
-	// o que está lá dentro passou a ser opaco. Quem serve o ficheiro já o sabe pela base de dados.
+	// The content type no longer goes to storage: it's metadata about what's inside, and what's
+	// inside has become opaque. Whoever serves the file already knows it from the database.
 	_, err = s.client.PutObject(ctx, s.bucket, key, pr, cifrado, minio.PutObjectOptions{
 		ContentType: "application/octet-stream",
 	})
 	return err
 }
 
-// PutPlain escreve SEM cifrar, mesmo com a cifra ligada. Existe para desfazer uma selagem feita por
-// engano (ver cmd/unseal) — um objeto que afinal é de outro processo, que o lê diretamente do balde
-// e não sabe do nosso formato. Não tem outro uso legítimo: o caminho normal é o Put.
+// PutPlain writes WITHOUT encrypting, even with encryption on. It exists to undo a sealing done by
+// mistake (see cmd/unseal) — an object that turns out to belong to another process, which reads it
+// directly from the bucket and knows nothing of our format. It has no other legitimate use: the
+// normal path is Put.
 func (s *Service) PutPlain(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
 	_, err := s.client.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})
 	return err
 }
 
-// Get devolve o conteúdo do blob para streaming ao cliente, já decifrado quando for o caso. Um
-// objeto anterior à cifra sai tal como está — a deteção é pela magia no cabeçalho, não por
-// configuração.
+// Get returns the blob's content for streaming to the client, already decrypted when applicable. An
+// object predating encryption comes out as is — detection is by the magic in the header, not by
+// configuration.
 func (s *Service) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
@@ -105,12 +107,12 @@ func (s *Service) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	return s.decrypt(ctx, key, obj)
 }
 
-// GetSeek devolve o objeto como ReadSeekCloser (o *minio.Object busca por Range/StatObject). Serve
-// para o http.ServeContent honrar o cabeçalho Range — player de vídeo com seek (avançar/retroceder).
+// GetSeek returns the object as a ReadSeekCloser (the *minio.Object seeks via Range/StatObject). It
+// lets http.ServeContent honor the Range header — a video player with seek (fast-forward/rewind).
 //
-// Com o objeto cifrado, o seek passa a ser sobre o conteúdo EM CLARO: o leitor traduz a posição
-// pedida em blocos e vai buscar só esses ao armazenamento. Um salto para o meio de uma gravação de
-// duas horas lê um bloco, não a gravação inteira.
+// With the object encrypted, seeking becomes seeking over the PLAINTEXT content: the reader
+// translates the requested position into chunks and only fetches those from storage. A jump to the
+// middle of a two-hour recording reads one chunk, not the whole recording.
 func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) {
 	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
@@ -119,7 +121,7 @@ func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) 
 
 	h, _, perr := readHeader(obj)
 	if errors.Is(perr, filecrypt.ErrNotEncrypted) {
-		// Objeto anterior à cifra: rebobina e devolve-o tal como está.
+		// Object predating encryption: rewind and return it as is.
 		if _, serr := obj.Seek(0, io.SeekStart); serr != nil {
 			obj.Close()
 			return nil, serr
@@ -147,9 +149,9 @@ func (s *Service) GetSeek(ctx context.Context, key string) (*SeekObject, error) 
 	return &SeekObject{ReadSeeker: sr, c: obj, source: obj}, nil
 }
 
-// SeekObject é o objeto aberto para leitura com salto. Traz também a data da última alteração, que
-// vem de borla na resposta do armazenamento — um servidor S3 tem de a devolver, e ir buscá-la a um
-// segundo pedido custaria uma ida à rede em cada leitura.
+// SeekObject is the object opened for seekable reading. It also carries the last-modified date,
+// which comes for free in storage's response — an S3 server has to return it, and fetching it with
+// a second request would cost a network round trip on every read.
 type SeekObject struct {
 	io.ReadSeeker
 	c      io.Closer
@@ -158,7 +160,7 @@ type SeekObject struct {
 
 func (s *SeekObject) Close() error { return s.c.Close() }
 
-// ModTime é quando o objeto mudou pela última vez, do lado do armazenamento.
+// ModTime is when the object last changed, on storage's side.
 func (s *SeekObject) ModTime() (time.Time, error) {
 	info, err := s.source.Stat()
 	if err != nil {
@@ -167,7 +169,7 @@ func (s *SeekObject) ModTime() (time.Time, error) {
 	return info.LastModified, nil
 }
 
-// Exists diz se o blob já existe (usado para dedup: não reenviar conteúdo idêntico).
+// Exists reports whether the blob already exists (used for dedup: don't re-upload identical content).
 func (s *Service) Exists(ctx context.Context, key string) (bool, error) {
 	_, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
 	if err != nil {
@@ -180,8 +182,8 @@ func (s *Service) Exists(ctx context.Context, key string) (bool, error) {
 	return true, nil
 }
 
-// Remove apaga um blob (usar só quando nenhum registro lógico aponta mais para ele). Não há chave
-// para limpar à parte: ela vivia dentro do objeto e desaparece com ele.
+// Remove deletes a blob (use only when no logical record points to it anymore). There's no key to
+// clean up separately: it lived inside the object and disappears with it.
 func (s *Service) Remove(ctx context.Context, key string) error {
 	return s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
 }

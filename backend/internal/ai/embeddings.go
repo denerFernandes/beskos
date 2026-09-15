@@ -12,30 +12,31 @@ import (
 	"time"
 )
 
-// Embedder gera embeddings de texto num endpoint OpenAI-compatível (POST {base}/embeddings).
-// Provedor escolhido para o RAG da wiki (docs/wiki-features.md §7.2): OpenAI text-embedding-3-small,
-// dimensão 1536. Config só por ambiente (lei 2.6); sem EMBEDDINGS_API_KEY o RAG fica desligado.
+// Embedder generates text embeddings on an OpenAI-compatible endpoint (POST {base}/embeddings).
+// Provider chosen for the wiki's RAG (docs/wiki-features.md §7.2): OpenAI text-embedding-3-small,
+// dimension 1536. Config only via the environment (law 2.6); without EMBEDDINGS_API_KEY, RAG stays off.
 type Embedder struct {
 	apiKey  string
 	baseURL string
 	model   string
-	// dims: dimensão com que gravamos. A coluna é `vector(1536)` e o índice ivfflat do pgvector não
-	// passa das 2000 dimensões — com os 4096 nativos do qwen3-embedding-8b, ou o INSERT rebenta, ou
-	// perdíamos o índice e a busca passava a varrer a tabela toda.
+	// dims: the dimension we store with. The column is `vector(1536)` and pgvector's ivfflat index
+	// does not go past 2000 dimensions — with qwen3-embedding-8b's native 4096, either the INSERT
+	// blows up, or we lose the index and search degrades to a full table scan.
 	//
-	// Cortamos aqui, e não no pedido: a TensorX recusa o parâmetro `dimensions` com 400 (confirmado
-	// contra o endpoint real). Truncar é o mecanismo previsto — o Qwen3 é treinado com Matryoshka,
-	// tal como o text-embedding-3 da OpenAI, e guarda o significado nas primeiras componentes.
+	// We truncate here, not in the request: TensorX refuses the `dimensions` parameter with a 400
+	// (confirmed against the real endpoint). Truncating is the intended mechanism — Qwen3 is
+	// trained with Matryoshka, same as OpenAI's text-embedding-3, and keeps the meaning in the
+	// first components.
 	dims int
 	hc   *http.Client
 }
 
-// NewEmbedderFromEnv lê a config do ambiente e devolve nil quando desligado (sem chave):
+// NewEmbedderFromEnv reads the config from the environment and returns nil when disabled (no key):
 //
-//	EMBEDDINGS_API_KEY     (obrigatório para ligar)
+//	EMBEDDINGS_API_KEY     (required to enable)
 //	EMBEDDINGS_BASE_URL    (default "https://api.tensorx.ai/v1")
 //	EMBEDDINGS_MODEL       (default "qwen/qwen3-embedding-8b")
-//	EMBEDDINGS_DIMENSIONS  (default 1536 — tem de bater com a coluna vector(N))
+//	EMBEDDINGS_DIMENSIONS  (default 1536 — must match the vector(N) column)
 func NewEmbedderFromEnv() *Embedder {
 	key := os.Getenv("EMBEDDINGS_API_KEY")
 	if key == "" {
@@ -54,7 +55,7 @@ func NewEmbedderFromEnv() *Embedder {
 	}
 }
 
-// Embed devolve um embedding por texto, na mesma ordem do input.
+// Embed returns one embedding per text, in the same order as the input.
 func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
@@ -100,9 +101,9 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 		if d.Index < 0 || d.Index >= len(vecs) {
 			return nil, fmt.Errorf("embeddings: provider returned out-of-range index %d", d.Index)
 		}
-		// A dimensão TEM de bater com a coluna: um vetor mais curto que o esperado é sinal de modelo
-		// trocado, e misturar modelos na mesma tabela dá uma busca semântica que devolve lixo em
-		// silêncio — pior do que falhar.
+		// The dimension HAS to match the column: a vector shorter than expected is a sign the model
+		// was swapped, and mixing models in the same table gives a semantic search that silently
+		// returns garbage — worse than failing.
 		if len(d.Embedding) < e.dims {
 			return nil, fmt.Errorf("embeddings: model %q returned %d dimensions, need at least %d",
 				e.model, len(d.Embedding), e.dims)
@@ -112,9 +113,9 @@ func (e *Embedder) Embed(ctx context.Context, texts []string) ([][]float32, erro
 	return vecs, nil
 }
 
-// shorten corta o vetor às primeiras `dims` componentes e volta a normalizá-lo (norma 1).
-// A renormalização não é cosmética: cortado, o vetor perde comprimento, e a busca compara por
-// produto interno — sem isto os textos longos ficariam sistematicamente à frente dos curtos.
+// shorten trims the vector to the first `dims` components and renormalizes it (norm 1).
+// The renormalization is not cosmetic: once trimmed, the vector loses length, and search compares
+// by inner product — without this, long texts would systematically rank ahead of short ones.
 func shorten(v []float32, dims int) []float32 {
 	if dims <= 0 || len(v) <= dims {
 		return v

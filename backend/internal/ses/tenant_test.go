@@ -2,9 +2,9 @@ package ses
 
 import "testing"
 
-// O nome do tenant tem de ser derivável do domínio à vista, sem consultar a nossa base de dados:
-// quem abre o painel da AWS às três da manhã, porque um tenant foi pausado, tem de saber logo de
-// que cliente se trata.
+// The tenant name must be derivable from the domain on sight, without consulting our database:
+// whoever opens the AWS console at three in the morning, because a tenant got paused, has to know
+// right away which customer it is.
 func TestTenantName(t *testing.T) {
 	cases := map[string]string{
 		"cliente.com.br": "cliente-com-br",
@@ -19,7 +19,7 @@ func TestTenantName(t *testing.T) {
 	}
 }
 
-// O SES limita o nome a 64 caracteres. Um domínio longo não pode fazer o provisionamento falhar.
+// SES limits the name to 64 characters. A long domain must not be able to make provisioning fail.
 func TestTenantNameTruncatesAtSixtyFour(t *testing.T) {
 	long := ""
 	for len(long) < 90 {
@@ -31,7 +31,7 @@ func TestTenantNameTruncatesAtSixtyFour(t *testing.T) {
 	}
 }
 
-// Nenhum caractere fora do que o SES aceita: letras, números, hífen e underscore.
+// No character outside what SES accepts: letters, digits, hyphen, and underscore.
 func TestTenantNameOnlyHasAllowedChars(t *testing.T) {
 	for _, r := range TenantName("cliente.com.br") {
 		ok := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_'
@@ -41,8 +41,8 @@ func TestTenantNameOnlyHasAllowedChars(t *testing.T) {
 	}
 }
 
-// A SES responde "já existe" de duas maneiras, e o comando de retroação tem de aceitar as duas —
-// senão falha em tudo o que já estava criado, que é o caso normal quando se corre a segunda vez.
+// SES responds "already exists" in two ways, and the retry command has to accept both — otherwise
+// it fails on everything that was already created, which is the normal case on a second run.
 func TestAlreadyExistsAcceptsBothForms(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -50,12 +50,12 @@ func TestAlreadyExistsAcceptsBothForms(t *testing.T) {
 		body   string
 		want   bool
 	}{
-		{"nome da exceção", 400, `{"__type":"AlreadyExistsException"}`, true},
-		{"frase em inglês", 400, `{"message":"Tenant with name beskos-com already exists in account 1"}`, true},
-		{"conflito", 409, ``, true},
-		{"já associado", 400, `{"message":"Resources arn:... has already been associated with tenant x"}`, true},
-		{"outro erro 400", 400, `{"message":"invalid tenant name"}`, false},
-		{"erro do servidor", 500, `already exists`, false}, // 500 nunca é repetição: é avaria
+		{"exception name", 400, `{"__type":"AlreadyExistsException"}`, true},
+		{"plain English sentence", 400, `{"message":"Tenant with name beskos-com already exists in account 1"}`, true}, // lang:ok
+		{"conflict", 409, ``, true},
+		{"already associated", 400, `{"message":"Resources arn:... has already been associated with tenant x"}`, true},
+		{"other 400 error", 400, `{"message":"invalid tenant name"}`, false},
+		{"server error", 500, `already exists`, false}, // 500 is never a repeat: it's a failure
 	}
 	for _, c := range cases {
 		if got := alreadyExists(c.status, []byte(c.body)); got != c.want {

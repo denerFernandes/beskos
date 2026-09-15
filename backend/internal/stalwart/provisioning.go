@@ -11,15 +11,15 @@ import (
 // Provisioning operations, mapped from the product's domain lifecycle to the real JMAP methods
 // on v0.16.4.
 
-// CreateDomain cria um domínio (equivalente ao antigo type:domain). Com autoDKIM=true o Stalwart
-// gere e assina o DKIM (dkimManagement=Automatic). Com autoDKIM=false (modo relay/white-label) o
-// DKIM fica Manual — o Stalwart NÃO assina, deixando o relay (SES BYODKIM) ser o único assinante,
-// evitando o cabeçalho DKIM-Signature duplicado. Retorna o stalwart_id.
+// CreateDomain creates a domain (equivalent to the old type:domain). With autoDKIM=true Stalwart
+// manages and signs DKIM (dkimManagement=Automatic). With autoDKIM=false (relay/white-label mode)
+// DKIM stays Manual — Stalwart does NOT sign, leaving the relay (SES BYODKIM) as the sole signer,
+// avoiding a duplicated DKIM-Signature header. Returns the stalwart_id.
 func (c *Client) CreateDomain(ctx context.Context, name, description string, autoDKIM bool) (string, error) {
 	create := map[string]any{
 		"name":        name,
 		"isEnabled":   true,
-		"description": description, // guardamos "tenant_id=<n>" aqui, como no brief
+		"description": description, // we store "tenant_id=<n>" here, as in the brief
 	}
 	if !autoDKIM {
 		create["dkimManagement"] = map[string]any{"@type": "Manual"}
@@ -39,9 +39,10 @@ func (c *Client) CreateDomain(ctx context.Context, name, description string, aut
 	if err == nil {
 		return id, nil
 	}
-	// Idempotência: se o domínio já existe no Stalwart (primaryKeyViolation) — servidor recriado,
-	// domínio default do bootstrap, ou re-tentativa de provisionamento — adota o existente em vez
-	// de falhar em loop. Assim o fluxo genérico (cliente configura o mesmo domínio) é robusto.
+	// Idempotency: if the domain already exists in Stalwart (primaryKeyViolation) — server
+	// recreated, bootstrap's default domain, or a provisioning retry — adopt the existing one
+	// instead of failing in a loop. This makes the generic flow (customer configures the same
+	// domain) robust.
 	if isPrimaryKeyViolation(r.NotCreated) {
 		existing, lookupErr := c.domainIDByName(ctx, name)
 		if lookupErr != nil {
@@ -52,7 +53,8 @@ func (c *Client) CreateDomain(ctx context.Context, name, description string, aut
 	return "", err
 }
 
-// isPrimaryKeyViolation reporta se algum notCreated foi por o objeto já existir (chave duplicada).
+// isPrimaryKeyViolation reports whether some notCreated was because the object already exists
+// (duplicate key).
 func isPrimaryKeyViolation(nc map[string]json.RawMessage) bool {
 	for _, v := range nc {
 		var e struct {
@@ -65,8 +67,8 @@ func isPrimaryKeyViolation(nc map[string]json.RawMessage) bool {
 	return false
 }
 
-// domainIDByName procura o stalwart_id de um domínio pelo nome (x:Domain/get devolve todos quando
-// não se passam ids). Usado na adoção idempotente de um domínio já existente.
+// domainIDByName looks up a domain's stalwart_id by name (x:Domain/get returns all of them when
+// no ids are passed). Used in the idempotent adoption of an already-existing domain.
 func (c *Client) domainIDByName(ctx context.Context, name string) (string, error) {
 	raw, err := c.call(ctx, "x:Domain/get", map[string]any{"properties": []string{"name"}})
 	if err != nil {
@@ -89,23 +91,23 @@ func (c *Client) domainIDByName(ctx context.Context, name string) (string, error
 	return "", fmt.Errorf("domain %q not found in stalwart", name)
 }
 
-// AccountInput são os campos mínimos para criar uma mailbox individual.
+// AccountInput holds the minimal fields to create an individual mailbox.
 type AccountInput struct {
-	Login       string // vira o local-part; NÃO existe campo "email" na 0.16 (endereço = Login@domínio)
-	DomainID    string // stalwart_id do domínio (ou "#d1" para ref na mesma request)
+	Login       string // becomes the local-part; there is NO "email" field in 0.16 (address = Login@domain)
+	DomainID    string // domain's stalwart_id (or "#d1" for a same-request ref)
 	DisplayName string
-	Password    string // passa por checador de força (zxcvbn); senhas fracas são rejeitadas
+	Password    string // goes through the strength checker (zxcvbn); weak passwords are rejected
 	QuotaBytes  int64
 }
 
-// CreateAccount cria uma mailbox individual (type User). Retorna stalwart_account_id.
+// CreateAccount creates an individual mailbox (type User). Returns stalwart_account_id.
 func (c *Client) CreateAccount(ctx context.Context, in AccountInput) (string, error) {
 	acct := map[string]any{
 		"@type":       "User",
 		"name":        in.Login,
 		"domainId":    in.DomainID,
 		"description": in.DisplayName,
-		// credentials/aliases/quotas são MAPAS ("0","1",...), não arrays (DIVERGENCES §D4).
+		// credentials/aliases/quotas are MAPS ("0","1",...), not arrays (DIVERGENCES §D4).
 		"credentials": map[string]any{
 			"0": map[string]any{"@type": "Password", "secret": in.Password},
 		},
@@ -125,10 +127,10 @@ func (c *Client) CreateAccount(ctx context.Context, in AccountInput) (string, er
 	return firstCreatedID(&r)
 }
 
-// Alias é um endereço extra que entrega numa caixa: parte local + id do domínio NO STALWART.
+// Alias is an extra address that delivers into a mailbox: local part + domain id IN STALWART.
 type Alias struct {
 	Local    string // "noreply"
-	DomainID string // id do domínio no Stalwart (domains.stalwart_id)
+	DomainID string // domain id in Stalwart (domains.stalwart_id)
 }
 
 // SetAccountAliases replaces an account's entire alias list. It always sends the WHOLE list: our
@@ -146,7 +148,7 @@ func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliase
 		m[strconv.Itoa(i)] = map[string]any{
 			"name":     a.Local,
 			"domainId": a.DomainID,
-			"enabled":  true, // por omissão seria false: o alias existiria mas não entregaria
+			"enabled":  true, // by default it would be false: the alias would exist but not deliver
 		}
 	}
 	args := map[string]any{
@@ -168,8 +170,8 @@ func (c *Client) SetAccountAliases(ctx context.Context, accountID string, aliase
 	return nil
 }
 
-// SetAccountPassword troca a senha de uma mailbox (x:Account/set update credentials/0/secret).
-// Ver DIVERGENCES §D4. A senha passa pelo checador de força do Stalwart (zxcvbn).
+// SetAccountPassword changes a mailbox's password (x:Account/set update credentials/0/secret).
+// See DIVERGENCES §D4. The password goes through Stalwart's strength checker (zxcvbn).
 func (c *Client) SetAccountPassword(ctx context.Context, accountID, newPassword string) error {
 	args := map[string]any{
 		"update": map[string]any{
@@ -195,8 +197,8 @@ func (c *Client) SetAccountPassword(ctx context.Context, accountID, newPassword 
 	return nil
 }
 
-// DeleteDomain / DeleteAccount — destroy. Atenção à integridade referencial:
-// destruir domínio com contas/DKIM ligados falha com objectIsLinked (DIVERGENCES §D4).
+// DeleteDomain / DeleteAccount — destroy. Watch out for referential integrity:
+// destroying a domain with linked accounts/DKIM fails with objectIsLinked (DIVERGENCES §D4).
 func (c *Client) DeleteAccount(ctx context.Context, id string) error {
 	_, err := c.call(ctx, "x:Account/set", map[string]any{"destroy": []string{id}})
 	return err
@@ -207,8 +209,8 @@ func (c *Client) DeleteDomain(ctx context.Context, id string) error {
 	return err
 }
 
-// GetDomainDNSZone devolve o trecho de zona BIND pronto (dnsZoneFile) com MX/SPF/DKIM/DMARC/MTA-STS/…
-// É a fonte para a tela de DNS do estado dns_pending (§7). Parseamos isto, não montamos à mão.
+// GetDomainDNSZone returns the ready-made BIND zone snippet (dnsZoneFile) with MX/SPF/DKIM/DMARC/MTA-STS/…
+// It's the source for the DNS screen in dns_pending state (§7). We parse this, we don't build it by hand.
 func (c *Client) GetDomainDNSZone(ctx context.Context, domainID string) (string, error) {
 	args := map[string]any{"ids": []string{domainID}, "properties": []string{"dnsZoneFile"}}
 	raw, err := c.call(ctx, "x:Domain/get", args)

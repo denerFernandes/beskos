@@ -7,12 +7,12 @@ import (
 	"strings"
 )
 
-// Assistant implementa os casos de uso de produto sobre um Provider qualquer (agnóstico de modelo).
-// Os prompts vivem aqui; trocar de provider não muda nenhum caso de uso.
+// Assistant implements the product use cases over any Provider (model-agnostic).
+// The prompts live here; swapping providers never changes a use case.
 type Assistant struct {
 	p    Provider
-	lang string // idioma das respostas (ex.: "pt-BR")
-	// onUsage recebe os tokens de cada chamada (quota comercial). Opcional; nil = não conta.
+	lang string // reply language (e.g. "pt-BR")
+	// onUsage receives the tokens spent on each call (commercial quota). Optional; nil = not counted.
 	onUsage func(tokens int)
 }
 
@@ -23,8 +23,8 @@ func NewAssistant(p Provider, lang string) *Assistant {
 	return &Assistant{p: p, lang: lang}
 }
 
-// SetUsageHook liga um callback que recebe os tokens gastos por chamada — o HTTP usa-o para
-// debitar a quota da janela de 6h também nos endpoints de IA de uma tacada (não só no chat).
+// SetUsageHook wires a callback that receives the tokens spent per call — HTTP uses it to
+// debit the 6h window quota on the AI endpoints too, in one shot (not only in chat).
 func (a *Assistant) SetUsageHook(f func(tokens int)) { a.onUsage = f }
 
 func (a *Assistant) complete(ctx context.Context, system, user string, temp float64) (string, error) {
@@ -61,37 +61,37 @@ func (a *Assistant) WikiWrite(ctx context.Context, instruction, pageContext stri
 	return a.complete(ctx, system, user, 0.4)
 }
 
-// SummarizeEmail resume um e-mail em poucos bullets acionáveis.
+// SummarizeEmail summarizes an email into a few actionable bullet points.
 func (a *Assistant) SummarizeEmail(ctx context.Context, subject, body string) (string, error) {
-	sys := fmt.Sprintf("Você é um assistente de e-mail. Responda em %s, conciso, em até 3 tópicos curtos. "+
-		"Adapte-se ao TIPO de e-mail: se for newsletter/promocional, resuma os destaques e ofertas e "+
-		"NÃO sugira responder; se for transacional (recibo, confirmação, fatura), destaque os dados-chave "+
-		"(valores, datas, códigos); se for pessoal ou de trabalho, destaque o que pedem e a ação necessária. "+
-		"Só inclua uma ação sugerida quando fizer sentido. Não invente conteúdo que não esteja no e-mail.", a.lang)
-	return a.complete(ctx, sys, "Assunto: "+subject+"\n\nCorpo:\n"+body, 0.3)
+	sys := fmt.Sprintf("You are an e-mail assistant. Reply in %s, concisely, in up to 3 short bullet points. "+
+		"Adapt to the TYPE of e-mail: if it's a newsletter/promotional, summarize the highlights and offers and "+
+		"do NOT suggest replying; if it's transactional (receipt, confirmation, invoice), highlight the key data "+
+		"(amounts, dates, codes); if it's personal or work-related, highlight what is being asked and the action needed. "+
+		"Only include a suggested action when it makes sense. Do not invent content that isn't in the e-mail.", a.lang)
+	return a.complete(ctx, sys, "Subject: "+subject+"\n\nBody:\n"+body, 0.3)
 }
 
-// Tone controla o tom do rascunho gerado.
+// Tone controls the tone of the generated draft.
 type Tone string
 
 const (
-	ToneNeutral Tone = "neutro"
+	ToneNeutral Tone = "neutral"
 	ToneFormal  Tone = "formal"
-	ToneShort   Tone = "curto e direto"
+	ToneShort   Tone = "short and direct"
 )
 
-// DraftReply escreve um rascunho de resposta no tom pedido, seguindo a instrução do usuário.
+// DraftReply writes a reply draft in the requested tone, following the user's instruction.
 func (a *Assistant) DraftReply(ctx context.Context, original, instruction string, tone Tone) (string, error) {
 	if tone == "" {
 		tone = ToneNeutral
 	}
-	sys := fmt.Sprintf("Você escreve e-mails em %s no tom %s. Devolva SÓ o corpo do e-mail, "+
-		"sem assunto, sem preâmbulo.", a.lang, tone)
-	user := "E-mail original:\n" + original + "\n\nInstrução: " + instruction
+	sys := fmt.Sprintf("You write e-mails in %s in a %s tone. Return ONLY the body of the e-mail, "+
+		"with no subject, no preamble.", a.lang, tone)
+	user := "Original e-mail:\n" + original + "\n\nInstruction: " + instruction
 	return a.complete(ctx, sys, user, 0.6)
 }
 
-// Task é uma tarefa estruturada extraída de um e-mail.
+// Task is a structured task extracted from an email.
 type Task struct {
 	Title    string `json:"title"`
 	Due      string `json:"due"`
@@ -104,7 +104,7 @@ type Person struct {
 	Email string
 }
 
-// ExtractTasks pede ao modelo uma lista JSON de tarefas e a decodifica de forma defensiva.
+// ExtractTasks asks the model for a JSON list of tasks and decodes it defensively.
 //
 // THE ROSTER TRAVELS WITH THE REQUEST and the model must answer with an E-MAIL from it. Without
 // that it could only echo the name as written -- somebody types "Dener" while the account shows
@@ -120,15 +120,15 @@ func (a *Assistant) ExtractTasks(ctx context.Context, subject, body string, peop
 		for _, p := range people {
 			fmt.Fprintf(&b, "\n- %s <%s>", p.Name, p.Email)
 		}
-		roster = "\n\nPessoas da organização (use o E-MAIL exato de uma delas em \"assignee\", " + // lang:ok
-			"ou \"\" se ninguém for indicado):" + b.String() // lang:ok
+		roster = "\n\nPeople in the organization (use one of their exact E-MAIL addresses in \"assignee\", " +
+			"or \"\" if nobody is named):" + b.String()
 	}
-	sys := fmt.Sprintf("Extraia tarefas acionáveis do texto (e-mail, conversa ou nota). Responda em %s. "+ // lang:ok
-		"Se o texto disser quem faz — por nome próprio, apelido ou @menção — indique-o em \"assignee\". "+ // lang:ok
-		"Responda APENAS com um array JSON, sem texto ao redor, no formato "+
-		`[{"title":"...","due":"...","assignee":"..."}]. Use "" quando não houver prazo/responsável.%s`, // lang:ok
+	sys := fmt.Sprintf("Extract actionable tasks from the text (e-mail, conversation, or note). Reply in %s. "+
+		"If the text says who does it — by first name, nickname, or @mention — indicate it in \"assignee\". "+
+		"Reply ONLY with a JSON array, with no surrounding text, in the format "+
+		`[{"title":"...","due":"...","assignee":"..."}]. Use "" when there is no due date/assignee.%s`,
 		a.lang, roster)
-	out, err := a.complete(ctx, sys, "Assunto: "+subject+"\n\nCorpo:\n"+body, 0.2)
+	out, err := a.complete(ctx, sys, "Subject: "+subject+"\n\nBody:\n"+body, 0.2)
 	if err != nil {
 		return nil, err
 	}
@@ -160,37 +160,37 @@ func keepKnownAssignees(tasks []Task, people []Person) []Task {
 	return tasks
 }
 
-// BriefingInput é o material do dia para o resumo (a IA não busca dados; nós os fornecemos).
+// BriefingInput is the day's material for the summary (the AI does not fetch data; we supply it).
 type BriefingInput struct {
 	UserName string
 	Date     string
-	Period   string   // morning | afternoon | night — molda o tom e o foco
-	Events   []string // ex.: "09:00 Daily do time"
-	Tasks    []string // ex.: "Revisar contrato (vence hoje)"
-	Emails   []string // ex.: "Marina — Proposta revisada"
-	Tomorrow []string // agenda de amanhã (usado no resumo da noite)
+	Period   string   // morning | afternoon | night — shapes tone and focus
+	Events   []string // e.g. "09:00 Team daily"
+	Tasks    []string // e.g. "Review contract (due today)"
+	Emails   []string // e.g. "Marina — Revised proposal"
+	Tomorrow []string // tomorrow's agenda (used in the evening summary)
 }
 
-// DailyBriefing gera o resumo (tela "Hoje") por período: manhã antecipa o dia; tarde retoma o que
-// falta; noite fecha o dia e antecipa amanhã.
+// DailyBriefing generates the summary (the "Today" screen) per period: morning looks ahead to the
+// day; afternoon picks up what is left; evening closes the day and looks ahead to tomorrow.
 func (a *Assistant) DailyBriefing(ctx context.Context, in BriefingInput) (string, error) {
 	var focus string
 	switch in.Period {
 	case "night":
-		focus = "É noite. Faça um FECHO do dia (o que foi coberto/o que ficou pendente) e ANTECIPE o dia seguinte com base na agenda de amanhã."
+		focus = "It's evening. Give a CLOSE-OUT of the day (what got covered/what's still pending) and LOOK AHEAD to the next day based on tomorrow's agenda."
 	case "afternoon":
-		focus = "É tarde. Retome o que ainda falta fazer hoje e priorize o resto da tarde."
+		focus = "It's afternoon. Pick up what's still left to do today and prioritize the rest of the afternoon."
 	default:
-		focus = "É de manhã. Antecipe o dia e sugira por onde começar."
+		focus = "It's morning. Look ahead to the day and suggest where to start."
 	}
-	sys := fmt.Sprintf("Você é o assistente do Beskos. Escreva em %s um parágrafo curto e acionável, "+
-		"priorizando o que é mais importante. %s", a.lang, focus)
+	sys := fmt.Sprintf("You are the Beskos assistant. Write, in %s, a short and actionable paragraph, "+
+		"prioritizing what matters most. %s", a.lang, focus)
 	var b strings.Builder
-	fmt.Fprintf(&b, "Pessoa: %s\nData: %s\n", in.UserName, in.Date)
+	fmt.Fprintf(&b, "Person: %s\nDate: %s\n", in.UserName, in.Date)
 	writeList(&b, "Agenda", in.Events)
-	writeList(&b, "Tarefas", in.Tasks)
-	writeList(&b, "E-mails que pedem atenção", in.Emails)
-	writeList(&b, "Agenda de amanhã", in.Tomorrow)
+	writeList(&b, "Tasks", in.Tasks)
+	writeList(&b, "E-mails that need attention", in.Emails)
+	writeList(&b, "Tomorrow's agenda", in.Tomorrow)
 	return a.complete(ctx, sys, b.String(), 0.5)
 }
 
@@ -204,7 +204,7 @@ func writeList(b *strings.Builder, title string, items []string) {
 	}
 }
 
-// stripJSONFence remove cercas ```json ... ``` que alguns modelos adicionam.
+// stripJSONFence removes ```json ... ``` fences that some models add.
 func stripJSONFence(s string) string {
 	s = strings.TrimSpace(s)
 	if strings.HasPrefix(s, "```") {
@@ -215,7 +215,7 @@ func stripJSONFence(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// --- Calendário ---
+// --- Calendar ---
 
 type EventDraft struct {
 	Title    string   `json:"title"`
@@ -224,13 +224,13 @@ type EventDraft struct {
 	Tags     []string `json:"tags"`
 }
 
-// ParseEvent transforma um pedido em linguagem natural num evento (data/hora/título/tags).
+// ParseEvent turns a natural-language request into an event (date/time/title/tags).
 func (a *Assistant) ParseEvent(ctx context.Context, text, nowISO, tz string) (EventDraft, error) {
-	sys := fmt.Sprintf("Você converte um pedido em linguagem natural num evento de calendário. "+
-		"Agora é %s (fuso %s). Responda em %s APENAS com JSON, sem texto ao redor, no formato "+
+	sys := fmt.Sprintf("You convert a natural-language request into a calendar event. "+
+		"It is now %s (timezone %s). Reply in %s with ONLY JSON, with no surrounding text, in the format "+
 		`{"title":"...","starts_at":"RFC3339","ends_at":"RFC3339","tags":["..."]}. `+
-		"Datas relativas (amanhã, sexta) resolvem a partir de agora. Sem duração explícita, use 1 hora. "+
-		"tags = 0 a 3 rótulos curtos inferidos do contexto.", nowISO, tz, a.lang)
+		"Relative dates (tomorrow, Friday) resolve from now. With no explicit duration, use 1 hour. "+
+		"tags = 0 to 3 short labels inferred from context.", nowISO, tz, a.lang)
 	out, err := a.complete(ctx, sys, text, 0.2)
 	if err != nil {
 		return EventDraft{}, err
@@ -242,19 +242,19 @@ func (a *Assistant) ParseEvent(ctx context.Context, text, nowISO, tz string) (Ev
 	return d, nil
 }
 
-// TaskDraft é o rascunho de uma tarefa (card do Kanban) gerado pela IA.
+// TaskDraft is the draft of a task (Kanban card) generated by the AI.
 type TaskDraft struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 }
 
-// PlanTask expande uma ideia curta num título claro + descrição objetiva de tarefa.
+// PlanTask expands a short idea into a clear title plus an objective task description.
 func (a *Assistant) PlanTask(ctx context.Context, idea string) (TaskDraft, error) {
-	sys := fmt.Sprintf("Você transforma uma ideia curta numa tarefa de quadro (Kanban). "+
-		"Responda em %s APENAS com JSON, sem texto ao redor, no formato "+
+	sys := fmt.Sprintf("You turn a short idea into a board (Kanban) task. "+
+		"Reply in %s with ONLY JSON, with no surrounding text, in the format "+
 		`{"title":"...","description":"..."}. `+
-		"title = frase de ação curta (máx ~8 palavras). description = 1 a 3 frases objetivas com o "+
-		"que fazer e critério de pronto. Sem markdown.", a.lang)
+		"title = short action phrase (max ~8 words). description = 1 to 3 objective sentences with "+
+		"what to do and the done criteria. No markdown.", a.lang)
 	out, err := a.complete(ctx, sys, idea, 0.4)
 	if err != nil {
 		return TaskDraft{}, err
@@ -271,12 +271,12 @@ type Slot struct {
 	EndsAt   string `json:"ends_at"`
 }
 
-// SuggestSlots sugere horários livres para uma duração, dado o período e os eventos ocupados.
+// SuggestSlots suggests free time slots for a duration, given the period and the busy events.
 func (a *Assistant) SuggestSlots(ctx context.Context, busyJSON, fromISO, toISO string, durationMin int) ([]Slot, error) {
-	sys := fmt.Sprintf("Sugira até 3 horários livres de %d minutos entre %s e %s, evitando os eventos ocupados. "+
-		"Prefira horário comercial (09h-18h). Responda em %s APENAS com JSON array "+
+	sys := fmt.Sprintf("Suggest up to 3 free time slots of %d minutes between %s and %s, avoiding the busy events. "+
+		"Prefer business hours (9am-6pm). Reply in %s with ONLY a JSON array "+
 		`[{"starts_at":"RFC3339","ends_at":"RFC3339"}].`, durationMin, fromISO, toISO, a.lang)
-	out, err := a.complete(ctx, sys, "Ocupados (JSON): "+busyJSON, 0.3)
+	out, err := a.complete(ctx, sys, "Busy (JSON): "+busyJSON, 0.3)
 	if err != nil {
 		return nil, err
 	}
@@ -287,9 +287,9 @@ func (a *Assistant) SuggestSlots(ctx context.Context, busyJSON, fromISO, toISO s
 	return slots, nil
 }
 
-// DayAgenda gera uma pauta curta do dia a partir dos eventos.
+// DayAgenda generates a short agenda for the day from the events.
 func (a *Assistant) DayAgenda(ctx context.Context, eventsJSON string) (string, error) {
-	sys := fmt.Sprintf("Gere uma pauta breve e útil do dia a partir dos eventos (JSON). Responda em %s, "+
-		"texto corrido curto (2-4 frases): o que vem, prioridades e o que preparar. Sem markdown.", a.lang)
+	sys := fmt.Sprintf("Generate a brief, useful agenda for the day from the events (JSON). Reply in %s, "+
+		"short running text (2-4 sentences): what's coming up, priorities, and what to prepare. No markdown.", a.lang)
 	return a.complete(ctx, sys, eventsJSON, 0.4)
 }

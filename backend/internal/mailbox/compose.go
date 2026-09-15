@@ -14,12 +14,12 @@ type Draft struct {
 	Cc      []string `json:"cc,omitempty"`
 	Subject string   `json:"subject"`
 	Text    string   `json:"text"`
-	// InReplyTo, quando preenchido, liga o rascunho ao fio de uma mensagem existente.
+	// InReplyTo, when set, links the draft to the thread of an existing message.
 	InReplyTo string `json:"in_reply_to,omitempty"`
 }
 
-// CreateDraft grava um rascunho na pasta de rascunhos e devolve o seu id JMAP. NÃO envia: é a
-// separação que faz de `mail.draft` uma ferramenta sem confirmação e de `mail.send` uma com.
+// CreateDraft saves a draft in the drafts folder and returns its JMAP id. It does NOT send: that
+// separation is what makes `mail.draft` a tool without confirmation and `mail.send` one with it.
 func (u *UserClient) CreateDraft(ctx context.Context, d Draft) (string, error) {
 	acc, err := u.accountID(ctx)
 	if err != nil {
@@ -36,12 +36,12 @@ func (u *UserClient) CreateDraft(ctx context.Context, d Draft) (string, error) {
 	return u.createEmail(ctx, acc, drafts, d, fromAddr(from, name))
 }
 
-// SendEmail grava o rascunho e submete-o. Devolve o id do rascunho criado, para o registo saber
-// sobre o que a ação foi.
+// SendEmail saves the draft and submits it. Returns the id of the created draft, so the log
+// knows what the action was about.
 //
-// O envio é sempre gravar-depois-submeter porque é assim que o JMAP funciona (EmailSubmission
-// aponta para um Email que já existe) — e tem uma vantagem: se a submissão falhar, o texto não se
-// perde, fica nos rascunhos.
+// Sending is always save-then-submit because that is how JMAP works (EmailSubmission points
+// at an Email that already exists) — and it has an advantage: if the submission fails, the text
+// is not lost, it stays in the drafts.
 func (u *UserClient) SendEmail(ctx context.Context, d Draft) (string, error) {
 	acc, err := u.accountID(ctx)
 	if err != nil {
@@ -66,8 +66,8 @@ func (u *UserClient) SendEmail(ctx context.Context, d Draft) (string, error) {
 	return emailID, nil
 }
 
-// createEmail cria o Email/set com o corpo em texto simples. from é o "De:" da conta autenticada —
-// sem ele o e-mail sairia com remetente vazio ("—").
+// createEmail creates the Email/set with the body in plain text. from is the "From:" of the
+// authenticated account — without it the e-mail would go out with an empty sender ("—").
 func (u *UserClient) createEmail(ctx context.Context, acc, mailboxID string, d Draft, from map[string]any) (string, error) {
 	if len(d.To) == 0 {
 		return "", fmt.Errorf("jmap user: draft has no recipient")
@@ -119,7 +119,7 @@ func (u *UserClient) createEmail(ctx context.Context, acc, mailboxID string, d D
 	return created.ID, nil
 }
 
-// mailboxByRole resolve o id de uma pasta pelo papel JMAP (inbox, drafts, sent, trash).
+// mailboxByRole resolves a folder's id by its JMAP role (inbox, drafts, sent, trash).
 func (u *UserClient) mailboxByRole(ctx context.Context, acc, role string) (string, error) {
 	resp, err := u.jmap(ctx, []any{
 		[]any{"Mailbox/get", map[string]any{"accountId": acc, "ids": nil, "properties": []string{"role"}}, "m"},
@@ -147,9 +147,9 @@ func (u *UserClient) mailboxByRole(ctx context.Context, acc, role string) (strin
 	return "", fmt.Errorf("jmap user: no %s mailbox", role)
 }
 
-// primaryIdentity devolve a identidade de envio da conta: id, endereço e nome do "De:". O assistente
-// NUNCA escolhe o remetente: envia como a pessoa autenticada e mais nada (§6.2). O nome é preciso
-// para o "De:" não sair vazio no e-mail — sem ele, o destinatário via só "—".
+// primaryIdentity returns the account's sending identity: id, address and "From:" name. The assistant
+// NEVER picks the sender: it sends as the authenticated person and nothing else (§6.2). The name is
+// needed so the "From:" does not go out empty on the e-mail — without it, the recipient just saw "—".
 func (u *UserClient) primaryIdentity(ctx context.Context, acc string) (id, email, name string, err error) {
 	raw, err := u.do(ctx, "/jmap/", map[string]any{
 		"using": []string{"urn:ietf:params:jmap:core", "urn:ietf:params:jmap:submission"},
@@ -183,7 +183,7 @@ func (u *UserClient) primaryIdentity(ctx context.Context, acc string) (id, email
 	return got.List[0].ID, got.List[0].Email, got.List[0].Name, nil
 }
 
-// fromAddr monta o endereço do "De:" na forma JMAP. Nome vazio → só o endereço (melhor do que "—").
+// fromAddr builds the "From:" address in JMAP form. Empty name → address only (better than "—").
 func fromAddr(email, name string) map[string]any {
 	a := map[string]any{"email": email}
 	if strings.TrimSpace(name) != "" {
@@ -192,7 +192,7 @@ func fromAddr(email, name string) map[string]any {
 	return a
 }
 
-// addrList traduz endereços de texto para a forma JMAP. Aceita "Nome <a@b>" e "a@b".
+// addrList translates text addresses into JMAP form. Accepts "Name <a@b>" and "a@b".
 func addrList(in []string) []map[string]any {
 	out := make([]map[string]any, 0, len(in))
 	for _, raw := range in {

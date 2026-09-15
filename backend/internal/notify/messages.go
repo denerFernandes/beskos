@@ -12,25 +12,25 @@ import (
 // brand, use the recipient's language, and always ship a plain-text version alongside the HTML one
 // (clients that reject HTML, screen readers, and spam filters that like seeing both parts).
 //
-// O idioma segue o do utilizador: "en" quando começa por en, senão português. Não inventamos mais
-// idiomas do que a app tem.
+// The language follows the user's: "en" when it starts with en, otherwise Portuguese. We don't
+// invent more languages than the app has.
 
-// Msg é um aviso pronto a enviar.
+// Msg is a notice ready to send.
 type Msg struct {
 	Subject string
 	HTML    string
 	Text    string
 }
 
-// Line é uma linha de detalhe do aviso (rótulo → valor), mostrada numa tabela discreta.
+// Line is a detail line of the notice (label → value), shown in a discreet table.
 type Line struct{ Label, Value string }
 
 const brandColor = "#116466"
 
-// isEN diz se a mensagem sai em inglês.
+// isEN reports whether the message goes out in English.
 func isEN(lang string) bool { return strings.HasPrefix(strings.ToLower(lang), "en") }
 
-// tr escolhe entre o texto português e o inglês.
+// tr picks between the Portuguese text and the English one.
 func tr(lang, pt, en string) string {
 	if isEN(lang) {
 		return en
@@ -87,7 +87,7 @@ func build(lang, subject, intro string, lines []Line, cta, ctaURL, footer string
 	return Msg{Subject: subject, HTML: body, Text: plain}
 }
 
-// stripTags tira o pouco HTML que os textos usam (só <b>), para a parte em texto simples.
+// stripTags removes the little HTML the texts use (just <b>), for the plain-text part.
 func stripTags(s string) string {
 	r := strings.NewReplacer("<b>", "", "</b>", "", "<br>", "\n")
 	return r.Replace(s)
@@ -99,7 +99,7 @@ func footerFor(lang string) string {
 		"You're getting this because you have a Beskos account. Please don't reply to this address.")
 }
 
-// AccountCreated: a conta existe e o endereço já é o da pessoa.
+// AccountCreated: the account exists and the address is already the person's own.
 func AccountCreated(lang, email, domain, appURL string) Msg {
 	subject := tr(lang, "A sua conta Beskos está pronta", "Your Beskos account is ready")
 	intro := tr(lang,
@@ -112,7 +112,7 @@ func AccountCreated(lang, email, domain, appURL string) Msg {
 	return build(lang, subject, intro, lines, tr(lang, "Entrar no Beskos", "Sign in to Beskos"), appURL, footer)
 }
 
-// TrialStarted: cartão registado, teste a correr, e a data em que começa a pagar.
+// TrialStarted: card on file, trial running, and the date it starts being charged.
 func TrialStarted(lang, plan string, days int, endsAt time.Time, amount, appURL string) Msg {
 	subject := tr(lang,
 		fmt.Sprintf("O seu teste de %d dias começou", days),
@@ -128,7 +128,7 @@ func TrialStarted(lang, plan string, days int, endsAt time.Time, amount, appURL 
 	return build(lang, subject, intro, lines, tr(lang, "Abrir o Beskos", "Open Beskos"), appURL, footerFor(lang))
 }
 
-// SubscriptionActive: a subscrição ficou ativa (checkout concluído).
+// SubscriptionActive: the subscription became active (checkout completed).
 func SubscriptionActive(lang, plan, cycle, amount, appURL string) Msg {
 	subject := tr(lang, "Subscrição confirmada", "Subscription confirmed")
 	intro := tr(lang,
@@ -142,7 +142,7 @@ func SubscriptionActive(lang, plan, cycle, amount, appURL string) Msg {
 	return build(lang, subject, intro, lines, tr(lang, "Ver a faturação", "View billing"), appURL, footerFor(lang))
 }
 
-// ChargeStarted: primeira cobrança (fim do teste) ou renovação paga.
+// ChargeStarted: first charge (end of trial) or a paid renewal.
 func ChargeStarted(lang, plan, amount, invoiceURL, appURL string) Msg {
 	subject := tr(lang, "Pagamento recebido", "Payment received")
 	intro := tr(lang,
@@ -179,8 +179,8 @@ func NewLogin(lang, email, ip, location, device string, when time.Time, appURL s
 	return build(lang, subject, intro, lines, tr(lang, "Rever a segurança", "Review security"), appURL, footer)
 }
 
-// EventInvite: convite de agenda para alguém de FORA da organização. Quem é de dentro recebe a
-// notificação na app e o evento aparece-lhe no calendário — mandar-lhe e-mail seria ruído.
+// EventInvite: calendar invite for somebody OUTSIDE the organization. Somebody inside gets the
+// in-app notification and the event shows up in their calendar — sending them e-mail would be noise.
 func EventInvite(lang, actor, title, when, location, meetURL string) Msg {
 	subject := tr(lang, "Convite: ", "Invitation: ") + title
 	intro := tr(lang,
@@ -201,8 +201,8 @@ func EventInvite(lang, actor, title, when, location, meetURL string) Msg {
 	return build(lang, subject, intro, lines, cta, url, footer)
 }
 
-// FileShared: ficheiro partilhado com alguém de FORA da organização — leva o link público, que é a
-// única forma de lá chegar sem conta. Dentro da organização é notificação na app.
+// FileShared: file shared with somebody OUTSIDE the organization — it carries the public link,
+// which is the only way to get there without an account. Inside the organization it's an in-app notification.
 func FileShared(lang, actor, fileName, linkURL, expires string) Msg {
 	subject := tr(lang, "Partilharam um ficheiro consigo", "A file was shared with you")
 	intro := tr(lang,

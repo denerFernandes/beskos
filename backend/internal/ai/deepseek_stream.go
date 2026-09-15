@@ -11,9 +11,9 @@ import (
 	"strings"
 )
 
-// streamChunk é um pedaço do fio SSE do formato OpenAI. O texto chega em `delta.content`; um pedido
-// de ferramenta chega FRAGMENTADO em `delta.tool_calls`, com o índice a dizer a que chamada
-// pertence cada pedaço — é por isso que há um acumulador em vez de uma simples cópia.
+// streamChunk is one piece of the OpenAI-format SSE wire. Text arrives in `delta.content`; a
+// tool call arrives FRAGMENTED across `delta.tool_calls`, with the index saying which call each
+// fragment belongs to — that is why there is an accumulator instead of a plain copy.
 type streamChunk struct {
 	Model   string `json:"model"`
 	Choices []struct {
@@ -35,11 +35,12 @@ type streamCallFrag struct {
 	} `json:"function"`
 }
 
-// Stream faz uma completude token-a-token. onDelta recebe cada pedaço de TEXTO à medida que chega;
-// os pedidos de ferramenta não são transmitidos a meio porque um nome ou uns argumentos pela metade
-// não dizem nada a ninguém — só o fim da chamada é informação útil.
+// Stream performs a token-by-token completion. onDelta receives each piece of TEXT as it arrives;
+// tool calls are not streamed mid-flight because a half name or half arguments tell nobody
+// anything — only the finished call is useful information.
 //
-// A Response devolvida é equivalente à de Complete: quem chama não precisa de saber qual usou.
+// The returned Response is equivalent to Complete's: the caller does not need to know which one
+// was used.
 func (d *DeepSeek) Stream(ctx context.Context, req Request, onDelta func(string)) (Response, error) {
 	payload, err := json.Marshal(chatRequest{
 		Model:       d.model,
@@ -74,7 +75,8 @@ func (d *DeepSeek) Stream(ctx context.Context, req Request, onDelta func(string)
 	return readSSE(resp.Body, onDelta)
 }
 
-// readSSE consome o fio e reconstrói a resposta. Isolado da chamada HTTP para ser testável sem rede.
+// readSSE consumes the wire and rebuilds the response. Isolated from the HTTP call to be
+// testable without a network.
 func readSSE(body io.Reader, onDelta func(string)) (Response, error) {
 	var (
 		out   Response
@@ -83,8 +85,8 @@ func readSSE(body io.Reader, onDelta func(string)) (Response, error) {
 		order []int
 	)
 	sc := bufio.NewScanner(body)
-	// Uma linha de SSE pode ser grande (argumentos de ferramenta num só pedaço). O default do
-	// Scanner são 64 KiB e estourar a meio deixaria a resposta truncada em silêncio.
+	// An SSE line can be large (tool arguments in a single chunk). The Scanner's default is
+	// 64 KiB, and overflowing mid-line would leave the response silently truncated.
 	sc.Buffer(make([]byte, 0, 64<<10), 1<<20)
 
 	for sc.Scan() {
@@ -98,7 +100,7 @@ func readSSE(body io.Reader, onDelta func(string)) (Response, error) {
 		}
 		var ch streamChunk
 		if err := json.Unmarshal([]byte(data), &ch); err != nil {
-			// Um pedaço ilegível não deita fora o que já veio: o fio continua.
+			// An unreadable chunk does not discard what already arrived: the stream continues.
 			continue
 		}
 		if ch.Model != "" {
@@ -143,7 +145,7 @@ func readSSE(body io.Reader, onDelta func(string)) (Response, error) {
 	out.Text = text.String()
 	for _, idx := range order {
 		tc := *calls[idx]
-		// Reverte o nome da ferramenta do formato de fio (mail_search) para o domínio (mail.search).
+		// Reverts the tool name from the wire format (mail_search) back to the domain (mail.search).
 		tc.Name = domainToolName(tc.Name)
 		out.ToolCalls = append(out.ToolCalls, tc)
 	}

@@ -1,12 +1,12 @@
-// Package office constrói ficheiros Office (docx, xlsx, pptx) a partir de um plano, em Go puro.
+// Package office builds Office files (docx, xlsx, pptx) from a plan, in pure Go.
 //
-// Porquê à mão e não com uma biblioteca: um ficheiro OOXML é um ZIP com uns quantos XML dentro, e
-// a stdlib já traz `archive/zip` e `encoding/xml`. Uma dependência nova precisa de justificação
-// (lei 2.5), e o que se gera aqui é deliberadamente simples — texto, listas, tabelas e slides. O
-// dia em que for preciso gráficos ou estilos ricos é o dia de reavaliar isto, não antes.
+// Why by hand and not with a library: an OOXML file is a ZIP with a handful of XML files inside,
+// and the stdlib already brings `archive/zip` and `encoding/xml`. A new dependency needs
+// justification (law 2.5), and what gets generated here is deliberately simple — text, lists,
+// tables and slides. The day rich charts or styles are needed is the day to revisit this, not before.
 //
-// Também não depende do OnlyOffice: gerar tem de funcionar mesmo onde a edição está desligada
-// (decisão §12.1, ponto 2 do desenho do assistente).
+// It also does not depend on OnlyOffice: generation has to work even where editing is disabled
+// (decision §12.1, item 2 of the assistant design).
 package office
 
 import (
@@ -17,37 +17,37 @@ import (
 	"strings"
 )
 
-// Kind é o tipo de ficheiro a gerar.
+// Kind is the type of file to generate.
 const (
 	KindDocument     = "document"
 	KindSpreadsheet  = "spreadsheet"
 	KindPresentation = "presentation"
 )
 
-// Block é um pedaço de um documento de texto.
+// Block is a piece of a text document.
 type Block struct {
 	// Style: "title" | "heading" | "paragraph" | "bullet"
 	Style string `json:"style"`
 	Text  string `json:"text"`
 }
 
-// Sheet é uma folha de cálculo. A primeira linha é tratada como cabeçalho na apresentação, mas
-// continua a ser uma linha normal — não se inventa uma estrutura que o utilizador não pediu.
+// Sheet is a spreadsheet. The first row is treated as a header in the presentation, but it
+// stays a normal row — no structure gets invented that the user didn't ask for.
 type Sheet struct {
 	Name string     `json:"name"`
 	Rows [][]string `json:"rows"`
 }
 
-// Slide é um slide de apresentação: um título e uns pontos.
+// Slide is a presentation slide: a title and some bullet points.
 type Slide struct {
 	Title   string   `json:"title"`
 	Bullets []string `json:"bullets"`
 	Notes   string   `json:"notes,omitempty"`
 }
 
-// Plan é o que o modelo produz e o que se converte em ficheiro. Um plano, não um ficheiro: o modelo
-// descreve o conteúdo e é o servidor que constrói o formato — que é o que torna o resultado um
-// ficheiro Office válido em vez de texto com extensão trocada.
+// Plan is what the model produces and what gets converted into a file. A plan, not a file: the
+// model describes the content and it's the server that builds the format — which is what makes
+// the result a valid Office file instead of text with a swapped extension.
 type Plan struct {
 	Kind   string  `json:"kind"`
 	Title  string  `json:"title"`
@@ -56,7 +56,7 @@ type Plan struct {
 	Slides []Slide `json:"slides,omitempty"`
 }
 
-// Ext devolve a extensão do ficheiro para este tipo.
+// Ext returns the file extension for this kind.
 func Ext(kind string) (string, bool) {
 	switch kind {
 	case KindDocument:
@@ -69,7 +69,7 @@ func Ext(kind string) (string, bool) {
 	return "", false
 }
 
-// MIME devolve o content-type do ficheiro.
+// MIME returns the file's content-type.
 func MIME(kind string) string {
 	switch kind {
 	case KindDocument:
@@ -82,8 +82,8 @@ func MIME(kind string) string {
 	return "application/octet-stream"
 }
 
-// Build constrói o ficheiro. Devolve erro para um tipo desconhecido em vez de escolher um por
-// omissão: um plano de apresentação gravado como documento seria pior do que uma recusa clara.
+// Build builds the file. Returns an error for an unknown kind instead of picking a default one:
+// a presentation plan saved as a document would be worse than a clear refusal.
 func Build(p Plan) ([]byte, error) {
 	switch p.Kind {
 	case KindDocument:
@@ -96,14 +96,14 @@ func Build(p Plan) ([]byte, error) {
 	return nil, fmt.Errorf("office: unknown kind %q", p.Kind)
 }
 
-// part é um ficheiro dentro do ZIP.
+// part is a file inside the ZIP.
 type part struct {
 	name string
 	body string
 }
 
-// zipParts escreve as partes num ZIP. A ordem importa em alguns leitores antigos, por isso é a de
-// escrita — não a de um mapa, que seria aleatória.
+// zipParts writes the parts into a ZIP. The order matters to some older readers, so it's the
+// write order — not a map's, which would be random.
 func zipParts(parts []part) ([]byte, error) {
 	var buf bytes.Buffer
 	zw := zip.NewWriter(&buf)
@@ -122,11 +122,11 @@ func zipParts(parts []part) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// esc escapa texto para dentro de XML.
+// esc escapes text for insertion into XML.
 //
-// É a única defesa que separa "conteúdo do utilizador" de "marcação": um assunto de e-mail com um
-// `<` transformaria o ficheiro em lixo ilegível se passasse cru. Passa por aqui TODO o texto que
-// vem de fora, sem exceção.
+// It's the only defense separating "user content" from "markup": an e-mail subject with a
+// `<` would turn the file into unreadable garbage if it passed through raw. ALL text that
+// comes from outside passes through here, with no exception.
 func esc(s string) string {
 	var b bytes.Buffer
 	if err := xml.EscapeText(&b, []byte(sanitize(s))); err != nil {
@@ -135,8 +135,8 @@ func esc(s string) string {
 	return b.String()
 }
 
-// sanitize deita fora os caracteres de controlo que o XML 1.0 não admite. Um deles no meio do texto
-// torna o ficheiro inválido, e o leitor não diz porquê — diz só que está corrompido.
+// sanitize discards the control characters that XML 1.0 does not allow. One of them in the
+// middle of the text makes the file invalid, and the reader doesn't say why — it just says it's corrupt.
 func sanitize(s string) string {
 	return strings.Map(func(r rune) rune {
 		switch {

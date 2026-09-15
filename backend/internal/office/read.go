@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// KindFromName deduz o tipo de ficheiro pela extensão. É a única pista que temos sem abrir o
-// ficheiro, e chega: as três extensões são inequívocas.
+// KindFromName infers the file type from the extension. It's the only clue we have without
+// opening the file, and it's enough: the three extensions are unambiguous.
 func KindFromName(name string) (string, bool) {
 	lower := strings.ToLower(name)
 	switch {
@@ -24,12 +24,12 @@ func KindFromName(name string) (string, bool) {
 	return "", false
 }
 
-// ExtractText devolve o texto legível de um ficheiro OOXML. É o que o modelo lê antes de editar
-// (§5.1): não reconstrói a estrutura — para isso o modelo reescreve o plano — mas mostra o que lá
-// está, para a edição não ser às cegas.
+// ExtractText returns the readable text of an OOXML file. It's what the model reads before
+// editing (§5.1): it does not reconstruct the structure — for that the model rewrites the plan —
+// but it shows what's there, so the edit is not made blind.
 //
-// Um ficheiro que não seja OOXML (imagem, PDF, binário) devolve erro em vez de lixo: esses não se
-// editam, só se substituem.
+// A file that is not OOXML (image, PDF, binary) returns an error instead of garbage: those
+// are not edited, only replaced.
 func ExtractText(kind string, data []byte) (string, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
@@ -46,7 +46,7 @@ func ExtractText(kind string, data []byte) (string, error) {
 	return "", fmt.Errorf("office: cannot read text from kind %q", kind)
 }
 
-// textFromParts junta o texto dos elementos <a:t>/<w:t>/<t> de partes específicas.
+// textFromParts joins the text of the <a:t>/<w:t>/<t> elements from specific parts.
 func textFromParts(zr *zip.Reader, names []string) (string, error) {
 	var b strings.Builder
 	for _, name := range names {
@@ -64,9 +64,9 @@ func textFromParts(zr *zip.Reader, names []string) (string, error) {
 	return b.String(), nil
 }
 
-// textFromPrefix faz o mesmo para todas as partes cujo nome começa por prefix, por ordem de nome —
-// os slides e as folhas numeram-se, portanto a ordem alfabética é a ordem de apresentação até ao
-// slide 9; a partir do 10 desalinha, mas para uma pré-visualização de leitura chega.
+// textFromPrefix does the same for every part whose name starts with prefix, in name order —
+// slides and sheets are numbered, so alphabetical order matches presentation order up to
+// slide 9; from 10 on it drifts, but that's enough for a read-only preview.
 func textFromPrefix(zr *zip.Reader, prefix string) (string, error) {
 	var b strings.Builder
 	for _, f := range zr.File {
@@ -87,9 +87,9 @@ func textFromPrefix(zr *zip.Reader, prefix string) (string, error) {
 	return b.String(), nil
 }
 
-// xmlText extrai o texto dos nós de caracteres de um XML, sem se preocupar com os nomes das tags:
-// os elementos de texto do OOXML (<w:t>, <a:t>, <t>) são folhas com o texto lá dentro, e apanhar
-// todos os CharData dá o corpo legível sem ter de conhecer o esquema todo.
+// xmlText extracts the text from an XML's character nodes, without worrying about tag names:
+// OOXML's text elements (<w:t>, <a:t>, <t>) are leaves with the text inside, and picking up
+// all the CharData gives the readable body without needing to know the whole schema.
 func xmlText(f *zip.File) (string, error) {
 	rc, err := f.Open()
 	if err != nil {
@@ -109,8 +109,8 @@ func xmlText(f *zip.File) (string, error) {
 		}
 		switch t := tok.(type) {
 		case xml.StartElement:
-			// Só o conteúdo dos elementos de texto conta. Sem este filtro, apanharíamos também os
-			// valores de atributos e o ruído dos metadados.
+			// Only the content of text elements counts. Without this filter, we would also pick up
+			// attribute values and metadata noise.
 			if t.Name.Local == "t" {
 				inText = true
 			}
