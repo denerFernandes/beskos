@@ -16,6 +16,7 @@ import (
 	"mailin/backend/internal/billing"
 	"mailin/backend/internal/chat"
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/edition"
 	"mailin/backend/internal/notify"
 	"mailin/backend/internal/rbac"
 	"mailin/backend/internal/secretbox"
@@ -72,6 +73,9 @@ type Server struct {
 	// planCat é o cache do catálogo de planos lido da BD (manager M2; ver plans_catalog.go).
 	planCat planCatalog
 
+	// edition holds which Pro capabilities this instance has unlocked (edition.Load at startup).
+	edition edition.Capabilities
+
 	// agent é o motor agêntico do assistente (ciclo pensar→agir→observar). O provider por baixo
 	// pode ser nil se a IA não estiver configurada — o handler é que verifica.
 	agent *assistant.Engine
@@ -90,9 +94,9 @@ type Server struct {
 	readiness func(context.Context) error // testa dependências críticas (ex.: ping ao Postgres) no /readyz; nil = só liveness
 }
 
-func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSender sms.Sender, st *storage.Service, bp billing.Provider, bset billing.Settings) *Server {
+func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSender sms.Sender, st *storage.Service, bp billing.Provider, bset billing.Settings, ed edition.Capabilities) *Server {
 	srv := &Server{
-		q: q, sw: sw, ai: aiProvider, sms: smsSender, storage: st, billing: bp, billingCfg: bset,
+		q: q, sw: sw, ai: aiProvider, sms: smsSender, storage: st, billing: bp, billingCfg: bset, edition: ed,
 		signupsOpen: true, // por omissão aberto; o main aplica a configuração
 		snsVerifier: ses.NewSNSVerifier(),
 		loginIP:     newRateLimiter(30, 5*time.Minute),
@@ -137,6 +141,7 @@ func (s *Server) Router() http.Handler {
 		r.Post("/auth/login", s.handleLogin)
 		r.Post("/webmail/login", s.handleLogin)       // alias que o webmail já usa
 		r.Post("/auth/mfa/verify", s.handleMFAVerify) // 2º passo do login
+		r.Get("/edition", s.handleGetEdition)         // capabilities unlocked on this instance (Community/Pro)
 
 		// TUDO atrás da mesma sessão. O RBAC decide o que cada papel enxerga.
 		r.Group(func(r chi.Router) {

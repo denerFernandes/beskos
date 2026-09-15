@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"mailin/backend/internal/billing"
+	"mailin/backend/internal/edition"
 	"mailin/backend/internal/stalwart"
 )
 
@@ -17,7 +18,7 @@ import (
 func TestRoutesRegistered(t *testing.T) {
 	// Cliente Stalwart mínimo: o router monta o proxy JMAP e lê-lhe a URL base.
 	srv := NewServer(nil, stalwart.New("http://stalwart.invalid", "", ""), nil, nil, nil,
-		billing.ManualProvider{}, billing.Settings{Currency: "EUR", MinPaidUsers: 1})
+		billing.ManualProvider{}, billing.Settings{Currency: "EUR", MinPaidUsers: 1}, edition.CommunityCapabilities())
 	router, ok := srv.Router().(chi.Routes)
 	if !ok {
 		t.Fatal("o router não expõe as rotas")
