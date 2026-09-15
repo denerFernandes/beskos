@@ -1,30 +1,30 @@
 #!/bin/sh
-# Patch de branding do Document Server (Beskos).
+# Document Server branding patch (Beskos).
 #
-# PORQUÊ: no Docs Community o servidor reporta a licença com `branding: false` e
-# `customization: false`, e o cliente descarta `editorConfig.customization.logo` e
-# `.customer` sem avisar. O patch liga os dois interruptores NO CLIENTE, para o cabeçalho
-# do editor mostrar a marca Beskos em vez da do ONLYOFFICE.
+# WHY: in Docs Community, the server reports the license with `branding: false` and
+# `customization: false`, and the client discards `editorConfig.customization.logo` and
+# `.customer` without warning. The patch flips both switches ON THE CLIENT, so the editor
+# header shows the Beskos brand instead of ONLYOFFICE's.
 #
-# ONDE: web-apps/apps/<editor>/main/app/controller/Main.js — a partir do Docs 9.4 o
-# web-apps é distribuído SEM minificação, por isso são duas linhas legíveis por editor:
+# WHERE: web-apps/apps/<editor>/main/app/controller/Main.js — from Docs 9.4 onward,
+# web-apps ships WITHOUT minification, so there are two readable lines per editor:
 #
 #   this.appOptions.canBrandingExt = params.asc_getCanBranding() && (...)   -> layout/loaderLogo
-#   this.appOptions.canBranding    = params.asc_getCustomization()          -> logo + "Sobre"
+#   this.appOptions.canBranding    = params.asc_getCustomization()          -> logo + "About"
 #
-# LICENÇA (AGPL v3, secção 5 + política de marcas da Ascensio System SIA):
-#   - a modificação é permitida e está registada em deploy/DIVERGENCES.md, com data;
-#   - o Beskos serve este editor pela rede, logo o §13 obriga a oferecer o fonte modificado:
-#     é o que este ficheiro é, e o "Sobre" liga para ele;
-#   - a atribuição NÃO é removida. O diálogo "Sobre" continua a mostrar o bloco
-#     "Powered by / Ascensio System SIA / onlyoffice.com" (id-about-licensor-short, que o
-#     próprio setLicInfo revela quando enviamos `customer`), e o backend acrescenta a nota
-#     de versão modificada em customization.customer.info;
-#   - o que retiramos é a MARCA deles do nosso cabeçalho — que é exatamente o que a política
-#     de marcas exige de quem publica uma versão modificada: identidade própria, sem imitar.
+# LICENSE (AGPL v3, section 5 + Ascensio System SIA's trademark policy):
+#   - the modification is allowed and is recorded in deploy/DIVERGENCES.md, with a date;
+#   - Beskos serves this editor over the network, so §13 requires offering the modified
+#     source: that's what this file is, and "About" links to it;
+#   - attribution is NOT removed. The "About" dialog still shows the
+#     "Powered by / Ascensio System SIA / onlyoffice.com" block (id-about-licensor-short, which
+#     setLicInfo itself reveals when we send `customer`), and the backend adds the modified
+#     version note in customization.customer.info;
+#   - what we remove is THEIR brand from our header — which is exactly what the trademark
+#     policy requires from anyone publishing a modified version: your own identity, no imitating.
 #
-# Falha SEMPRE de forma segura: se algo correr mal, o Document Server arranca à mesma, apenas
-# sem branding. Idempotente — reaplicar não duplica nada.
+# ALWAYS fails safe: if something goes wrong, the Document Server starts up anyway, just
+# without branding. Idempotent — reapplying doesn't duplicate anything.
 
 WEBAPPS=/var/www/onlyoffice/documentserver/web-apps/apps
 BRANDDIR="$WEBAPPS/common/main/resources/img/beskos"
@@ -33,14 +33,14 @@ MARKER=beskos-branding-patch
 PATCHED=0
 SKIPPED=0
 
-# As imagens do logo ficam DENTRO do Document Server, não em data: URI. O api.js do DS mete
-# customization.logo.{image,imageDark,imageLight} na QUERY STRING do iframe do editor — três data
-# URIs percent-encoded rebentam o limite da linha de pedido e o nginx responde 414. Servidas daqui,
-# são três URLs curtas, na mesma origem do editor (sem CORS, sem depender da app estar exposta).
+# The logo images live INSIDE the Document Server, not as a data: URI. The DS's api.js puts
+# customization.logo.{image,imageDark,imageLight} in the editor iframe's QUERY STRING — three
+# percent-encoded data URIs blow the request-line limit and nginx answers 414. Served from here,
+# they're three short URLs on the editor's own origin (no CORS, no dependency on the app being exposed).
 if [ -d /scripts/brand ]; then
 	mkdir -p "$BRANDDIR" && cp /scripts/brand/*.svg "$BRANDDIR/" 2>/dev/null &&
-		echo "branding patch: logos copiados para $BRANDDIR" ||
-		echo "branding patch: falhou a copiar os logos — o cabeçalho fica sem imagem"
+		echo "branding patch: logos copied to $BRANDDIR" ||
+		echo "branding patch: failed to copy logos — the header ends up without an image"
 
 fi
 
@@ -53,28 +53,28 @@ for app in documenteditor spreadsheeteditor presentationeditor pdfeditor visioed
 		continue
 	fi
 
-	# Só o valor de arranque muda; o resto da expressão (o `&& customization é objeto`) fica,
-	# para o branding continuar a depender de nós enviarmos mesmo um objeto de customização.
+	# Only the startup value changes; the rest of the expression (the `&& customization is an
+	# object` part) stays, so branding still depends on us actually sending a customization object.
 	sed -i \
 		-e "s|\(this\.appOptions\.canBrandingExt *= *\)params\.asc_getCanBranding()|\1true /* $MARKER */|" \
 		-e "s|\(this\.appOptions\.canBranding *= *\)params\.asc_getCustomization()|\1true /* $MARKER */|" \
 		"$f" 2>/dev/null || continue
 
 	if ! grep -q "$MARKER" "$f" 2>/dev/null; then
-		echo "branding patch: $app — padrão não encontrado (versão nova do DS?), ignorado"
+		echo "branding patch: $app — pattern not found (newer DS version?), skipped"
 		continue
 	fi
 
-	# O nginx do DS serve com gzip_static: sem regenerar o .gz, o browser recebe o original.
+	# The DS's nginx serves with gzip_static: without regenerating the .gz, the browser gets the original.
 	if [ -f "$f.gz" ]; then
-		gzip -9 -c "$f" > "$f.gz" 2>/dev/null || echo "branding patch: $app — falhou a regerar o .gz"
+		gzip -9 -c "$f" > "$f.gz" 2>/dev/null || echo "branding patch: $app — failed to regenerate the .gz"
 	fi
 	PATCHED=$((PATCHED + 1))
 done
 
-# Paleta Beskos: acrescenta as nossas variáveis ao FIM do app.css de cada editor (ganha por ordem,
-# em igualdade de especificidade). Ver o cabeçalho do beskos-theme.css para porque não é um tema
-# do themes.json. Idempotente pelo mesmo marcador.
+# Beskos palette: appends our variables to the END of each editor's app.css (wins by order, at
+# equal specificity). See the beskos-theme.css header for why it's not a themes.json theme.
+# Idempotent via the same marker.
 if [ -f /scripts/brand/beskos-theme.css ]; then
 	THEMED=0
 	for app in documenteditor spreadsheeteditor presentationeditor pdfeditor visioeditor; do
@@ -88,7 +88,7 @@ if [ -f /scripts/brand/beskos-theme.css ]; then
 		[ -f "$c.gz" ] && gzip -9 -c "$c" > "$c.gz" 2>/dev/null
 		THEMED=$((THEMED + 1))
 	done
-	echo "branding patch: paleta aplicada a $THEMED editor(es)"
+	echo "branding patch: palette applied to $THEMED editor(s)"
 fi
 
-echo "branding patch: $PATCHED editor(es) modificado(s), $SKIPPED já estava(m)"
+echo "branding patch: $PATCHED editor(s) modified, $SKIPPED already applied"
