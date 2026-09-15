@@ -10,12 +10,17 @@ import { Avatar } from "./Avatar";
 import { ViewerModal } from "./ViewerModal";
 import { toast, toastAction } from "./toast";
 import {
-  IcUpload, IcFolder, IcFolderPlus, IcGrid, IcList, IcTrash, IcPencil, IcShare, IcDownload, IcUsers, IcPencilBox, IcPlus, IcRefresh, IcCopy, IcStar,
+  IcUpload, IcFolderPlus, IcGrid, IcList, IcTrash, IcPencil, IcShare, IcDownload, IcUsers, IcPencilBox, IcPlus, IcRefresh, IcCopy, IcStar,
 } from "../panel/icons";
 import { ShareModal } from "./ShareModal";
 import { VersionsModal } from "./VersionsModal";
 import { useUserSettings, useSection } from "./useSettings";
 import { syncApi, syncSupported } from "./syncClient";
+import { StorageBar } from "./FilesStorageBar";
+import { RenameModal } from "./FilesRenameModal";
+import { FilesTrashPanel } from "./FilesTrashPanel";
+import { FilesGridView } from "./FilesGridView";
+import { FilesListView } from "./FilesListView";
 
 type TypeF = "" | "doc" | "pdf" | "sheet" | "image" | "video" | "audio" | "code" | "archive";
 type PeopleF = "" | "me" | "shared" | "with-me";
@@ -268,53 +273,11 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   );
 
   if (trashOpen) {
-    const items = trash.data?.files ?? [];
     return (
-      <div className="dv">
-        <div className="dv-top">
-          <div className="crumb">
-            {/* Mesmo formato do caminho normal ("Arquivos › demo"): botões de texto, sem ícones —
-                com o ícone dentro do botão o rótulo quebrava para a linha de baixo. */}
-            <button onClick={() => setTrashOpen(false)}>{t("files.title")}</button>
-            <span className="sep">›</span>
-            <button className="cur">{t("files.trash")}</button>
-          </div>
-          <div className="dv-actions">
-            {items.length > 0 && <button className="chipbtn danger" onClick={() => emptyTrash.mutate()}><IcTrash size={15} /> {t("files.emptyTrash")}</button>}
-          </div>
-        </div>
-        <div className="dv-body">
-          {trash.isLoading ? <div className="loading">…</div> : items.length === 0 ? (
-            <div className="empty">{t("files.trashEmpty")}</div>
-          ) : (
-            <div className="dv-list">
-              <div className="dv-head">
-                <span className="col-name">{t("files.colName")}</span>
-                <span className="col-owner" />
-                <span className="col-loc" />
-                <span className="col-mod">{t("files.colDeleted")}</span>
-                <span className="col-size">{t("files.colSize")}</span>
-                <span className="col-acts" />
-              </div>
-              {items.map((f) => (
-                <div className="dvrow" key={f.id}>
-                  <span className="col-name"><span className="ic"><FileTypeIcon name={f.name} size={20} /></span><span className="fn">{f.name}</span></span>
-                  <span className="col-owner" />
-                  <span className="col-loc" />
-                  <span className="col-mod meta">{f.deleted_at ? fmtDate(f.deleted_at) : "—"}</span>
-                  <span className="col-size meta">{fmtSize(f.size)}</span>
-                  <span className="col-acts">
-                    <span className="row-acts">
-                      <button title={t("files.restore")} onClick={() => restore.mutate(f.id)}><IcRefresh size={15} /></button>
-                      <button title={t("files.deleteForever")} onClick={() => purge.mutate(f.id)}><IcTrash size={15} /></button>
-                    </span>
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <FilesTrashPanel items={trash.data?.files ?? []} isLoading={trash.isLoading}
+        onBack={() => setTrashOpen(false)} onEmptyTrash={() => emptyTrash.mutate()}
+        onRestore={(id) => restore.mutate(id)} onPurge={(id) => purge.mutate(id)}
+        fmtSize={fmtSize} fmtDate={fmtDate} t={t} />
     );
   }
 
@@ -427,132 +390,17 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
             {folders.length === 0 && files.length === 0 && sharedExtra.length === 0 && !newFolder ? (
               <div className="empty">{filtering ? t("files.noMatch") : t("files.empty")}</div>
             ) : view === "grid" ? (
-              <>
-                {folders.length > 0 && <div className="dv-sec">{t("files.folders")}</div>}
-                <div className="dv-grid">
-                  {folders.map((f) => (
-                    <div className={"dvc" + (dropTarget === f.id ? " drop" : "") + (syncedIds.has(f.id) ? " synced" : "")} key={f.id} draggable onClick={() => setFolderId(f.id)}
-                      onDragStart={(e) => { dragId.current = f.id; dragKind.current = "folder"; e.currentTarget.classList.add("dragging"); }}
-                      onDragEnd={(e) => e.currentTarget.classList.remove("dragging")}
-                      onDragOver={(e) => { e.preventDefault(); setDropTarget(f.id); }} onDragLeave={() => setDropTarget(null)} onDrop={() => onDropTo(f.id)}>
-                      <span className="ic"><IcFolder size={26} /></span>
-                      <div className="fn">{f.name}
-                        {syncedIds.has(f.id) && <span className="sync-badge" title={t("files.syncedFolder")}><IcRefresh size={11} /></span>}
-                      </div>
-                      {folderActions(f)}
-                    </div>
-                  ))}
-                </div>
-                {files.length > 0 && <div className="dv-sec">{t("files.filesLabel")}</div>}
-                <div className="dv-grid">
-                  {files.map((f) => (
-                    <div className="dvc" key={f.id} draggable
-                      onDragStart={(e) => { dragId.current = f.id; dragKind.current = "file"; e.currentTarget.classList.add("dragging"); }}
-                      onDragEnd={(e) => e.currentTarget.classList.remove("dragging")}
-                      onClick={() => openFile(f)}>
-                      <span className="ic">
-                        <Thumb file={f} size={26} />
-                        {f.starred && <span className="star-badge" title={t("files.star")}><IcStar size={12} filled /></span>}
-                        {(isShared(f.id) || sharedWithMeIds.has(f.id)) && <span className="shared-badge fl" title={sharedWithMeIds.has(f.id) ? t("files.sharedWithMe") : t("files.sharedBadge")}><IcUsers size={12} /></span>}
-                      </span>
-                      <div className="fn">{f.name}</div>
-                      <div className="meta">{fmtSize(f.size)}{f.version > 1 ? ` · v` : ""}</div>
-                      {fileActions(f)}
-                    </div>
-                  ))}
-                </div>
-                {sharedExtra.length > 0 && (
-                  <>
-                    <div className="dv-sec">{t("files.sharedWithMe")}</div>
-                    <div className="dv-grid">
-                      {sharedExtra.map((f) => (
-                        <div className="dvc" key={"sh" + f.id} onClick={() => openFile(f)}>
-                          <span className="ic">
-                            <Thumb file={f} size={26} />
-                            <span className="shared-badge fl" title={t("files.sharedWithMe")}><IcUsers size={12} /></span>
-                          </span>
-                          <div className="fn">{f.name}</div>
-                          <div className="meta">{fmtSize(f.size)}{f.version > 1 ? ` · v` : ""}</div>
-                          <span className="row-acts">
-                            <a title={t("files.download")} href={backend.downloadFileUrl(f.id)} onClick={(e) => e.stopPropagation()}><button><IcDownload size={15} /></button></a>
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </>
+              <FilesGridView folders={folders} files={files} sharedExtra={sharedExtra} syncedIds={syncedIds}
+                dropTarget={dropTarget} setDropTarget={setDropTarget} dragId={dragId} dragKind={dragKind}
+                onDropTo={onDropTo} onOpenFolder={setFolderId} onOpenFile={openFile} isShared={isShared}
+                sharedWithMeIds={sharedWithMeIds} folderActions={folderActions} fileActions={fileActions}
+                fmtSize={fmtSize} t={t} />
             ) : (
-              <div className="dv-list">
-                <div className="dv-head">
-                  <span className="col-name">{t("files.colName")}</span>
-                  <span className="col-owner">{t("files.colOwner")}</span>
-                  <span className="col-loc">{t("files.colLocation")}</span>
-                  <span className="col-mod">{t("files.colModified")}</span>
-                  <span className="col-size">{t("files.colSize")}</span>
-                  <span className="col-acts" />
-                </div>
-                {/* Rótulos de grupo: deixam explícito que pastas e ficheiros são irmãos na MESMA
-                    pasta, e não uma árvore com os ficheiros dentro da última pasta listada. */}
-                {folders.length > 0 && files.length > 0 && <div className="dv-group">{t("files.folders")}</div>}
-                {folders.map((f) => (
-                  <div className={"dvrow" + (dropTarget === f.id ? " drop" : "") + (syncedIds.has(f.id) ? " synced" : "")} key={f.id} draggable onClick={() => setFolderId(f.id)}
-                    onDragStart={(e) => { dragId.current = f.id; dragKind.current = "folder"; e.currentTarget.classList.add("dragging"); }}
-                    onDragEnd={(e) => e.currentTarget.classList.remove("dragging")}
-                    onDragOver={(e) => { e.preventDefault(); setDropTarget(f.id); }} onDragLeave={() => setDropTarget(null)} onDrop={() => onDropTo(f.id)}>
-                    <span className="col-name">
-                      {/* Ocupa o lugar da checkbox das linhas de ficheiro, para os nomes alinharem. */}
-                      <span className="row-sel-gap" aria-hidden="true" />
-                      <span className="ic"><IcFolder size={20} /></span><span className="fn">{f.name}</span>
-                      {syncedIds.has(f.id) && <span className="sync-badge" title={t("files.syncedFolder")}><IcRefresh size={11} /></span>}
-                    </span>
-                    <span className="col-owner">{ownerCell("")}</span>
-                    <span className="col-loc meta">{localName}</span>
-                    <span className="col-mod meta">{fmtDate(f.created_at)}</span>
-                    <span className="col-size meta">—</span>
-                    <span className="col-acts">{folderActions(f)}</span>
-                  </div>
-                ))}
-                {folders.length > 0 && files.length > 0 && <div className="dv-group">{t("files.sectionFiles")}</div>}
-                {files.map((f) => (
-                  <div className={"dvrow" + (selected.has(f.id) ? " sel" : "")} key={f.id} draggable
-                    onDragStart={(e) => { dragId.current = f.id; dragKind.current = "file"; e.currentTarget.classList.add("dragging"); }}
-                    onDragEnd={(e) => e.currentTarget.classList.remove("dragging")}
-                    onClick={() => openFile(f)}>
-                    <span className="col-name">
-                      <input type="checkbox" className="row-sel" checked={selected.has(f.id)} onClick={(e) => e.stopPropagation()} onChange={() => toggleSel(f.id)} title={t("files.select")} />
-                      <span className="ic"><FileTypeIcon name={f.name} size={20} /></span><span className="fn">{f.name}</span>
-                    </span>
-                    <span className="col-owner">{ownerCell(f.id)}</span>
-                    <span className="col-loc meta">{localName}</span>
-                    <span className="col-mod meta">{fmtDate(f.created_at)}</span>
-                    <span className="col-size meta">{fmtSize(f.size)}</span>
-                    <span className="col-acts">{fileActions(f)}</span>
-                  </div>
-                ))}
-                {sharedExtra.length > 0 && (
-                  <>
-                    <div className="dv-group">{t("files.sharedWithMe")}</div>
-                    {sharedExtra.map((f) => (
-                      <div className="dvrow" key={"sh" + f.id} onClick={() => openFile(f)}>
-                        <span className="col-name">
-                          <span className="row-sel-gap" aria-hidden="true" />
-                          <span className="ic"><FileTypeIcon name={f.name} size={20} /></span><span className="fn">{f.name}</span>
-                        </span>
-                        <span className="col-owner">{ownerCell(f.id)}</span>
-                        <span className="col-loc meta">{localName}</span>
-                        <span className="col-mod meta">{fmtDate(f.created_at)}</span>
-                        <span className="col-size meta">{fmtSize(f.size)}</span>
-                        <span className="col-acts">
-                          <span className="row-acts">
-                            <a title={t("files.download")} href={backend.downloadFileUrl(f.id)} onClick={(e) => e.stopPropagation()}><button><IcDownload size={15} /></button></a>
-                          </span>
-                        </span>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
+              <FilesListView folders={folders} files={files} sharedExtra={sharedExtra} syncedIds={syncedIds}
+                dropTarget={dropTarget} setDropTarget={setDropTarget} dragId={dragId} dragKind={dragKind}
+                onDropTo={onDropTo} onOpenFolder={setFolderId} onOpenFile={openFile} selected={selected}
+                toggleSel={toggleSel} localName={localName} ownerCell={ownerCell} folderActions={folderActions}
+                fileActions={fileActions} fmtSize={fmtSize} fmtDate={fmtDate} t={t} />
             )}
           </>
         )}
@@ -562,46 +410,6 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
       {share && <ShareModal file={share} onClose={() => setShare(null)} />}
       {versionsOf && <VersionsModal file={versionsOf} onClose={() => setVersionsOf(null)} />}
       {viewing && <ViewerModal file={viewing} onClose={() => setViewing(null)} />}
-    </div>
-  );
-}
-
-// Thumb: miniatura real para imagens (endpoint /thumb); cai no ícone por tipo se não for imagem
-// ou se a miniatura falhar (ex.: webp/svg que a stdlib não decodifica → 415).
-function Thumb({ file, size }: { file: StorageFile; size: number }) {
-  const [failed, setFailed] = useState(false);
-  if (fileCategory(file.name) === "image" && !failed) {
-    return <img className="fthumb" src={backend.fileThumbUrl(file.id)} alt="" loading="lazy" onError={() => setFailed(true)} />;
-  }
-  return <FileTypeIcon name={file.name} size={size} />;
-}
-
-function StorageBar({ used, max, label }: { used: number; max: number; fmt: (n: number) => string; label: string }) {
-  const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
-  return (
-    <div className="storage-bar" title={label}>
-      <div className="sb-track"><div className="sb-fill" style={{ width: `${pct}%` }} /></div>
-      <span className="sb-label">{label}</span>
-    </div>
-  );
-}
-
-function RenameModal({ item, onClose, onDone }: { item: { kind: "file" | "folder"; id: string; name: string }; onClose: () => void; onDone: () => void }) {
-  const { t } = useTranslation();
-  const [name, setName] = useState(item.name);
-  const m = useMutation({
-    mutationFn: () => item.kind === "folder" ? backend.renameFolder(item.id, name) : backend.renameFile(item.id, name),
-    onSuccess: () => { onDone(); toast(t("files.renamed")); }, onError: (e) => toast((e as Error).message),
-  });
-  return (
-    <div className="tk-bg open" onMouseDown={onClose}>
-      <div className="tk" onMouseDown={(e) => e.stopPropagation()}>
-        <header><span>{t("contacts.rename")}</span><button className="ib" title={t("common.close")} onClick={onClose}>✕</button></header>
-        <div className="body"><input autoFocus className="prompt" style={{ minHeight: "auto" }} value={name} onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && name) m.mutate(); }} /></div>
-        <footer><button className="chipbtn" onClick={onClose}>{t("common.cancel")}</button>
-          <button className="add" disabled={!name || m.isPending} onClick={() => m.mutate()}>{t("contacts.save")}</button></footer>
-      </div>
     </div>
   );
 }
