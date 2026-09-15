@@ -5,24 +5,24 @@ edition = "2021"
 description = "Motor de sincronização de ficheiros do Beskos, embutido na app desktop."
 license = "MIT"
 
-# Só biblioteca: o MOTOR. Quem o hospeda (janela, tray, menus) é a app desktop.
+# Library only: the ENGINE. Whoever hosts it (window, tray, menus) is the desktop app.
 [lib]
 name = "beskos_sync"
 path = "src/lib.rs"
 
 
 [dependencies]
-# HTTP com TLS via rustls (sem dependência de OpenSSL do sistema — portável).
+# HTTP with TLS via rustls (no dependency on the system's OpenSSL -- portable).
 ureq = { version = "2", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-# Índice local: SQLite embutido (bundled) — não exige SQLite do sistema.
+# Local index: bundled SQLite -- does not require a system SQLite.
 rusqlite = { version = "0.31", features = ["bundled"] }
-# Hash de conteúdo: SHA-256, o MESMO algoritmo do servidor (ETag), para detetar mudanças locais.
+# Content hash: SHA-256, the SAME algorithm the server uses (ETag), to detect local changes.
 sha2 = "0.10"
 anyhow = "1"
-# Watcher do sistema de ficheiros (FSEvents no macOS, inotify no Linux): sincroniza quase de
-# imediato em vez de esperar o intervalo de polling.
+# Filesystem watcher (FSEvents on macOS, inotify on Linux): syncs almost immediately instead of
+# waiting for the polling interval.
 notify = "6"
 
 [profile.release]

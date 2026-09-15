@@ -1,5 +1,5 @@
-//! Cliente HTTP do daemon contra `/api/sync/*`, autenticado pelo token de dispositivo.
-//! Segurança: exige HTTPS exceto em localhost (dev); o token nunca é registado em log.
+//! The daemon's HTTP client against `/api/sync/*`, authenticated with the device token.
+//! Security: requires HTTPS except on localhost (dev); the token is never logged.
 
 use std::io::Read;
 
@@ -21,8 +21,8 @@ pub struct FileChange {
     pub version: i64,
     pub deleted: bool,
     pub updated_at: String,
-    /// false = partilhado comigo (não sou dono). Tratado como SÓ-LEITURA pelo agente.
-    /// Default `true` para continuar a funcionar com servidores anteriores a este campo.
+    /// false = shared with me (I am not the owner). Treated as READ-ONLY by the agent.
+    /// Defaults to `true` so it keeps working with servers older than this field.
     #[serde(default = "default_true")]
     pub owned: bool,
 }
@@ -31,7 +31,7 @@ fn default_true() -> bool {
     true
 }
 
-/// Metadados devolvidos pelo servidor após criar/atualizar um ficheiro (a linha storage_files).
+/// Metadata returned by the server after creating/updating a file (the storage_files row).
 #[derive(Deserialize)]
 pub struct FileMeta {
     pub id: String,
@@ -40,7 +40,7 @@ pub struct FileMeta {
     pub versao: i64,
 }
 
-/// Uma pasta na árvore do utilizador (para o espelho de subpastas).
+/// A folder in the user's tree (for the subfolder mirror).
 #[derive(Deserialize, Clone)]
 pub struct Folder {
     pub id: String,
@@ -54,21 +54,21 @@ struct FoldersPage {
     folders: Vec<Folder>,
 }
 
-/// Mapa de blocos do conteúdo atual no servidor (base do upload delta).
+/// Block map of the current content on the server (base for the delta upload).
 #[derive(Deserialize)]
 pub struct BlocksInfo {
     pub block_size: u64,
     #[allow(dead_code)]
     pub total_size: u64,
-    /// Hash do ficheiro INTEIRO — serve para confirmar que o delta é calculado sobre a mesma base.
+    /// Hash of the WHOLE file -- used to confirm the delta is computed against the same base.
     pub hash: String,
     pub hashes: Vec<String>,
 }
 
-/// Resultado de um upload condicional (PUT com If-Match).
+/// Result of a conditional upload (PUT with If-Match).
 pub enum PutOutcome {
     Updated(FileMeta),
-    Conflict, // 412: o servidor mudou desde a base — o daemon guarda cópia de conflito.
+    Conflict, // 412: the server changed since the base -- the daemon keeps a conflict copy.
 }
 
 #[derive(Deserialize)]
@@ -81,7 +81,7 @@ pub struct ChangesPage {
 pub struct Client {
     base: String,
     token: String,
-    /// Limite de banda partilhado por todas as transferências deste cliente.
+    /// Bandwidth limit shared by all of this client's transfers.
     throttle: crate::throttle::Throttle,
 }
 
@@ -90,15 +90,16 @@ impl Client {
         Self::with_bandwidth(server_url, token, 0)
     }
 
-    /// `bytes_per_sec` = 0 desliga o limite.
+    /// `bytes_per_sec` = 0 turns the limit off.
     pub fn with_bandwidth(server_url: &str, token: &str, bytes_per_sec: u64) -> Result<Self> {
         let base = server_url.trim_end_matches('/').to_string();
-        // Exige HTTPS, exceto localhost/127.0.0.1 (dev). Impede enviar o token em claro na rede.
+        // Requires HTTPS, except localhost/127.0.0.1 (dev). Prevents sending the token in the
+        // clear over the network.
         let is_local = base.starts_with("http://localhost")
             || base.starts_with("http://127.0.0.1")
             || base.starts_with("http://[::1]");
         if !base.starts_with("https://") && !is_local {
-            bail!("server_url tem de ser https:// (exceto localhost)");
+            bail!("server_url must be https:// (except localhost)");
         }
         Ok(Self {
             base,
@@ -111,7 +112,7 @@ impl Client {
         req.set("Authorization", &format!("Bearer {}", self.token))
     }
 
-    /// Busca uma página do feed de mudanças a partir do cursor (vazio = início).
+    /// Fetches a page of the changes feed starting at the cursor (empty = beginning).
     pub fn changes(&self, cursor: &str, limit: u32) -> Result<ChangesPage> {
         let url = format!("{}/api/sync/files/changes", self.base);
         let resp = self
@@ -119,26 +120,26 @@ impl Client {
             .query("since", cursor)
             .query("limit", &limit.to_string())
             .call()
-            .with_context(|| "GET changes falhou")?;
+            .with_context(|| "GET changes failed")?;
         Ok(resp.into_json::<ChangesPage>()?)
     }
 
-    /// Baixa o conteúdo de um ficheiro pelo id. Devolve os bytes.
+    /// Downloads a file's content by id. Returns the bytes.
     pub fn download(&self, id: &str) -> Result<Vec<u8>> {
         let url = format!("{}/api/sync/files/{}/download", self.base, id);
         let resp = self
             .auth(ureq::get(&url))
             .call()
-            .with_context(|| "download falhou")?;
+            .with_context(|| "download failed")?;
         let mut buf = Vec::new();
         crate::throttle::ThrottledReader::new(resp.into_reader(), &self.throttle)
             .read_to_end(&mut buf)
-            .context("ler corpo do download")?;
+            .context("reading download body")?;
         Ok(buf)
     }
 
-    /// Atualiza o conteúdo de um ficheiro existente com controlo de concorrência otimista.
-    /// `if_match` é o hash base que o daemon conhecia; 412 do servidor → conflito.
+    /// Updates an existing file's content with optimistic concurrency control.
+    /// `if_match` is the base hash the daemon knew about; a 412 from the server means a conflict.
     pub fn update_file(&self, id: &str, if_match: &str, body: &[u8]) -> Result<PutOutcome> {
         let url = format!("{}/api/sync/files/{}", self.base, id);
         let res = self
@@ -151,13 +152,13 @@ impl Client {
             ));
         match res {
             Ok(resp) => Ok(PutOutcome::Updated(resp.into_json::<FileMeta>()?)),
-            // 412 Precondition Failed = o servidor mudou desde a base → conflito (não é erro fatal).
+            // 412 Precondition Failed = the server changed since the base -> conflict (not a fatal error).
             Err(ureq::Error::Status(412, _)) => Ok(PutOutcome::Conflict),
-            Err(e) => Err(anyhow::Error::new(e).context("PUT update falhou")),
+            Err(e) => Err(anyhow::Error::new(e).context("PUT update failed")),
         }
     }
 
-    /// Cria um ficheiro novo a partir do conteúdo local.
+    /// Creates a new file from the local content.
     pub fn create_file(
         &self,
         name: &str,
@@ -177,23 +178,23 @@ impl Client {
                 std::io::Cursor::new(body),
                 &self.throttle,
             ))
-            .with_context(|| "POST create falhou")?;
+            .with_context(|| "POST create failed")?;
         Ok(resp.into_json::<FileMeta>()?)
     }
 
-    /// Hashes por bloco do conteúdo ATUAL no servidor (para calcular o delta).
+    /// Per-block hashes of the CURRENT content on the server (to compute the delta).
     pub fn file_blocks(&self, id: &str, block_size: u64) -> Result<BlocksInfo> {
         let url = format!("{}/api/sync/files/{}/blocks", self.base, id);
         let resp = self
             .auth(ureq::get(&url))
             .query("block_size", &block_size.to_string())
             .call()
-            .with_context(|| "GET blocks falhou")?;
+            .with_context(|| "GET blocks failed")?;
         Ok(resp.into_json::<BlocksInfo>()?)
     }
 
-    /// Envia SÓ os blocos alterados; o servidor reconstrói o ficheiro. `body` é a concatenação dos
-    /// blocos de `changed`, pela mesma ordem. If-Match garante que o servidor não mudou entretanto.
+    /// Sends ONLY the changed blocks; the server rebuilds the file. `body` is the concatenation of
+    /// `changed`'s blocks, in the same order. If-Match guarantees the server did not change meanwhile.
     pub fn update_file_delta(
         &self,
         id: &str,
@@ -223,48 +224,48 @@ impl Client {
         match res {
             Ok(resp) => Ok(PutOutcome::Updated(resp.into_json::<FileMeta>()?)),
             Err(ureq::Error::Status(412, _)) => Ok(PutOutcome::Conflict),
-            Err(e) => Err(anyhow::Error::new(e).context("PUT delta falhou")),
+            Err(e) => Err(anyhow::Error::new(e).context("PUT delta failed")),
         }
     }
 
-    /// O ficheiro foi apagado na pasta local → manda para a LIXEIRA do servidor (recuperável).
+    /// The file was deleted in the local folder -> send it to the server's TRASH (recoverable).
     pub fn trash_file(&self, id: &str) -> Result<()> {
         let url = format!("{}/api/sync/files/{}/trash", self.base, id);
         self.auth(ureq::post(&url))
             .call()
-            .with_context(|| "POST trash falhou")?;
+            .with_context(|| "POST trash failed")?;
         Ok(())
     }
 
-    /// O ficheiro foi movido/renomeado localmente → espelha no servidor. `folder_id` None = raiz.
+    /// The file was moved/renamed locally -> mirror it on the server. `folder_id` None = root.
     pub fn move_file(&self, id: &str, folder_id: Option<&str>, name: &str) -> Result<FileMeta> {
         let url = format!("{}/api/sync/files/{}/move", self.base, id);
         let mut req = self.auth(ureq::post(&url)).query("name", name);
         if let Some(fid) = folder_id {
             req = req.query("folder_id", fid);
         }
-        let resp = req.call().with_context(|| "POST move falhou")?;
+        let resp = req.call().with_context(|| "POST move failed")?;
         Ok(resp.into_json::<FileMeta>()?)
     }
 
-    /// Toda a árvore de pastas do utilizador.
+    /// The user's whole folder tree.
     pub fn folders(&self) -> Result<Vec<Folder>> {
         let url = format!("{}/api/sync/folders", self.base);
         let resp = self
             .auth(ureq::get(&url))
             .call()
-            .with_context(|| "GET folders falhou")?;
+            .with_context(|| "GET folders failed")?;
         Ok(resp.into_json::<FoldersPage>()?.folders)
     }
 
-    /// Cria uma pasta (só para os segmentos que ainda não existem).
+    /// Creates a folder (only for the segments that do not exist yet).
     pub fn create_folder(&self, name: &str, parent_id: Option<&str>) -> Result<Folder> {
         let url = format!("{}/api/sync/folders", self.base);
         let mut req = self.auth(ureq::post(&url)).query("name", name);
         if let Some(pid) = parent_id {
             req = req.query("parent_id", pid);
         }
-        let resp = req.call().with_context(|| "POST folder falhou")?;
+        let resp = req.call().with_context(|| "POST folder failed")?;
         Ok(resp.into_json::<Folder>()?)
     }
 }
