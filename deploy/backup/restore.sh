@@ -1,71 +1,72 @@
 #!/bin/bash
-# Restauro de uma cópia de segurança cifrada.
+# Restore of an encrypted backup copy.
 #
-# Este ficheiro existe porque um backup que nunca foi restaurado não é um backup — é uma esperança.
-# A cifra assimétrica torna isso pior: o servidor que escreve as cópias NÃO as consegue ler, por
-# isso um erro no lado da chave privada só aparece no dia em que ela faz falta. Daqui a hipótese de
-# ensaiar o caminho todo, com o test-restore.sh, sem tocar em produção.
+# This file exists because a backup that was never restored isn't a backup — it's a hope.
+# Asymmetric encryption makes that worse: the server that writes the copies CANNOT read them, so
+# an error on the private key side only shows up on the day it's actually needed. Hence the
+# ability to rehearse the whole path, with test-restore.sh, without touching production.
 #
-# A CHAVE PRIVADA NÃO VIVE AQUI. Passa-se no momento do restauro (AGE_IDENTITY_FILE), a partir de
-# onde quer que ela esteja guardada — cofre, papel, hardware. Se ela estivesse no contentor, a cifra
-# assimétrica não valia nada: quem entrasse no servidor lia o histórico todo.
+# THE PRIVATE KEY DOES NOT LIVE HERE. It's passed in at restore time (AGE_IDENTITY_FILE), from
+# wherever it's kept — vault, paper, hardware. If it lived in the container, the asymmetric
+# encryption would be worthless: anyone who got into the server could read the entire history.
 #
-#   restore.sh <base> <objeto-no-r2> [--to <url-de-destino>]
+#   restore.sh <base> <object-in-r2> [--to <destination-url>]
 #
-# Sem --to, escreve o dump decifrado no disco e fica-se por aí — que é o que se quer quando o
-# destino ainda não existe ou quando só se quer inspecionar o conteúdo.
+# Without --to, it writes the decrypted dump to disk and stops there — which is what you want
+# when the destination doesn't exist yet, or when you just want to inspect the content.
 
 set -euo pipefail
 
-: "${AGE_IDENTITY_FILE:?AGE_IDENTITY_FILE em falta (ficheiro com a chave privada age)}"
-[ -r "$AGE_IDENTITY_FILE" ] || { echo "restore: não consigo ler $AGE_IDENTITY_FILE"; exit 1; }
+: "${AGE_IDENTITY_FILE:?AGE_IDENTITY_FILE is missing (file with the age private key)}"
+[ -r "$AGE_IDENTITY_FILE" ] || { echo "restore: cannot read $AGE_IDENTITY_FILE"; exit 1; }
 
-BASE="${1:?uso: restore.sh <base> <objeto-no-r2> [--to <url>]}"
-OBJETO="${2:?uso: restore.sh <base> <objeto-no-r2> [--to <url>]}"
+BASE="${1:?usage: restore.sh <base> <object-in-r2> [--to <url>]}"
+OBJETO="${2:?usage: restore.sh <base> <object-in-r2> [--to <url>]}"
 DESTINO=""
-if [ "${3:-}" = "--to" ]; then DESTINO="${4:?--to precisa de um URL}"; fi
+if [ "${3:-}" = "--to" ]; then DESTINO="${4:?--to requires a URL}"; fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) restore: $*"; }
-fail() { log "FALHOU: $*"; exit 1; }
+fail() { log "FAILED: $*"; exit 1; }
 
 ENC="$TMP/$(basename "$OBJETO")"
 DUMP="${ENC%.age}"
 
-# 1. Trazer. O objeto pode vir do R2 ou já estar em disco (é assim que o ensaio corre sem rede).
+# 1. Fetch. The object may come from R2 or already be on disk (that's how the rehearsal runs
+# without a network).
 if [ -f "$OBJETO" ]; then
   cp "$OBJETO" "$ENC"
 else
-  log "a descarregar $OBJETO"
-  rclone copyto "copias:${BACKUP_BUCKET:?BACKUP_BUCKET em falta}/$OBJETO" "$ENC" \
-    --s3-no-check-bucket --stats-one-line || fail "descarregar"
+  log "downloading $OBJETO"
+  rclone copyto "copias:${BACKUP_BUCKET:?BACKUP_BUCKET is missing}/$OBJETO" "$ENC" \
+    --s3-no-check-bucket --stats-one-line || fail "download"
 fi
 
-# 2. Decifrar.
+# 2. Decrypt.
 age --decrypt --identity "$AGE_IDENTITY_FILE" --output "$DUMP" "$ENC" \
-  || fail "decifrar — a chave privada corresponde à pública com que foi cifrado?"
+  || fail "decryption — does the private key match the public key it was encrypted with?"
 rm -f "$ENC"
 
-# 3. VERIFICAR ANTES DE ESCREVER. O mesmo teste do backup, agora do outro lado: um dump que o
-# pg_restore não consegue indexar não vai lá ter com uma base de dados de produção.
+# 3. VERIFY BEFORE WRITING. The same test as in the backup, now on the other side: a dump that
+# pg_restore can't index has no business touching a production database.
 TABLES=$(pg_restore --list "$DUMP" | grep -c "TABLE DATA" || true)
-[ "$TABLES" -gt 0 ] || fail "o dump decifrado não tem dados de tabela nenhuma"
+[ "$TABLES" -gt 0 ] || fail "the decrypted dump has no table data at all"
 SIZE=$(stat -c %s "$DUMP" 2>/dev/null || stat -f %z "$DUMP")
-log "[$BASE] decifrado e verificado: $((SIZE / 1024)) KiB, $TABLES tabelas com dados"
+log "[$BASE] decrypted and verified: $((SIZE / 1024)) KiB, $TABLES tables with data"
 
 if [ -z "$DESTINO" ]; then
   GUARDA="${RESTORE_OUTPUT_DIR:-$PWD}/$(basename "$DUMP")"
   cp "$DUMP" "$GUARDA"
-  log "dump em claro em $GUARDA — APAGUE-O quando acabar"
+  log "plaintext dump at $GUARDA — DELETE IT when done"
   exit 0
 fi
 
-# 4. Restaurar. --clean --if-exists deixa o destino no estado do dump em vez de o misturar com o que
-# lá estivesse: um restauro por cima de dados parciais é como se descobre, meses depois, que ficaram
-# linhas de duas épocas diferentes na mesma tabela.
-log "[$BASE] a restaurar para o destino"
+# 4. Restore. --clean --if-exists leaves the destination in the dump's state instead of mixing it
+# with whatever was already there: a restore over partial data is how you find out, months later,
+# that a table ended up with rows from two different eras.
+log "[$BASE] restoring to destination"
 pg_restore --dbname="$DESTINO" --no-owner --no-privileges --clean --if-exists \
   --exit-on-error "$DUMP" || fail "pg_restore"
-log "[$BASE] restaurado"
+log "[$BASE] restored"
