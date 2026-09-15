@@ -1,8 +1,8 @@
 # Stalwart configuration
 
 This file **replaced a `config.toml`** that was never read by anything — not in production, not
-in development. See [DIVERGENCES.md](../DIVERGENCES.md) §D9. While it existed, it led me to plan
-a storage migration that had already been done months earlier.
+in development. While it existed, it led me to plan a storage migration that had already been
+done months earlier.
 
 ## What this file is — and what it isn't
 

@@ -20,7 +20,7 @@ Article 28(3)(e) — and to delete or return the data when the service ends — 
 **Suspended** removes the account's credentials, so IMAP, SMTP, JMAP and the panel all refuse the
 password at once. Mail keeps being delivered into the mailbox, which is the point: somebody on
 suspension has not left. Reactivating requires setting a **new** password — the old one no longer
-exists ([DIVERGENCES](../deploy/DIVERGENCES.md)).
+exists.
 
 **Deleted** is not destruction. The mailbox is suspended, and its **address is taken away from it**:
 the account is renamed, so senders to the old address are told the recipient does not exist, or —

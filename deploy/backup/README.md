@@ -14,9 +14,9 @@ jurisdiction**. 30-day retention. **Encrypted** — see [Encryption](#encryption
 | Mail database (`stalwart`) — messages, attachments, mailboxes, and server configuration | **Covered** |
 | Drive files and large attachments (R2) | Live in R2, with the provider's own durability. **We keep no second copy** — an accidental bucket deletion is not recoverable |
 
-Stalwart stores everything in **PostgreSQL** (see [DIVERGENCES.md](../DIVERGENCES.md) §D9):
-messages, attachments, accounts, and its own configuration. That's why mail goes through here
-like any other database — **live, without stopping anything**. If it ever moves back to an
+Stalwart stores everything in **PostgreSQL**: messages, attachments, accounts, and its own
+configuration. That's why mail goes through here like any other database — **live, without
+stopping anything**. If it ever moves back to an
 embedded store, this stops being true and backing up mail will require a stop: that's a decision
 to make with that trade-off in mind.
 

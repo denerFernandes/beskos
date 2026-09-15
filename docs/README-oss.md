@@ -71,7 +71,7 @@ chat, wiki, calendar. The React frontend (`frontend/`) never holds a Stalwart ad
 it authenticates as the end user and reaches Stalwart only through a same-origin proxy. See
 [docs/architecture.md](architecture.md) for the full picture, including why JMAP and not the
 REST API the Stalwart docs describe (short version: the pinned Stalwart version doesn't ship
-one -- see [deploy/DIVERGENCES.md](../deploy/DIVERGENCES.md)).
+one -- see [docs/adr/0001-jmap-not-rest.md](adr/0001-jmap-not-rest.md)).
 
 ## Contributing
 

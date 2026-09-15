@@ -20,11 +20,10 @@ namespace: `x:Domain/set`, `x:Account/set`, `x:DkimSignature/set`, `x:Bootstrap/
 
 This is a case the project's own rules anticipate directly: when the brief and the running
 software disagree, trust the software and record the divergence rather than build against a
-document. See [deploy/DIVERGENCES.md](../../deploy/DIVERGENCES.md) D1 for the full empirical
-record, including every payload shape that was actually tested against the server (aliases as a
-map of objects, not a list of address strings; accounts suspended by clearing `credentials`
-rather than by a status field; DKIM records that don't appear in the DNS zone synchronously with
-domain creation).
+document. Every payload shape referenced below was actually tested against the server (aliases
+as a map of objects, not a list of address strings; accounts suspended by clearing
+`credentials` rather than by a status field; DKIM records that don't appear in the DNS zone
+synchronously with domain creation).
 
 ## Decision
 
@@ -52,12 +51,12 @@ that once, idempotently, against a new instance (see
   `List<T>`, not arrays; a credential patch has to replace the whole map or a single field, never
   a partial subset, or it destroys the login it was meant to update.
 - Tying to a version-specific admin protocol means a Stalwart upgrade can move the ground again.
-  `deploy/DIVERGENCES.md` is the place that gets updated when it does, and this project pins the
-  Stalwart image version deliberately (`docker-compose.yml`) rather than tracking
-  `:latest`.
+  This project pins the Stalwart image version deliberately (`docker-compose.yml`) rather than
+  tracking `:latest`, so an upgrade is a deliberate, tested step rather than something that
+  changes the API surface under the client's feet.
 - Anyone integrating against a different Stalwart version should trust what the running server
-  does over what this ADR or any other document claims, and send a pull request updating the
-  divergence record.
+  does over what this ADR or any other document claims, and send a pull request updating this
+  one if something has moved.
 
 ## Alternatives considered
 
