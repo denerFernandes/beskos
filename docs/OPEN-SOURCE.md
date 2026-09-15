@@ -17,12 +17,13 @@ quer atrair. Há duas saídas honestas:
 
 | Caminho | Licença do núcleo | O que se ganha | O que se perde |
 |---|---|---|---|
-| **A. Fair Source** (recomendado) | FSL-1.1-ALv2 | Proíbe legalmente o uso concorrente (SaaS de terceiros); cada versão converte-se em Apache 2.0 dois anos depois de publicada | Não pode usar a expressão "open source"; diz-se "fair source" ou "source-available" |
+| **A. Source-available com conversão** (decidido) | BUSL-1.1 | Proíbe legalmente o uso concorrente (SaaS de terceiros); cada versão converte-se em Apache 2.0 quatro anos depois de publicada | Não pode usar a expressão "open source"; diz-se "source-available" ou "fair source" |
 | **B. Open source** | AGPL-3.0 | Selo OSI, listagens (awesome-selfhosted, distribuições), máxima credibilidade | Qualquer um pode revender como serviço, desde que publique as alterações; o travão é apenas prático |
 
-A recomendação é o **caminho A**: é o que corresponde ao que se pretende, e a cláusula de conversão
-automática dá a garantia que a comunidade pede (o código nunca fica preso: em 2028 a versão de 2026 é
-Apache 2.0). É o modelo da Sentry, GitButler, Codecov, Keygen e PowerSync.
+**Decisão (2026-09-15): caminho A com BUSL-1.1**, com cláusula de uso adicional que permite produção
+interna e proíbe o serviço concorrente. A conversão automática dá a garantia que a comunidade pede: o
+código nunca fica preso, a versão de 2026 é Apache 2.0 em 2030. É o modelo da MariaDB, HashiCorp e
+CockroachDB.
 
 Em cima do núcleo, uma edição **Pro** a 1 €/utilizador/mês, com código no mesmo repositório em
 `ee/` sob licença comercial própria e ativação por chave (modelo Cal.com/PostHog/GitLab). O
@@ -41,23 +42,100 @@ Em cima do núcleo, uma edição **Pro** a 1 €/utilizador/mês, com código no
 | AGPL-3.0 | sim | não | — | Copyleft de rede: quem opera o serviço tem de publicar alterações. Travão prático, não legal. |
 | Commons Clause / CC BY-NC | não | sim | nunca | Redação problemática (Commons Clause) ou inadequada a software (CC). Evitar. |
 
-### 1.2 Recomendação
+### 1.2 Decisão e parâmetros
 
-- **Núcleo (Community):** `FSL-1.1-ALv2`. Ficheiro `LICENSE.md` na raiz com o texto oficial de
-  <https://fsl.software>, sem alterações.
-- **Pro:** `ee/LICENSE` com a "Beskos Enterprise License": uso permitido apenas com chave válida,
-  proibida a alteração do mecanismo de licença, código visível para auditoria. Base: a *Cal.com
-  Commercial License* ou a *PostHog Enterprise License*, ambas curtas e testadas.
-- **Marca:** `TRADEMARK.md`. A licença cobre o código, não o nome. Registar **Beskos** no EUIPO
-  antes do lançamento (≈ 850 € por classe, 4 a 6 meses). É o que impede alguém de operar o
-  "Beskos hospedado por X" mesmo dentro do que a licença permite.
-- **Contribuições:** CLA (Contributor License Agreement) via CLA Assistant no GitHub. Sem CLA, uma
-  contribuição de terceiros não pode entrar em `ee/` nem ser relicenciada. DCO não basta aqui.
-- **Cabeçalho SPDX** em todos os ficheiros: `// SPDX-License-Identifier: FSL-1.1-ALv2` no núcleo e
-  `// SPDX-License-Identifier: LicenseRef-Beskos-Enterprise` em `ee/`. Verificado no CI.
+**Núcleo (Community): BUSL-1.1.** O texto da licença é fixo (MariaDB, versão 1.1) e não se altera;
+o que é nosso são os cinco parâmetros do cabeçalho do `LICENSE.md`:
 
-Se a decisão for o caminho B, tudo o resto deste plano mantém-se; só muda a licença do núcleo para
-AGPL-3.0 e a comunicação passa a poder dizer "open source".
+```
+Licensor:             Beskos, Lda.
+Licensed Work:        Beskos <versão>
+                      The Licensed Work is (c) 2026 Beskos, Lda.
+Additional Use Grant: You may make production use of the Licensed Work, including
+                      for internal business purposes and for providing professional
+                      services around it, provided that such use does not include a
+                      Competing Offering. A "Competing Offering" is making the
+                      Licensed Work, or a substantial part of it, available to third
+                      parties as a hosted, managed or embedded service, whether paid or
+                      free, in a way that gives those third parties the functionality of
+                      the Licensed Work. Hosting the Licensed Work for a single
+                      organisation's own users, including its affiliates, is not a
+                      Competing Offering.
+Change Date:          <data de publicação desta versão + 4 anos>
+Change License:       Apache License, Version 2.0
+```
+
+Notas de redação:
+
+- A BUSL exige que o *Additional Use Grant* seja uma **permissão**, não uma proibição; a proibição
+  entra como condição da permissão. A redação acima segue esse formato.
+- Definir "Competing Offering" pela **forma de disponibilização** (a terceiros, como serviço) e não
+  por "concorre com os produtos da Beskos". A redação da HashiCorp usou o segundo critério e a
+  ambiguidade custou-lhe a comunidade e o fork OpenTofu. A nossa não depende de saber o que a Beskos
+  vende.
+- "Single organisation's own users, including its affiliates" cobre o caso que se quer permitir: uma
+  empresa, ou um grupo de empresas, a operar o Beskos para si. Um integrador que instala e mantém o
+  Beskos na infraestrutura do cliente também está coberto (serviços profissionais).
+- **Change Date por versão.** Cada release leva a sua data: a versão publicada em 2026-10 converte em
+  2030-10, a de 2028-10 em 2032-10. Quatro anos é o máximo que a BUSL permite. O `LICENSE.md` é
+  atualizado pelo pipeline de release (GoReleaser corre um script que preenche `Licensed Work` e
+  `Change Date` a partir da tag), nunca à mão; uma versão sem data herda a anterior, o que é um
+  bug a evitar.
+- **Change License Apache 2.0**: permissiva, com cláusula de patentes, compatível com tudo o que
+  usamos. MPL-2.0 seria a alternativa se se quisesse copyleft ao nível do ficheiro após a conversão.
+- Antes de publicar, uma revisão jurídica do parágrafo (1 a 2 horas de um advogado de TI; a MariaDB
+  publica FAQ e exemplos aprovados em <https://mariadb.com/bsl-faq-adopting/>).
+
+**Pro:** `ee/LICENSE` com a "Beskos Enterprise License": uso permitido apenas com chave válida,
+proibida a alteração ou contorno do mecanismo de licença, código visível para auditoria. Base: a
+*Cal.com Commercial License* ou a *PostHog Enterprise License*, ambas curtas e testadas.
+
+**Marca:** `TRADEMARK.md`. A licença cobre o código, não o nome. Registar **Beskos** no EUIPO
+antes do lançamento (≈ 850 € por classe, 4 a 6 meses). É o que impede alguém de operar o
+"Beskos hospedado por X" mesmo dentro do que a licença permite.
+
+**Contribuições:** CLA (Contributor License Agreement) via CLA Assistant no GitHub. Sem CLA, uma
+contribuição de terceiros não pode entrar em `ee/` nem ser relicenciada. DCO não basta aqui.
+
+**Cabeçalho SPDX** em todos os ficheiros: `// SPDX-License-Identifier: BUSL-1.1` no núcleo e
+`// SPDX-License-Identifier: LicenseRef-Beskos-Enterprise` em `ee/`. Verificado no CI.
+
+**Comunicação:** "source-available, converts to Apache 2.0 after four years". Nunca "open source".
+
+### 1.2.1 Licenciamento dual: o serviço concorrente compra a licença comercial
+
+A BUSL foi desenhada para isto. O texto padrão termina com "For information about alternative
+licensing arrangements for the Licensed Work, please visit: <URL>"; preenche-se com
+`https://beskos.com/licensing`. Quem quer fazer o que a BUSL proíbe não fica bloqueado: compra o
+direito. Ficam por isso **três licenças** sobre o mesmo código, e convém não as confundir:
+
+| Licença | Quem | Dá o direito a | Preço |
+|---|---|---|---|
+| BUSL-1.1 (`LICENSE.md`) | qualquer pessoa ou empresa | usar, alterar, correr em produção para a própria organização | grátis |
+| Beskos Enterprise License (`ee/LICENSE`) | clientes self-hosted | ativar as funcionalidades Pro em `ee/` com chave | 1 €/utilizador/mês |
+| **Beskos Commercial License** (contrato) | quem quer oferecer o Beskos a terceiros como serviço, revender, ou embutir num produto | o que a BUSL proíbe: *Competing Offering*, marca branca, OEM | negociado; ver abaixo |
+
+**Modelo de preço da Commercial License** (proposta, decidir em F0):
+
+- **Hosting partner:** percentagem da receita (15 a 20 %) com mínimo anual, ou preço por utilizador
+  final ativo (2 a 3 €/mês) que já inclui o Pro. Auditoria anual por declaração.
+- **OEM / embedded:** valor fixo anual por produto, escalonado por número de instalações.
+- Inclui sempre: direito de usar `ee/` sem limite de lugares, acesso antecipado a releases, canal de
+  suporte, e o direito de **não** publicar as alterações (que a BUSL também não obriga). Não inclui a
+  marca: o parceiro opera com o nome dele ou com "powered by Beskos" mediante `TRADEMARK.md`.
+- O contrato é por versão maior e renovável; termina, e o parceiro volta a ficar sujeito à BUSL.
+
+**Consequências para o código e o processo:**
+
+- O CLA é agora indispensável: sem ele não podemos licenciar comercialmente código de terceiros. O
+  CLA cede à Beskos o direito de relicenciar (modelo Apache ICLA, ou o da HashiCorp).
+- O copyright tem de estar todo em nome da **Beskos, Lda.**, incluindo o do `sync-daemon` e o de
+  contribuições antigas (hoje só há dois autores no histórico; obter a cessão do segundo por escrito).
+- `beskos.com/licensing`: página com as três licenças, uma tabela "posso fazer X?" com dez casos
+  concretos (usar na minha empresa, instalar para um cliente, oferecer como SaaS, fork interno,
+  embutir, etc.) e formulário de contacto para a comercial. Escrever em F6.
+- Um parceiro comercial recebe a mesma imagem e o mesmo binário; o que muda é o contrato e uma chave
+  Pro do tipo `partner` sem limite de lugares. Não há build separado.
 
 ### 1.3 Compatibilidade com dependências
 
@@ -105,7 +183,7 @@ O que impede a publicação tal como está:
 ### 3.1 Três camadas, dois repositórios
 
 ```
-github.com/beskos/beskos            (público, FSL-1.1-ALv2 + ee/ comercial)
+github.com/beskos/beskos            (público, BUSL-1.1 + ee/ comercial)
 ├── backend/                         núcleo Go
 │   └── ee/                          Pro: só compila com -tags pro
 ├── frontend/                        webmail + painel
@@ -187,7 +265,7 @@ Estimativas para uma pessoa a tempo inteiro; F3–F6 são paralelizáveis.
 
 ### F0 — Decisões (1 semana)
 
-Responder à §8, registar as respostas neste documento, abrir o repositório `beskos-cloud`
+Responder ao que resta da §8, registar as respostas neste documento, abrir o repositório `beskos-cloud`
 privado. **Pronto quando:** licença, nome da organização GitHub e tabela §3.2 aprovados.
 
 ### F1 — Higiene e segurança do histórico (1 semana)
@@ -271,7 +349,7 @@ Docusaurus publicada em `docs.beskos.com`:
 | `CODE_OF_CONDUCT.md` | Contributor Covenant 2.1 |
 | `SECURITY.md`, `TRADEMARK.md`, `LICENSE.md`, `ee/LICENSE` | §1 |
 | `CHANGELOG.md` | Keep a Changelog, gerado a partir de conventional commits |
-| `docs/adr/` | Decisões estruturais existentes reescritas como ADR: JMAP em vez de REST, OnlyOffice, LiveKit, cifra AES-GCM em blocos, pgvector, Fair Source |
+| `docs/adr/` | Decisões estruturais existentes reescritas como ADR: JMAP em vez de REST, OnlyOffice, LiveKit, cifra AES-GCM em blocos, pgvector, BUSL |
 
 **Pronto quando:** uma pessoa que nunca viu o projeto instala e envia um email só com a
 documentação, sem perguntar nada (testar com alguém de fora).
@@ -300,7 +378,7 @@ documentação, sem perguntar nada (testar com alguém de fora).
 
 ### F9 — Lançamento (1 semana)
 
-Anúncio no blog (o que é, porquê fair source, o que é Pro), Hacker News ("Show HN"), r/selfhosted,
+Anúncio no blog (o que é, porquê source-available, o que é Pro, como licenciar um serviço), Hacker News ("Show HN"), r/selfhosted,
 Product Hunt, PR em `awesome-selfhosted` (aceita source-available com etiqueta). Landing ganha a
 secção "Self-hosted" e a página de preços ganha a coluna Community/Pro.
 
@@ -341,8 +419,8 @@ Exemplo real, `internal/billing/plans.go`:
 
 | Risco | Mitigação |
 |---|---|
-| Reação negativa por não ser OSI ("open source de mentira") | Nunca usar a expressão. Dizer "fair source, Apache 2.0 após 2 anos" em todo o lado. Ligar a fair.io. |
-| Fork comercial depois da conversão a Apache (2 anos) | É o preço da honestidade da cláusula; a marca e o ritmo de desenvolvimento são a defesa. |
+| Reação negativa por não ser OSI ("open source de mentira") | Nunca usar a expressão. Dizer "source-available, Apache 2.0 após 4 anos" em todo o lado. |
+| Fork comercial depois da conversão a Apache (4 anos) | É o preço da honestidade da cláusula; a marca e o ritmo de desenvolvimento são a defesa. |
 | Alguém usa o nome sem operar o serviço (agregadores, "Beskos hosting") | Registo EUIPO e `TRADEMARK.md` antes do anúncio. |
 | Contribuidor externo recusa CLA | Aceitar só sob CLA; sem CLA a contribuição fica de fora. Explicar no `CONTRIBUTING.md`. |
 | Carga de suporte da Community | Discussions e FAQ; sem promessas de resposta; canal pago é o Pro. |
@@ -362,7 +440,8 @@ Exemplo real, `internal/billing/plans.go`:
 
 ## 8. Decisões pendentes
 
-1. **Licença do núcleo:** FSL-1.1-ALv2 (recomendado) ou AGPL-3.0.
+1. ~~Licença do núcleo~~ **Decidido 2026-09-15: BUSL-1.1 com licenciamento dual** (§1.2 e §1.2.1). Falta a revisão jurídica do *Additional Use Grant* e do contrato comercial.
+1b. **Preço da Commercial License:** percentagem de receita ou por utilizador final; mínimo anual.
 2. **Nome da organização GitHub** e do repositório (`beskos/beskos`), e se o nome interno
    `mailin` desaparece de todo o lado.
 3. **Tabela Community/Pro** (§3.2): aprovar, mover ou retirar linhas.
@@ -370,4 +449,4 @@ Exemplo real, `internal/billing/plans.go`:
 5. **Pro:** mínimo de lugares por chave; validade 12 meses; tolerância 14 dias.
 6. **Telemetria** opt-in: sim ou não.
 7. **Pentest externo:** orçamento e data.
-8. **sync-daemon:** manter MIT ou alinhar com a licença do núcleo.
+8. **sync-daemon:** manter MIT ou passar a BUSL-1.1 como o núcleo.
