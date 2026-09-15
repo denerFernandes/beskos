@@ -1,7 +1,7 @@
 #!/bin/sh
-# Injeta a config de IA "Beskos AI" no default.json do Document Server antes de arrancar, para o
-# plugin de IA aparecer PRÉ-CONFIGURADO (modo servidor: usa o nosso proxy, sem colar chave nem
-# escolher modelo). Falha de forma segura: se a injeção correr mal, o DS arranca na mesma.
+# Injects the "Beskos AI" config into the Document Server's default.json before startup, so the
+# AI plugin shows up PRE-CONFIGURED (server mode: uses our proxy, no pasting a key or picking a
+# model). Fails safe: if the injection goes wrong, the DS starts up anyway.
 python3 - "${AI_PROXY_URL:-http://localhost:5173/api/ai/proxy}" <<'PY' || echo "ai init: skipped"
 import json, sys
 path = "/etc/onlyoffice/documentserver/default.json"
@@ -33,8 +33,8 @@ except Exception as e:
     sys.exit(1)
 PY
 
-# Marca Beskos no cabeçalho do editor: liga os interruptores de branding do cliente. Ver o
-# cabeçalho do script para a postura de licença (atribuição mantida) e DIVERGENCES.md.
+# Beskos brand in the editor header: flips the client's branding switches. See the script header
+# for the license stance (attribution kept) and DIVERGENCES.md.
 sh /scripts/onlyoffice-branding-patch.sh || echo "branding patch: skipped"
 
 exec /app/ds/run-document-server.sh "$@"
