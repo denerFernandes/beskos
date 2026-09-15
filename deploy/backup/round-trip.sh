@@ -1,109 +1,111 @@
 #!/bin/bash
-# Ida e volta completa, corrida DENTRO da imagem de backup. Chamado pelo test-restore.sh.
+# Full round trip, run INSIDE the backup image. Called by test-restore.sh.
 #
-# Corre o backup.sh e o restore.sh verdadeiros, sem cópias adaptadas para teste: um ensaio que
-# exercita uma versão parecida do script não prova nada sobre o que corre às duas da manhã.
+# Runs the real backup.sh and restore.sh, not copies adapted for testing: a rehearsal that
+# exercises a similar version of the script proves nothing about what runs at two in the morning.
 #
-# O R2 é substituído por um remoto `local` do rclone — o mesmo comando, o mesmo caminho de código,
-# a escrever num diretório em vez de na Cloudflare. O que se quer provar aqui é a cifra e o
-# restauro, não o HTTP da Cloudflare.
+# R2 is replaced with an rclone `local` remote — the same command, the same code path, writing to
+# a directory instead of to Cloudflare. What this needs to prove is the encryption and the
+# restore, not Cloudflare's HTTP.
 
 set -euo pipefail
 
 PG="postgres://postgres:testpw@pg:5432"
 BUCKET=/tmp/bucket
 ok() { echo "  ✓ $*"; }
-fail() { echo "  ✗ FALHOU: $*"; exit 1; }
+fail() { echo "  ✗ FAILED: $*"; exit 1; }
 
-echo "1. a semear as duas bases"
+echo "1. seeding both databases"
 for BASE in beskos stalwart; do
   psql "$PG/postgres" -qtc "CREATE DATABASE $BASE" >/dev/null
   psql "$PG/$BASE" -qc "
-    CREATE TABLE mensagens (id INT PRIMARY KEY, corpo TEXT NOT NULL);
-    INSERT INTO mensagens SELECT i, 'segredo do $BASE nº ' || i FROM generate_series(1, 5000) i;
+    CREATE TABLE messages (id INT PRIMARY KEY, body TEXT NOT NULL);
+    INSERT INTO messages SELECT i, 'secret from $BASE #' || i FROM generate_series(1, 5000) i;
   " >/dev/null
 done
 psql "$PG/postgres" -qtc "CREATE DATABASE beskos_restaurado" >/dev/null
-# A impressão digital do conteúdo. É o que vai ser comparado no fim — comparar contagens de linhas
-# deixaria passar um restauro que trouxesse as linhas certas com o conteúdo trocado.
-IMPRESSAO=$(psql "$PG/beskos" -qtAc "SELECT md5(string_agg(corpo, ',' ORDER BY id)) FROM mensagens")
-ok "5000 linhas em cada base, impressão ${IMPRESSAO:0:12}…"
+# The content fingerprint. This is what gets compared at the end — comparing row counts would let
+# through a restore that brought back the right rows with swapped content.
+FINGERPRINT=$(psql "$PG/beskos" -qtAc "SELECT md5(string_agg(body, ',' ORDER BY id)) FROM messages")
+ok "5000 rows in each database, fingerprint ${FINGERPRINT:0:12}…"
 
-echo "2. a gerar o par de chaves age"
-age-keygen -o /tmp/chave.txt 2>/dev/null
-PUBLICA=$(grep -o 'age1[a-z0-9]*' /tmp/chave.txt | head -1)
-[ -n "$PUBLICA" ] || fail "age-keygen não deu chave pública"
-ok "pública $PUBLICA"
+echo "2. generating the age key pair"
+age-keygen -o /tmp/key.txt 2>/dev/null
+PUBKEY=$(grep -o 'age1[a-z0-9]*' /tmp/key.txt | head -1)
+[ -n "$PUBKEY" ] || fail "age-keygen didn't produce a public key"
+ok "public key $PUBKEY"
 
-echo "3. a semear blocos do correio no armazenamento"
-# O Stalwart guarda a mensagem crua e os anexos aqui, fora da base de dados. Sem estes ficheiros na
-# cópia, um restauro devolve caixas sem anexos — foi o buraco medido a 30/07/2026.
+echo "3. seeding mail blobs in storage"
+# Stalwart stores the raw message and the attachments here, outside the database. Without these
+# files in the copy, a restore returns mailboxes with no attachments — that was the gap measured
+# on 2026-07-30.
 BLOBS=/tmp/blobs-origem/mail
 mkdir -p "$BLOBS"
-printf 'mensagem crua com anexo' > "$BLOBS/0abc"
+printf 'raw message with attachment' > "$BLOBS/0abc"
 head -c 100000 /dev/urandom > "$BLOBS/1def"
-ok "2 blocos"
+ok "2 blobs"
 
-echo "4. a correr o backup.sh (o verdadeiro)"
+echo "4. running backup.sh (the real one)"
 export DATABASE_URL="$PG/beskos"
 export BACKUP_BUCKET="$BUCKET"
 export BACKUP_DATABASES="beskos stalwart"
-export BACKUP_AGE_RECIPIENT="$PUBLICA"
+export BACKUP_AGE_RECIPIENT="$PUBKEY"
 export RCLONE_CONFIG_COPIAS_TYPE=local
 export BLOB_BUCKET=/tmp/blobs-origem
 export RCLONE_CONFIG_BLOBS_TYPE=local
 /usr/local/bin/backup.sh || fail "backup.sh"
 
-ARQUIVO=$(find "$BUCKET/blobs" -name '*.tar.age' | head -1)
-[ -n "$ARQUIVO" ] || fail "os blocos do correio não foram para a cópia"
-head -c 21 "$ARQUIVO" | grep -q "age-encryption.org" || fail "o arquivo dos blocos não está cifrado"
-grep -qa "mensagem crua com anexo" "$ARQUIVO" && fail "texto do correio em claro dentro do arquivo"
-age --decrypt --identity /tmp/chave.txt "$ARQUIVO" | tar -tf - | grep -q "0abc" \
-  || fail "o bloco não está dentro do arquivo"
-ok "blocos do correio cifrados e recuperáveis"
+ARCHIVE=$(find "$BUCKET/blobs" -name '*.tar.age' | head -1)
+[ -n "$ARCHIVE" ] || fail "the mail blobs didn't make it into the copy"
+head -c 21 "$ARCHIVE" | grep -q "age-encryption.org" || fail "the blob archive isn't encrypted"
+grep -qa "raw message with attachment" "$ARCHIVE" && fail "plaintext mail content inside the archive"
+age --decrypt --identity /tmp/key.txt "$ARCHIVE" | tar -tf - | grep -q "0abc" \
+  || fail "the blob isn't inside the archive"
+ok "mail blobs encrypted and recoverable"
 
-CIFRADO=$(find "$BUCKET/beskos" -name '*.dump.age' | head -1)
-[ -n "$CIFRADO" ] || fail "não apareceu ficheiro cifrado no balde"
-ok "$(basename "$CIFRADO")"
+ENCRYPTED=$(find "$BUCKET/beskos" -name '*.dump.age' | head -1)
+[ -n "$ENCRYPTED" ] || fail "no encrypted file showed up in the bucket"
+ok "$(basename "$ENCRYPTED")"
 
-echo "5. a verificar que o que foi enviado NÃO se lê"
-# Esta é a asserção que interessa. Sem ela, o ensaio passaria na mesma se o backup.sh tivesse
-# enviado o dump em claro por engano — e ninguém daria por isso até ao balde ser copiado.
-head -c 21 "$CIFRADO" | grep -q "age-encryption.org" \
-  || fail "o ficheiro no balde não começa pelo cabeçalho do age — foi enviado em claro?"
-ok "cabeçalho age presente"
+echo "5. checking that what was uploaded CANNOT be read"
+# This is the assertion that matters. Without it, the rehearsal would pass just the same if
+# backup.sh had sent the plaintext dump by mistake — and no one would notice until the bucket got
+# copied.
+head -c 21 "$ENCRYPTED" | grep -q "age-encryption.org" \
+  || fail "the file in the bucket doesn't start with the age header — was it sent unencrypted?"
+ok "age header present"
 
-pg_restore --list "$CIFRADO" >/dev/null 2>&1 \
-  && fail "o pg_restore conseguiu ler o ficheiro cifrado — não está cifrado"
-ok "o pg_restore não o consegue ler"
+pg_restore --list "$ENCRYPTED" >/dev/null 2>&1 \
+  && fail "pg_restore was able to read the encrypted file — it isn't encrypted"
+ok "pg_restore cannot read it"
 
-grep -qa "segredo do beskos" "$CIFRADO" \
-  && fail "encontrei texto do conteúdo dentro do ficheiro cifrado"
-ok "nenhum texto em claro lá dentro"
+grep -qa "secret from beskos" "$ENCRYPTED" \
+  && fail "found content text inside the encrypted file"
+ok "no plaintext content inside"
 
 [ -z "$(find /tmp -maxdepth 2 -name '*.dump' 2>/dev/null)" ] \
-  || fail "ficou um dump em claro em disco depois do backup"
-ok "não sobrou dump em claro em disco"
+  || fail "a plaintext dump was left on disk after the backup"
+ok "no plaintext dump left on disk"
 
-echo "6. a verificar que a chave ERRADA não abre"
+echo "6. checking that the WRONG key doesn't open it"
 age-keygen -o /tmp/outra.txt 2>/dev/null
 if AGE_IDENTITY_FILE=/tmp/outra.txt BACKUP_BUCKET="$BUCKET" \
-   /usr/local/bin/restore.sh beskos "${CIFRADO#"$BUCKET"/}" --to "$PG/beskos_restaurado" >/dev/null 2>&1; then
-  fail "uma chave privada diferente conseguiu restaurar"
+   /usr/local/bin/restore.sh beskos "${ENCRYPTED#"$BUCKET"/}" --to "$PG/beskos_restaurado" >/dev/null 2>&1; then
+  fail "a different private key was able to restore"
 fi
-ok "chave errada rejeitada"
+ok "wrong key rejected"
 
-echo "7. a restaurar com a chave certa (o restore.sh verdadeiro)"
-AGE_IDENTITY_FILE=/tmp/chave.txt BACKUP_BUCKET="$BUCKET" \
-  /usr/local/bin/restore.sh beskos "${CIFRADO#"$BUCKET"/}" --to "$PG/beskos_restaurado" \
+echo "7. restoring with the right key (the real restore.sh)"
+AGE_IDENTITY_FILE=/tmp/key.txt BACKUP_BUCKET="$BUCKET" \
+  /usr/local/bin/restore.sh beskos "${ENCRYPTED#"$BUCKET"/}" --to "$PG/beskos_restaurado" \
   || fail "restore.sh"
 
-echo "8. a comparar o conteúdo restaurado com o original"
-VOLTA=$(psql "$PG/beskos_restaurado" -qtAc "SELECT md5(string_agg(corpo, ',' ORDER BY id)) FROM mensagens")
-[ "$VOLTA" = "$IMPRESSAO" ] || fail "impressão diferente: $VOLTA vs $IMPRESSAO"
-LINHAS=$(psql "$PG/beskos_restaurado" -qtAc "SELECT count(*) FROM mensagens")
-[ "$LINHAS" = "5000" ] || fail "$LINHAS linhas restauradas, esperava 5000"
-ok "5000 linhas, conteúdo idêntico byte a byte"
+echo "8. comparing the restored content with the original"
+RESTORED=$(psql "$PG/beskos_restaurado" -qtAc "SELECT md5(string_agg(body, ',' ORDER BY id)) FROM messages")
+[ "$RESTORED" = "$FINGERPRINT" ] || fail "fingerprint mismatch: $RESTORED vs $FINGERPRINT"
+ROWS=$(psql "$PG/beskos_restaurado" -qtAc "SELECT count(*) FROM messages")
+[ "$ROWS" = "5000" ] || fail "$ROWS rows restored, expected 5000"
+ok "5000 rows, byte-for-byte identical content"
 
 echo
-echo "ida e volta completa: dump → cifra → balde → descarga → decifra → restauro → conteúdo igual"
+echo "full round trip: dump → encrypt → bucket → download → decrypt → restore → identical content"
