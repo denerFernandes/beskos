@@ -1,10 +1,9 @@
 # Functionality
 
 A high-level map of what's in Beskos, by area. This intentionally doesn't carry a
-per-item ✅/🚧/📋 status table -- the internal equivalent of that (`docs/FUNCIONALIDADES.md`)
-drifts out of sync with the code between updates, and a stale status table is worse than none.
-For what a specific feature actually does, read the code it's named after, or open an issue
-asking.
+per-item ✅/🚧/📋 status table -- that kind of table drifts out of sync with the code between
+updates, and a stale one is worse than none. For what a specific feature actually does, read the
+code it's named after, or open an issue asking.
 
 ## Email
 

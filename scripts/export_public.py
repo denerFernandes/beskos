@@ -26,6 +26,15 @@ EXCLUDE = [
     "backend/cmd/manager-api/*",
     "backend/internal/managerapi/*",
     "backend/cmd/ses-tenants/*",
+    # Manager-only tables and queries (schema, seed data, and generated code for a console
+    # that isn't in this export; its Go structs stay in models.go, unused, until the next
+    # sqlc regeneration against a trimmed schema).
+    "backend/internal/db/migrations/00100_manager.sql",
+    "backend/internal/db/migrations/00103_manager_settings.sql",
+    "backend/internal/db/migrations/00106_manager_admin.sql",
+    "backend/internal/db/migrations/00108_manager_servers.sql",
+    "backend/db/queries/queries_manager.sql",
+    "backend/internal/db/queries_manager.sql.go",
     # Production deployment of our own SaaS.
     "deploy/deploy.py",
     "deploy/setenv.py",
@@ -39,9 +48,15 @@ EXCLUDE = [
     "docs/AVALIACAO-PLATAFORMA-PRODUCAO.md",  # lang:ok
     "docs/ROADMAP.md",
     "docs/ROADMAP-CRM.md",
+    "docs/FUNCIONALIDADES.md",
     "docs/GAPS-FUNCIONALIDADES.md",
     "docs/landing-europa.md",
     "docs/OPEN-SOURCE.md",
+    "docs/ASSISTENTE-IA.md",
+    "docs/DEPLOY.md",  # our own production runbook (CapRover topology, manager-api placement)
+    "docs/DNS-PAGE.md",  # dated planning note; the feature itself is covered in FUNCTIONALITY.md
+    "docs/cifra-ficheiros.md",  # superseded by docs/adr/0004-aes-gcm-block-file-encryption.md -- lang:ok
+    "docs/wiki-features.md",  # dated design draft; the feature itself is covered in FUNCTIONALITY.md
     "docs/README-oss.md",  # becomes README.md via OVERRIDES, not kept at its own path too
     "deploy/docker-compose.community.yml",  # becomes deploy/docker-compose.yml via OVERRIDES
     # Agent configuration and the landing gitlink (separate repository).

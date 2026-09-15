@@ -99,14 +99,15 @@ S3/MinIO) with AES-256-GCM in blocks; the object's key travels inside the object
 **Attacker:** anyone with read access to the object storage bucket directly (a misconfigured
 bucket policy, a compromised storage credential) but not to the application or its database.
 **Residual risk:** the encryption key material's own rotation and the blast radius of a leaked
-`FILE_ENC_KEYS` value are not documented anywhere yet -- see `docs/cifra-ficheiros.md` for the
-scheme and close this gap there, not here.
+`FILE_ENC_KEYS` value are not documented anywhere yet -- see
+[docs/adr/0004-aes-gcm-block-file-encryption.md](../adr/0004-aes-gcm-block-file-encryption.md)
+for the scheme and close this gap there, not here.
 
 ## 7. Rate limiting and abuse
 
 Present today: MFA verification capped at 5 attempts per challenge. **Not yet present:** a global
-per-IP or per-account limit on login, signup, or password recovery -- see docs/OPEN-SOURCE.md F5.
-An attacker with no rate limit on `/auth/login` can brute-force a weak password at whatever rate
+per-IP or per-account limit on login, signup, or password recovery -- see the roadmap in the
+project README. An attacker with no rate limit on `/auth/login` can brute-force a weak password at whatever rate
 the server can answer; this is the single highest-priority item left on this list.
 
 ## Out of scope for this document
