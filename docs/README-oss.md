@@ -23,6 +23,19 @@ else -- webmail, Drive, wiki, Kanban, video meetings, an AI assistant -- is buil
 
 See [docs/FUNCTIONALITY.md](FUNCTIONALITY.md) for the full, current list.
 
+## Roadmap
+
+- **Calendar sync via JMAP Calendars**, replacing today's own-layer calendar with real
+  Stalwart sync, plus meeting invitations over iMIP/ICS.
+- **Resumable uploads** for large files (multipart/tus), beyond today's single-request upload.
+- **Global rate limiting** on login and API traffic, beyond the per-challenge limit MFA already has.
+- **Observability**: structured logs, metrics, and alerting out of the box.
+- **Sending reputation controls**: per-tenant abuse detection and an outbound IP pool.
+- **Data protection tooling**: export/deletion workflows for regulations like the GDPR/LGPD.
+- **Horizontal scaling**: routing tenants across multiple Stalwart instances.
+
+Have a feature you'd like to see prioritized? Open an issue.
+
 ## Community and Pro
 
 Beskos is source-available under the [Business Source License 1.1](../LICENSE.md): free to run,
