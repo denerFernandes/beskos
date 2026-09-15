@@ -5,7 +5,7 @@ package ee
 import (
 	"github.com/go-chi/chi/v5"
 
-	"mailin/backend/internal/edition"
+	"github.com/beskosorg/beskos/backend/internal/edition"
 )
 
 // Register is the Community build's version: a default build (no -tags pro) never links any

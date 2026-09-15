@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // recentDocsCap is the most this ever returns. Enough that scrolling finds last month's contract,

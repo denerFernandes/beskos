@@ -4,7 +4,7 @@
 // nothing. Its license is ../../ee/LICENSE, separate from the repository's.
 package ee
 
-import "mailin/backend/internal/db"
+import "github.com/beskosorg/beskos/backend/internal/db"
 
 // Deps is what an Enterprise route needs from the rest of the server. It grows one field at a
 // time, as a feature actually moves into this package -- never speculatively.

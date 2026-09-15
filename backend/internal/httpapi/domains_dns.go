@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/provisioning"
+	"github.com/beskosorg/beskos/backend/internal/provisioning"
 )
 
 // Verificação de DNS a pedido + exportação da zona (docs/DNS-PAGE.md).

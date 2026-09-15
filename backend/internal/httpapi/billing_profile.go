@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Dados de faturação do cliente + simulação com IVA. A fatura é obrigação nossa, por isso os dados

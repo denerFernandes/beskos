@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // Router escolhe o agente de um turno.

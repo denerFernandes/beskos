@@ -11,9 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/auth"
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/totp"
+	"github.com/beskosorg/beskos/backend/internal/auth"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/totp"
 )
 
 const (

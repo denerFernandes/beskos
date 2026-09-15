@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 var errBadCursor = errors.New("invalid cursor")

@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Modo TRACKS da gravação (docs/manager.md §1, decisão 22/07/2026): um Track Egress por faixa

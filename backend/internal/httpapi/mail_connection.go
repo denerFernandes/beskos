@@ -3,8 +3,8 @@ package httpapi
 import (
 	"net/http"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/provisioning"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/provisioning"
 )
 
 // Dados de ligação para clientes de e-mail externos (Outlook, Thunderbird, telemóvel) e para quem

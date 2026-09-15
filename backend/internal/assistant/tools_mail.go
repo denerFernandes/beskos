@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"mailin/backend/internal/mailbox"
+	"github.com/beskosorg/beskos/backend/internal/mailbox"
 )
 
 // MailBox é o mínimo que as ferramentas de correio precisam. *mailbox.UserClient satisfá-lo; os

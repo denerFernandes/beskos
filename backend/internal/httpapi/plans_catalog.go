@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Catálogo de planos com a BD como fonte de verdade (manager M2, docs/manager.md §4): o manager

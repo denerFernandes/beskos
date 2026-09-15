@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"mailin/backend/internal/ai"
-	"mailin/backend/internal/office"
+	"github.com/beskosorg/beskos/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
 // docsRegistry monta um catálogo só com docs.create, ligado a um criador que regista o plano.

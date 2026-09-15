@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 // Aliases de e-mail: um endereço extra que entrega na caixa de outra pessoa (contacto@empresa.com →

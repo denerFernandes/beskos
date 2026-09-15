@@ -14,7 +14,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 // As quatro operações. Cada uma devolve o estado que escreveu, só para o registo.

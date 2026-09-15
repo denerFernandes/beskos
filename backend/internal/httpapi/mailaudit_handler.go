@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"mailin/backend/internal/mailaudit"
+	"github.com/beskosorg/beskos/backend/internal/mailaudit"
 )
 
 // Public mail configuration audit. Unauthenticated on purpose: it is the front door, and asking for

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
 // ask corre o Ask numa goroutine e devolve um canal com o resultado.

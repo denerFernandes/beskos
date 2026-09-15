@@ -18,8 +18,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/chat"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/chat"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Chat estilo Slack. REST para dados + WebSocket (hub Redis) para tempo real. Tudo filtra tenant.

@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Limite diário de envio por plano (docs/manager.md §4) + medição (tenant_mail_sent). Conta

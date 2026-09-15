@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 // Selagem em fundo: percorre o balde e cifra o que ainda estiver em claro.

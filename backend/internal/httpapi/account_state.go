@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/provisioning"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/provisioning"
 )
 
 // accountState resolves the state of the organisation this user belongs to.

@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Política de segurança DA ORGANIZAÇÃO (admin/security): MFA obrigatório para todo o tenant, com

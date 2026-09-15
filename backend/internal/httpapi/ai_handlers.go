@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/ai"
-	"mailin/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
 // Endpoints de IA sobre e-mail. O conteúdo do e-mail chega no corpo do request (o frontend

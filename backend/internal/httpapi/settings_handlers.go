@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Preferências do utilizador (assinatura, prefs por app). Organizadas por app no JSONB `settings`;

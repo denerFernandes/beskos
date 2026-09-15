@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/auth"
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/totp"
+	"github.com/beskosorg/beskos/backend/internal/auth"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/totp"
 )
 
 // dummyBcryptHash iguala o tempo do login com e-mail inexistente (anti-enumeração por timing).

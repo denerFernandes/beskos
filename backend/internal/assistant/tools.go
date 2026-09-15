@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sort"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // Nomes das ferramentas. Constantes porque aparecem em três sítios (catálogo, lista de permissões

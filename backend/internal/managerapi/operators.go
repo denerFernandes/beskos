@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/auth"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/auth"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Gestão de operadores do manager (M5, docs/manager.md §5.3). Admin-only nas escritas. Não há

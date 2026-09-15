@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/assistant"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // assistantMaxBody trava o tamanho do pedido. A mensagem do utilizador é uma frase, não um ficheiro.

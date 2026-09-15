@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 
-	"mailin/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/billing"
 )
 
 // Sessão única do produto (cookie wm_session). O login vive em auth_handlers.go: com caixa a

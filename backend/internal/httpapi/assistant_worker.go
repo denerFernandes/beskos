@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/assistant"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // assistantConfirmPoll é de quanto em quanto tempo o worker vê se a decisão já chegou. Uma tarefa

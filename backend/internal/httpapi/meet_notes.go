@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/chat"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/chat"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Notas da reunião: documento compartilhado por reunião. Autosave (last-write-wins) e sincronização

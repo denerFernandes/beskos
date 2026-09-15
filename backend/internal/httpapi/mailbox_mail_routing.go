@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // parkedLocal is the name a deleted account is parked under. It cannot collide with a real mailbox

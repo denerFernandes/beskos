@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/filecrypt"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
 // Cifra de envelope dos objetos (docs/cifra-ficheiros.md).

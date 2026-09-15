@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/auth"
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/rbac"
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/auth"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/rbac"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 // "Usuário" = caixa de email + conta do painel com um papel (RBAC). Users e Members são a mesma

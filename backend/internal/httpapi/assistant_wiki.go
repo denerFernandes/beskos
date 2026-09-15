@@ -8,9 +8,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/assistant"
-	"mailin/backend/internal/chat"
-	"mailin/backend/internal/wiki"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/chat"
+	"github.com/beskosorg/beskos/backend/internal/wiki"
 )
 
 // Adapters das ferramentas wiki.* do assistente (docs/wiki-features.md §7.5). Cada função recebe a

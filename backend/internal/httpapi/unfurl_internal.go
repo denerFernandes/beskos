@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Preview for links that point back at Beskos itself -- today, a task.

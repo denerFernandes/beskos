@@ -3,7 +3,7 @@ package httpapi
 import (
 	"github.com/go-chi/chi/v5"
 
-	"mailin/backend/internal/rbac"
+	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
 // Wiki routes. They live here rather than in server.go for the same reason the notes ones do:

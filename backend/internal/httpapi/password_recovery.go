@@ -24,8 +24,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/notify"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/notify"
 )
 
 // resetWindow is how long a recovery link lives. Long enough to walk to another computer, short

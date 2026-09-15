@@ -19,10 +19,10 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/mailbox"
-	"mailin/backend/internal/secretbox"
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/mailbox"
+	"github.com/beskosorg/beskos/backend/internal/secretbox"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 // pageSize is how many messages one pass copies from one folder before writing progress and looking

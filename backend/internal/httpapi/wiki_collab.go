@@ -10,7 +10,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/wiki"
+	"github.com/beskosorg/beskos/backend/internal/wiki"
 )
 
 // Colaboração em tempo real da wiki (Bloco 2 B10, decisão do utilizador: relay em GO, sem container

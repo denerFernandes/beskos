@@ -20,8 +20,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/mailmigrate"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/mailmigrate"
 )
 
 // maxImportBytes caps one upload.

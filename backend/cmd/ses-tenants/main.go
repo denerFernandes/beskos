@@ -22,8 +22,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/ses"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
 func main() {

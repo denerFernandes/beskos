@@ -21,7 +21,7 @@ import (
 	"log"
 	"net/http"
 
-	"mailin/backend/internal/mailbox"
+	"github.com/beskosorg/beskos/backend/internal/mailbox"
 )
 
 // handleExportMailbox streams the mailbox as an mbox file.

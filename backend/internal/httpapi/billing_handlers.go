@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // handleUsage devolve uso vs. limites do plano do tenant (painel de uso, brief §9 Fase 4).

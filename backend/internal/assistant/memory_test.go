@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // INVARIANTE (§6.5): categorias proibidas são recusadas mesmo que o modelo as classifique como

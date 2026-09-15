@@ -24,7 +24,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 func main() {

@@ -9,8 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"mailin/backend/ee"
-	"mailin/backend/internal/rbac"
+	"github.com/beskosorg/beskos/backend/ee"
+	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
 func (s *Server) Router() http.Handler {

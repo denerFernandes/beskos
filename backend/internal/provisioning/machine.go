@@ -15,9 +15,9 @@ import (
 	"log"
 	"strings"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/ses"
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/ses"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 // Estados persistidos em domains.provision_state.

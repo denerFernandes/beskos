@@ -18,8 +18,8 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio-go/v7/pkg/signer"
 
-	"mailin/backend/internal/filecrypt"
-	"mailin/backend/internal/storage"
+	"github.com/beskosorg/beskos/backend/internal/filecrypt"
+	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
 // Os testes falam com o gateway usando um cliente S3 DE VERDADE (minio-go), que assina em SigV4

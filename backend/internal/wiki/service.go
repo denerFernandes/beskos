@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Role ranks — mirror the CASE mapping in queries_wiki.sql. Higher = more capable.

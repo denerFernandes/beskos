@@ -3,15 +3,15 @@ package httpapi
 import (
 	"encoding/base64"
 	"errors"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 	"log"
-	"mailin/backend/internal/stalwart"
 	"net/http"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/auth"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/auth"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Perfil do utilizador (menu do avatar — pedido 23/07/2026): nome, cargo, telefone, foto e troca

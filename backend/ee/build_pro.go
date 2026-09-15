@@ -5,7 +5,7 @@ package ee
 import (
 	"github.com/go-chi/chi/v5"
 
-	"mailin/backend/internal/edition"
+	"github.com/beskosorg/beskos/backend/internal/edition"
 )
 
 // Register wires the Enterprise routes for whatever caps grants. No feature has been moved

@@ -7,9 +7,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"mailin/backend/internal/billing"
-	"mailin/backend/internal/edition"
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/internal/edition"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 // Rotas registadas. Escrever o handler não chega — se ninguém o liga ao router, a app responde 404

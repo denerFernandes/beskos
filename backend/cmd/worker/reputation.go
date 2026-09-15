@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/ses"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
 // Vigia de reputação: suspende o envio de um cliente antes que a AWS suspenda o de todos.

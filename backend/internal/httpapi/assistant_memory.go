@@ -11,8 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/assistant"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/assistant"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // assistantMemoryInject carrega os factos do utilizador para injetar numa execução (§8.3).

@@ -3,7 +3,7 @@ package httpapi
 import (
 	"testing"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // shareAccess decide o acesso pelo MELHOR entre a partilha direta e a de organização. É a peça que

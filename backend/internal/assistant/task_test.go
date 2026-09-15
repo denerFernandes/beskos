@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/ai"
+	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
 // memEffects é um registo de efeitos em memória — o mesmo papel que a tabela

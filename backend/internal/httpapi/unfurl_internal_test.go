@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // The permission checks live in internalUnfurl and need a database to exercise. What is unit-tested

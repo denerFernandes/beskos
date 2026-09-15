@@ -1,4 +1,4 @@
-module mailin/backend
+module github.com/beskosorg/beskos/backend
 
 go 1.25.13
 

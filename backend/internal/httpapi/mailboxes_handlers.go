@@ -2,16 +2,16 @@ package httpapi
 
 import (
 	"errors"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 	"log"
-	"mailin/backend/internal/stalwart"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
-	"mailin/backend/internal/rbac"
+	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
 // Gestão de caixas pelo painel: listar e trocar a senha (admin). A senha não é guardada por nós;

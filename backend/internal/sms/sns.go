@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"mailin/backend/internal/ses"
+	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
 // SNSSender envia SMS pelo Amazon SNS (Publish com PhoneNumber — sem tópico), assinado com o

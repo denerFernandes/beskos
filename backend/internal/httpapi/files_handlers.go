@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 const defaultMaxUploadBytes = 100 << 30 // 100 GiB (default se FILES_MAX_UPLOAD_BYTES não estiver setado)

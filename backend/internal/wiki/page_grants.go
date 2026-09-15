@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Grants por PÁGINA (docs/wiki-features.md §3.4/§5, Bloco 2 B3): um grant na página ACRESCENTA/eleva

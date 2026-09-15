@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mailin/backend/internal/auth"
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/auth"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // linkExpiry converte os dias pedidos em prazo: ausente (nil) = padrão 30d; 0 = sem expiração (NULL);

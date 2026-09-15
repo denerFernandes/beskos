@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"mailin/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
 // Snooze: o cliente move a mensagem para a pasta "Snoozed" (JMAP, com a própria sessão) e regista aqui

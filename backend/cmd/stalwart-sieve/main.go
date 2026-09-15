@@ -19,7 +19,7 @@ import (
 	"os"
 	"time"
 
-	"mailin/backend/internal/stalwart"
+	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
 const scriptName = "ses-tenant"

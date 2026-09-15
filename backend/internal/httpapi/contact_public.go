@@ -16,7 +16,7 @@ import (
 	"net/http"
 	"strings"
 
-	"mailin/backend/internal/notify"
+	"github.com/beskosorg/beskos/backend/internal/notify"
 )
 
 type contactFormReq struct {
