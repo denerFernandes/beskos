@@ -14,14 +14,15 @@ import (
 
 var errBadCursor = errors.New("invalid cursor")
 
-// Sync de diretórios — M0 (control plane). Feed incremental das mudanças nos ficheiros do próprio
-// utilizador, consumido pelo daemon de sincronização (desktop, escrito em Rust). O daemon guarda o
-// `cursor` opaco e volta com ?since=<cursor>. Contrato:
-//   - `hash` é o ETag do conteúdo (blob content-addressed): igual ⇒ ficheiro inalterado.
-//   - `deleted=true` é um tombstone (foi para a lixeira): o cliente remove-o localmente.
-//   - A purga (hard delete ao esvaziar a lixeira) NÃO aparece no feed; o cliente reconcilia por
-//     varredura completa periódica (o feed acelera o caso comum, não substitui a reconciliação).
-// Escopo: ficheiros do dono autenticado, dentro do tenant (multi-tenancy, lei §5.1).
+// Directory sync feed: an incremental feed of changes to the current user's own files, consumed
+// by the desktop sync daemon (written in Rust). The daemon keeps the opaque `cursor` and comes
+// back with ?since=<cursor>. Contract:
+//   - `hash` is the content ETag (content-addressed blob): equal means the file is unchanged.
+//   - `deleted=true` is a tombstone (moved to trash): the client removes it locally.
+//   - Purging (the hard delete when trash is emptied) does not appear in the feed; the client
+//     reconciles via periodic full scans (the feed speeds up the common case, it does not
+//     replace reconciliation).
+// Scope: files owned by the authenticated user, within their tenant.
 
 const fileChangesMaxLimit = 500
 

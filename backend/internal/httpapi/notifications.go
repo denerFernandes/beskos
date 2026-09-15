@@ -55,9 +55,9 @@ func (s *Server) notifyUser(ctx context.Context, tenantID, userID uuid.UUID, kin
 	s.sendWebPush(ctx, userID, pushPayload{Kind: kind, Title: title, Body: body, Link: link})
 }
 
-// notifyPushOnly envia SÓ o push desktop, sem gravar na área de notificações (o sino). Usado pelo
-// chat (24/07/2026): o não-lido do chat já vive nos canais, então mensagens não devem poluir o
-// sino — mas o push (app fechado) continua a avisar.
+// notifyPushOnly sends ONLY the desktop push, without writing to the notification area (the
+// bell). Used by chat: unread counts already live in the channels, so messages shouldn't clutter
+// the bell — but the push (app closed) still alerts the user.
 func (s *Server) notifyPushOnly(ctx context.Context, userID uuid.UUID, kind, title, body, link string) {
 	s.sendWebPush(ctx, userID, pushPayload{Kind: kind, Title: title, Body: body, Link: link})
 }

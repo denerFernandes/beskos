@@ -40,8 +40,8 @@ type signupReq struct {
 	Password string `json:"password"`
 }
 
-// handleSignup cria tenant + Stripe customer (Stripe fica pra Fase 4) + primeiro admin do tenant,
-// e responde na hora. O provisionamento de domínio/mailbox é assíncrono (máquina de estados §7, Fase 1).
+// handleSignup creates the tenant, the Stripe customer, and the tenant's first admin, and
+// responds immediately. Domain/mailbox provisioning is asynchronous, driven by a state machine.
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	var req signupReq
 	if !decode(w, r, &req) {
@@ -131,9 +131,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusUnauthorized, "auth.invalid_credentials")
 			return
 		}
-		// Brokering do JMAP (H11): guarda a credencial Basic CIFRADA server-side para o proxy injetar.
-		// O browser deixa de guardar a senha da caixa; autentica-se só com a sessão. Feito aqui (senha
-		// conhecida), antes do 2º fator — a sessão só é emitida depois, então a cred fica pronta.
+		// JMAP credential brokering: stores the Basic credential ENCRYPTED server-side for the proxy
+		// to inject. The browser no longer stores the mailbox password; it authenticates with the
+		// session only. Done here, while the password is known, before the second factor — the
+		// session is only issued afterward, so the credential is ready by then.
 		basic := base64.StdEncoding.EncodeToString([]byte(req.Email + ":" + req.Password))
 		_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: u.ID, JmapCred: s.encTOTP(basic)})
 	} else if !auth.CheckPassword(u.PasswordHash, req.Password) {
@@ -142,7 +143,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnauthorized, "auth.invalid_credentials")
 		return
 	}
-	// Se há MFA, NÃO emite sessão ainda: devolve um desafio para o 2º fator (login em 2 passos).
+	// If MFA is enabled, do NOT issue a session yet: return a challenge for the second factor
+	// (two-step login).
 	if u.MfaTotpEnabled || u.MfaSmsEnabled {
 		s.startMFAChallenge(w, r, u)
 		return
@@ -151,8 +153,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Aviso de novo início de sessão (quando, de onde, com que aparelho): é o que permite a alguém
-	// perceber que lhe roubaram a senha. Best-effort, fora do caminho do login.
+	// New-login alert (when, from where, which device): lets someone notice their password was
+	// stolen. Best-effort, off the login critical path.
 	s.alertNewLogin(r, u)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id": u.ID, "email": u.Email, "name": u.Name, "role": u.Role,
@@ -206,11 +208,12 @@ func (s *Server) handleListDomains(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, domains)
 }
 
-// --- helpers de sessão / decode ---
+// --- session / decode helpers ---
 
-// issueSession cria a sessão, grava o cookie (web same-origin) e DEVOLVE o token para o corpo da
-// resposta — o app nativo (Tauri) guarda-o e envia-o em `Authorization: Bearer` (sem depender de
-// cookies cross-site). Devolve ("", false) se falhou (já escreveu o erro).
+// issueSession creates the session, sets the cookie (web same-origin), and RETURNS the token in
+// the response body — the native app (Tauri) stores it and sends it as `Authorization: Bearer`
+// (without depending on cross-site cookies). Returns ("", false) on failure (the error was
+// already written).
 func (s *Server) issueSession(w http.ResponseWriter, ctx context.Context, u db.MailUser) (string, bool) {
 	token, err := auth.NewSessionToken()
 	if err != nil {

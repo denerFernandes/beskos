@@ -41,8 +41,8 @@ func (s *Server) recordRecipientContacts(ctx context.Context, tenantID, userID u
 			TenantID: tenantID, OwnerUserID: userID, Kind: "person", Name: name, Email: email,
 			Tags: []string{}, ExtraEmails: []string{}, ExtraPhones: []string{},
 			AllowPhone: true, AllowEmail: true,
-			// custom_fields é jsonb NOT NULL: sem isto o driver envia NULL e o INSERT falha em silêncio
-			// (o loop faz `continue` e nenhum contacto era gravado). (24/07/2026)
+			// custom_fields is jsonb NOT NULL: without this the driver sends NULL and the INSERT
+			// fails silently (the loop does `continue` and no contact gets saved).
 			CustomFields: json.RawMessage("{}"),
 		}); err != nil {
 			continue

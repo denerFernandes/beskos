@@ -26,7 +26,7 @@ type createMeetingReq struct {
 }
 
 func normalizeAccess(a string) string {
-	// Default: APROVAÇÃO (24/07/2026) — o organizador admite quem entra; só "public" explícito abre.
+	// Default is approval: the organizer admits who enters; only an explicit "public" value opens the room.
 	if a == "public" {
 		return "public"
 	}
@@ -111,8 +111,8 @@ func (s *Server) handleCreateMeeting(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Action: "meet.create", Target: title})
 
-	// Notificação dos convidados (e-mail + in-app) fica na M3; aqui já marcamos como enviada
-	// para o rastreio de "notificado" avançar quando o worker de notificações entrar.
+	// Invitee notifications (email + in-app) aren't sent yet; we still mark them as sent so the
+	// "notified" tracking advances once the notification worker is wired in.
 	s.notifyMeetingInvitees(r, m, mu)
 
 	s.writeMeetingDetail(w, r, m, mu)

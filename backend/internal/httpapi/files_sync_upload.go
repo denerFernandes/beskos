@@ -15,12 +15,13 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Sync de diretórios — M2 (upload local → nuvem), autenticado pelo token de dispositivo. Escreve
-// SEMPRE de forma segura:
-//   - PUT exige If-Match (hash base que o daemon conhecia). Se o servidor mudou entretanto (hash
-//     diferente) → 412 Precondition Failed: é um conflito, o daemon resolve sem sobrescrever.
-//   - antes de sobrescrever, o estado corrente é fotografado no histórico de versões (nunca perde).
-//   - cota, dedup por hash e isolamento por tenant/dono preservados (leis §5).
+// Directory sync upload (local -> cloud), authenticated by the device token. Always writes safely:
+//   - PUT requires If-Match (the base hash the daemon knew about). If the server changed in the
+//     meantime (different hash) -> 412 Precondition Failed: it's a conflict, the daemon resolves
+//     it without overwriting.
+//   - before overwriting, the current state is snapshotted into the version history (nothing is
+//     ever lost).
+//   - quota, hash-based dedup, and tenant/owner isolation are preserved.
 
 // hashToTemp escoa o corpo para um ficheiro temporário calculando o SHA-256 ao mesmo tempo (sem
 // carregar o ficheiro inteiro em memória). Devolve o temp (rebobinado), o hash hex e o tamanho.

@@ -13,9 +13,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Modo TRACKS da gravação (docs/manager.md §1, decisão 22/07/2026): um Track Egress por faixa
-// publicada (barato: sem compositor ao vivo), e o worker monta o MP4 offline com ffmpeg.
-// Faixas publicadas DEPOIS do início entram via webhook track_published.
+// TRACKS recording mode: one Track Egress per published track (cheap: no live compositor), and
+// the worker assembles the MP4 offline with ffmpeg. Tracks published AFTER the start come in via
+// the track_published webhook.
 
 // s3Output monta o destino S3/MinIO comum aos egresses.
 func (m *meet) s3Output(filepath string) map[string]any {

@@ -16,15 +16,16 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Sync — upload DELTA (M4): num ficheiro grande que mudou pouco, enviar tudo outra vez é desperdício.
+// Sync delta upload: for a large file that changed only a little, sending everything again is
+// wasteful.
 //
-// Desenho deliberado: o armazenamento continua a ser **um blob inteiro por ficheiro**
-// (content-addressed, com dedup e versões). Não passámos a guardar blocos — isso obrigaria a mexer
-// em download, versões, OnlyOffice, zip, miniaturas… Em vez disso o servidor:
-//   1. expõe os hashes por bloco do conteúdo ATUAL (`GET .../blocks`);
-//   2. aceita só os blocos alterados (`PUT .../delta`) e **reconstrói** o ficheiro completo,
-//      copiando o resto do blob antigo.
-// Resultado: poupa-se rede sem tocar no resto do sistema.
+// Deliberate design: storage remains **one whole blob per file** (content-addressed, with dedup
+// and versions). We didn't switch to storing blocks — that would mean touching download,
+// versions, OnlyOffice, zip, thumbnails... Instead the server:
+//  1. exposes the block hashes of the CURRENT content (`GET .../blocks`);
+//  2. accepts only the changed blocks (`PUT .../delta`) and **reconstructs** the full file,
+//     copying the rest from the old blob.
+// Result: network usage drops without touching the rest of the system.
 
 const (
 	defaultBlockSize = 4 << 20  // 4 MiB

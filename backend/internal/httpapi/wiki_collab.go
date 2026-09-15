@@ -84,8 +84,8 @@ func (c *collabRooms) broadcast(page uuid.UUID, from *collabPeer, f collabFrame)
 	}
 }
 
-// handleWikiCollabWS liga um editor à sala da página. Sessão + canAccess>=editor (lei 5.2): quem só
-// lê não entra na edição colaborativa.
+// handleWikiCollabWS connects an editor to the page's room. Requires a session plus
+// canAccess>=editor: a read-only user cannot join collaborative editing.
 func (s *Server) handleWikiCollabWS(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	pid, ok := wikiURLID(w, r, "id")
