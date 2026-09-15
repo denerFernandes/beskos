@@ -12,8 +12,8 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// Migrate aplica as migrations pendentes. Idempotente (goose controla a versão aplicada).
-// Roda no boot do cmd/api para simplicidade na Fase 0.
+// Migrate applies pending migrations. It is idempotent: goose tracks which version has
+// already been applied. Runs at API startup for simplicity rather than as a separate step.
 func Migrate(databaseURL string) error {
 	sqldb, err := sql.Open("pgx", databaseURL)
 	if err != nil {

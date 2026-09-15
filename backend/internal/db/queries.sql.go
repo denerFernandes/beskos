@@ -524,9 +524,9 @@ SELECT (SELECT count(*) FROM mail_users u WHERE u.tenant_id = $1)
 `
 
 // ===== Billing e cotas =====
-// Conta caixas E aliases: um alias e cobrado como uma caixa (regra de negocio, 27/07/2026). Esta
-// e a contagem que alimenta o plano, os lugares faturados e o teto de mailboxes — por isso o alias
-// tem de entrar aqui e nao so no relatorio de uso.
+// Counts mailboxes AND aliases: an alias is billed as a mailbox. This is the count that feeds
+// the plan limit, the billed seats, and the mailbox cap, so aliases must be included here and
+// not only in the usage report.
 func (q *Queries) CountMailboxesByTenant(ctx context.Context, tenantID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countMailboxesByTenant, tenantID)
 	var column_1 int32
@@ -661,7 +661,7 @@ type CreateAssistantConversationParams struct {
 	Title      string    `json:"title"`
 }
 
-// Abre uma conversa. O par (tenant, utilizador) vem da sessão, nunca do pedido (lei 5.1).
+// Opens a conversation. The (tenant, user) pair comes from the session, not the request, so one tenant cannot address another tenant's conversation.
 func (q *Queries) CreateAssistantConversation(ctx context.Context, arg CreateAssistantConversationParams) (AssistantConversation, error) {
 	row := q.db.QueryRow(ctx, createAssistantConversation,
 		arg.TenantID,
@@ -773,7 +773,7 @@ type CreateAssistantTaskParams struct {
 	Message        string    `json:"message"`
 }
 
-// Enfileira uma tarefa em fundo. O par (tenant, utilizador) vem da sessão (lei 5.1).
+// Queues a background task. The (tenant, user) pair comes from the session, not the request, so one tenant cannot queue work against another tenant's data.
 func (q *Queries) CreateAssistantTask(ctx context.Context, arg CreateAssistantTaskParams) (AssistantTask, error) {
 	row := q.db.QueryRow(ctx, createAssistantTask,
 		arg.TenantID,
@@ -3986,8 +3986,8 @@ type GetDeviceTokenUserRow struct {
 	TokenID  uuid.UUID `json:"token_id"`
 }
 
-// Autentica o daemon: casa o hash do token, ignora revogados/expirados, e devolve a mail_user
-// (para injetar no contexto, tal como a sessão do webmail) + o id do token (para o touch).
+// Authenticates the daemon: matches the token hash, skips revoked/expired tokens, and returns
+// the mail_user (to inject into the request context, the same way the webmail session does) plus the token id (to update its last-used time).
 func (q *Queries) GetDeviceTokenUser(ctx context.Context, tokenHash string) (GetDeviceTokenUserRow, error) {
 	row := q.db.QueryRow(ctx, getDeviceTokenUser, tokenHash)
 	var i GetDeviceTokenUserRow
@@ -6776,7 +6776,7 @@ type ListEventInviteesForEventsRow struct {
 	Avatar  string    `json:"avatar"`
 }
 
-// Convidados de VÁRIOS eventos numa ida só (avatares nos cards do calendário — 23/07/2026).
+// Guests for multiple events in a single round trip, used to render avatars on calendar event cards.
 func (q *Queries) ListEventInviteesForEvents(ctx context.Context, eventIds []uuid.UUID) ([]ListEventInviteesForEventsRow, error) {
 	rows, err := q.db.Query(ctx, listEventInviteesForEvents, eventIds)
 	if err != nil {
@@ -9158,8 +9158,8 @@ type RecordAssistantToolCallParams struct {
 }
 
 // ===== Co-hosts de reunião =====
-// Auditoria de uma chamada de ferramenta (§6.4). Escrita em todos os casos: sucesso e erro.
-// conversation_id é anulável: a A0 registava execuções sem conversa nenhuma.
+// Audit record for a tool call, written for both success and error cases.
+// conversation_id is nullable because earlier data recorded runs with no conversation at all.
 func (q *Queries) RecordAssistantToolCall(ctx context.Context, arg RecordAssistantToolCallParams) error {
 	_, err := q.db.Exec(ctx, recordAssistantToolCall,
 		arg.TenantID,

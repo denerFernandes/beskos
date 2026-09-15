@@ -33,8 +33,8 @@ pub struct Status {
     pub paused: bool,
     /// Se já há credenciais gravadas (senão a UI mostra o ecrã de "ligar esta máquina").
     pub configured: bool,
-    /// Servidor e conta a que a config gravada pertence — a UI compara com a sessão atual para não
-    /// mostrar os pares de outra conta na mesma máquina.
+    /// Server and account the saved config belongs to — the UI compares this against the current
+    /// session so it does not show another account's pairs on the same machine.
     pub server_url: String,
     pub account: String,
     /// Pastas sincronizadas (pares local↔nuvem).

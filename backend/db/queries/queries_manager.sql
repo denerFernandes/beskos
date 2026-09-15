@@ -1,5 +1,5 @@
--- Manager (painel do operador do SaaS) — ver docs/manager.md. Tabelas próprias, sem tenant_id:
--- o manager opera SOBRE os tenants, não dentro de um. Usadas só pelo cmd/manager-api.
+-- Manager dashboard queries. These tables belong to the operator's control plane, not to a
+-- tenant: the manager operates ON tenants rather than inside one. Used only by cmd/manager-api.
 
 -- ---------- Utilizadores do manager ----------
 
@@ -48,7 +48,7 @@ UPDATE manager_users SET last_login_at = now() WHERE id = @id;
 UPDATE manager_users SET active = @active WHERE id = @id;
 
 -- name: ManagerGrowth :many
--- Crescimento mensal (relatórios M5): tenants e utilizadores criados por mês.
+-- Monthly growth: tenants and users created per month.
 SELECT to_char(m.month, 'YYYY-MM') AS month,
     (SELECT count(*) FROM tenants t WHERE date_trunc('month', t.created_at) = m.month)::int AS tenants_new,
     (SELECT count(*) FROM mail_users u WHERE date_trunc('month', u.created_at) = m.month)::int AS users_new,
@@ -78,7 +78,7 @@ DELETE FROM manager_sessions WHERE token = @token;
 -- name: DeleteExpiredManagerSessions :exec
 DELETE FROM manager_sessions WHERE expires_at <= now();
 
--- ---------- Visão read-only (M1): o manager LÊ os dados dos tenants, nunca escreve ----------
+-- ---------- Read-only view: the manager reads tenant data, it never writes ----------
 
 -- name: ManagerOverview :one
 -- Totais do dashboard. Storage = soma dos ficheiros não apagados (lixeira ainda ocupa espaço no
@@ -92,7 +92,7 @@ SELECT
     (SELECT count(*) FROM domains)                                              AS domains;
 
 -- name: ManagerListTenants :many
--- Lista de tenants com contagens (query direta; rollup diário chega na M3).
+-- List of tenants with counts, computed directly rather than from a rollup table.
 SELECT t.id, t.name, t.plan, t.status, t.created_at,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)                      AS users,
     (SELECT count(*) FROM domains d WHERE d.tenant_id = t.id)                         AS domains,
@@ -118,7 +118,7 @@ FROM mail_users u
 WHERE u.tenant_id = @tenant_id
 ORDER BY u.created_at;
 
--- ---------- Settings + finanças (M4) ----------
+-- ---------- Settings and billing ----------
 
 -- name: GetManagerSetting :one
 SELECT value FROM manager_settings WHERE key = @key;

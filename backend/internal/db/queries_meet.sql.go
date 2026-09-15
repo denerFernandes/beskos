@@ -608,8 +608,8 @@ type ListMyMeetingsPageRow struct {
 }
 
 // ===== Assistente de IA =====
-// Página de reuniões do utilizador por balde (upcoming/past), com o total na própria linha
-// (COUNT OVER) — paginação server-side da home do Meet (24/07/2026).
+// Page of the user's meetings by bucket (upcoming/past), with the total count on each row
+// (COUNT OVER) for server-side pagination of the Meet home page.
 func (q *Queries) ListMyMeetingsPage(ctx context.Context, arg ListMyMeetingsPageParams) ([]ListMyMeetingsPageRow, error) {
 	rows, err := q.db.Query(ctx, listMyMeetingsPage,
 		arg.OwnerUserID,

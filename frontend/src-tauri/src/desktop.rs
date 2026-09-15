@@ -7,17 +7,17 @@ use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager, Runtime, WebviewUrl, WebviewWindowBuilder};
 
-/// Quem está autenticado, para o menu do tray. `None` = sessão ainda não iniciada.
+/// Who is signed in, for the tray menu. `None` means no session has started yet.
 #[derive(Default)]
 pub struct Account(pub Mutex<Option<String>>);
 
-/// Rótulo atual da conta (ou `None` se ninguém iniciou sessão).
+/// Current account label (or `None` if no one has signed in).
 pub fn account_label<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
     app.try_state::<Account>()
         .and_then(|a| a.0.lock().ok().and_then(|g| g.clone()))
 }
 
-/// A UI chama isto quando a sessão abre ou fecha (passa `None` ao sair).
+/// The UI calls this when the session opens or closes (passes `None` on sign-out).
 #[tauri::command]
 pub fn set_account<R: Runtime>(app: AppHandle<R>, label: Option<String>) {
     if let Some(state) = app.try_state::<Account>() {

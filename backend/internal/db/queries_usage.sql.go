@@ -242,7 +242,7 @@ type ManagerUsageAllRowsRow struct {
 	UpdatedAt       time.Time   `json:"updated_at"`
 }
 
-// Export CSV (M5): rollup cru de todos os tenants no período, com o nome da organização.
+// CSV export: raw rollup for all tenants in the period, including the organization name.
 func (q *Queries) ManagerUsageAllRows(ctx context.Context, since pgtype.Date) ([]ManagerUsageAllRowsRow, error) {
 	rows, err := q.db.Query(ctx, managerUsageAllRows, since)
 	if err != nil {
@@ -367,7 +367,7 @@ ON CONFLICT (tenant_id, day) DO UPDATE SET
     mail_sent = EXCLUDED.mail_sent, updated_at = now()
 `
 
-// Metering (manager M3): rollup diário escrito pelo WORKER; o manager só lê.
+// Metering: daily rollup written by the worker; the manager only reads it.
 // Congela o uso de TODOS os tenants para um dia (idempotente: upsert). Contadores "de estado"
 // (users, storage, páginas, cards) refletem o momento do rollup; os "de fluxo" (ai_tokens,
 // meet_minutes, gravações) somam o que aconteceu NO dia.

@@ -49,8 +49,8 @@ type CreateManagerUserParams struct {
 	Role         string `json:"role"`
 }
 
-// Manager (painel do operador do SaaS) — ver docs/manager.md. Tabelas próprias, sem tenant_id:
-// o manager opera SOBRE os tenants, não dentro de um. Usadas só pelo cmd/manager-api.
+// Manager dashboard queries. These tables belong to the operator's control plane, not to a
+// tenant: the manager operates ON tenants rather than inside one. Used only by cmd/manager-api.
 // ---------- Utilizadores do manager ----------
 func (q *Queries) CreateManagerUser(ctx context.Context, arg CreateManagerUserParams) (ManagerUser, error) {
 	row := q.db.QueryRow(ctx, createManagerUser,
@@ -151,7 +151,7 @@ const getManagerSetting = `-- name: GetManagerSetting :one
 SELECT value FROM manager_settings WHERE key = $1
 `
 
-// ---------- Settings + finanças (M4) ----------
+// ---------- Settings and billing ----------
 func (q *Queries) GetManagerSetting(ctx context.Context, key string) (json.RawMessage, error) {
 	row := q.db.QueryRow(ctx, getManagerSetting, key)
 	var value json.RawMessage
@@ -456,7 +456,7 @@ type ManagerGrowthRow struct {
 	UsersTotal   int32  `json:"users_total"`
 }
 
-// Crescimento mensal (relatórios M5): tenants e utilizadores criados por mês.
+// Monthly growth: tenants and users created per month.
 func (q *Queries) ManagerGrowth(ctx context.Context) ([]ManagerGrowthRow, error) {
 	rows, err := q.db.Query(ctx, managerGrowth)
 	if err != nil {
@@ -556,7 +556,7 @@ type ManagerListTenantsRow struct {
 	StorageBytes int64     `json:"storage_bytes"`
 }
 
-// Lista de tenants com contagens (query direta; rollup diário chega na M3).
+// List of tenants with counts, computed directly rather than from a rollup table.
 func (q *Queries) ManagerListTenants(ctx context.Context) ([]ManagerListTenantsRow, error) {
 	rows, err := q.db.Query(ctx, managerListTenants)
 	if err != nil {
@@ -606,7 +606,7 @@ type ManagerOverviewRow struct {
 	Domains       int64 `json:"domains"`
 }
 
-// ---------- Visão read-only (M1): o manager LÊ os dados dos tenants, nunca escreve ----------
+// ---------- Read-only view: the manager reads tenant data, it never writes ----------
 // Totais do dashboard. Storage = soma dos ficheiros não apagados (lixeira ainda ocupa espaço no
 // MinIO, mas o que interessa ao operador é o uso "vivo"; a lixeira é rotativa).
 func (q *Queries) ManagerOverview(ctx context.Context) (ManagerOverviewRow, error) {
