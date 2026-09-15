@@ -21,7 +21,7 @@ that live in Postgres already.
 ## Decision
 
 Use the `pgvector` Postgres extension and keep vectors in the same database as everything else.
-The reference deployment (`deploy/docker-compose.community.yml`) runs
+The reference deployment (`deploy/docker-compose.yml`) runs
 `pgvector/pgvector:pg16` instead of a plain `postgres:16` image specifically so the extension is
 available without a manual install step. The schema
 (`backend/internal/db/migrations/00093_wiki_chunks.sql`) is a `wiki_chunks` table -- one row per
@@ -57,7 +57,7 @@ search index exactly as it applies to any other table holding customer data.
 - Because the extension lives inside Postgres, self-hosting the project depends on the operator
   running `pgvector/pgvector:pg16` (or manually installing the extension on their own Postgres) --
   a slightly less common image than plain `postgres:16`, called out explicitly in
-  `docker-compose.community.yml`'s comments so it isn't swapped out by habit.
+  `docker-compose.yml`'s comments so it isn't swapped out by habit.
 
 ## Alternatives considered
 

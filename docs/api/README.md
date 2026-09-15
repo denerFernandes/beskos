@@ -13,7 +13,7 @@ future addition; it is out of scope for this document.
 
 There is one HTTP server (`backend/cmd/api`) behind everything: the panel API, the webmail's
 session and mail-adjacent endpoints, and a same-origin JMAP proxy to Stalwart. In the reference
-deployment (`deploy/docker-compose.community.yml`) it listens on `:8000` behind whatever reverse
+deployment (`deploy/docker-compose.yml`) it listens on `:8000` behind whatever reverse
 proxy terminates TLS; see [docs/self-hosting.md](../self-hosting.md) for a production Caddy
 config. Every application route under `/api/*` also answers `GET /api/healthz` and
 `GET /api/readyz`; the bare `/healthz` and `/readyz` (no `/api` prefix) exist for a load balancer

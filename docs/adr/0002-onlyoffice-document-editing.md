@@ -22,7 +22,7 @@ triggers AGPL §13: the operator must offer the modified source to anyone using 
 
 ## Decision
 
-Run OnlyOffice Document Server as its own container (`deploy/docker-compose.community.yml`,
+Run OnlyOffice Document Server as its own container (`deploy/docker-compose.yml`,
 service `onlyoffice`), reached over the network only -- the same rule the project applies to
 Stalwart (CLAUDE.md §5.4): never patch the vendored image's binary or embedded code, only its
 startup configuration and an external init script.

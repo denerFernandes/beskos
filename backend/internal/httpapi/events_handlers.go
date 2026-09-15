@@ -350,7 +350,7 @@ func (s *Server) attachMeetToEvent(ctx context.Context, mu db.MailUser, eventID 
 	if s.meet == nil {
 		return ""
 	}
-	room := "mailin-" + uuid.NewString()[:8]
+	room := "beskos-" + uuid.NewString()[:8]
 	m, err := s.q.CreateMeeting(ctx, db.CreateMeetingParams{
 		TenantID: mu.TenantID, OwnerUserID: mu.ID, Title: title, RoomName: room,
 		ScheduledStart: pgtype.Timestamptz{Time: starts, Valid: true}, ScheduledEnd: pgtype.Timestamptz{Time: ends, Valid: true},

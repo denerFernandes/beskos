@@ -78,7 +78,7 @@ func (s *Server) handleCreateMeeting(w http.ResponseWriter, r *http.Request) {
 
 	m, err := s.q.CreateMeeting(r.Context(), db.CreateMeetingParams{
 		TenantID: mu.TenantID, OwnerUserID: mu.ID, Title: title,
-		RoomName: "mailin-" + uuid.NewString()[:8], ScheduledStart: start, ScheduledEnd: end, EventID: eventID,
+		RoomName: "beskos-" + uuid.NewString()[:8], ScheduledStart: start, ScheduledEnd: end, EventID: eventID,
 		Access: normalizeAccess(req.Access),
 	})
 	if err != nil {

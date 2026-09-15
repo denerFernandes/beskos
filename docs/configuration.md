@@ -13,16 +13,15 @@ Every environment variable the backend reads, extracted directly from the source
 | `AI_REASONING` | *(required or empty = off)* |
 | `APP_ENV` | `development` |
 | `APP_ORIGINS` | *(required or empty = off)* |
-| `APP_PUBLIC_URL` | *(required or empty = off)* |
 | `ASSISTANT_QUOTA_TOKENS_6H` | *(required or empty = off)* |
 | `AUDIT_RESOLVER` | *(required or empty = off)* |
 | `AWS_ACCESS_KEY_ID` | *(required or empty = off)* |
 | `AWS_SECRET_ACCESS_KEY` | *(required or empty = off)* |
-| `BILLING_CANCEL_URL` | `https://app.mailin/billing?canceled=1` |
+| `BILLING_CANCEL_URL` | `https://app.beskos.com/billing?canceled=1` |
 | `BILLING_CURRENCY` | `USD` |
 | `BILLING_MIN_PAID_USERS` | *(required or empty = off)* |
 | `BILLING_PROVIDER` | `manual` |
-| `BILLING_SUCCESS_URL` | `https://app.mailin/billing?ok=1` |
+| `BILLING_SUCCESS_URL` | `https://app.beskos.com/billing?ok=1` |
 | `BILLING_TRIAL_DAYS` | *(required or empty = off)* |
 | `BRAND_NAME` | `Beskos` |
 | `BRAND_URL` | `https://beskos.com` |
@@ -45,10 +44,6 @@ Every environment variable the backend reads, extracted directly from the source
 | `LIVEKIT_HTTP_URL` | *(required or empty = off)* |
 | `LIVEKIT_URL` | *(required or empty = off)* |
 | `MAIL_BRAND_DOMAIN` | *(required or empty = off)* |
-| `MANAGER_BOOTSTRAP_EMAIL` | *(required or empty = off)* |
-| `MANAGER_BOOTSTRAP_PASSWORD` | *(required or empty = off)* |
-| `MANAGER_BOOTSTRAP_RESET` | *(required or empty = off)* |
-| `MANAGER_HTTP_ADDR` | *(required or empty = off)* |
 | `MFA_ENC_KEY` | *(required or empty = off)* |
 | `MINIO_ACCESS_KEY` | *(required or empty = off)* |
 | `MINIO_BUCKET` | *(required or empty = off)* |

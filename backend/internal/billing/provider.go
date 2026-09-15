@@ -157,8 +157,8 @@ func FromEnv() Config {
 		Provider:      getenv("BILLING_PROVIDER", "manual"),
 		SecretKey:     os.Getenv("STRIPE_SECRET_KEY"),
 		WebhookSecret: os.Getenv("STRIPE_WEBHOOK_SECRET"),
-		SuccessURL:    getenv("BILLING_SUCCESS_URL", "https://app.mailin/billing?ok=1"),
-		CancelURL:     getenv("BILLING_CANCEL_URL", "https://app.mailin/billing?canceled=1"),
+		SuccessURL:    getenv("BILLING_SUCCESS_URL", "https://app.beskos.com/billing?ok=1"),
+		CancelURL:     getenv("BILLING_CANCEL_URL", "https://app.beskos.com/billing?canceled=1"),
 		Currency:      strings.ToUpper(getenv("BILLING_CURRENCY", "USD")),
 		MinPaidUsers:  atoiDefault(os.Getenv("BILLING_MIN_PAID_USERS"), 1),
 	}

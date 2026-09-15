@@ -59,7 +59,7 @@ func meteringStorage(q *db.Queries) *storage.Service {
 	}
 	bucket := os.Getenv("MINIO_BUCKET")
 	if bucket == "" {
-		bucket = "mailin"
+		bucket = "beskos"
 	}
 	st, err := storage.New(ep, os.Getenv("MINIO_ACCESS_KEY"), os.Getenv("MINIO_SECRET_KEY"),
 		bucket, os.Getenv("MINIO_REGION"), os.Getenv("MINIO_SSL") == "true")
