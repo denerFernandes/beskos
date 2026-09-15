@@ -6,15 +6,15 @@ import { Drawer } from "./Drawer";
 import { Avatar } from "./Avatar";
 import { IcTrash, IcSearch } from "../panel/icons";
 
-// Paleta pastel FIXA das categorias (23/07/2026): o utilizador escolhe entre estas quatro; o
-// cartão do evento fica com o fundo pastel derivado (color-mix no CSS).
+// Fixed pastel palette for categories: the user picks among these four; the event card gets a
+// pastel background derived from it (color-mix in CSS).
 export const CAT_COLORS = ["#F0926B", "#8B7CF6", "#62BEE9", "#53C08B"];
 // Cores dos calendários pessoais.
 export const CAL_COLORS = ["#B4785F", "#e6a817", "#c0392b", "#2980b9", "#8e44ad", "#27ae60"];
 
-// Sidebar do calendário no MESMO padrão da página de Contactos (24/07/2026): secções `rlabel`,
-// linhas `grp-item` (ponto colorido + nome), botão tracejado `newg`. Clicar numa linha
-// esconde/mostra os eventos daquele calendário/categoria.
+// Calendar sidebar in the SAME pattern as the Contacts page: `rlabel` sections, `grp-item` rows
+// (coloured dot + name), dashed `newg` button. Clicking a row hides/shows that calendar's or
+// category's events.
 export function CalendarSidebar({ cals, hiddenCals, onToggleCal, onAddCal, onDeleteCal, cats, hiddenCats, onToggleCat, onAddCat, onDeleteCat, colleagues, fbUser, setFbUser }: {
   cals: Calendar[]; hiddenCals: Set<string>; onToggleCal: (id: string) => void; onAddCal: () => void; onDeleteCal: (c: Calendar) => void;
   cats: Tag[]; hiddenCats: Set<string>; onToggleCat: (name: string) => void; onAddCat: () => void; onDeleteCat: (t: Tag) => void;
@@ -57,8 +57,9 @@ export function CalendarSidebar({ cals, hiddenCals, onToggleCal, onAddCal, onDel
   );
 }
 
-// ColleaguePicker: escolher UM colega por busca (24/07/2026 — select não escala com muita gente).
-// Mesmo visual do InviteePicker: input com lupa + sugestões; escolhido vira chip com ✕.
+// ColleaguePicker: pick ONE colleague by search (a plain select does not scale with many people).
+// Same look as InviteePicker: input with a search icon + suggestions; the pick becomes a chip
+// with ✕.
 function ColleaguePicker({ colleagues, value, onChange }: {
   colleagues: { id: string; name: string; email: string }[]; value: string; onChange: (id: string) => void;
 }) {

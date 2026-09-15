@@ -56,8 +56,9 @@ export function App({ session }: { session: WebmailSession }) {
   const setView = (v: View) => nav(v === "today" ? "/mail" : `/mail/${v}`);
   const [search, setSearch] = useState("");
   const [advOpen, setAdvOpen] = useState(false); // painel de filtros avançados do e-mail (Gmail-style)
-  // No app de desktop, dá a conta ao menu do tray: o tray é construído em Rust e não conhece a
-  // sessão. Ao sair limpa (o cleanup manda `null`) — deixar lá o email de quem saiu seria mentira.
+  // Tells the tray menu who is signed in: the tray is built in Rust and has no access to the
+  // session. On logout it must be cleared to `null`, or the tray would keep showing the email of
+  // whoever just signed out.
   useEffect(() => {
     if (!isTauri()) return;
     void setTrayAccount(session.email);
@@ -86,7 +87,7 @@ export function App({ session }: { session: WebmailSession }) {
     // which is SHALLOW: a patch of {general:{theme}} replaces the entire general object and takes
     // `onboarded`, `language` and `startView` with it. The visible symptom was an owner who changed
     // the theme and was shown the first-run wizard again on the next load. useSection() already
-    // merges this way; this call was the one that did not. (03/08/2026)
+    // merges this way; this call was the one that did not.
     settingsApi.patch({ general: { ...(settingsQ.data?.general ?? {}), theme: next } }).catch(() => {});
   };
 
@@ -137,8 +138,8 @@ export function App({ session }: { session: WebmailSession }) {
     return () => setNotifNavigate(null);
   }, [nav]);
   const qc = useQueryClient();
-  // Desktop: abrir um .vcf com o Beskos importa o contacto para a agenda. Só liga com sessão (esta
-  // shell só monta autenticada), por isso o import nunca corre deslogado.
+  // Desktop: opening a .vcf with Beskos imports the contact into the address book. Only wired up
+  // when authenticated (this shell only mounts once signed in), so import never runs signed out.
   useEffect(() => {
     return initVcardOpen(
       (r) => {
@@ -222,9 +223,9 @@ export function App({ session }: { session: WebmailSession }) {
     files: unreadOf("file_share"),
   };
 
-  // Ao entrar na área do Meet, marca os convites como lidos (a vista mostra-os à cabeça). Ficheiros
-  // NÃO: estar no Drive não significa que viste o ficheiro que te partilharam (pode estar numa
-  // secção que não abriste) — a notificação fica no sino até a leres (24/07/2026, badge de partilha).
+  // Entering the Meet area marks invites as read (the view shows them up front). Files do NOT
+  // work that way: being in the Drive does not mean you saw a file shared with you (it may be in
+  // a section you never opened) — the share notification stays in the bell until you read it.
   useEffect(() => {
     if (view === "meet" && unreadOf("meeting_invite") > 0) {
       backend.notificationsReadKind("meeting_invite").then(() => qc.invalidateQueries({ queryKey: ["notifications"] })).catch(() => {});
@@ -261,8 +262,8 @@ export function App({ session }: { session: WebmailSession }) {
     // para o gate aparecer sem exigir refresh manual.
     refetchOnWindowFocus: true, refetchInterval: 60_000,
   });
-  // Sessão inválida/expirada detetada na validação de arranque (e nos refetch de 60s / foco): limpa
-  // o estado local e volta ao login, mesmo que o caminho global do wrapper não tenha disparado.
+  // Invalid/expired session detected in the startup check (and the 60s / focus refetches): clears
+  // local state and returns to login, even if the wrapper's global handling did not fire.
   const gateErr = meGateQ.error as { status?: number } | null;
   useEffect(() => {
     if (gateErr && (gateErr.status === 401 || gateErr.status === 403)) session.logout();

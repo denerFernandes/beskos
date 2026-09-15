@@ -141,8 +141,8 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
   // Base da URL ao abrir/fechar um e-mail. Marcador tem a sua própria base; o resto mantém o
   // comportamento anterior (importantes cai na pasta activa, como antes).
   const viewBase = labelId ? `label:${labelId}` : (() => { const f = folders.find((x) => x.id === activeFolder); return f ? folderSlug(f) : "inbox"; })();
-  // Abrir/fechar e-mail PRESERVA a query string (?p=2…): sem isto, clicar num e-mail da página 2
-  // atirava a lista de volta à página 1 (bug reportado 23/07/2026).
+  // Opening/closing an email PRESERVES the query string (?p=2…): without this, clicking an email
+  // on page 2 threw the list back to page 1.
   const keepParams = (path: string) => { const q = params.toString(); return q ? `${path}?${q}` : path; };
   const openEmail = (id: string) => nav(keepParams(`/mail/mail/${viewBase}/${id}`));
   const closeEmail = () => nav(keepParams(`/mail/mail/${viewBase}`));
@@ -200,9 +200,9 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
     });
   }, [rawEmails, sortBy, sortDir]);
 
-  // O contador do servidor pode divergir do conteúdo: apanhámos uma pasta a dizer "1 por ler" sem
-  // nenhuma por ler (28/07/2026). Quando o modo "só por ler" corre, o total da consulta é a
-  // contagem REAL — guardamo-la e é ela que manda no crachá dessa pasta a partir daí.
+  // The server counter can diverge from the actual content: a folder has shown "1 unread" with
+  // nothing unread in it. When "unread only" mode runs, the query total is the REAL count — we
+  // store it, and from then on it drives that folder's badge.
   const [realUnread, setRealUnread] = useState<Record<string, number>>({});
   useEffect(() => {
     if (!unreadOnly || !activeFolder || listQ.data === undefined || addrFilter) return;

@@ -29,7 +29,7 @@ export interface SyncStatus {
   pairs: SyncPair[];
 }
 
-// URL do servidor da sessão atual (igual ao usado no connect).
+// URL of the current session's server (same one used on connect).
 const serverUrl = (): string => API_BASE || window.location.origin;
 
 export const syncSupported = (): boolean => isTauri();
@@ -58,8 +58,8 @@ export const syncApi = {
   },
 
   /**
-   * Liga esta máquina à conta, se ainda não estiver: cria um token de dispositivo com a sessão
-   * atual (o utilizador não copia nada à mão).
+   * ensureConnected links this machine to the account, if it is not already: creates a device
+   * token using the current session (the user never copies anything by hand).
    */
   async ensureConnected(account: string): Promise<void> {
     const st = await syncApi.status(account);

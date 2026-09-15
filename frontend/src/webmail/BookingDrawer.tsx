@@ -7,8 +7,8 @@ import { Drawer } from "./Drawer";
 import { Switch } from "./Switch";
 import { toast } from "./toast";
 
-// Configuração da página pública de agendamento (estilo Calendly, 24/07/2026): janelas semanais,
-// duração, telefone/empresa obrigatórios ou não, e a URL pública para partilhar.
+// Public booking page configuration (Calendly-style): weekly windows, meeting duration,
+// whether phone/company are required, and the public URL to share.
 const mm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const toMin = (v: string) => { const [h, m] = v.split(":").map(Number); return (h || 0) * 60 + (m || 0); };
 

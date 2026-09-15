@@ -1,6 +1,6 @@
-// Client tipado da NOSSA API (control plane) para as features de e-mail: IA, Kanban, calendário,
-// marcadores. Usa o cookie de sessão de webmail (POST /api/webmail/login). Same-origin via proxy.
-// O e-mail em si continua JMAP direto no Stalwart (ver jmap/).
+// Typed client for OUR API (control plane) for the mail features: AI, Kanban, calendar,
+// bookmarks. Uses the webmail session cookie (POST /api/webmail/login). Same-origin via proxy.
+// Email itself stays direct JMAP against Stalwart (see jmap/).
 
 import i18n from "../i18n";
 import { apiUrl, authHeaders, mediaUrl, notifyUnauthorized } from "../apiBase";
@@ -90,13 +90,13 @@ export interface Slot { starts_at: string; ends_at: string }
 export class ConflictError extends Error { conflicts: CalEvent[]; constructor(c: CalEvent[]) { super("conflict"); this.conflicts = c; } }
 
 export const backend = {
-  // Sessão do usuário final na nossa API (valida a credencial no Stalwart). Com 2º fator, devolve
-  // mfa_required + challenge (sem token) — o 2º passo é mfaVerify.
+  // End-user session on our API (validates the credential against Stalwart). With a second
+  // factor, returns mfa_required + challenge (no token) — the second step is mfaVerify.
   login: (email: string, password: string) =>
     req<{ email?: string; name?: string; token?: string; mfa_required?: boolean; challenge?: string; methods?: string[] }>("/api/webmail/login", {
       method: "POST", body: JSON.stringify({ email, password }),
     }),
-  // 2º passo do login: troca o desafio + código (TOTP/SMS/recuperação) por uma sessão.
+  // Second step of login: exchanges the challenge + code (TOTP/SMS/recovery) for a session.
   mfaVerify: (challenge: string, code: string) =>
     req<{ token: string }>("/api/auth/mfa/verify", {
       method: "POST", body: JSON.stringify({ challenge, code }),
