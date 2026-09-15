@@ -20,3 +20,4 @@ __pycache__/
 
 # Build caches
 *.tsbuildinfo
+dist/
