@@ -5,7 +5,7 @@ name: CI
 # verificado com cargo check num job à parte para não bloquear o essencial.
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 permissions:
@@ -26,6 +26,18 @@ jobs:
           base="${{ github.event.pull_request.base.sha || github.event.before }}"
           [ -n "$base" ] && [ "$base" != "0000000000000000000000000000000000000000" ] || base="HEAD~1"
           python3 scripts/check_laws.py --base "$base"
+  secrets:
+    name: Secret scanning (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.7"
+      - run: go install github.com/zricethezav/gitleaks/v8@v8.24.3
+      - run: "$(go env GOPATH)/bin/gitleaks" git --redact --no-banner --config .gitleaks.toml .
   backend:
     name: Backend (Go)
     runs-on: ubuntu-latest

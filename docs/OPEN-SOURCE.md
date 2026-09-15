@@ -183,7 +183,7 @@ O que impede a publicação tal como está:
 ### 3.1 Três camadas, dois repositórios
 
 ```
-github.com/beskos/beskos            (público, BUSL-1.1 + ee/ comercial)
+github.com/beskosorg/beskos         (público, BUSL-1.1 + ee/ comercial)
 ├── backend/                         núcleo Go
 │   └── ee/                          Pro: só compila com -tags pro
 ├── frontend/                        webmail + painel
@@ -192,7 +192,7 @@ github.com/beskos/beskos            (público, BUSL-1.1 + ee/ comercial)
 ├── deploy/                          docker-compose de referência (self-hosted)
 └── docs/                            em inglês
 
-github.com/beskos/beskos-cloud      (privado)
+github.com/beskosorg/beskos-cloud   (privado)
 ├── manager/ + cmd/manager-api       consola do operador
 ├── billing Stripe, signup, waitlist, metering, SES por tenant
 ├── licensing/                       emissão e renovação de chaves Pro
@@ -200,7 +200,7 @@ github.com/beskos/beskos-cloud      (privado)
 ```
 
 Regra: **o repositório privado importa o público, nunca ao contrário.** `beskos-cloud` é um módulo
-Go que depende de `github.com/beskos/beskos/backend` e acrescenta os seus binários. Assim o
+Go que depende de `github.com/beskosorg/beskos/backend` e acrescenta os seus binários. Assim o
 produto público continua a ser exatamente o que corremos em produção.
 
 ### 3.2 Distribuição das funcionalidades (proposta a validar)
@@ -307,7 +307,7 @@ defaults do Cloud.
   `httpapi/admin`), mantendo `httpapi` só com servidor, middleware e router.
 - **Testes:** `auth`, `chat`, `config`, `mailbox` ganham `_test.go`; cobertura mínima no CI (70 % nos
   pacotes de regra de negócio, medida com `go test -cover`).
-- **Nomes:** módulo `github.com/beskos/beskos/backend`; crate `beskos-sync`; `package.json`
+- **Nomes:** módulo `github.com/beskosorg/beskos/backend`; crate `beskos-sync`; `package.json`
   `beskos-web`.
 - **Ferramentas:** `golangci-lint` (errcheck, gosec, staticcheck, revive, misspell), `eslint` +
   `typescript-eslint` no frontend, `cargo clippy -D warnings`. Tudo no CI.
@@ -357,7 +357,7 @@ documentação, sem perguntar nada (testar com alguém de fora).
 ### F7 — Infraestrutura do projeto aberto (2 semanas)
 
 - Releases semver com **GoReleaser**: binários linux/darwin amd64+arm64, imagens multi-arch em
-  `ghcr.io/beskos/{api,worker,web}`, assinadas com **cosign**, SBOM (syft) anexado.
+  `ghcr.io/beskosorg/{api,worker,web}`, assinadas com **cosign**, SBOM (syft) anexado.
 - Tag `vX.Y.Z` cria a release; `main` gera imagem `edge`.
 - Templates de issue (bug, feature, segurança redireciona para `SECURITY.md`), template de PR,
   labels `good first issue`/`help wanted`, GitHub Discussions, roadmap público (GitHub Projects).
@@ -442,10 +442,13 @@ Exemplo real, `internal/billing/plans.go`:
 
 1. ~~Licença do núcleo~~ **Decidido 2026-09-15: BUSL-1.1 com licenciamento dual** (§1.2 e §1.2.1). Falta a revisão jurídica do *Additional Use Grant* e do contrato comercial.
 1b. **Preço da Commercial License:** percentagem de receita ou por utilizador final; mínimo anual.
-2. **Nome da organização GitHub** e do repositório (`beskos/beskos`), e se o nome interno
-   `mailin` desaparece de todo o lado.
+2. ~~Nome da organização~~ **Decidido 2026-09-15: `beskosorg`**, repositórios `beskosorg/beskos`
+   (público na F9, privado até lá) e `beskosorg/beskos-cloud` (privado). Ambos criados. O nome
+   interno `mailin` desaparece na F4.
 3. **Tabela Community/Pro** (§3.2): aprovar, mover ou retirar linhas.
-4. **Histórico:** publicar com histórico novo (recomendado) ou com os 217 commits.
+4. ~~Histórico~~ **Decidido 2026-09-15: histórico novo.** O repositório atual continua a ser o de
+   trabalho até ao fim da F2 e passa então a `beskos-cloud`; o público nasce por exportação
+   (`scripts/export_public.py`) num único commit inicial.
 5. **Pro:** mínimo de lugares por chave; validade 12 meses; tolerância 14 dias.
 6. **Telemetria** opt-in: sim ou não.
 7. **Pentest externo:** orçamento e data.

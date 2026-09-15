@@ -17,3 +17,6 @@ frontend/dist/
 
 # Python bytecode from scripts/
 __pycache__/
+
+# Build caches
+*.tsbuildinfo
