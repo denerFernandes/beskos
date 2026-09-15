@@ -53,7 +53,7 @@ that once, idempotently, against a new instance (see
   a partial subset, or it destroys the login it was meant to update.
 - Tying to a version-specific admin protocol means a Stalwart upgrade can move the ground again.
   `deploy/DIVERGENCES.md` is the place that gets updated when it does, and this project pins the
-  Stalwart image version deliberately (`docker-compose.community.yml`) rather than tracking
+  Stalwart image version deliberately (`docker-compose.yml`) rather than tracking
   `:latest`.
 - Anyone integrating against a different Stalwart version should trust what the running server
   does over what this ADR or any other document claims, and send a pull request updating the

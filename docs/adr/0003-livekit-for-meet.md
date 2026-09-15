@@ -20,7 +20,7 @@ writing a media pipeline.
 ## Decision
 
 Run `livekit-server` and `livekit/egress` as their own containers
-(`deploy/docker-compose.community.yml`), unmodified, reached only over the network -- the same
+(`deploy/docker-compose.yml`), unmodified, reached only over the network -- the same
 rule as every other embedded service in this project. `internal/config.Config` carries:
 
 - `LiveKitURL` -- the WebSocket address the **browser** connects to for the call itself.

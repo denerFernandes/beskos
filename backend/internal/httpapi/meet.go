@@ -289,7 +289,7 @@ func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	room := strings.TrimSpace(req.Room)
 	if room == "" {
-		room = "mailin-" + uuid.NewString()[:8]
+		room = "beskos-" + uuid.NewString()[:8]
 	}
 	// Toda sala tem registro (dono = quem cria/entra primeiro). É o que dá organizador,
 	// controles e acesso também para salas ad-hoc (ex.: chamada iniciada no chat).

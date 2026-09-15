@@ -189,10 +189,14 @@ func (c *Config) validateProduction() error {
 	checkSecret("ONLYOFFICE_JWT_SECRET", c.OnlyOfficeJWTSecret, c.OnlyOfficeURL != "")
 	checkSecret("DOC_TOKEN_SECRET", c.DocTokenSecret, c.OnlyOfficeURL != "")
 	checkSecret("LIVEKIT_API_SECRET", c.LiveKitAPISecret, c.LiveKitURL != "")
-	// Conformidade AGPL §13: servimos um Document Server modificado, logo temos de dizer aos
-	// utilizadores onde está o fonte dessas modificações. Sem endereço, não subimos em produção.
-	if c.OnlyOfficeURL != "" && c.OnlyOfficeSourceURL == "" {
-		errs = append(errs, "ONLYOFFICE_SOURCE_URL is required in production (AGPL v3 §13: publish the modified Document Server source)")
+	// AGPL v3 §13 compliance: we serve a modified Document Server, so operators have to tell
+	// their own users where the modified source is. c.OnlyOfficeSourceURL is never empty --
+	// it falls back to defaultOfficeSourceURL, which names this project's own fork, not the
+	// operator's -- so the check reads the raw env var to require an explicit value, not the
+	// defaulted field, or an operator who never set it would silently ship a notice pointing
+	// their users at someone else's repository.
+	if c.OnlyOfficeURL != "" && os.Getenv("ONLYOFFICE_SOURCE_URL") == "" {
+		errs = append(errs, "ONLYOFFICE_SOURCE_URL is required in production (AGPL v3 §13: publish the modified Document Server source) -- point it at your own fork, not the upstream default")
 	}
 	if c.LiveKitURL != "" && knownDevSecrets[c.LiveKitAPIKey] {
 		errs = append(errs, "LIVEKIT_API_KEY uses a known dev default — set a real key")

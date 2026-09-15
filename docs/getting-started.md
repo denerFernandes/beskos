@@ -19,7 +19,7 @@ Edit `deploy/.env`: at minimum, set real values for `POSTGRES_PASSWORD`,
 local trial. See [docs/configuration.md](configuration.md) for what every variable does.
 
 ```bash
-docker compose -f deploy/docker-compose.community.yml --env-file deploy/.env up -d
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d
 ```
 
 The `api` container applies pending database migrations itself on startup -- there is nothing to
@@ -37,7 +37,7 @@ STALWART_URL=http://localhost:8080 STALWART_ADMIN_SECRET=<STALWART_ADMIN_SECRET>
 server needs a restart to pick the bootstrap up:
 
 ```bash
-docker compose -f deploy/docker-compose.community.yml restart stalwart
+docker compose -f deploy/docker-compose.yml restart stalwart
 ```
 
 ## First login
@@ -56,7 +56,7 @@ tenant automatically; there is no separate "create the first admin" step.
 
 ## Something not working?
 
-Check the container logs first: `docker compose -f deploy/docker-compose.community.yml logs -f
+Check the container logs first: `docker compose -f deploy/docker-compose.yml logs -f
 api worker stalwart`. A domain stuck in `dns_pending` almost always means the DNS records
 `GET /api/domains/{id}/dns/check` lists haven't propagated yet -- for local testing without real
 DNS, set `PROVISION_SKIP_DNS_VERIFY=true`. For anything else, open an issue with what you ran and

@@ -12,8 +12,8 @@ import (
 // Modelamos como passo de setup idempotente do control plane (não confundir com provisionar tenant).
 
 type BootstrapInput struct {
-	ServerHostname string // ex.: mail.mailin.app
-	DefaultDomain  string // ex.: mailin.app
+	ServerHostname string // ex.: mail.beskos.app
+	DefaultDomain  string // ex.: beskos.app
 }
 
 // BootstrapResult traz o admin permanente gerado (secret mostrado só uma vez).

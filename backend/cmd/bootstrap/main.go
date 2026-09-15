@@ -5,7 +5,7 @@
 // Uso:
 //
 //	STALWART_URL=... STALWART_ADMIN_ID=admin STALWART_ADMIN_SECRET=... \
-//	STALWART_HOSTNAME=mail.mailin.app STALWART_DEFAULT_DOMAIN=mailin.app \
+//	STALWART_HOSTNAME=mail.beskos.app STALWART_DEFAULT_DOMAIN=beskos.app \
 //	go run ./cmd/bootstrap
 package main
 
