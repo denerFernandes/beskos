@@ -10,7 +10,7 @@ English here; the canonical, longer version lives in [CLAUDE.md](CLAUDE.md).
   describing the change before writing a lot of code. A structural decision (a new dependency, a
   schema change, an authentication change) gets discussed there first.
 - **Contributor License Agreement.** A PR triggers a CLA check on first contribution. Beskos
-  ships under a dual-license model (see [docs/OPEN-SOURCE.md](docs/OPEN-SOURCE.md)): the CLA
+  ships under a dual-license model (see [docs/editions.md](docs/editions.md)): the CLA
   lets us offer commercial licenses that include your contribution, and lets us relicense the
   project if that ever becomes necessary (e.g. once a Business Source License version converts
   to Apache 2.0). Signing it does not transfer copyright; you keep it.
@@ -21,7 +21,7 @@ English here; the canonical, longer version lives in [CLAUDE.md](CLAUDE.md).
 git clone https://github.com/beskosorg/beskos.git
 cd beskos
 cp deploy/.env.example deploy/.env   # fill in the values you need
-docker compose -f deploy/docker-compose.yml up -d stalwart postgres minio
+docker compose -f deploy/docker-compose.community.yml up -d stalwart postgres minio
 cd backend && go run ./cmd/bootstrap   # first-time Stalwart setup
 go run ./cmd/api &
 go run ./cmd/worker &

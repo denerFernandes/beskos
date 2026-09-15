@@ -3,8 +3,8 @@
 # editing, video meetings). Nothing here talks to a Beskos-operated service -- this is meant to
 # run entirely on your own infrastructure. Copy deploy/.env.example to deploy/.env first.
 #
-# This file omits the operator console for Beskos's own hosted service (see the private cloud
-# repository in docs/OPEN-SOURCE.md); it has no purpose in a self-hosted instance.
+# This file omits the operator console for Beskos's own hosted service, which lives in a
+# private repository; it has no purpose in a self-hosted instance.
 name: beskos
 
 services:
@@ -158,7 +158,7 @@ services:
       APP_ENV: "${APP_ENV:-development}"
       # Encrypts the stored JMAP credential and TOTP secret at rest; required in production.
       MFA_ENC_KEY: "${MFA_ENC_KEY:-}"
-      # A Pro license key, if you have one -- see docs/OPEN-SOURCE.md. Unset = Community.
+      # A Pro license key, if you have one -- see docs/editions.md. Unset = Community.
       EDITION_LICENSE_KEY: "${EDITION_LICENSE_KEY:-}"
       EDITION_PUBLIC_KEY: "${EDITION_PUBLIC_KEY:-}"
     healthcheck:
@@ -220,7 +220,7 @@ services:
       - "7882:7882/udp"   # media
 
   # Valkey -- coordinates LiveKit and Egress (meeting recording). A same-protocol, permissively
-  # licensed fork of Redis (see docs/OPEN-SOURCE.md §1.3 for why this project uses it instead).
+  # licensed fork of Redis.
   redis:
     image: valkey/valkey@sha256:d2e18f3410b6f616de1417f570fa55261af2898b9c5b2cfb6781ce2373ea43d1
     container_name: beskos-redis

@@ -1,7 +1,7 @@
 # Trademark policy
 
-**Beskos** and the Beskos logo are trademarks of Beskos, Lda. (registration pending -- see
-docs/OPEN-SOURCE.md §6). [LICENSE.md](LICENSE.md) governs the code; it does not grant any right
+**Beskos** and the Beskos logo are trademarks of Beskos, Lda. (registration pending).
+[LICENSE.md](LICENSE.md) governs the code; it does not grant any right
 to the name or the logo. This is normal, and separate from most projects' license text (see the
 Business Source License's own trademark clause) -- it exists so a fork or a competing service
 cannot call itself Beskos and imply an endorsement that was never given.
@@ -23,7 +23,7 @@ cannot call itself Beskos and imply an endorsement that was never given.
 - Any use that could suggest your offering is official, endorsed, or maintained by Beskos, Lda.
   when it is not.
 
-A partner or OEM license under the [Commercial License](docs/OPEN-SOURCE.md#121-licenciamento-dual-o-servico-concorrente-compra-a-licenca-comercial)
+A partner or OEM license (see [docs/editions.md](docs/editions.md))
 can include specific trademark rights as part of its terms; ask at
 <https://beskos.com/licensing>.
 

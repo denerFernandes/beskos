@@ -1,6 +1,7 @@
 <!-- This file becomes README.md in the public export (scripts/export_public.py). It stays here,
      separate from the internal README.md, because that one still documents day-to-day status for
-     the team; see docs/OPEN-SOURCE.md §3.1. -->
+     the team. -->
+
 
 # Beskos
 
@@ -34,7 +35,7 @@ is ever permanently locked away.
 A handful of features that a business pays for without hesitation -- meeting recording,
 white-label branding, an audit log, organization-wide security policies, AI agents -- are Pro,
 at **€1 per user per month**. Everything else, including every security feature, is Community.
-See [docs/OPEN-SOURCE.md §3.2](OPEN-SOURCE.md) for the full split.
+See [docs/editions.md](editions.md) for the full split.
 
 ## Quickstart
 
