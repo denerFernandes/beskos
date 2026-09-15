@@ -239,8 +239,16 @@ def moved_pool(paths: list[str], base: str) -> set[str]:
 
 
 def changed_files(base: str) -> list[str]:
-    """Everything this working tree changes against `base`, tracked and not."""
-    out = [p for p in git("diff", "--name-only", base).split() if p]
+    """Everything this working tree changes against `base`, tracked and not.
+
+    --no-renames on purpose: git's default rename detection collapses a delete+add pair into one
+    line naming only the new path once similarity clears its threshold -- exactly what a file
+    split produces (backend/internal/httpapi/files_handlers.go -> files_crud.go was a 50% match,
+    so a plain `git diff --name-only` silently dropped the old name). moved_pool() below needs
+    the OLD path to still appear here so it can `git show base:<old path>` and recover the
+    content that moved -- without it, a split file's untouched lines get read as newly written.
+    """
+    out = [p for p in git("diff", "--no-renames", "--name-only", base).split() if p]
     out += [p for p in git("ls-files", "--others", "--exclude-standard").split() if p]
     return out
 
