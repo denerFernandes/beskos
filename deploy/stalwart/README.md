@@ -1,34 +1,35 @@
-# Configuração do Stalwart
+# Stalwart configuration
 
-Este ficheiro **substituiu um `config.toml`** que nunca foi lido por nada — nem em produção, nem em
-desenvolvimento. Ver [DIVERGENCES.md](../DIVERGENCES.md) §D9. Enquanto existiu, levou-me a planear
-uma migração de armazenamento que já estava feita há meses.
+This file **replaced a `config.toml`** that was never read by anything — not in production, not
+in development. See [DIVERGENCES.md](../DIVERGENCES.md) §D9. While it existed, it led me to plan
+a storage migration that had already been done months earlier.
 
-## O que este ficheiro é — e o que não é
+## What this file is — and what it isn't
 
-Na 0.16, o `--config` define **apenas onde vivem os dados**. Tudo o resto — listeners, TLS, ACME,
-domínios, DKIM, contas, filas, relay de saída — passou para um **registo** guardado dentro desse
-armazenamento, e edita-se pela interface de administração ou pela API.
+In 0.16, `--config` defines **only where the data lives**. Everything else — listeners, TLS, ACME,
+domains, DKIM, accounts, queues, outbound relay — moved into a **registry** stored inside that
+storage, and is edited through the admin interface or the API.
 
-Ou seja: **não se afina o Stalwart mexendo aqui.** Se procura onde mudar o relay de saída ou um
-listener, é no registo, não neste ficheiro.
+In other words: **you don't tune Stalwart by editing here.** If you're looking for where to change
+the outbound relay or a listener, it's in the registry, not in this file.
 
-## Formato
+## Format
 
-Foi reconstruído a martelar contra a imagem oficial, porque o esquema não está documentado.
-Duas armadilhas, ambas confirmadas com arranques reais:
+It was reconstructed by trial and error against the official image, because the schema isn't
+documented. Two pitfalls, both confirmed against real startups:
 
-- `@type` é **`PostgreSql`** (maiúsculas assim). As variantes aceites são `RocksDb`, `Sqlite`,
-  `FoundationDb`, `PostgreSql`, `MySql`.
-- O segredo é um enum etiquetado. Aqui usamos `EnvironmentVariable` + **`variableName`** — os nomes
-  `name`, `value`, `key` e `secret` dão todos *"Variable name cannot be empty"*. Com a variante
-  `Value`, o campo chama-se **`secret`**, e escrever `value` **não dá erro**: dá senha vazia e uma
-  falha de autenticação obscura do lado do Postgres.
+- `@type` is **`PostgreSql`** (capitalized exactly like that). The accepted variants are `RocksDb`,
+  `Sqlite`, `FoundationDb`, `PostgreSql`, `MySql`.
+- The secret is a tagged enum. Here we use `EnvironmentVariable` + **`variableName`** — the names
+  `name`, `value`, `key` and `secret` all produce *"Variable name cannot be empty"*. With the
+  `Value` variant, the field is called **`secret`**, and writing `value` **doesn't error**: it
+  produces an empty password and an obscure authentication failure on the Postgres side.
 
-A variante `EnvironmentVariable` é a que usamos de propósito — assim o segredo não vive no
-ficheiro (lei 2.6).
+The `EnvironmentVariable` variant is the one we use on purpose — that way the secret doesn't live
+in the file (law 2.6).
 
-## Produção
+## Production
 
-Em produção este ficheiro está em `/opt/beskos/stalwart/config.json` no VPS-1, montado no serviço
-de swarm `stalwart` como `/etc/stalwart/config.json`. **Produção não corre por `docker compose`.**
+In production this file lives at `/opt/beskos/stalwart/config.json` on VPS-1, mounted into the
+`stalwart` swarm service as `/etc/stalwart/config.json`. **Production doesn't run via
+`docker compose`.**

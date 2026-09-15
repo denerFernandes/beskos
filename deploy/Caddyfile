@@ -1,24 +1,25 @@
-# Reverse proxy same-origin de produção (obrigatório — Stalwart não envia CORS, DIVERGENCES §D7).
-# Serve o SPA React e repassa TUDO pela NOSSA API Go na mesma origem.
+# Production same-origin reverse proxy (mandatory — Stalwart doesn't send CORS, DIVERGENCES §D7).
+# Serves the React SPA and forwards EVERYTHING through OUR Go API on the same origin.
 #
-# IMPORTANTE (brokering H11): /jmap, /auth e /.well-known vão para a NOSSA API (control-plane), NÃO
-# direto ao Stalwart. A API autentica pela sessão do webmail e injeta a credencial Basic da caixa
-# server-to-server (ver backend/internal/httpapi/jmap_proxy.go); o browser nunca segura a senha da
-# caixa. Rotear /jmap direto ao Stalwart quebra o webmail (401 — o Stalwart não entende a nossa
-# sessão) e anula o brokering de segurança. Igual ao que o vite.config.ts faz em dev.
+# IMPORTANT (H11 brokering): /jmap, /auth and /.well-known go to OUR API (control-plane), NOT
+# straight to Stalwart. The API authenticates via the webmail session and injects the mailbox's
+# server-to-server Basic credential (see backend/internal/httpapi/jmap_proxy.go); the browser
+# never holds the mailbox password. Routing /jmap straight to Stalwart breaks the webmail (401 —
+# Stalwart doesn't understand our session) and defeats the security brokering. Same as what
+# vite.config.ts does in dev.
 #
-# Ajuste o domínio e os upstreams conforme o deploy.
+# Adjust the domain and upstreams to match the deployment.
 
 beskos.com {
 	encode gzip
 
-	# Control plane (nosso Go): API do painel/webmail.
+	# Control plane (our Go): panel/webmail API.
 	handle /api/* {
 		reverse_proxy control-plane:8000
 	}
 
-	# JMAP + OAuth + descoberta: passam pelo BROKER de credencial na nossa API, nunca direto ao
-	# Stalwart (o brokering tem de estar sempre no caminho, na web e no app nativo).
+	# JMAP + OAuth + discovery: go through the credential BROKER in our API, never straight to
+	# Stalwart (the brokering has to stay in the path, on the web and in the native app alike).
 	handle /jmap/* {
 		reverse_proxy control-plane:8000
 	}
@@ -29,7 +30,7 @@ beskos.com {
 		reverse_proxy control-plane:8000
 	}
 
-	# SPA (assets estáticos + fallback para index.html)
+	# SPA (static assets + fallback to index.html)
 	handle {
 		root * /srv/webapp
 		try_files {path} /index.html

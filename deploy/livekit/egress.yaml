@@ -1,5 +1,5 @@
-# LiveKit Egress — grava as reuniões (RoomComposite) e envia o MP4 ao MinIO (S3). Coordena com o
-# LiveKit via Redis. A config de S3 vai por requisição (endpoint minio:9000). Dev: insecure.
+# LiveKit Egress — records meetings (RoomComposite) and uploads the MP4 to MinIO (S3). Coordinates
+# with LiveKit via Redis. S3 config is passed per-request (endpoint minio:9000). Dev: insecure.
 redis:
   address: redis:6379
 api_key: devkey

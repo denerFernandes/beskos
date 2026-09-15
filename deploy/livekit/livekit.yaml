@@ -1,11 +1,11 @@
-# LiveKit server — dev local. Em produção: TLS/proxy, TURN e IPs/portas reais.
-# node_ip 127.0.0.1 faz o servidor anunciar candidatos ICE alcançáveis pelo browser na mesma
-# máquina (Docker Desktop encaminha as portas publicadas). Uma única porta UDP simplifica o publish.
+# LiveKit server — local dev. In production: TLS/proxy, TURN, and real IPs/ports.
+# node_ip 127.0.0.1 makes the server announce ICE candidates reachable by the browser on the same
+# machine (Docker Desktop forwards the published ports). A single UDP port simplifies publishing.
 port: 7880
-# Redis: coordena o Egress (gravação). Sem ele, gravação fica indisponível.
+# Redis: coordinates Egress (recording). Without it, recording is unavailable.
 redis:
   address: redis:6379
-# Sala encerra ~2min após ficar vazia → a reunião vira "ended" e a duração é calculada.
+# Room closes ~2min after becoming empty → the meeting turns "ended" and the duration is computed.
 room:
   empty_timeout: 120
   departure_timeout: 20
@@ -17,7 +17,7 @@ rtc:
   node_ip: 127.0.0.1
 keys:
   devkey: devsecret_livekit_change_me_0123456789
-# Webhooks server-to-server → nossa API (tempos reais/presença). api_key deve existir em keys.
+# Server-to-server webhooks → our API (real times/presence). api_key must exist in keys.
 webhook:
   api_key: devkey
   urls:
