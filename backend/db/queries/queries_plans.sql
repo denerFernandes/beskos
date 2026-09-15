@@ -1,5 +1,5 @@
--- Catálogo de planos (BD como fonte de verdade — manager M2). O PRODUTO só lê (com cache);
--- quem escreve é o manager-api. Ver docs/manager.md §4 ("regra de ouro").
+-- Plan catalog. The database is the source of truth; the product only reads it (with caching)
+-- and the manager-api is the only writer.
 
 -- name: ListPlans :many
 SELECT * FROM plans ORDER BY sort, key;

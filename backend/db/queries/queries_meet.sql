@@ -111,8 +111,8 @@ DELETE FROM meeting_breakouts WHERE meeting_id = @meeting_id;
 
 -- ===== Assistente de IA =====
 -- name: ListMyMeetingsPage :many
--- Página de reuniões do utilizador por balde (upcoming/past), com o total na própria linha
--- (COUNT OVER) — paginação server-side da home do Meet (24/07/2026).
+-- Page of the user's meetings by bucket (upcoming/past), with the total count on each row
+-- (COUNT OVER) for server-side pagination of the Meet home page.
 SELECT m.*, COALESCE(p.rsvp, '') AS my_rsvp, (m.owner_user_id = sqlc.arg(owner_user_id)) AS is_owner,
        COUNT(*) OVER() AS total
 FROM meetings m

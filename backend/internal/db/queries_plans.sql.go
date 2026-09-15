@@ -51,8 +51,8 @@ const listPlans = `-- name: ListPlans :many
 SELECT key, name, description, price_cents_per_user, min_users, max_users, apps_enabled, max_storage_gb, ai_tokens_per_window, meet_max_participants, meet_max_minutes, recording, recording_retention_days, max_daily_send, onlyoffice_edit, wiki_public_links, active, sort, created_at, updated_at, stripe_product_id, stripe_price_id, prices FROM plans ORDER BY sort, key
 `
 
-// Catálogo de planos (BD como fonte de verdade — manager M2). O PRODUTO só lê (com cache);
-// quem escreve é o manager-api. Ver docs/manager.md §4 ("regra de ouro").
+// Plan catalog. The database is the source of truth; the product only reads it (with caching)
+// and the manager-api is the only writer.
 func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 	rows, err := q.db.Query(ctx, listPlans)
 	if err != nil {
