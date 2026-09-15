@@ -272,8 +272,9 @@ func (s *Server) handleMyGroups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orEmpty(groups))
 }
 
-// handlePublicFileDownload serve o ficheiro por token, SEM sessão. O token é a autorização — não há
-// verificação de dono/tenant de propósito. Força download (nunca inline: conteúdo de terceiros).
+// handlePublicFileDownload serves the file by token, with NO session. The token is the
+// authorization — there is deliberately no owner/tenant check. Forces a download (never inline:
+// third-party content).
 func (s *Server) handlePublicFileDownload(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return

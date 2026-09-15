@@ -23,10 +23,10 @@ import (
 // implicit=true dials TLS straight away (no STARTTLS handshake).
 type Email struct {
 	host, port, from, user, pass string
-	// fromAddr é o endereço NU do remetente ("noreply@beskos.com"). O envelope SMTP (MAIL FROM) só
-	// aceita o endereço; com o nome incluído o servidor responde
-	// `501 5.1.8 Bad sender's system address` e nada é entregue (apanhado em produção, 28/07/2026).
-	// O cabeçalho From: continua a levar o nome, que é o que quem recebe vê.
+	// fromAddr is the BARE sender address ("noreply@beskos.com"). The SMTP envelope (MAIL FROM)
+	// only accepts the address; including the display name there makes the server respond
+	// `501 5.1.8 Bad sender's system address` and nothing gets delivered — caught in production.
+	// The From: header still carries the display name, which is what recipients see.
 	fromAddr string
 	insecure bool
 	implicit bool

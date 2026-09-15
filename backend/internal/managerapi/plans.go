@@ -15,9 +15,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Gestão de planos (M2, docs/manager.md §3.1/§5.3). Só operadores com role=admin escrevem;
-// viewer lê. Toda escrita audita (before/after quando aplicável). A "regra de ouro" (§4):
-// o manager escreve em `plans`, o produto só lê (com cache de 1 min — mudanças propagam sozinhas).
+// Plan management. Only operators with role=admin can write; viewers can read. Every write is
+// audited (before/after when applicable). The golden rule: the manager writes to `plans`, the
+// product only reads (with a 1-minute cache — changes propagate on their own).
 
 var planKeyRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,31}$`)
 

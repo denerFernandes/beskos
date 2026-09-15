@@ -15,10 +15,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Ausências (24/07/2026): day off (um dia) e férias (período) são eventos de DIA INTEIRO com
-// kind próprio. Por serem dia inteiro, o booking bloqueia-os automaticamente (BookingBusy inclui
-// all-day). Nas férias, o utilizador pode ligar a resposta automática da caixa — feita via JMAP
-// VacationResponse com a credencial DELE (a mesma do brokering; nunca a de admin).
+// Time off: a day off (single day) and vacation (a range) are ALL-DAY events with their own
+// kind. Being all-day, booking blocks them automatically (BookingBusy includes all-day). During
+// vacation, the user can turn on the mailbox's automatic reply — done via JMAP VacationResponse
+// with THEIR OWN credential (the same one from brokering; never an admin credential).
 
 type timeOffReq struct {
 	Kind         string `json:"kind"`      // dayoff | vacation
@@ -170,7 +170,7 @@ func (s *Server) setVacationResponse(r *http.Request, mu db.MailUser, from, unti
 		return fmt.Errorf("no mailbox credential")
 	}
 	ctx := r.Context()
-	// 1) Sessão: descobre o accountId primário de mail.
+	// 1) Session: find the primary mail accountId.
 	sreq, err := http.NewRequestWithContext(ctx, http.MethodGet, s.sw.BaseURL()+"/jmap/session", nil)
 	if err != nil {
 		return err

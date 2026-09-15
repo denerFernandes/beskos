@@ -11,8 +11,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Gestão de operadores do manager (M5, docs/manager.md §5.3). Admin-only nas escritas. Não há
-// convite por e-mail: o admin cria com senha temporária e o TOTP obrigatório completa no 1º login.
+// Manager operator management. Writes are admin-only. There is no email invitation: an admin
+// creates the account with a temporary password, and mandatory TOTP completes on first login.
 
 func (s *Server) handleListOperators(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.q.ListManagerUsers(r.Context())

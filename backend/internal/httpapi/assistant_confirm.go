@@ -17,12 +17,11 @@ import (
 // de falhar que a confirmação existe para impedir.
 const assistantConfirmWait = 5 * time.Minute
 
-// assistantConfirms guarda as ações à espera de decisão.
+// assistantConfirms holds actions waiting for a decision.
 //
-// Em memória de propósito: a execução da fase A2 é síncrona e vive dentro de um pedido HTTP, por
-// isso morre com o servidor de qualquer maneira. A espera DURÁVEL — a tarefa que fica "a aguardar
-// confirmação" mesmo depois de um reinício (§6.3) — pertence à fase A4, que é quando a execução
-// passa a viver no worker.
+// In-memory on purpose: execution today is synchronous and lives inside a single HTTP request, so
+// it dies with the server anyway. Durable waiting — a task that stays "awaiting confirmation" even
+// across a restart — only makes sense once execution moves to a background worker.
 type assistantConfirms struct {
 	mu      sync.Mutex
 	pending map[uuid.UUID]pendingConfirm

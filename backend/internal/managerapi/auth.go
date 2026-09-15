@@ -22,14 +22,14 @@ type loginReq struct {
 	Code     string `json:"code"` // código TOTP (vazio no 1º passo)
 }
 
-// handleLogin autentica um operador. TOTP é OBRIGATÓRIO (doc §1): sem enrollment, a senha correta
-// devolve o material de setup (secret + otpauth URI) e NENHUMA sessão é emitida até um código do
-// app ser confirmado. Fluxo num único endpoint:
+// handleLogin authenticates an operator. TOTP is MANDATORY: without enrollment, a correct password
+// returns the setup material (secret + otpauth URI) and NO session is issued until a code from the
+// app is confirmed. A single endpoint covers the whole flow:
 //
-//	senha ok + sem TOTP + sem code  -> 200 {totp_setup:true, secret, otpauth_uri}
-//	senha ok + sem TOTP + code      -> confirma enrollment e emite sessão
-//	senha ok + TOTP ativo + sem code-> 401 manager.totp_code_required
-//	senha ok + TOTP ativo + code    -> valida (anti-replay) e emite sessão
+//	password ok + no TOTP + no code     -> 200 {totp_setup:true, secret, otpauth_uri}
+//	password ok + no TOTP + code        -> confirms enrollment and issues a session
+//	password ok + TOTP active + no code -> 401 manager.totp_code_required
+//	password ok + TOTP active + code    -> validates (anti-replay) and issues a session
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	if !s.loginIP.allow("login:"+clientIP(r), now) {
@@ -80,8 +80,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	s.issueSession(w, r, u)
 }
 
-// loginEnroll trata o 1º login (senha já verificada): gera/reapresenta o segredo TOTP e, com um
-// código válido, confirma o enrollment e emite a primeira sessão.
+// loginEnroll handles the first login (password already verified): generates or re-presents the
+// TOTP secret, and with a valid code confirms enrollment and issues the first session.
 func (s *Server) loginEnroll(w http.ResponseWriter, r *http.Request, u db.ManagerUser, code string) {
 	if u.TotpSecret == "" || code == "" {
 		secret := ""
@@ -133,8 +133,8 @@ func (s *Server) loginEnroll(w http.ResponseWriter, r *http.Request, u db.Manage
 	s.issueSession(w, r, u)
 }
 
-// issueSession cria a sessão (token opaco), põe o cookie e responde com o operador. Aproveita
-// para podar sessões expiradas (housekeeping barato no caminho do login).
+// issueSession creates the session (opaque token), sets the cookie, and responds with the
+// operator. Also prunes expired sessions — cheap housekeeping on the login path.
 func (s *Server) issueSession(w http.ResponseWriter, r *http.Request, u db.ManagerUser) {
 	token, err := auth.NewSessionToken()
 	if err != nil {
@@ -178,7 +178,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 
-// auditUser regista uma ação de um ManagerUser (fora do middleware de sessão, ex.: login).
+// auditUser logs an action for a ManagerUser, outside the session middleware (e.g. login).
 func (s *Server) auditUser(ctx context.Context, u db.ManagerUser, action, target string) {
 	s.audit(ctx, db.GetManagerSessionRow{ID: u.ID, Email: u.Email}, action, target, nil)
 }

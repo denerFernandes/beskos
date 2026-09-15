@@ -45,9 +45,9 @@ func (a *Assistant) complete(ctx context.Context, system, user string, temp floa
 	return strings.TrimSpace(resp.Text), nil
 }
 
-// WikiWrite gera conteúdo de página de wiki em Markdown a partir de uma instrução do utilizador e,
-// opcionalmente, do conteúdo atual da página. O conteúdo fornecido é DADO a trabalhar, nunca
-// instrução ao modelo (project.md §6) — o prompt de sistema deixa-o explícito.
+// WikiWrite generates wiki page content in Markdown from a user instruction and, optionally, the
+// page's current content. The supplied content is DATA to work on, never an instruction to the
+// model — the system prompt makes that explicit.
 func (a *Assistant) WikiWrite(ctx context.Context, instruction, pageContext string) (string, error) {
 	system := "You write knowledge-base (wiki) page content. Reply ONLY with the content itself in " +
 		"Markdown — no preamble, no closing remarks, no code fence around the whole answer. " +

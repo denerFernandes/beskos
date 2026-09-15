@@ -4,9 +4,8 @@ package billing
 
 import "fmt"
 
-// Plan é uma faixa de assinatura. O preço é POR USUÁRIO/mês (por seat).
-// Desde a M2 do manager a fonte de verdade é a tabela `plans` (editável no painel do operador);
-// o catálogo em código abaixo é o FALLBACK (tabela vazia/erro) e o seed da migração 00101.
+// Plan is a subscription tier. Prices are per seat per month; the plans table
+// is the source of truth and this catalog is the fallback when it is empty.
 type Plan struct {
 	ID                  string `json:"id"`
 	Name                string `json:"name"`
@@ -17,7 +16,7 @@ type Plan struct {
 	MaxMeetParticipants int    `json:"max_meet_participants"` // teto de participantes por sala de vídeo
 	PriceCentsPerUser   int    `json:"price_cents_per_user"`  // por usuário, por mês (na moeda configurada)
 
-	// Knobs do manager (docs/manager.md §3.1). Zero/vazio = sem restrição/default do produto.
+	// Operator-configurable knobs. Zero or empty means no restriction / product default.
 	MinUsers          int      `json:"min_users"`
 	AppsEnabled       []string `json:"apps_enabled"`         // vazio = todas as apps do rail
 	AITokensPerWindow int      `json:"ai_tokens_per_window"` // quota IA da janela 6h (0 = default)
@@ -28,14 +27,15 @@ type Plan struct {
 	WikiPublicLinks   bool     `json:"wiki_public_links"`
 	IsActive          bool     `json:"active"` // planos inativos não aceitam novos tenants
 
-	// Espelho na Stripe (24/07/2026): quando preenchido, checkout/troca usam este price em vez de
-	// price_data inline — a gestão (faturas, relatórios, portal) fica toda na Stripe.
+	// StripePriceID mirrors this plan in Stripe: when set, checkout and plan changes use this
+	// price instead of inline price_data, so invoicing, reporting, and the billing portal stay
+	// in Stripe.
 	StripePriceID string `json:"stripe_price_id,omitempty"`
-	// Prices: preço por moeda ({"USD":1900,...}, em cêntimos). PriceCentsPerUser é o da moeda BASE.
+	// Prices holds the price per currency ({"USD":1900,...}, in cents). PriceCentsPerUser is the
+	// price in the BASE currency.
 	Prices map[string]int `json:"prices,omitempty"`
-	// Currency: moeda EFETIVA do preço apresentado (via PriceFor). Vai no JSON para a UI nunca
-	// formatar um preço com a moeda de outro plano (bug 24/07/2026: Growth sem BRL mostrava
-	// R$ com valor em USD).
+	// Currency is the EFFECTIVE currency of the displayed price (via PriceFor). It travels in the
+	// JSON so the UI never formats a price using another plan's currency.
 	Currency string `json:"currency,omitempty"`
 }
 
@@ -64,9 +64,9 @@ func RangeLabel(min, max int) string {
 
 const GB = 1 << 30
 
-// plans é o catálogo de FALLBACK (a fonte de verdade é a tabela `plans`; ver planFromRow).
-// Feature-tiers (25/07/2026): moeda base USD, o preço SOBE conforme os recursos. Enterprise
-// ("fale conosco") não entra aqui — é só marketing na landing, sem checkout self-serve.
+// plans is the FALLBACK catalog (the source of truth is the `plans` table; see planFromRow).
+// Feature tiers: base currency is USD, and price goes up with the feature set. The Enterprise
+// tier ("contact us") is not listed here — it is landing-page marketing only, no self-serve checkout.
 var plans = []Plan{
 	{ID: "trial", Name: "Trial", MailboxRange: "até 3", MaxMailboxes: 3, MaxStorageBytes: 5 * GB, MaxDailySend: 200, MaxMeetParticipants: 5, PriceCentsPerUser: 0,
 		Recording: "none", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},

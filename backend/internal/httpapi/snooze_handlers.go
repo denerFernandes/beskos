@@ -7,8 +7,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Snooze: o cliente move a mensagem para a pasta "Snoozed" (JMAP, com a própria sessão) e regista aqui
-// a hora de despertar. O worker devolve-a à Caixa de entrada em wake_at, mesmo com o app fechado.
+// Snooze: the client moves the message to the "Snoozed" folder (JMAP, with its own session) and
+// records the wake time here. The worker returns it to the Inbox at wake_at, even with the app closed.
 func (s *Server) handleSnoozeEmail(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req struct {

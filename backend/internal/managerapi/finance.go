@@ -8,10 +8,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Finanças (M4, docs/manager.md §5): MRR/ARR/ARPU a partir do catálogo de planos × utilizadores
-// (receita CONTRATADA — a conciliação com o billing real fica para quando o Stripe estiver vivo),
-// custo variável estimado por driver (modelo editável) e margem por tenant. Estimativa ≠ fatura
-// (doc §8): a UI marca como estimativa.
+// Finance: MRR/ARR/ARPU derived from the plan catalog times active users (CONTRACTED revenue —
+// reconciliation with actual billing waits until Stripe is live), estimated variable cost per
+// driver (an editable model), and per-tenant margin. An estimate is not an invoice: the UI marks
+// it as an estimate.
 
 // costModel são as tarifas em CENTS. Billable seats = utilizadores atuais (sem mínimo por plano —
 // registado no doc; o mínimo cobrado entra com o billing real).
@@ -98,7 +98,7 @@ func (s *Server) handleFinance(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"summary": summary, "tenants": tenants})
 }
 
-// computeFinance é a conta em si (partilhada com o export CSV da M5).
+// computeFinance is the calculation itself, shared with the CSV export.
 func (s *Server) computeFinance(ctx context.Context) (map[string]any, []tenantFinance, error) {
 	rows, err := s.q.ManagerFinanceRows(ctx)
 	if err != nil {

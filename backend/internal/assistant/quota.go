@@ -2,11 +2,11 @@ package assistant
 
 import "time"
 
-// QuotaWindow é a janela deslizante da quota comercial (§9.2). Seis horas, que se renovam sozinhas:
-// o que se gastou há mais de seis horas já não conta.
+// QuotaWindow is the sliding window for the commercial token quota. Six hours, self-renewing:
+// spend older than six hours no longer counts.
 //
-// Não confundir com o teto de passos por execução (§9.1): esse é segurança, aplica-se sempre e vive
-// no motor desde a A0. Este é comercial, e é o que virá a distinguir os planos.
+// Not to be confused with the per-run step cap: that one is a safety limit, always applied, and
+// built into the engine itself. This one is commercial, and is what will differentiate plans.
 const QuotaWindow = 6 * time.Hour
 
 // DefaultQuotaTokens é o teto de tokens por utilizador na janela, quando nada o configura. Um valor

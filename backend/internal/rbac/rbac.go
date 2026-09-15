@@ -25,9 +25,10 @@ const (
 	PermBillingManage Permission = "billing.manage" // trocar plano, portal, cancelar
 	PermUsageView     Permission = "usage.view"
 	PermTenantDelete  Permission = "tenant.delete"
-	// org.settings era o balde de tudo o que fosse "da organização" — marca, apps, política de
-	// segurança, comunicados, assistente e home da wiki. Partido para dar para confiar a alguém uma
-	// coisa sem lhe entregar as outras (era o pedido: permissões mais granulares, 27/07/2026).
+	// org.settings used to be the catch-all bucket for anything "organization-level" — branding,
+	// apps, security policy, announcements, assistant, and the wiki home. Split apart so one of
+	// those can be entrusted to someone without handing over the rest, per the request for
+	// finer-grained permissions.
 	PermOrgBranding     Permission = "org.branding"      // marca/aparência e apps visíveis
 	PermOrgSecurity     Permission = "org.security"      // política de segurança (MFA, sessões)
 	PermAnnouncements   Permission = "org.announcements" // comunicados internos
@@ -50,10 +51,10 @@ const (
 var rolePermissions = map[Role]map[Permission]bool{
 	RoleOwner:         allPerms(),
 	RoleInternalAdmin: allPerms(),
-	// Admin tem TUDO, por decisão do produto (27/07/2026): quem é admin da organização não deve
-	// esbarrar em permissões. A hierarquia continua a valer noutra dimensão — o rank impede um admin
-	// de mexer num owner (CanManage), e uma permissão pode sempre ser retirada a UMA pessoa concreta
-	// pelas exceções por membro. O que desapareceu foi o teto por papel.
+	// Admin has EVERYTHING, by product decision: an organization admin should not run into
+	// permission walls. The hierarchy still matters on another axis — rank stops an admin from
+	// touching an owner (CanManage), and a permission can still be revoked from one specific
+	// person via per-member exceptions. What went away was the ceiling by role.
 	RoleAdmin: allPerms(),
 	RoleMember: set(
 		PermDomainsView, PermUsageView,

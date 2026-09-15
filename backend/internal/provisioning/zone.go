@@ -5,14 +5,14 @@ import (
 	"strings"
 )
 
-// AugmentZoneForSES prepara a zona do cliente em modo WHITE-LABEL: o SES assina via BYODKIM (chave
-// nossa), por isso o cliente publica só um TXT DKIM genérico (a nossa chave pública num seletor da
-// marca) — SEM qualquer referência ao amazonses nos registos do domínio APEX. O SPF passa a incluir
-// `_spf.<brand>` (que na NOSSA zona embrulha o include:amazonses.com), e há um DMARC com rua na nossa
-// marca. Emite ainda o custom MAIL FROM em `bounce.<domínio>` (MX + SPF) — é o ÚNICO ponto que
-// referencia o amazonses, e só no subdomínio de bounce; sem ele o "enviado por" do destinatário
-// mostraria o amazonses (decisão 25/07/2026, ver DIVERGENCES). O DMARC alinha por DKIM+SPF.
-// Idempotente. mailFromHost = "bounce.<domínio>", mailFromMX = "feedback-smtp.<região>.amazonses.com".
+// AugmentZoneForSES prepares the client's zone in WHITE-LABEL mode: SES signs via BYODKIM (our own
+// key), so the client publishes only a generic DKIM TXT record (our public key under a
+// brand-specific selector) — with NO reference to amazonses anywhere in the APEX domain's records.
+// SPF is extended to include `_spf.<brand>` (which, in OUR zone, wraps include:amazonses.com), and
+// DMARC carries our brand. It also emits the custom MAIL FROM at `bounce.<domain>` (MX + SPF) — the
+// ONLY place that references amazonses, and only in the bounce subdomain; without it, the
+// recipient's "sent by" would show amazonses. DMARC aligns on DKIM+SPF.
+// Idempotent. mailFromHost = "bounce.<domain>", mailFromMX = "feedback-smtp.<region>.amazonses.com".
 func AugmentZoneForSES(zone, domain, selector, publicKey, brand, mailFromHost, mailFromMX string) string {
 	spfInclude := "include:_spf." + brand
 	lines := strings.Split(strings.TrimRight(zone, "\n"), "\n")

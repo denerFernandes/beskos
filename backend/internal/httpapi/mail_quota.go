@@ -14,9 +14,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Limite diário de envio por plano (docs/manager.md §4) + medição (tenant_mail_sent). Conta
-// DESTINATÁRIOS (como o SES cobra). Três caminhos de envio passam por aqui: outbox (criação +
-// worker), assistente (SendEmail) e JMAP EmailSubmission/set direto (interceptado no proxy).
+// Daily send limit per plan, plus metering (tenant_mail_sent). Counts RECIPIENTS (the way SES
+// bills). Three send paths go through here: outbox (creation + worker), the assistant
+// (SendEmail), and direct JMAP EmailSubmission/set (intercepted in the proxy).
 
 // mailSendAllowed diz se o tenant ainda pode enviar para n destinatários hoje. Limite 0 = sem
 // teto. Erro de leitura NÃO bloqueia (fail-open: quota comercial, não barreira de segurança —

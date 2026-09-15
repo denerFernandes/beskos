@@ -14,14 +14,15 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/auth"
 )
 
-// handlePublicDocSession abre uma sessão pública (SEM login) de um ficheiro por token de link. Para
-// ficheiros office devolve a config do OnlyOffice; o utilizador é ANÓNIMO (nome aleatório, ou o que o
-// cliente passar já traduzido). O modo (ver/editar) e a descarga vêm do link, não do pedido.
+// handlePublicDocSession opens a public session (no login) for a file via a link token. For
+// office files it returns the OnlyOffice config; the user is ANONYMOUS (a random name, or one the
+// client already translated). The mode (view/edit) and downloadability come from the link, not
+// the request.
 //
-// Segurança: o token do link é a autorização (como no download público). A escrita anónima passa
-// pelo MESMO callback do OnlyOffice, com um token de doc cujo UserID é nulo — a nova versão conta na
-// quota/histórico do ficheiro (do dono) e não é atribuída a ninguém. A rota é limitada por rate-limit
-// (publicRateLimit) para travar abuso e força-bruta à senha.
+// Security: the link token is the authorization (as with public downloads). Anonymous writes go
+// through the SAME OnlyOffice callback, with a doc token whose UserID is null — the new version
+// counts against the file owner's quota/history and isn't attributed to anyone. The route is
+// rate-limited (publicRateLimit) to curb abuse and password brute-forcing.
 func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) {
 	if s.office == nil {
 		writeErr(w, http.StatusServiceUnavailable, "files.editing_disabled")

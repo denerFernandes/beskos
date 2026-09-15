@@ -49,9 +49,9 @@ func (s *Server) buildAssistant() *assistant.Engine {
 		WithConfirmer(s.confirms)
 }
 
-// assistantMailAccess abre a caixa do utilizador AUTENTICADO. O par (user, tenant) vem da Identity,
-// que por sua vez vem da sessão — nunca de argumentos do modelo (§6.2, lei 5.1). A consulta filtra
-// por tenant de propósito: mesmo com um user_id correto, um tenant errado não devolve nada.
+// assistantMailAccess opens the AUTHENTICATED user's mailbox. The (user, tenant) pair comes from
+// the Identity, which in turn comes from the session — never from model-supplied arguments. The
+// query filters by tenant on purpose: even with a correct user_id, the wrong tenant returns nothing.
 func (s *Server) assistantMailAccess(ctx context.Context, id assistant.Identity) (assistant.MailBox, error) {
 	mu, err := s.q.GetMailUserInTenant(ctx, db.GetMailUserInTenantParams{ID: id.UserID, TenantID: id.TenantID})
 	if err != nil {
@@ -75,7 +75,7 @@ type recordingMailBox struct {
 }
 
 func (b recordingMailBox) SendEmail(ctx context.Context, d mailbox.Draft) (string, error) {
-	// Limite diário de envio do plano (docs/manager.md §4) vale também para o assistente.
+	// The plan's daily send limit also applies to the assistant.
 	rcpts := len(d.To) + len(d.Cc)
 	if !b.s.mailSendAllowed(ctx, b.id.TenantID, rcpts) {
 		return "", fmt.Errorf("daily send limit reached for this plan")
@@ -152,7 +152,7 @@ func (a assistantAudit) Record(ctx context.Context, e assistant.AuditEntry) erro
 	if len(args) == 0 || !json.Valid(args) {
 		args = json.RawMessage("{}")
 	}
-	// Conversa vazia fica NULL: uma execução sem fio (como as da A0) não inventa um id de zeros.
+	// An empty conversation stays NULL: a run with no thread doesn't invent a zero id.
 	conv := pgtype.UUID{}
 	if e.ConversationID != (uuid.UUID{}) {
 		conv = pgtype.UUID{Bytes: e.ConversationID, Valid: true}
@@ -214,9 +214,9 @@ func (s *Server) assistantTaskCreate(ctx context.Context, id assistant.Identity,
 	if err != nil {
 		return assistant.TaskRef{}, fmt.Errorf("card number: %w", err)
 	}
-	// Responsável (pedido 23/07/2026: "task para o Bob" tem de atribuir MESMO ao Bob): resolve o
-	// nome/e-mail entre os colegas do tenant. Ambíguo ou inexistente → erro claro (o modelo
-	// pergunta ou corrige) em vez de criar a task sem dono em silêncio.
+	// Assignee: "task for Bob" must assign to the actual Bob — resolve the name/email against the
+	// tenant's colleagues. Ambiguous or unknown → a clear error (the model asks or corrects)
+	// instead of silently creating an unowned task.
 	assigneeID := pgtype.UUID{}
 	assigneeName := ""
 	if want := strings.TrimSpace(t.Assignee); want != "" {
@@ -341,8 +341,8 @@ func (s *Server) assistantContactsSearch(ctx context.Context, id assistant.Ident
 	}
 	q := strings.ToLower(strings.TrimSpace(query))
 	out := make([]assistant.ContactHit, 0, limit)
-	// Colegas primeiro: "Bob" quase sempre é alguém da organização, e pode não estar na agenda
-	// pessoal (23/07/2026: o assistente não resolvia colegas). Mesmo padrão do InviteePicker.
+	// Colleagues first: "Bob" is almost always someone in the organization, and may not be in the
+	// user's personal contacts. Same pattern as InviteePicker.
 	seen := map[string]bool{}
 	if cols, cerr := s.q.ListColleagues(ctx, id.TenantID); cerr == nil {
 		for _, c := range cols {

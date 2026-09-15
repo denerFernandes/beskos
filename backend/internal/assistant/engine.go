@@ -68,8 +68,8 @@ type AuditSink interface {
 type AuditEntry struct {
 	Identity Identity
 	RunID    uuid.UUID
-	// ConversationID é o fio onde a chamada aconteceu. Zero quando a execução não tem conversa —
-	// a A0 corria assim e as suas linhas continuam válidas.
+	// ConversationID is the thread the call happened in. Zero when the run has no conversation —
+	// early runs worked this way and their rows remain valid.
 	ConversationID uuid.UUID
 	Agent          string
 	Tool           string
@@ -131,8 +131,8 @@ func (e *Engine) Run(ctx context.Context, id Identity, ag Agent, userMessage str
 	return e.RunStream(ctx, id, ag, RunOptions{Message: userMessage}, nil)
 }
 
-// RunStream executa um turno completo. ag é o perfil JÁ escolhido: o encaminhamento automático
-// (fase A3) decide-se antes daqui, a partir da mensagem do utilizador, e nunca a meio (§3.2).
+// RunStream executes one full turn. ag is the profile already chosen: automatic routing decides
+// it before this call, from the user's message, and never mid-run.
 //
 // emit, quando não é nil, recebe os eventos à medida que acontecem — pedaços de texto e cartões de
 // ação. É chamado em série, a partir desta goroutine: quem o passa não precisa de o proteger.
@@ -313,8 +313,8 @@ func (e *Engine) effectKey(tool Tool, args json.RawMessage, opts RunOptions) (st
 
 func msSince(t time.Time) int32 { return int32(time.Since(t).Milliseconds()) }
 
-// systemPrompt monta as instruções do sistema. A memória de factos (fase A6) entra aqui como
-// CONTEXTO, nunca como instruções — não pode conceder ferramentas nem aprovar ações (§6.5).
+// systemPrompt builds the system instructions. Long-term fact memory enters here as CONTEXT,
+// never as instructions — it cannot grant tools or approve actions.
 func systemPrompt(ag Agent, id Identity) string {
 	lang := id.Language
 	if lang == "" {

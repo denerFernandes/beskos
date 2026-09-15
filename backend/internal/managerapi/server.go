@@ -1,6 +1,6 @@
-// Package managerapi é a API HTTP do Manager — o painel do OPERADOR do SaaS (docs/manager.md).
-// Totalmente separada da httpapi do produto: utilizadores, sessões, cookie e porta próprios.
-// TOTP é obrigatório para todos os operadores; todo write gera linha em manager_audit.
+// Package managerapi is the Manager HTTP API — the SaaS OPERATOR's admin panel backend.
+// Fully separate from the product's httpapi: its own users, sessions, cookie, and port.
+// TOTP is mandatory for all operators; every write logs a row in manager_audit.
 package managerapi
 
 import (
@@ -68,40 +68,40 @@ func (s *Server) Router() http.Handler {
 			r.Use(s.requireSession)
 			r.Get("/me", s.handleMe)
 			r.Post("/logout", s.handleLogout)
-			// Visão read-only (M1).
+			// Read-only overview.
 			r.Get("/overview", s.handleOverview)
 			r.Get("/tenants", s.handleListTenants)
 			r.Get("/tenants/{id}", s.handleGetTenant)
-			// Metering (M3): rollup diário escrito pelo worker.
+			// Metering: daily rollup written by the worker.
 			r.Get("/tenants/{id}/usage", s.handleTenantUsage)
 			r.Get("/usage/series", s.handleUsageSeries)
 			r.Get("/alerts", s.handleAlerts)
 			r.Get("/deliverability", s.handleDeliverability)
-			// Relatórios + exports (M5).
+			// Reports and CSV exports.
 			r.Get("/reports/growth", s.handleGrowth)
 			r.Get("/export/tenants.csv", s.handleExportTenants)
 			r.Get("/export/usage.csv", s.handleExportUsage)
 			r.Get("/export/finance.csv", s.handleExportFinance)
-			// Operadores (M5). Escritas admin-only (checado nos handlers).
 			// The waiting list: who asked to be told, and the invitation.
 			r.Get("/waitlist", s.handleListWaitlist)
 			r.Post("/waitlist/{id}/invite", s.handleInviteWaitlist)
 			r.Post("/waitlist/{id}/status", s.handleSetWaitlistStatus)
 			r.Delete("/waitlist/{id}", s.handleDeleteWaitlist)
 
+			// Operators. Writes are admin-only, checked in the handlers.
 			r.Get("/operators", s.handleListOperators)
 			r.Post("/operators", s.handleCreateOperator)
 			r.Post("/operators/{id}/active", s.handleSetOperatorActive)
-			// Servidores (custo fixo por VPS). Escritas admin-only.
+			// Infra servers (fixed cost per VPS). Writes are admin-only.
 			r.Get("/servers", s.handleListServers)
 			r.Put("/servers", s.handleSaveServer)
 			r.Post("/servers/{id}/active", s.handleSetServerActive)
 			r.Delete("/servers/{id}", s.handleDeleteServer)
-			// Finanças (M4): resumo + margem por tenant; modelo de custos editável.
+			// Finance: summary and margin per tenant; the cost model is editable.
 			r.Get("/finance", s.handleFinance)
 			r.Get("/settings/costs", s.handleGetCosts)
 			r.Put("/settings/costs", s.handleSaveCosts)
-			// Planos (M2). Escritas exigem role=admin (checado no handler).
+			// Plans. Writes require role=admin, checked in the handler.
 			r.Get("/plans", s.handleListPlans)
 			r.Put("/plans", s.handleSavePlan)
 			r.Post("/plans/{key}/active", s.handleSetPlanActive)
@@ -112,7 +112,7 @@ func (s *Server) Router() http.Handler {
 	return r
 }
 
-// ---- sessão ----
+// ---- session ----
 
 type ctxKey string
 
@@ -124,7 +124,8 @@ func managerUserFrom(ctx context.Context) db.GetManagerSessionRow {
 	return u
 }
 
-// requireSession valida o cookie de sessão e injeta o operador no contexto. 401 sem sessão válida.
+// requireSession validates the session cookie and injects the operator into the context.
+// Responds 401 without a valid session.
 func (s *Server) requireSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(sessionCookie)
