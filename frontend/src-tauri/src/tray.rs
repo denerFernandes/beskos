@@ -76,12 +76,18 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
     let ico_err = trayimg!("../icons/tray/error.png");
     let ico_paused = trayimg!("../icons/tray/paused.png");
     let spinner: Vec<tauri::image::Image> = vec![
-        trayimg!("../icons/tray/sync-00.png"), trayimg!("../icons/tray/sync-01.png"),
-        trayimg!("../icons/tray/sync-02.png"), trayimg!("../icons/tray/sync-03.png"),
-        trayimg!("../icons/tray/sync-04.png"), trayimg!("../icons/tray/sync-05.png"),
-        trayimg!("../icons/tray/sync-06.png"), trayimg!("../icons/tray/sync-07.png"),
-        trayimg!("../icons/tray/sync-08.png"), trayimg!("../icons/tray/sync-09.png"),
-        trayimg!("../icons/tray/sync-10.png"), trayimg!("../icons/tray/sync-11.png"),
+        trayimg!("../icons/tray/sync-00.png"),
+        trayimg!("../icons/tray/sync-01.png"),
+        trayimg!("../icons/tray/sync-02.png"),
+        trayimg!("../icons/tray/sync-03.png"),
+        trayimg!("../icons/tray/sync-04.png"),
+        trayimg!("../icons/tray/sync-05.png"),
+        trayimg!("../icons/tray/sync-06.png"),
+        trayimg!("../icons/tray/sync-07.png"),
+        trayimg!("../icons/tray/sync-08.png"),
+        trayimg!("../icons/tray/sync-09.png"),
+        trayimg!("../icons/tray/sync-10.png"),
+        trayimg!("../icons/tray/sync-11.png"),
     ];
     let tray = TrayIconBuilder::with_id("beskos-sync")
         .icon(ico_base.clone())

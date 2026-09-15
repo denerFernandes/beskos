@@ -202,9 +202,8 @@ impl Index {
         let root = std::path::Path::new(abs_prefix);
         let ids: Vec<String> = {
             let mut stmt = conn.prepare("SELECT file_id, rel_path FROM files")?;
-            let rows = stmt.query_map([], |r| {
-                Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
-            })?;
+            let rows =
+                stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
             let mut v = Vec::new();
             for row in rows {
                 let (id, rp) = row?;
@@ -226,7 +225,10 @@ impl Index {
     pub fn clear(&self) -> Result<()> {
         let conn = self.lock();
         conn.execute("DELETE FROM files", [])?;
-        conn.execute("DELETE FROM meta WHERE key IN ('cursor','last_reconcile')", [])?;
+        conn.execute(
+            "DELETE FROM meta WHERE key IN ('cursor','last_reconcile')",
+            [],
+        )?;
         Ok(())
     }
 

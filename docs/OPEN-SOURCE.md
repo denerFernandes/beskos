@@ -305,6 +305,19 @@ ligado ao `Server` de `cmd/api` e `cmd/worker`; tipo `Edition` e `api.edition()`
 (`src/api.ts`). Build, `go vet`, testes do backend (35 pacotes) e `tsc --noEmit` do frontend
 verdes; `check_laws.py` limpo.
 
+**Achado ao corrigir o ramo do CI (F1):** o `ci.yml` nunca tinha realmente corrido — apontava
+para `main`, o repositório usa `master`. A primeira execução real revelou três avarias
+pré-existentes, nenhuma relacionada com este trabalho, escondidas há quem sabe quanto tempo por
+trás de um CI que parecia ligado e nunca correu (é o mesmo padrão da lei §2.8/§2.9, agora no
+próprio CI): `cargo fmt` por aplicar em `sync-daemon` e em `frontend/src-tauri` (corrigido);
+`npm ci` sem `--legacy-peer-deps` no job Frontend, que o `Makefile` já usa mas o workflow não
+(corrigido); e um teste (`assistant/api.test.ts`) que assumia o idioma detectado pt-BR e falhava
+sempre que o executor resolve `en` (o caso desta máquina e provavelmente o dos runners do
+GitHub) — corrigido fixando o idioma no `beforeEach`. Pendência nova, fora do âmbito desta
+correção: `sync-daemon` e `frontend/src-tauri` têm ~27 strings de UI em português (mensagens da
+bandeja do sistema) que não passam pelo i18next do frontend por serem Rust nativo — candidatas a
+`lang:ok` explícito ou a uma solução de i18n própria na F4/F6.
+
 Falta o grosso da F2: emitir chaves reais (repositório privado, ainda sem esse serviço — F8);
 mover `manager/`, `cmd/manager-api`, `internal/managerapi`, `cmd/ses-tenants` e a metering do
 worker para `beskos-cloud`; extrair as rotas de billing Stripe; ficheiros `ee_stub.go` e
