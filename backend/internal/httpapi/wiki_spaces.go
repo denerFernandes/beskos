@@ -132,7 +132,7 @@ func (s *Server) handleDeleteWikiSpace(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// B4: apagar wiki = dono do espaço OU admin da organização (papel RBAC do utilizador da sessão).
+	// Deleting a wiki requires being the space owner OR an organization admin (RBAC role of the session user).
 	isOrgAdmin := mu.Role == "owner" || mu.Role == "admin" || mu.Role == "internal_admin"
 	if err := s.wiki.DeleteSpace(r.Context(), mu.TenantID, mu.ID, id, isOrgAdmin); err != nil {
 		writeWikiErr(w, err)
