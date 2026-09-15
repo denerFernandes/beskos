@@ -183,8 +183,9 @@ func (s *Server) handleStopRecording(w http.ResponseWriter, r *http.Request) {
 // handleListRecordings lista as gravações do tenant, paginadas no servidor (home do Meet).
 func (s *Server) handleListRecordings(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
+	// Upper-bounded too: an unbounded page overflows the int32 offset below.
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
+	if page < 1 || page > 1_000_000 {
 		page = 1
 	}
 	per, _ := strconv.Atoi(r.URL.Query().Get("per"))
