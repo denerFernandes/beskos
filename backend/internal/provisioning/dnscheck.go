@@ -5,22 +5,23 @@ import (
 	"strings"
 )
 
-// Verificação DNS registo a registo, para a página de domínios poder dizer O QUE falta em vez de um
-// "à espera" mudo. É informativa: quem promove `dns_pending → dns_verified` continua a ser o
-// stepVerifyDNS (Verify), que só olha para o mínimo. Aqui olhamos para tudo o que mandámos publicar.
+// Record-by-record DNS verification, so the domains page can say WHAT is missing instead of a mute
+// "waiting". It's informational: whoever promotes `dns_pending → dns_verified` remains
+// stepVerifyDNS (Verify), which only looks at the minimum. Here we look at everything we asked to
+// be published.
 //
-// Não se compara texto a texto: um TXT de SPF publicado pelo cliente raramente é igual ao nosso
-// carácter a carácter (aspas, ordem dos mecanismos, um include a mais). Compara-se pelo que importa
-// em cada tipo — ver `matches`.
+// This does not compare text to text: an SPF TXT published by the customer is rarely identical to
+// ours character by character (quoting, mechanism order, one extra include). It compares what
+// matters for each type — see `matches`.
 
-// RecordStatus é o estado de um registo no DNS real.
+// RecordStatus is the state of a record in real DNS.
 const (
-	RecordOK       = "ok"       // publicado e a bater
-	RecordMissing  = "missing"  // não existe nada naquele host/tipo
-	RecordMismatch = "mismatch" // existe, mas não é o que devia
+	RecordOK       = "ok"       // published and matching
+	RecordMissing  = "missing"  // nothing exists at that host/type
+	RecordMismatch = "mismatch" // exists, but isn't what it should be
 )
 
-// RecordCheck é o resultado por registo: o que pedimos, o que está publicado e o veredito.
+// RecordCheck is the per-record result: what we asked for, what's published, and the verdict.
 type RecordCheck struct {
 	Host     string   `json:"host"`
 	Type     string   `json:"type"`
@@ -28,13 +29,14 @@ type RecordCheck struct {
 	Purpose  string   `json:"purpose"`
 	Found    []string `json:"found"`
 	Status   string   `json:"status"`
-	// Required diz se o correio deixa de funcionar sem este registo. MX/SPF/DKIM são obrigatórios;
-	// DMARC, MTA-STS, autodiscover e os SRV são recomendações — a página avisa, não bloqueia.
+	// Required says whether mail stops working without this record. MX/SPF/DKIM are mandatory;
+	// DMARC, MTA-STS, autodiscover, and the SRVs are recommendations — the page warns, doesn't block.
 	Required bool `json:"required"`
 }
 
-// CheckZone resolve cada registo da zona e devolve o estado de todos. Erros de resolução não são
-// fatais: um registo que não resolve é "missing", que é a informação útil para quem está a publicar.
+// CheckZone resolves every record in the zone and returns the state of all of them. Resolution
+// errors aren't fatal: a record that doesn't resolve is "missing", which is the useful information
+// for whoever is publishing.
 func (v *NetDNSVerifier) CheckZone(ctx context.Context, zone string) []RecordCheck {
 	recs := ParseZone(zone)
 	out := make([]RecordCheck, 0, len(recs))
@@ -58,7 +60,7 @@ func (v *NetDNSVerifier) CheckZone(ctx context.Context, zone string) []RecordChe
 	return out
 }
 
-// requiredPurpose separa o que é preciso para o correio funcionar do que é boa prática.
+// requiredPurpose separates what's needed for mail to work from what's just good practice.
 func requiredPurpose(p string) bool {
 	switch p {
 	case "mx", "spf", "dkim", "dkim_ses", "mailfrom":
@@ -68,7 +70,7 @@ func requiredPurpose(p string) bool {
 	}
 }
 
-// lookup devolve os valores publicados para o host/tipo do registo.
+// lookup returns the published values for the record's host/type.
 func (v *NetDNSVerifier) lookup(ctx context.Context, r DNSRecord) []string {
 	switch strings.ToUpper(r.Type) {
 	case "MX":
@@ -94,8 +96,8 @@ func (v *NetDNSVerifier) lookup(ctx context.Context, r DNSRecord) []string {
 		}
 		return []string{strings.TrimSuffix(cname, ".")}
 	case "SRV":
-		// O host do SRV já vem no formato _serviço._proto.domínio; o LookupSRV com serviço/proto
-		// vazios usa o nome tal como está.
+		// The SRV host already comes in the _service._proto.domain format; LookupSRV with an empty
+		// service/proto uses the name as-is.
 		_, srvs, err := v.resolver.LookupSRV(ctx, "", "", r.Host)
 		if err != nil {
 			return nil
@@ -115,20 +117,20 @@ func (v *NetDNSVerifier) lookup(ctx context.Context, r DNSRecord) []string {
 	return nil
 }
 
-// matches decide se o publicado satisfaz o esperado. A comparação é por TIPO, porque igualdade
-// literal daria falsos negativos em quase todos os casos reais.
+// matches decides whether what's published satisfies what's expected. The comparison is by TYPE,
+// because literal equality would give false negatives in almost every real case.
 func matches(r DNSRecord, found []string) bool {
 	exp := strings.ToLower(strings.TrimSpace(r.Value))
 	switch strings.ToUpper(r.Type) {
 	case "MX":
-		// O valor traz prioridade + host ("10 mail.exemplo.com."); só o host interessa.
+		// The value carries priority + host ("10 mail.example.com."); only the host matters.
 		fields := strings.Fields(exp)
 		want := strings.TrimSuffix(fields[len(fields)-1], ".")
 		return containsFold(found, want)
 	case "TXT":
 		switch r.Purpose {
 		case "spf":
-			// Basta ser uma SPF que inclua o nosso include — o cliente pode ter outros mecanismos.
+			// It's enough to be an SPF that includes our include — the customer can have other mechanisms.
 			inc := extractInclude(exp)
 			for _, f := range found {
 				lf := strings.ToLower(f)
@@ -145,7 +147,7 @@ func matches(r DNSRecord, found []string) bool {
 			}
 			return false
 		case "dkim", "dkim_ses":
-			// Compara a CHAVE (p=), não o registo inteiro: o cliente pode reordenar as tags.
+			// Compares the KEY (p=), not the whole record: the customer may reorder the tags.
 			key := tagValue(exp, "p=")
 			for _, f := range found {
 				lf := strings.ToLower(f)
@@ -176,7 +178,7 @@ func containsFold(list []string, want string) bool {
 	return false
 }
 
-// extractInclude tira o primeiro include:... de uma SPF.
+// extractInclude pulls the first include:... out of an SPF.
 func extractInclude(spf string) string {
 	for _, f := range strings.Fields(spf) {
 		if strings.HasPrefix(f, "include:") {
@@ -186,7 +188,7 @@ func extractInclude(spf string) string {
 	return ""
 }
 
-// tagValue lê o valor de uma tag ("p=") de um registo TXT com tags separadas por ";".
+// tagValue reads the value of a tag ("p=") from a TXT record with tags separated by ";".
 func tagValue(txt, tag string) string {
 	for _, part := range strings.Split(txt, ";") {
 		p := strings.TrimSpace(part)
@@ -197,9 +199,9 @@ func tagValue(txt, tag string) string {
 	return ""
 }
 
-// ZoneFile devolve a zona pronta a importar (formato BIND) — é o que o Cloudflare, o Route 53 e a
-// maioria dos painéis aceitam. Sem inventar formato nenhum: é o que o Stalwart já produz, com um
-// cabeçalho de comentário.
+// ZoneFile returns the zone ready to import (BIND format) — it's what Cloudflare, Route 53, and
+// most panels accept. No format is invented here: it's what Stalwart already produces, with a
+// comment header.
 func ZoneFile(domain, zone string) string {
 	var b strings.Builder
 	// English, like everything else the backend writes (law 4.6). The alternative would be guessing

@@ -1,4 +1,4 @@
-// Package auth: hashing de senha (bcrypt) e sessões por token opaco para o painel (brief §8/§10).
+// Package auth: password hashing (bcrypt) and opaque-token sessions for the panel (brief §8/§10).
 package auth
 
 import (
@@ -17,7 +17,7 @@ func CheckPassword(hash, plain string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
 }
 
-// NewSessionToken gera um token opaco de 256 bits (não é JWT — revogável via DELETE na tabela).
+// NewSessionToken generates a 256-bit opaque token (not a JWT — revocable via DELETE on the table).
 func NewSessionToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

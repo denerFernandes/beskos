@@ -5,10 +5,10 @@ import (
 	"testing"
 )
 
-// O valor que o cliente publica quase nunca é igual ao nosso carácter a carácter. Estes testes
-// fixam o que conta como "está publicado" em cada tipo — é aqui que um falso negativo mandaria
-// alguém procurar um problema que não existe, e um falso positivo diria "está tudo bem" com o
-// correio a cair.
+// The value the customer publishes is almost never identical to ours character by character. These
+// tests fix what counts as "published" for each type — this is where a false negative would send
+// someone chasing a problem that doesn't exist, and a false positive would say "all good" while
+// mail was failing.
 func TestMatchesPorTipo(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -17,49 +17,49 @@ func TestMatchesPorTipo(t *testing.T) {
 		want  bool
 	}{
 		{
-			name:  "MX ignora a prioridade e o ponto final",
+			name:  "MX ignores priority and the trailing dot",
 			rec:   DNSRecord{Type: "MX", Value: "10 mail.exemplo.com.", Purpose: "mx"},
 			found: []string{"mail.exemplo.com"},
 			want:  true,
 		},
 		{
-			name:  "MX de outro fornecedor não passa",
+			name:  "MX from another provider doesn't pass",
 			rec:   DNSRecord{Type: "MX", Value: "10 mail.exemplo.com.", Purpose: "mx"},
 			found: []string{"aspmx.l.google.com"},
 			want:  false,
 		},
 		{
-			name:  "SPF basta conter o nosso include",
+			name:  "SPF only needs to contain our include",
 			rec:   DNSRecord{Type: "TXT", Value: "v=spf1 include:_spf.beskos.com ~all", Purpose: "spf"},
 			found: []string{"v=spf1 ip4:1.2.3.4 include:_spf.beskos.com include:outro.com -all"},
 			want:  true,
 		},
 		{
-			name:  "SPF sem o nosso include falha",
+			name:  "SPF without our include fails",
 			rec:   DNSRecord{Type: "TXT", Value: "v=spf1 include:_spf.beskos.com ~all", Purpose: "spf"},
 			found: []string{"v=spf1 include:_spf.google.com ~all"},
 			want:  false,
 		},
 		{
-			name:  "DKIM compara a chave, não a ordem das tags",
+			name:  "DKIM compares the key, not the tag order",
 			rec:   DNSRecord{Type: "TXT", Value: "v=DKIM1; k=rsa; p=MIIBIjANBg", Purpose: "dkim"},
 			found: []string{"k=rsa; p=MIIBIjANBg; v=DKIM1"},
 			want:  true,
 		},
 		{
-			name:  "DKIM com outra chave falha (é o caso perigoso)",
+			name:  "DKIM with a different key fails (the dangerous case)",
 			rec:   DNSRecord{Type: "TXT", Value: "v=DKIM1; k=rsa; p=MIIBIjANBg", Purpose: "dkim"},
 			found: []string{"v=DKIM1; k=rsa; p=OUTRACHAVE"},
 			want:  false,
 		},
 		{
-			name:  "DMARC aceita qualquer política publicada",
+			name:  "DMARC accepts any published policy",
 			rec:   DNSRecord{Type: "TXT", Value: "v=DMARC1; p=quarantine; rua=mailto:d@b.com", Purpose: "dmarc"},
 			found: []string{"v=DMARC1; p=none"},
 			want:  true,
 		},
 		{
-			name:  "SRV compara o alvo",
+			name:  "SRV compares the target",
 			rec:   DNSRecord{Type: "SRV", Value: "0 1 993 mail.exemplo.com.", Purpose: "other"},
 			found: []string{"mail.exemplo.com"},
 			want:  true,
@@ -67,7 +67,7 @@ func TestMatchesPorTipo(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := matches(c.rec, c.found); got != c.want {
-			t.Errorf("%s: matches=%v, quer %v", c.name, got, c.want)
+			t.Errorf("%s: matches=%v, want %v", c.name, got, c.want)
 		}
 	}
 }
@@ -75,13 +75,13 @@ func TestMatchesPorTipo(t *testing.T) {
 func TestRequiredPurpose(t *testing.T) {
 	for _, p := range []string{"mx", "spf", "dkim"} {
 		if !requiredPurpose(p) {
-			t.Errorf("%s devia ser obrigatório", p)
+			t.Errorf("%s should be required", p)
 		}
 	}
-	// DMARC e o resto são recomendação: avisam, não bloqueiam.
+	// DMARC and the rest are recommendations: they warn, they don't block.
 	for _, p := range []string{"dmarc", "other", ""} {
 		if requiredPurpose(p) {
-			t.Errorf("%s não devia ser obrigatório", p)
+			t.Errorf("%s should not be required", p)
 		}
 	}
 }
@@ -91,16 +91,16 @@ func TestZoneFileMantemOsRegistos(t *testing.T) {
 	out := ZoneFile("exemplo.com", zone)
 	for _, want := range []string{"IN MX 10 mail.exemplo.com.", "_dmarc.exemplo.com."} {
 		if !strings.Contains(out, want) {
-			t.Errorf("a zona exportada perdeu %q", want)
+			t.Errorf("the exported zone lost %q", want)
 		}
 	}
 	if out[0] != ';' {
-		t.Error("o cabeçalho tem de ser comentário, senão o import do fornecedor rejeita")
+		t.Error("the header must be a comment, otherwise the provider's import rejects it")
 	}
 }
 
-// A classificação decide o que a página apresenta como obrigatório e o que fica em "avançado".
-// Um engano aqui pede ao cliente registos que ele não precisa — ou esconde um de que precisa.
+// Classification decides what the page presents as required and what stays under "advanced". A
+// mistake here asks the customer for records they don't need — or hides one they do need.
 func TestClassifyEObrigatoriedade(t *testing.T) {
 	cases := []struct {
 		rec      DNSRecord
@@ -118,10 +118,10 @@ func TestClassifyEObrigatoriedade(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := classify(c.rec); got != c.purpose {
-			t.Errorf("classify(%s %s) = %q, quer %q", c.rec.Type, c.rec.Host, got, c.purpose)
+			t.Errorf("classify(%s %s) = %q, want %q", c.rec.Type, c.rec.Host, got, c.purpose)
 		}
 		if got := requiredPurpose(c.purpose); got != c.required {
-			t.Errorf("requiredPurpose(%s) = %v, quer %v", c.purpose, got, c.required)
+			t.Errorf("requiredPurpose(%s) = %v, want %v", c.purpose, got, c.required)
 		}
 	}
 }

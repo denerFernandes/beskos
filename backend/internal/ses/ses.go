@@ -27,16 +27,16 @@ type Client struct {
 	region    string
 	accessKey string
 	secretKey string
-	selector  string // seletor DKIM neutro (marca), ex.: "beskos" — nunca revela o SES
-	accountID string // conta AWS, só para montar ARNs (tenants); vazio desliga os tenants
+	selector  string // neutral (brand) DKIM selector, e.g. "beskos" — never reveals SES
+	accountID string // AWS account, only to build ARNs (tenants); empty disables tenants
 	host      string
 	http      *http.Client
-	now       func() time.Time // injetável nos testes de assinatura
+	now       func() time.Time // injectable in signature tests
 }
 
-// NewFromEnv monta o cliente a partir de SES_REGION + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY.
-// SES_DKIM_SELECTOR (opcional) é o seletor da marca no DNS do cliente (default "mail").
-// Sem as três primeiras, devolve nil (feature desligada — dev não fala com a AWS).
+// NewFromEnv builds the client from SES_REGION + AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY.
+// SES_DKIM_SELECTOR (optional) is the brand's selector in the customer's DNS (default "mail").
+// Without the first three, returns nil (feature disabled — dev doesn't talk to AWS).
 func NewFromEnv() *Client {
 	region := os.Getenv("SES_REGION")
 	key := os.Getenv("AWS_ACCESS_KEY_ID")
@@ -50,8 +50,8 @@ func NewFromEnv() *Client {
 	}
 	c := New(region, key, secret)
 	c.selector = selector
-	// Sem SES_ACCOUNT_ID os tenants ficam desligados e o resto continua a funcionar: é uma melhoria
-	// de isolamento, não um requisito para enviar correio.
+	// Without SES_ACCOUNT_ID, tenants stay disabled and the rest keeps working: it is an isolation
+	// improvement, not a requirement for sending mail.
 	c.accountID = os.Getenv("SES_ACCOUNT_ID")
 	return c
 }
@@ -66,11 +66,11 @@ func New(region, accessKey, secretKey string) *Client {
 	}
 }
 
-// CreateIdentity regista o domínio como identidade SES em modo BYODKIM: gera uma chave RSA nossa,
-// entrega a PRIVADA ao SES (que passa a assinar com ela, d=domínio-do-cliente) e devolve o SELETOR
-// e a CHAVE PÚBLICA para o cliente publicar `<selector>._domainkey.<domínio>` IN TXT. Assim o DNS
-// do cliente só mostra uma chave DKIM genérica — sem qualquer referência ao amazonses.
-// Idempotente: identidade já existente → (re)define a assinatura BYODKIM com uma chave nova.
+// CreateIdentity registers the domain as an SES identity in BYODKIM mode: generates our own RSA
+// key, hands the PRIVATE one to SES (which then signs with it, d=customer-domain) and returns the
+// SELECTOR and the PUBLIC KEY for the customer to publish `<selector>._domainkey.<domain>` IN TXT.
+// This way the customer's DNS only shows a generic DKIM key — with no reference to amazonses.
+// Idempotent: identity already exists -> (re)sets the BYODKIM signature with a new key.
 func (c *Client) CreateIdentity(ctx context.Context, domain string) (selector, publicKeyB64 string, err error) {
 	privB64, pubB64, err := generateDKIMKeypair()
 	if err != nil {
@@ -90,7 +90,7 @@ func (c *Client) CreateIdentity(ctx context.Context, domain string) (selector, p
 	if status == http.StatusOK || status == http.StatusCreated {
 		return c.selector, pubB64, nil
 	}
-	// Já existe: (re)configura a assinatura BYODKIM com a chave nova (idempotente).
+	// Already exists: (re)configures the BYODKIM signature with the new key (idempotent).
 	if status == http.StatusConflict || strings.Contains(string(out), "AlreadyExists") {
 		putBody, _ := json.Marshal(map[string]any{
 			"SigningAttributesOrigin": "EXTERNAL",
@@ -111,16 +111,16 @@ func (c *Client) CreateIdentity(ctx context.Context, domain string) (selector, p
 	return "", "", fmt.Errorf("ses create identity: HTTP %d: %s", status, out)
 }
 
-// MailFromSubdomain é o subdomínio de MAIL FROM (Return-Path) do white-label: o destinatário vê
-// este domínio em "enviado por", nunca o amazonses.
+// MailFromSubdomain is the white-label's MAIL FROM (Return-Path) subdomain: the recipient sees
+// this domain in "sent by", never amazonses.
 func (c *Client) MailFromSubdomain(domain string) string { return "bounce." + domain }
 
-// MailFromMX é o alvo do MX que o SES exige no subdomínio de MAIL FROM (recebe os bounces).
+// MailFromMX is the MX target that SES requires on the MAIL FROM subdomain (receives the bounces).
 func (c *Client) MailFromMX() string { return "feedback-smtp." + c.region + ".amazonses.com" }
 
-// SetMailFrom configura o custom MAIL FROM da identidade (Return-Path = bounce.<domínio>), para o
-// "enviado por" do destinatário mostrar o domínio do cliente. BehaviorOnMxFailure=USE_DEFAULT_VALUE:
-// enquanto o MX não propaga, o SES cai no default em vez de recusar o envio. Idempotente.
+// SetMailFrom configures the identity's custom MAIL FROM (Return-Path = bounce.<domain>), so the
+// recipient's "sent by" shows the customer's domain. BehaviorOnMxFailure=USE_DEFAULT_VALUE: while
+// the MX hasn't propagated, SES falls back to the default instead of refusing to send. Idempotent.
 func (c *Client) SetMailFrom(ctx context.Context, domain string) error {
 	body, _ := json.Marshal(map[string]any{
 		"MailFromDomain":      c.MailFromSubdomain(domain),
@@ -136,7 +136,7 @@ func (c *Client) SetMailFrom(ctx context.Context, domain string) error {
 	return nil
 }
 
-// IdentityVerified diz se a identidade já pode enviar (DKIM verificado do lado do SES).
+// IdentityVerified reports whether the identity can already send (DKIM verified on the SES side).
 func (c *Client) IdentityVerified(ctx context.Context, domain string) (bool, error) {
 	status, out, err := c.do(ctx, http.MethodGet, "/v2/email/identities/"+domain, nil)
 	if err != nil {
@@ -157,7 +157,7 @@ func (c *Client) IdentityVerified(ctx context.Context, domain string) (bool, err
 	return resp.VerifiedForSendingStatus || resp.DkimAttributes.Status == "SUCCESS", nil
 }
 
-// DeleteIdentity remove a identidade (quando um domínio é apagado). 404 não é erro (idempotente).
+// DeleteIdentity removes the identity (when a domain is deleted). 404 is not an error (idempotent).
 func (c *Client) DeleteIdentity(ctx context.Context, domain string) error {
 	status, out, err := c.do(ctx, http.MethodDelete, "/v2/email/identities/"+domain, nil)
 	if err != nil {
@@ -169,8 +169,8 @@ func (c *Client) DeleteIdentity(ctx context.Context, domain string) error {
 	return fmt.Errorf("ses delete identity: HTTP %d: %s", status, out)
 }
 
-// generateDKIMKeypair cria uma chave RSA 2048 e devolve (privada PKCS8 base64 p/ o SES,
-// pública SubjectPublicKeyInfo base64 p/ o registo DKIM `p=`). Ambas sem armadura PEM.
+// generateDKIMKeypair creates a 2048 RSA key and returns (private PKCS8 base64 for SES,
+// public SubjectPublicKeyInfo base64 for the DKIM `p=` record). Neither has PEM armor.
 func generateDKIMKeypair() (privB64, pubB64 string, err error) {
 	k, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -187,7 +187,7 @@ func generateDKIMKeypair() (privB64, pubB64 string, err error) {
 	return base64.StdEncoding.EncodeToString(privDER), base64.StdEncoding.EncodeToString(pubDER), nil
 }
 
-// do assina (SigV4) e executa uma chamada à API SESv2.
+// do signs (SigV4) and executes a call to the SESv2 API.
 func (c *Client) do(ctx context.Context, method, path string, body []byte) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, "https://"+c.host+path, bytes.NewReader(body))
 	if err != nil {
@@ -206,13 +206,13 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) (int,
 	return resp.StatusCode, out, nil
 }
 
-// sign aplica AWS Signature V4 (serviço "ses") via o assinador genérico abaixo.
+// sign applies AWS Signature V4 (service "ses") via the generic signer below.
 func (c *Client) sign(req *http.Request, body []byte) {
 	SignRequest(req, body, c.region, "ses", c.accessKey, c.secretKey, c.now())
 }
 
-// SignRequest aplica AWS Signature V4 a um pedido para QUALQUER serviço AWS (ses, sns, …) —
-// implementação direta do processo canónico. Usado também pelo provider de SMS (internal/sms).
+// SignRequest applies AWS Signature V4 to a request for ANY AWS service (ses, sns, ...) —
+// a direct implementation of the canonical process. Also used by the SMS provider (internal/sms).
 func SignRequest(req *http.Request, body []byte, region, service, accessKey, secretKey string, now time.Time) {
 	t := now.UTC()
 	amzDate := t.Format("20060102T150405Z")

@@ -14,27 +14,28 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
-// Selagem: pegar num objeto que está em claro e reescrevê-lo cifrado.
+// Sealing: take an object that is in the clear and rewrite it encrypted.
 //
-// É a MESMA operação para os dois casos que faltavam, e por isso é uma peça só:
+// It's the SAME operation for the two missing cases, and so it's a single piece:
 //
-//   - os objetos que já estavam no balde antes de a cifra existir;
-//   - as gravações compostas, que o LiveKit Egress escreve diretamente no armazenamento com as
-//     credenciais S3, sem passar pelo nosso backend (docs/cifra-ficheiros.md §3a).
+//   - objects that were already in the bucket before encryption existed;
+//   - composite recordings, which LiveKit Egress writes directly to storage with the S3
+//     credentials, without going through our backend (docs/cifra-ficheiros.md §3a). lang:ok
 //
-// UMA ESCRITA. Reescreve-se a MESMA chave: o PUT do armazenamento é atómico, quem estiver a ler
-// nesse instante recebe a versão antiga ou a nova, e ambas se leem. Não há apagar a seguir, não há
-// chave a atualizar noutro sítio, não há marca na base de dados a acertar.
+// ONE WRITE. The SAME key gets rewritten: the storage PUT is atomic, whoever is reading at that
+// instant gets the old or the new version, and both read fine. There's no deleting afterward, no
+// key to update elsewhere, no flag in the database to keep in sync.
 //
-// IDEMPOTENTE POR CONSTRUÇÃO. O que decide se um objeto já está selado é o próprio objeto — a magia
-// no cabeçalho — e não uma coluna que possa dessincronizar. Selar duas vezes cifraria o cifrado, e
-// uma marca na base de dados que falhasse a escrever levaria exatamente a isso.
+// IDEMPOTENT BY CONSTRUCTION. What decides whether an object is already sealed is the object
+// itself — the magic in the header — and not a column that could fall out of sync. Sealing twice
+// would encrypt the encrypted, and a database flag that failed to write would lead to exactly that.
 
-// IsEncrypted diz se o objeto já está cifrado por nós. Lê só o cabeçalho, com um pedido Range.
+// IsEncrypted reports whether the object is already encrypted by us. Reads only the header, with a
+// Range request.
 //
-// Um objeto mais curto do que o cabeçalho não pode estar cifrado, e o armazenamento responde a esse
-// pedido com 416 (intervalo impossível). Isso não é uma falha — é a resposta. Apareceu no primeiro
-// dia em produção, com os marcadores de pasta do Drive, que têm zero bytes.
+// An object shorter than the header cannot be encrypted, and storage answers that request with 416
+// (impossible range). That's not a failure — it's the answer. It showed up on the first day in
+// production, with the Drive folder markers, which are zero bytes.
 func (s *Service) IsEncrypted(ctx context.Context, key string) (bool, error) {
 	opts := minio.GetObjectOptions{}
 	if err := opts.SetRange(0, int64(filecrypt.FixedHeaderSize)-1); err != nil {
@@ -64,7 +65,7 @@ func (s *Service) IsEncrypted(ctx context.Context, key string) (bool, error) {
 	return perr == nil, perr
 }
 
-// curtoDemais reconhece o 416 do armazenamento: pediu-se um intervalo que o objeto não tem.
+// tooShort recognizes storage's 416: a range was requested that the object doesn't have.
 func tooShort(err error) bool {
 	var resp minio.ErrorResponse
 	if errors.As(err, &resp) {
@@ -74,12 +75,12 @@ func tooShort(err error) bool {
 	return false
 }
 
-// Seal cifra um objeto que esteja em claro, reescrevendo-o no mesmo sítio. Não faz nada se já
-// estiver cifrado ou se a cifra estiver desligada.
+// Seal encrypts an object that is in the clear, rewriting it in the same place. Does nothing if it
+// is already encrypted or if encryption is off.
 //
-// O conteúdo passa por um ficheiro temporário em vez de ir direto de leitura para escrita: não se
-// pode ler e escrever a mesma chave ao mesmo tempo, e um objeto pode ter gigabytes que não cabem em
-// memória.
+// The content passes through a temporary file instead of going straight from read to write: you
+// can't read and write the same key at the same time, and an object can have gigabytes that don't
+// fit in memory.
 func (s *Service) Seal(ctx context.Context, key string) error {
 	if s.keys == nil {
 		return errors.New("storage: sealing requested with encryption off")
@@ -109,46 +110,46 @@ func (s *Service) Seal(ctx context.Context, key string) error {
 
 	size, err := io.Copy(tmp, obj)
 	if err != nil {
-		return fmt.Errorf("selar %q: descarregar: %w", key, err)
+		return fmt.Errorf("seal %q: download: %w", key, err)
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
 
-	// Put cifra e reescreve a mesma chave. Uma escrita, atómica.
+	// Put encrypts and rewrites the same key. One write, atomic.
 	//
-	// O tipo de conteúdo NÃO é preservado, de propósito: o Put guarda tudo como octet-stream quando
-	// cifra. Dizer ao fornecedor que aquele objeto opaco é um `video/mp4` seria entregar-lhe de
-	// volta parte do que a cifra acabou de esconder — e quem serve o ficheiro tira o tipo do nome
-	// guardado na nossa base de dados, não do armazenamento.
+	// The content type is NOT preserved, on purpose: Put stores everything as octet-stream when it
+	// encrypts. Telling the provider that opaque object is a `video/mp4` would be handing it back
+	// part of what encryption just hid — and whoever serves the file gets the type from the name
+	// stored in our database, never from storage.
 	if err := s.Put(ctx, key, tmp, size, ""); err != nil {
-		return fmt.Errorf("selar %q: reenviar: %w", key, err)
+		return fmt.Errorf("seal %q: re-upload: %w", key, err)
 	}
 	return nil
 }
 
-// Object é o que a listagem entrega. O tamanho vem junto porque a decisão de selar depende dele:
-// um objeto de zero bytes não tem conteúdo para proteger.
+// Object is what the listing hands back. The size travels with it because the decision to seal
+// depends on it: a zero-byte object has no content to protect.
 type Object struct {
 	Key  string
 	Size int64
 }
 
-// Selavel diz se este objeto é NOSSO e vale a pena selar.
+// Sealable reports whether this object is OURS and worth sealing.
 //
-// LISTA BRANCA, e a razão é cara: o balde não é só nosso. O Stalwart guarda as mensagens em
-// `mail/…`, escritas por ele e lidas por ele, sem passar por este código. A primeira versão desta
-// função selava tudo o que encontrava e cifrou 43 mensagens de correio em produção — que o Stalwart
-// deixou imediatamente de conseguir ler. Cifrar o ficheiro de outro processo não é uma melhoria de
-// segurança, é uma avaria.
+// WHITELIST, and the reason is expensive: the bucket isn't only ours. Stalwart stores messages
+// under `mail/…`, written by it and read by it, without going through this code. The first version
+// of this function sealed everything it found and encrypted 43 production mail messages — which
+// Stalwart immediately lost the ability to read. Encrypting another process's file isn't a security
+// improvement, it's an outage.
 //
-// Por isso a pergunta não é "isto parece seguro de cifrar?" mas "isto foi escrito por nós?". Só há
-// duas famílias de chaves que o storage.Service escreve: `<tenant>/…` e as gravações antigas em
-// `recordings/…`. O resto é de outra pessoa até prova em contrário — e um balde partilhado só ganha
-// vizinhos com o tempo.
+// So the question isn't "does this look safe to encrypt?" but "did we write this?". There are only
+// two families of keys that storage.Service writes: `<tenant>/…` and the old recordings under
+// `recordings/…`. Everything else belongs to someone else until proven otherwise — and a shared
+// bucket only gains neighbors over time.
 //
-// Fica de fora também o que não é conteúdo: os marcadores de pasta do Drive têm zero bytes, e
-// cifrá-los trocava zero bytes por noventa sem esconder nada.
+// Also left out is what isn't content: the Drive folder markers are zero bytes, and encrypting them
+// would trade zero bytes for ninety without hiding anything.
 func (o Object) Sealable() bool {
 	if o.Size == 0 || strings.HasSuffix(o.Key, "/") {
 		return false
@@ -160,7 +161,7 @@ func (o Object) Sealable() bool {
 	return hasTenant
 }
 
-// ListObjects percorre o balde. `prefix` vazio percorre tudo.
+// ListObjects walks the bucket. An empty `prefix` walks everything.
 func (s *Service) ListObjects(ctx context.Context, prefix string) <-chan Object {
 	out := make(chan Object)
 	go func() {

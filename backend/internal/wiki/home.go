@@ -12,9 +12,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Home da app Wiki (Bloco 2 B5): uma "página" por tenant mostrada no ecrã inicial, editada por
-// admins da org com o mesmo editor. A autorização de escrita (PermOrgSettings) é aplicada na ROTA
-// (requirePerm) — aqui só regras de dados. Ler é de qualquer utilizador autenticado do tenant.
+// Wiki app Home (Block 2 B5): one "page" per tenant shown on the home screen, edited by org
+// admins with the same editor. Write authorization (PermOrgSettings) is enforced at the ROUTE
+// (requirePerm) — here only data rules. Reading is open to any authenticated user of the tenant.
 
 // GetHome returns the tenant's wiki home; a tenant without one gets an empty home (not an error).
 func (s *Service) GetHome(ctx context.Context, tenantID uuid.UUID) (db.WikiHome, error) {

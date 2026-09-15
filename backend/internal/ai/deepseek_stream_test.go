@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-// O texto chega aos pedaços e tem de ser entregue à medida que chega E acumulado no fim: o painel
-// mostra os pedaços, mas quem persiste a conversa precisa da resposta inteira.
+// The text arrives in chunks and has to be delivered as it arrives AND accumulated at the end:
+// the panel shows the chunks, but whoever persists the conversation needs the whole reply.
 func TestReadSSEAccumulatesText(t *testing.T) {
 	fio := strings.Join([]string{
-		`data: {"model":"deepseek-chat","choices":[{"delta":{"content":"Olá"}}]}`,
-		`data: {"choices":[{"delta":{"content":", mundo"}}]}`,
+		`data: {"model":"deepseek-chat","choices":[{"delta":{"content":"Hello"}}]}`,
+		`data: {"choices":[{"delta":{"content":", world"}}]}`,
 		`data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"total_tokens":7}}`,
 		`data: [DONE]`,
 	}, "\n\n") + "\n\n"
@@ -22,20 +22,20 @@ func TestReadSSEAccumulatesText(t *testing.T) {
 	if err != nil {
 		t.Fatalf("readSSE: %v", err)
 	}
-	if resp.Text != "Olá, mundo" {
-		t.Errorf("Text = %q, quero %q", resp.Text, "Olá, mundo")
+	if resp.Text != "Hello, world" {
+		t.Errorf("Text = %q, want %q", resp.Text, "Hello, world")
 	}
-	if strings.Join(got, "|") != "Olá|, mundo" {
-		t.Errorf("deltas = %v, quero dois pedaços pela ordem", got)
+	if strings.Join(got, "|") != "Hello|, world" {
+		t.Errorf("deltas = %v, want two chunks in order", got)
 	}
 	if resp.FinishReason != "stop" || resp.Model != "deepseek-chat" || resp.Usage.TotalTokens != 7 {
-		t.Errorf("metadados perdidos: %+v", resp)
+		t.Errorf("lost metadata: %+v", resp)
 	}
 }
 
-// Um pedido de ferramenta chega fragmentado: o nome num pedaço, os argumentos aos bocados. Se a
-// remontagem falhar, o motor despacha uma ferramenta com JSON truncado — e o erro apareceria como
-// "argumentos inválidos", longe da causa.
+// A tool call arrives fragmented: the name in one chunk, the arguments in pieces. If reassembly
+// fails, the engine dispatches a tool with truncated JSON — and the error would show up as
+// "invalid arguments", far from the actual cause.
 func TestReadSSEReassemblesToolCalls(t *testing.T) {
 	fio := strings.Join([]string{
 		`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"c1","function":{"name":"mail.search","arguments":"{\"que"}}]}}]}`,
@@ -49,30 +49,30 @@ func TestReadSSEReassemblesToolCalls(t *testing.T) {
 		t.Fatalf("readSSE: %v", err)
 	}
 	if len(resp.ToolCalls) != 2 {
-		t.Fatalf("chamadas = %d, quero 2", len(resp.ToolCalls))
+		t.Fatalf("calls = %d, want 2", len(resp.ToolCalls))
 	}
 	if resp.ToolCalls[0].ID != "c1" || resp.ToolCalls[0].Name != "mail.search" {
-		t.Errorf("primeira chamada = %+v", resp.ToolCalls[0])
+		t.Errorf("first call = %+v", resp.ToolCalls[0])
 	}
 	if resp.ToolCalls[0].Arguments != `{"query":"fatura"}` {
-		t.Errorf("argumentos = %q, quero o JSON remontado", resp.ToolCalls[0].Arguments)
+		t.Errorf("arguments = %q, want the reassembled JSON", resp.ToolCalls[0].Arguments)
 	}
-	// A ordem é a dos índices tal como apareceram — o motor despacha por essa ordem.
+	// The order matches the indexes as they appeared — the engine dispatches in that order.
 	if resp.ToolCalls[1].Name != "drive.search" {
-		t.Errorf("segunda chamada = %+v", resp.ToolCalls[1])
+		t.Errorf("second call = %+v", resp.ToolCalls[1])
 	}
 }
 
-// Um pedaço ilegível não pode deitar fora o que já veio: perder a resposta inteira por causa de uma
-// linha estragada seria pior do que perder essa linha.
+// An unreadable chunk must not discard what already arrived: losing the whole reply over one
+// broken line would be worse than losing just that line.
 func TestReadSSESkipsBadChunks(t *testing.T) {
-	fio := "data: {isto não é json}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n"
+	fio := "data: {this is not json}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\ndata: [DONE]\n\n"
 	resp, err := readSSE(strings.NewReader(fio), nil)
 	if err != nil {
 		t.Fatalf("readSSE: %v", err)
 	}
 	if resp.Text != "ok" {
-		t.Errorf("Text = %q, quero %q", resp.Text, "ok")
+		t.Errorf("Text = %q, want %q", resp.Text, "ok")
 	}
 }
 
@@ -82,37 +82,38 @@ func TestDeepSeekIsStreamingProvider(t *testing.T) {
 	var _ StreamingProvider = NewDeepSeek("k", "", "")
 }
 
-// REGRESSÃO: a API compatível com OpenAI recusa nomes de função com ponto (^[a-zA-Z0-9_-]+$). Os
-// nomes de domínio usam ponto (mail.search); têm de sair como underscore no fio e voltar ao ponto
-// na receção. O provider falso dos outros testes não validava isto — daí o bug ter chegado ao vivo.
+// REGRESSION: the OpenAI-compatible API rejects function names with a dot (^[a-zA-Z0-9_-]+$).
+// Domain names use a dot (mail.search); they have to go out as underscore on the wire and come
+// back as a dot on receipt. The fake provider in the other tests did not validate this — which is
+// how the bug reached production.
 func TestToolNamesMatchOpenAIPattern(t *testing.T) {
 	pat := regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 	names := []string{"mail.search", "mail.read", "docs.create", "tasks.create", "drive.search"}
 	for _, n := range names {
 		w := wireToolName(n)
 		if !pat.MatchString(w) {
-			t.Errorf("nome de fio %q (de %q) não casa o padrão do OpenAI", w, n)
+			t.Errorf("wire name %q (from %q) does not match the OpenAI pattern", w, n)
 		}
 		if got := domainToolName(w); got != n {
-			t.Errorf("ida-e-volta falhou: %q -> %q -> %q", n, w, got)
+			t.Errorf("round trip failed: %q -> %q -> %q", n, w, got)
 		}
 	}
 }
 
-// Os esquemas de ferramenta e os pedidos de ferramenta enviados ao fornecedor têm o nome já no
-// formato válido (sem ponto).
+// The tool schemas and tool calls sent to the provider already carry the name in the valid
+// format (no dot).
 func TestWireToolsAndCallsUseSanitisedNames(t *testing.T) {
 	tools := toolsToWire([]Tool{{Name: "mail.send", Parameters: json.RawMessage(`{}`)}})
 	if len(tools) != 1 || tools[0].Function.Name != "mail_send" {
-		t.Fatalf("esquema enviado com nome inválido: %+v", tools)
+		t.Fatalf("schema sent with invalid name: %+v", tools)
 	}
 	msgs := toWire([]Message{{Role: RoleAssistant, ToolCalls: []ToolCall{{ID: "c1", Name: "docs.create", Arguments: "{}"}}}})
 	if msgs[0].ToolCalls[0].Function.Name != "docs_create" {
-		t.Errorf("chamada no histórico enviada com nome inválido: %q", msgs[0].ToolCalls[0].Function.Name)
+		t.Errorf("call in history sent with invalid name: %q", msgs[0].ToolCalls[0].Function.Name)
 	}
-	// E uma chamada recebida do fornecedor volta ao domínio.
+	// And a call received from the provider goes back to the domain.
 	got := fromWireCalls([]wireCall{{ID: "c1", Function: wireCallFun{Name: "mail_search", Arguments: "{}"}}})
 	if got[0].Name != "mail.search" {
-		t.Errorf("chamada recebida = %q, quero mail.search", got[0].Name)
+		t.Errorf("received call = %q, want mail.search", got[0].Name)
 	}
 }

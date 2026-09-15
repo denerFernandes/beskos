@@ -41,12 +41,12 @@ func NewNetDNSVerifier() *NetDNSVerifier {
 func (v *NetDNSVerifier) Verify(ctx context.Context, domain, zone string) (bool, error) {
 	mx, err := v.resolver.LookupMX(ctx, domain)
 	if err != nil || len(mx) == 0 {
-		return false, nil // ainda não publicado (não é erro fatal)
+		return false, nil // not published yet (not a fatal error)
 	}
-	// Procura o selector DKIM esperado a partir do zonefile do Stalwart.
+	// Looks for the expected DKIM selector from Stalwart's zonefile.
 	selector := dkimHost(zone, domain)
 	if selector == "" {
-		return len(mx) > 0, nil // sem selector conhecido: MX basta na Fase 1
+		return len(mx) > 0, nil // no known selector: MX is enough in Fase 1
 	}
 	txts, err := v.resolver.LookupTXT(ctx, selector)
 	if err != nil || len(txts) == 0 {
@@ -60,7 +60,7 @@ func (v *NetDNSVerifier) Verify(ctx context.Context, domain, zone string) (bool,
 	return false, nil
 }
 
-// dkimHost extrai o host do registo _domainkey do zonefile (ex.: "sel._domainkey.dominio.").
+// dkimHost extracts the host of the _domainkey record from the zonefile (e.g. "sel._domainkey.domain.").
 //
 // It insists on a line that carries the key itself, not merely the name. A record written across
 // several lines has a header with the name and nothing else, and accepting that header meant
@@ -75,15 +75,15 @@ func dkimHost(zone, domain string) string {
 	return ""
 }
 
-// AlwaysVerified pula a verificação de DNS (dev/local, onde domínios de teste não resolvem).
-// Ligado por config (PROVISION_SKIP_DNS_VERIFY=true). NUNCA usar em produção.
+// AlwaysVerified skips DNS verification (dev/local, where test domains don't resolve).
+// Enabled via config (PROVISION_SKIP_DNS_VERIFY=true). NEVER use in production.
 type AlwaysVerified struct{}
 
 func (AlwaysVerified) Verify(context.Context, string, string) (bool, error) { return true, nil }
 
-// genInitialSecret gera um secret forte e DETERMINÍSTICO por domínio (idempotência em retry).
-// Alta entropia (deriva do UUID do domínio) para passar no checador de força do Stalwart.
-// O admin do tenant troca a senha depois.
+// genInitialSecret generates a strong, DETERMINISTIC secret per domain (idempotency on retry).
+// High entropy (derived from the domain's UUID) to pass Stalwart's strength checker.
+// The tenant admin changes the password afterward.
 func genInitialSecret(seed string) string {
 	sum := sha256.Sum256([]byte("mailin-postmaster-v1:" + seed))
 	return "Pm9!" + base64.RawURLEncoding.EncodeToString(sum[:18])

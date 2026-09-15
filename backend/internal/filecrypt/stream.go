@@ -7,14 +7,14 @@ import (
 	"io"
 )
 
-// EncryptTo cifra `src` (com `plainSize` bytes) para `dst`, bloco a bloco. Nunca carrega o ficheiro
-// inteiro em memória: um envio de 2 GB gasta um bloco de cada vez.
+// EncryptTo encrypts `src` (with `plainSize` bytes) into `dst`, block by block. It never loads
+// the whole file into memory: a 2 GB upload spends one block at a time.
 //
-// `wrapped` é a chave deste objeto já embrulhada, que viaja no cabeçalho — é o que torna a escrita
-// atómica (ver o comentário do pacote). `key` é a mesma chave em claro, para cifrar os blocos.
+// `wrapped` is this object's key already wrapped, which travels in the header — it's what makes
+// the write atomic (see the package comment). `key` is the same key in plaintext, to encrypt the blocks.
 //
-// Devolve erro se `src` acabar antes ou depois de `plainSize` — o tamanho vai no cabeçalho e é o que
-// permite servir intervalos sem ler o objeto todo, por isso tem de estar certo.
+// Returns an error if `src` ends before or after `plainSize` — the size goes in the header and is
+// what allows serving ranges without reading the whole object, so it has to be right.
 func EncryptTo(dst io.Writer, src io.Reader, plainSize int64, key []byte, h Header) error {
 	chunkSize := h.ChunkSize
 	if chunkSize <= 0 {
@@ -64,11 +64,11 @@ func EncryptTo(dst io.Writer, src io.Reader, plainSize int64, key []byte, h Head
 	return nil
 }
 
-// DecryptReader devolve um leitor sequencial do conteúdo em claro. É o caminho normal de um
-// download: lê-se do princípio ao fim, um bloco de cada vez.
+// DecryptReader returns a sequential reader of the plaintext content. It's the normal download
+// path: read from start to end, one block at a time.
 //
-// O cabeçalho já tem de estar consumido de `src` e passado em `h` — quem chama precisa de o ler
-// primeiro para saber se o objeto está sequer cifrado.
+// The header must already have been consumed from `src` and passed in `h` — the caller needs to
+// read it first to know whether the object is even encrypted.
 func DecryptReader(src io.Reader, h Header, key []byte) (io.Reader, error) {
 	gcm, err := newGCM(key)
 	if err != nil {
@@ -83,10 +83,10 @@ type decryptor struct {
 	gcm interface {
 		Open([]byte, []byte, []byte, []byte) ([]byte, error)
 	}
-	buf       []byte // bloco cifrado lido do armazenamento
-	plain     []byte // sobra em claro do bloco atual, ainda por entregar
+	buf       []byte // encrypted block read from storage
+	plain     []byte // plaintext leftover from the current block, not yet delivered
 	index     int64
-	readCount int64 // bytes em claro já entregues
+	readCount int64 // plaintext bytes already delivered
 	end       bool
 }
 
@@ -95,7 +95,7 @@ func (d *decryptor) Read(p []byte) (int, error) {
 		if d.end || d.readCount >= d.h.PlainSize {
 			return 0, io.EOF
 		}
-		// Quanto falta em claro decide o tamanho deste bloco: o último é mais curto.
+		// How much plaintext is left decides this block's size: the last one is shorter.
 		remaining := d.h.PlainSize - d.readCount
 		size := int64(d.h.ChunkSize)
 		last := false
@@ -105,7 +105,7 @@ func (d *decryptor) Read(p []byte) (int, error) {
 		n, err := io.ReadFull(d.src, d.buf[:size+TagSize])
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-				return 0, ErrCorrupt // o cabeçalho prometia mais bytes do que existem
+				return 0, ErrCorrupt // the header promised more bytes than exist
 			}
 			return 0, err
 		}

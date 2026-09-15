@@ -54,7 +54,7 @@ func NewEmail(host, port, from, user, pass string, insecure bool) *Email {
 // dial opens the SMTP client, with implicit TLS when the port asks for it.
 func (e *Email) dial() (*smtp.Client, error) {
 	addr := e.host + ":" + e.port
-	// insecure só em dev (cert self-signed). Produção: certificado válido (insecure=false).
+	// insecure only in dev (self-signed cert). Production: valid certificate (insecure=false).
 	tlsCfg := &tls.Config{ServerName: e.host, InsecureSkipVerify: e.insecure}
 	if e.implicit {
 		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", addr, tlsCfg)
@@ -108,7 +108,7 @@ func (e *Email) Send(to, subject, body string) error {
 	return e.send(to, subject, "text/plain; charset=UTF-8", strings.ReplaceAll(body, "\n", "\r\n"))
 }
 
-// send monta o envelope e entrega. O corpo já vem com o Content-Type certo e as quebras em CRLF.
+// send assembles the envelope and delivers it. The body already comes with the right Content-Type and CRLF line breaks.
 func (e *Email) send(to, subject, contentType, body string) error {
 	return e.sendWith(to, "", subject, contentType, body)
 }
@@ -152,7 +152,7 @@ func (e *Email) sendWith(to, replyTo, subject, contentType, body string) error {
 			replyHeader = "Reply-To: " + ra.Address + "\r\n"
 		}
 	}
-	// Subject is encoded: accents in "Nova tarefa atribuída" would be mangled raw.
+	// Subject is encoded: accents in a localized subject line would be mangled raw.
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\n%sSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\n"+
 		"Content-Type: %s\r\n\r\n%s\r\n",
 		e.from, to, replyHeader, mime.QEncoding.Encode("UTF-8", subject), time.Now().Format(time.RFC1123Z),
