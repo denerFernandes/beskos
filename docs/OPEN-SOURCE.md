@@ -158,6 +158,9 @@ O que está bem: CI com gofmt/vet/testes/sqlc/vitest/cargo; verificador de leis 
 cobre `*.env`; **nenhum segredo, chave ou IP** nos ficheiros versionados; histórico sem ficheiros
 `.env`.
 
+Esta tabela é a fotografia do dia da auditoria; o progresso real fica nas fases F1–F7 abaixo, que
+já resolveram vários dos itens aqui listados (marcados nas respetivas secções).
+
 O que impede a publicação tal como está:
 
 | Problema | Medida | Onde |
@@ -360,53 +363,49 @@ defaults do Cloud.
   aponta para `CONTRIBUTING.md`.
 - **Pronto quando:** `comment_audit.py` a zero, `check_laws.py` sem exceções, lint verde.
 
-### F5 — Segurança (2 semanas, antes de publicar)
+### F5 — Segurança (2 semanas, antes de publicar) — em curso
 
-- Modelo de ameaças escrito (`docs/security/threat-model.md`): fronteiras tenant, JMAP com
-  credenciais do utilizador, blobgw, chaves de cifra, OnlyOffice callback, webhooks.
-- Verificação automática da lei §5.1: script que confirma que toda a query sqlc sobre tabelas com
-  `tenant_id` filtra por ele (parse do `queries/*.sql`).
-- `govulncheck`, `gosec`, `npm audit --audit-level=high`, `cargo audit` no CI.
-- Fuzzing Go nos parsers de entrada: `filecrypt/format.go`, `blobgw/sigv4.go`, cliente JMAP.
-- Revisão dos limites: rate limit por IP e por tenant em login, signup, recuperação de senha, MFA;
-  CSRF; tamanho máximo de upload; timeouts de contexto em toda a chamada de rede.
-- `SECURITY.md` com contacto (`security@`), prazo de resposta (72 h), política de divulgação
-  coordenada (90 dias) e advisories via GitHub Security Advisories.
-- Pentest externo de uma semana antes do anúncio (orçamento 4 a 8 k€). Publicar o sumário.
-- **Pronto quando:** CI de segurança verde, modelo de ameaças revisto, pentest sem críticos abertos.
+Feito (2026-09-15): `govulncheck` no CI (Go) — encontrou logo à primeira 21 CVEs da stdlib
+corrigidos pelo pin em `1.25.7`, com caminho de chamada real (TLS, `net/url`, `net/http`,
+`encoding/xml`, `encoding/asn1`); resolvido subindo para `1.25.13` (`6ded514`). `cargo audit` nos
+dois workspaces Rust — apanhou um `rustls` desatualizado (RUSTSEC-2026-0285), corrigido só no
+`Cargo.lock`. `npm audit --audit-level=critical` bloqueia (limpo); `--audit-level=high` fica
+report-only (12 achados pré-existentes, sem correção publicada a montante). `SECURITY.md` escrito
+(§ pendente de decisão: orçamento e data do pentest).
 
-### F6 — Documentação (2 a 3 semanas)
+Por fazer: modelo de ameaças (`docs/security/threat-model.md`); verificação automática da lei
+§5.1 (toda query sqlc sobre tabela com `tenant_id` filtra por ele); `gosec`; fuzzing Go
+(`filecrypt/format.go`, `blobgw/sigv4.go`, cliente JMAP); revisão de rate limit/CSRF/timeouts;
+pentest externo (orçamento e data por decidir, §8).
+- **Pronto quando:** CI de segurança verde (✅), modelo de ameaças revisto, pentest sem críticos abertos.
 
-Toda em inglês; pt-BR como tradução opcional depois. Estrutura em `docs/` com MkDocs Material ou
-Docusaurus publicada em `docs.beskos.com`:
+### F6 — Documentação (2 a 3 semanas) — núcleo escrito
 
-| Documento | Conteúdo |
-|---|---|
-| `README.md` | O que é, captura de ecrã, quickstart de 5 comandos, tabela Community/Pro, licença, ligação à comunidade |
-| `docs/getting-started/` | Requisitos, `docker compose up`, primeiro domínio, DNS, primeiro utilizador |
-| `docs/self-hosting/` | Produção: TLS, backups (`deploy/backup`), S3, SMTP relay (SES ou outro), LiveKit/Egress, OnlyOffice, escalar, atualizar |
-| `docs/configuration.md` | Tabela de **todas** as variáveis de ambiente, geradas a partir de `internal/config` por script para não desatualizar |
-| `docs/architecture.md` | Diagrama, camadas (lei §1.3), máquina de estados de provisionamento, porquê Stalwart via JMAP (`DIVERGENCES.md` reescrito), cifra dos ficheiros |
-| `docs/api/` | OpenAPI gerado a partir das rotas chi (ou escrito à mão e validado no CI) |
-| `docs/pro/` | O que a chave desbloqueia, como ativar, como renovar |
-| `CONTRIBUTING.md` | Setup de dev, leis do projeto, como correr testes e2e, processo de PR, CLA |
-| `CODE_OF_CONDUCT.md` | Contributor Covenant 2.1 |
-| `SECURITY.md`, `TRADEMARK.md`, `LICENSE.md`, `ee/LICENSE` | §1 |
-| `CHANGELOG.md` | Keep a Changelog, gerado a partir de conventional commits |
-| `docs/adr/` | Decisões estruturais existentes reescritas como ADR: JMAP em vez de REST, OnlyOffice, LiveKit, cifra AES-GCM em blocos, pgvector, BUSL |
+Feito (2026-09-15), tudo em inglês: `README.md` (fica em `docs/README-oss.md`, ligado ao export
+por `OVERRIDES`), `docs/getting-started.md`, `docs/self-hosting.md`, `docs/architecture.md`,
+`docs/configuration.md` (**gerado** de `internal/config` por `scripts/gen_env_docs.py`, não
+desatualiza), `docs/editions.md` (a tabela Community/Pro pública, sem depender deste ficheiro
+interno), `docs/FUNCTIONALITY.md` (mapa por área, sem tabela de status — a interna diverge do
+código e publicar essa divergência seria pior que não publicar nada), `CONTRIBUTING.md`,
+`CODE_OF_CONDUCT.md`, `SECURITY.md`, `TRADEMARK.md`, `LICENSE.md`, `ee/LICENSE`.
+
+Por fazer: site publicado (MkDocs Material/Docusaurus em `docs.beskos.com`); `docs/api/` (OpenAPI
+das rotas chi); `docs/pro/`; `CHANGELOG.md`; `docs/adr/` com as decisões estruturais existentes.
 
 **Pronto quando:** uma pessoa que nunca viu o projeto instala e envia um email só com a
 documentação, sem perguntar nada (testar com alguém de fora).
 
-### F7 — Infraestrutura do projeto aberto (2 semanas)
+### F7 — Infraestrutura do projeto aberto (2 semanas) — parcial
 
-- Releases semver com **GoReleaser**: binários linux/darwin amd64+arm64, imagens multi-arch em
-  `ghcr.io/beskosorg/{api,worker,web}`, assinadas com **cosign**, SBOM (syft) anexado.
-- Tag `vX.Y.Z` cria a release; `main` gera imagem `edge`.
-- Templates de issue (bug, feature, segurança redireciona para `SECURITY.md`), template de PR,
-  labels `good first issue`/`help wanted`, GitHub Discussions, roadmap público (GitHub Projects).
-- CLA Assistant, `CODEOWNERS`, branch protection com CI obrigatório e uma revisão.
-- Política de suporte: Community via Discussions e issues, sem SLA; Pro via e-mail com SLA.
+Feito: `.goreleaser.yaml` (binários `api`/`worker`/`bootstrap`, linux+darwin, amd64+arm64;
+validado com `goreleaser release --snapshot --clean`, release como `draft`);
+`.github/workflows/release.yml` (dispara em tag `v*`); templates de issue/PR;
+`.github/CODEOWNERS` (aponta para uma equipa `@beskosorg/maintainers` a criar).
+
+Por fazer: imagens multi-arch em `ghcr.io/beskosorg/{api,worker,web}`, assinadas com **cosign**,
+SBOM (syft) anexado — precisam de credenciais de registo que este repositório ainda não tem
+configuradas; imagem `edge` a partir de `master`; GitHub Discussions; roadmap público (GitHub
+Projects); CLA Assistant; branch protection; política de suporte (Community sem SLA, Pro com).
 - **Pronto quando:** `git tag v0.1.0` produz release completa sem intervenção manual.
 
 ### F8 — Licenciamento e venda do Pro (2 semanas, no `beskos-cloud`)
