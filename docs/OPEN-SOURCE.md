@@ -268,7 +268,19 @@ Estimativas para uma pessoa a tempo inteiro; F3–F6 são paralelizáveis.
 Responder ao que resta da §8, registar as respostas neste documento, abrir o repositório `beskos-cloud`
 privado. **Pronto quando:** licença, nome da organização GitHub e tabela §3.2 aprovados.
 
-### F1 — Higiene e segurança do histórico (1 semana)
+### F1 — Higiene e segurança do histórico (1 semana) — em curso desde 2026-09-15
+
+Feito: gitleaks sobre os 219 commits (8 alertas: 7 fixtures de testes, 1 chave `sk_live_` da
+Stripe no primeiro commit, já fora do HEAD; **rotar na Stripe**); gitleaks no CI com allowlist;
+CI corrigido para o ramo `master` (apontava para `main` e nunca correu em push); CodeQL e
+Dependabot; `deploy/__pycache__` e `tsconfig.tsbuildinfo` deixam de ser versionados;
+`scripts/export_public.py` com a lista de exclusão e o relatório de resíduo; repositórios
+`beskosorg/beskos` e `beskosorg/beskos-cloud` criados (privados).
+
+Por fazer: cessão de copyright do segundo autor do histórico; rotar a senha do operador cujo hash
+bcrypt está na migração 00106; secret scanning e push protection nos repositórios da organização
+(gratuitos quando o `beskos` passar a público).
+
 
 - Correr `gitleaks detect --source . --log-opts=--all` e `trufflehog git` sobre **todo o histórico**.
   Se aparecer um único segredo real, publicar com **histórico novo** (squash num commit inicial) e
