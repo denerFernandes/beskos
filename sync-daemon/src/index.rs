@@ -1,16 +1,16 @@
-//! Índice local em SQLite: regista os ficheiros que ESTE daemon baixou (id do servidor → caminho
-//! relativo + hash + versão) e o cursor do feed. É a fonte de verdade para saber o que já está em
-//! disco e — crucial para segurança — o que o daemon pode apagar (só o que ele próprio criou; nunca
-//! toca em ficheiros locais desconhecidos).
+//! Local SQLite index: tracks the files THIS daemon has downloaded (server id -> relative path +
+//! hash + version) and the feed cursor. It is the source of truth for knowing what is already on
+//! disk and -- critical for safety -- what the daemon is allowed to delete (only what it created
+//! itself; it never touches unknown local files).
 
 use std::sync::Mutex;
 
 use anyhow::Result;
 use rusqlite::{params, Connection};
 
-/// A `Connection` do rusqlite é `Send` mas não `Sync`, por isso fica atrás de um `Mutex`: assim um
-/// `&Index` pode ser partilhado pelas threads de transferência. Serializar o SQLite não é problema —
-/// o gargalo é a rede, e as transferências correm em paralelo fora deste lock.
+/// rusqlite's `Connection` is `Send` but not `Sync`, so it sits behind a `Mutex`: this way a
+/// `&Index` can be shared by the transfer threads. Serializing SQLite is not a problem -- the
+/// bottleneck is the network, and the transfers run in parallel outside this lock.
 pub struct Index {
     conn: Mutex<Connection>,
 }
@@ -24,15 +24,15 @@ pub struct Tracked {
     pub file_id: String,
     pub rel_path: String,
     pub hash: String,
-    /// mtime (epoch s) e tamanho na última sincronização — pré-filtro barato: se ambos batem com o
-    /// disco, o conteúdo não mudou e nem sequer é preciso ler/hashear o ficheiro.
+    /// mtime (epoch s) and size at the last sync -- a cheap pre-filter: if both match the disk,
+    /// the content has not changed and the file does not even need to be read/hashed.
     pub mtime: i64,
     pub size: i64,
 }
 
 impl Index {
-    /// Acesso serializado à ligação. `unwrap_or_else` recupera de um lock envenenado (uma thread que
-    /// entrou em pânico não deve deixar o índice inutilizável para sempre).
+    /// Serialized access to the connection. `unwrap_or_else` recovers from a poisoned lock (a
+    /// thread that panicked should not leave the index unusable forever).
     fn lock(&self) -> std::sync::MutexGuard<'_, Connection> {
         self.conn.lock().unwrap_or_else(|e| e.into_inner())
     }
@@ -53,7 +53,7 @@ impl Index {
                 val TEXT NOT NULL
              );",
         )?;
-        // Índices criados antes do pré-filtro não têm as colunas: acrescenta-as (erro = já existem).
+        // Indexes created before the pre-filter do not have these columns: add them (error = already exist).
         let _ = conn.execute(
             "ALTER TABLE files ADD COLUMN mtime INTEGER NOT NULL DEFAULT 0",
             [],
@@ -62,9 +62,9 @@ impl Index {
             "ALTER TABLE files ADD COLUMN size INTEGER NOT NULL DEFAULT 0",
             [],
         );
-        // O índice é só uma CACHE local. Quando o modelo de sincronização muda (aqui: de espelhar o
-        // drive inteiro para pares de pastas), os caminhos guardados deixam de fazer sentido —
-        // recomeça-se do zero em vez de arrastar entradas inválidas.
+        // The index is just a local CACHE. When the sync model changes (here: from mirroring the
+        // whole drive to folder pairs), the stored paths stop making sense -- start over from
+        // zero instead of dragging along invalid entries.
         const SCHEMA: &str = "2-pairs";
         let ver: Option<String> = conn
             .query_row("SELECT val FROM meta WHERE key='schema'", [], |r| r.get(0))
@@ -103,7 +103,7 @@ impl Index {
         Ok(())
     }
 
-    /// Lê/escreve um valor arbitrário em `meta` (ex.: quando foi a última reconciliação completa).
+    /// Reads/writes an arbitrary value in `meta` (e.g. when the last full reconciliation ran).
     pub fn meta_get(&self, key: &str) -> Option<String> {
         self.lock()
             .query_row("SELECT val FROM meta WHERE key=?1", params![key], |r| {
@@ -121,7 +121,7 @@ impl Index {
         Ok(())
     }
 
-    /// Devolve o registo de um ficheiro, se o daemon já o baixou.
+    /// Returns a file's record, if the daemon has already downloaded it.
     pub fn get(&self, file_id: &str) -> Result<Option<Entry>> {
         let row = self
             .lock()
@@ -157,8 +157,8 @@ impl Index {
         Ok(())
     }
 
-    /// Atualiza só o carimbo (mtime/size) — o conteúdo é o mesmo, foi só um "touch" no ficheiro.
-    /// Evita voltar a ler e hashear o ficheiro em todas as passagens seguintes.
+    /// Updates only the stamp (mtime/size) -- the content is the same, it was just a "touch" on
+    /// the file. Avoids re-reading and re-hashing the file on every subsequent pass.
     pub fn touch_stat(&self, file_id: &str, mtime: i64, size: i64) -> Result<()> {
         self.lock().execute(
             "UPDATE files SET mtime=?2, size=?3 WHERE file_id=?1",
@@ -167,7 +167,7 @@ impl Index {
         Ok(())
     }
 
-    /// Todos os ficheiros rastreados (para a passagem de upload comparar com o disco).
+    /// All tracked files (for the upload pass to compare against the disk).
     pub fn all(&self) -> Result<Vec<Tracked>> {
         let conn = self.lock();
         let mut stmt = conn.prepare("SELECT file_id, rel_path, hash, mtime, size FROM files")?;
@@ -193,10 +193,11 @@ impl Index {
         Ok(())
     }
 
-    /// Esquece as entradas DENTRO de uma pasta local (prefixo de caminho). Usado ao (re)adicionar um
-    /// par: como a pasta na nuvem é nova, quaisquer file_ids antigos aqui são inválidos — apagá-los faz
-    /// o push tratar os ficheiros como NOVOS e enviá-los (senão o índice julga-os já sincronizados e
-    /// nada sobe). Compara por caminho como o push (Path::starts_with), robusto a `%`/`_` no nome.
+    /// Forgets the entries INSIDE a local folder (path prefix). Used when (re-)adding a pair: since
+    /// the cloud folder is new, any old file_ids here are invalid -- deleting them makes the push
+    /// treat the files as NEW and upload them (otherwise the index thinks they are already synced
+    /// and nothing goes up). Compares by path the same way the push does (Path::starts_with), robust
+    /// to `%`/`_` in the name.
     pub fn remove_under(&self, abs_prefix: &str) -> Result<()> {
         let conn = self.lock();
         let root = std::path::Path::new(abs_prefix);
@@ -219,9 +220,9 @@ impl Index {
         Ok(())
     }
 
-    /// Esvazia o índice (ficheiros + cursor/reconcile do feed), preservando o schema. Usado ao trocar
-    /// de CONTA na mesma máquina: os file_ids pertencem ao servidor da conta anterior e não valem para
-    /// a nova — recomeça do zero (re-sobe o local, re-lê o feed).
+    /// Clears the index (files + feed cursor/reconcile), preserving the schema. Used when switching
+    /// ACCOUNTS on the same machine: the file_ids belong to the previous account's server and are
+    /// not valid for the new one -- start over from zero (re-upload local content, re-read the feed).
     pub fn clear(&self) -> Result<()> {
         let conn = self.lock();
         conn.execute("DELETE FROM files", [])?;

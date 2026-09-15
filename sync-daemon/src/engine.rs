@@ -1,8 +1,8 @@
-//! O motor embutível: uma thread de fundo que sincroniza, um watcher que a acorda quando a pasta
-//! muda, e um estado observável para a UI (app desktop ou ícone na barra) mostrar ao utilizador.
+//! The embeddable engine: a background thread that syncs, a watcher that wakes it when the folder
+//! changes, and an observable state for the UI (desktop app or menu bar icon) to show the user.
 //!
-//! Foi extraído do modo agente para o mesmo código servir os dois hospedeiros — a app desktop e o
-//! binário headless — sem duplicar lógica.
+//! It was extracted from agent mode so the same code serves both hosts -- the desktop app and the
+//! headless binary -- without duplicating logic.
 
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
@@ -13,31 +13,31 @@ use serde::Serialize;
 
 use crate::{api, config, index, sync};
 
-/// Em que ponto está a sincronização (o que a UI mostra).
+/// Where the sync currently stands (what the UI shows).
 #[derive(Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Phase {
-    /// Nunca correu / à espera do próximo ciclo.
+    /// Never ran / waiting for the next cycle.
     Idle,
     Syncing,
     Error,
     Paused,
 }
 
-/// Estado publicado para a UI. É `Serialize` para atravessar a ponte do Tauri tal como está.
+/// State published to the UI. It is `Serialize` to cross the Tauri bridge as-is.
 #[derive(Clone, Serialize)]
 pub struct Status {
     pub phase: Phase,
-    /// Resumo da última passagem ("3 baixados, 1 enviado") ou a mensagem de erro.
+    /// Summary of the last pass ("3 downloaded, 1 uploaded") or the error message.
     pub message: String,
     pub paused: bool,
-    /// Se já há credenciais gravadas (senão a UI mostra o ecrã de "ligar esta máquina").
+    /// Whether credentials are already saved (otherwise the UI shows the "connect this machine" screen).
     pub configured: bool,
     /// Server and account the saved config belongs to — the UI compares this against the current
     /// session so it does not show another account's pairs on the same machine.
     pub server_url: String,
     pub account: String,
-    /// Pastas sincronizadas (pares local↔nuvem).
+    /// Synced folders (local<->cloud pairs).
     pub pairs: Vec<crate::config::SyncPair>,
 }
 
@@ -55,16 +55,16 @@ impl Status {
     }
 }
 
-/// Motor de sincronização a correr em fundo. Enquanto este objeto viver, a thread continua.
+/// Sync engine running in the background. As long as this object is alive, the thread keeps running.
 pub struct Engine {
     state: Arc<Mutex<Status>>,
     nudge: Sender<()>,
-    /// Um watcher por pasta sincronizada. Têm de ficar vivos (se caírem, deixam de observar).
+    /// One watcher per synced folder. They must stay alive (if dropped, they stop observing).
     _watchers: Mutex<Vec<notify::RecommendedWatcher>>,
 }
 
 impl Engine {
-    /// Arranca o motor. `interval` é a rede de segurança entre passagens (o watcher acorda antes).
+    /// Starts the engine. `interval` is the safety net between passes (the watcher wakes it up before that).
     pub fn start(interval: u64) -> Arc<Self> {
         let state = Arc::new(Mutex::new(Status::new()));
         let (tx, rx) = mpsc::channel();
@@ -81,12 +81,12 @@ impl Engine {
         engine
     }
 
-    /// Estado atual (para a UI).
+    /// Current state (for the UI).
     pub fn status(&self) -> Status {
         self.state.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
-    /// Pede uma sincronização já, sem esperar o intervalo.
+    /// Requests a sync right away, without waiting for the interval.
     pub fn sync_now(&self) {
         let _ = self.nudge.send(());
     }
@@ -97,7 +97,7 @@ impl Engine {
         s.phase = if paused { Phase::Paused } else { Phase::Idle };
     }
 
-    /// Relê a config do disco para o estado (depois de a UI a mudar) e reaponta os watchers.
+    /// Re-reads the config from disk into the state (after the UI changes it) and re-points the watchers.
     pub fn refresh_config(&self) {
         let cfg = config::load().ok();
         let has_token = config::load_token().map(|t| !t.is_empty()).unwrap_or(false);
@@ -111,26 +111,26 @@ impl Engine {
         s.pairs = cfg.map(|c| c.pairs).unwrap_or_default();
     }
 
-    /// (Re)aponta um watcher por cada pasta sincronizada.
+    /// (Re-)points a watcher at each synced folder.
     pub fn rearm_watcher(&self) {
         let pairs = self.status().pairs;
         let mut watchers = Vec::new();
         for p in pairs {
             match crate::watch::spawn(std::path::PathBuf::from(&p.local_path), self.nudge.clone()) {
                 Ok(w) => watchers.push(w),
-                Err(e) => eprintln!("aviso: watcher indisponível em {} ({e})", p.local_path),
+                Err(e) => eprintln!("warning: watcher unavailable on {} ({e})", p.local_path),
             }
         }
         *self._watchers.lock().unwrap_or_else(|e| e.into_inner()) = watchers;
     }
 
-    /// Liga esta máquina à conta (servidor + token do dispositivo). Ainda não sincroniza nada —
-    /// é preciso adicionar pelo menos uma pasta com `add_pair`.
+    /// Connects this machine to the account (server + device token). Nothing syncs yet -- at
+    /// least one folder still needs to be added with `add_pair`.
     pub fn connect(&self, server_url: &str, token: &str, account: &str) -> Result<()> {
-        let _ = api::Client::new(server_url, token)?; // valida cedo (exige https fora de localhost)
+        let _ = api::Client::new(server_url, token)?; // validates early (requires https off localhost)
         let prev = config::load().ok();
-        // Só herda os pares/definições se for a MESMA conta e servidor. Ao trocar de utilizador na
-        // mesma máquina, começa do zero — senão o dfernandes herdava as pastas da ana.
+        // Only inherits the pairs/settings if it is the SAME account and server. Switching users
+        // on the same machine starts from zero -- otherwise one user would inherit another's folders.
         let same = prev
             .as_ref()
             .map(|c| c.server_url == server_url && c.account == account)
@@ -157,8 +157,8 @@ impl Engine {
             },
             token,
         )?;
-        // Trocou de conta/servidor ⇒ o índice (file_ids do servidor anterior) não vale para a nova
-        // conta: esvazia-o para recomeçar do zero (re-sobe o local, re-lê o feed).
+        // Switched account/server => the index (file_ids from the previous server) is not valid
+        // for the new account: clear it to start from zero (re-upload local content, re-read the feed).
         if !same {
             if let Ok(idx) = index::Index::open(&index_db_path()?) {
                 let _ = idx.clear();
@@ -169,12 +169,13 @@ impl Engine {
         Ok(())
     }
 
-    /// Adiciona uma pasta local à sincronização: **cria a pasta correspondente no Drive** (com o
-    /// nome da pasta local) e passa a sincronizar só o que está lá dentro, nos dois sentidos.
+    /// Adds a local folder to the sync: **creates the matching folder in Drive** (with the local
+    /// folder's name) and starts syncing only what is inside it, in both directions.
     pub fn add_pair(&self, local_path: &str) -> Result<crate::config::SyncPair> {
         let mut cfg = config::load()?;
         let token = config::load_token()?;
         if cfg.pairs.iter().any(|p| p.local_path == local_path) {
+            // User-facing error, not yet localized (same as the tray status message below). lang:ok
             anyhow::bail!("esta pasta já está a ser sincronizada");
         }
         std::fs::create_dir_all(local_path)?;
@@ -184,7 +185,7 @@ impl Engine {
             .unwrap_or_else(|| "Sincronizada".to_string());
 
         let client = api::Client::with_bandwidth(&cfg.server_url, &token, cfg.bandwidth_bps())?;
-        // Reaproveita uma pasta de topo com o mesmo nome, se já existir; senão cria-a.
+        // Reuses a top-level folder with the same name if one already exists; otherwise creates it.
         let existing = client
             .folders()?
             .into_iter()
@@ -201,9 +202,10 @@ impl Engine {
         };
         cfg.pairs.push(pair.clone());
         config::save(&cfg, &token)?;
-        // Pasta nova na nuvem ⇒ qualquer entrada antiga do índice sob este caminho é inválida (aponta
-        // para file_ids que já não existem/pertencem a outra conta). Limpa-as para o push tratar os
-        // ficheiros como novos e os enviar — senão o índice julga-os sincronizados e nada sobe.
+        // New cloud folder => any old index entry under this path is invalid (it points to
+        // file_ids that no longer exist/belong to another account). Clear them so the push treats
+        // the files as new and uploads them -- otherwise the index thinks they are synced and
+        // nothing goes up.
         if let Ok(idx) = index::Index::open(&index_db_path()?) {
             let _ = idx.remove_under(local_path);
         }
@@ -213,7 +215,7 @@ impl Engine {
         Ok(pair)
     }
 
-    /// Deixa de sincronizar uma pasta. NÃO apaga ficheiros — nem locais nem na nuvem.
+/// Stops syncing a folder. Does NOT delete files -- neither local ones nor cloud ones.
     pub fn remove_pair(&self, local_path: &str) -> Result<()> {
         let mut cfg = config::load()?;
         let token = config::load_token()?;
@@ -224,7 +226,7 @@ impl Engine {
         Ok(())
     }
 
-    /// Limite de banda atual (KB/s).
+    /// Current bandwidth limit (KB/s).
     pub fn bandwidth(&self) -> u64 {
         config::load().map(|c| c.bandwidth_kbps).unwrap_or(0)
     }
@@ -242,7 +244,7 @@ fn index_db_path() -> Result<std::path::PathBuf> {
     Ok(config::config_dir()?.join("index.db"))
 }
 
-/// A thread de fundo: sincroniza, publica o estado, e dorme até ao próximo ciclo ou até ser acordada.
+/// The background thread: syncs, publishes the state, and sleeps until the next cycle or until woken.
 fn spawn_loop(state: Arc<Mutex<Status>>, nudge: Receiver<()>, interval: u64) {
     std::thread::spawn(move || loop {
         let (paused, configured) = {
@@ -254,8 +256,8 @@ fn spawn_loop(state: Arc<Mutex<Status>>, nudge: Receiver<()>, interval: u64) {
                 let mut s = state.lock().unwrap_or_else(|e| e.into_inner());
                 s.phase = Phase::Syncing;
             }
-            // Recarrega config/índice a cada passagem: mudar a pasta ou o token na UI passa a
-            // valer sem reiniciar a app.
+            // Reloads config/index on every pass: changing the folder or the token in the UI
+            // takes effect without restarting the app.
             let outcome = (|| -> Result<sync::Stats> {
                 let cfg = config::load()?;
                 let token = config::load_token()?;
@@ -283,8 +285,8 @@ fn spawn_loop(state: Arc<Mutex<Status>>, nudge: Receiver<()>, interval: u64) {
                             String::new()
                         }
                     );
-                    // Se houve erros de envio, o estado é de ERRO (não "tudo sincronizado") — assim a
-                    // UI e o tray mostram que algo falhou em vez de fingir sucesso.
+                    // If there were upload errors, the state is ERROR (not "everything synced") --
+                    // this way the UI and the tray show that something failed instead of faking success.
                     if st.errors > 0 {
                         s.phase = Phase::Error;
                     }

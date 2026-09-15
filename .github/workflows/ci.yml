@@ -1,8 +1,8 @@
 name: CI
 
-# Condição de merge (leis §2.1): gofmt + go vet limpos, build e testes a passar no backend;
-# TypeScript strict a compilar e testes a passar no frontend. O bundle Tauri (desktop) é
-# verificado com cargo check num job à parte para não bloquear o essencial.
+# Merge condition (laws §2.1): clean gofmt + go vet, build and tests passing on the backend;
+# TypeScript strict compiling and tests passing on the frontend. The Tauri (desktop) bundle is
+# checked with cargo check in a separate job so it does not block the essentials.
 on:
   push:
     branches: [master]
@@ -50,11 +50,11 @@ jobs:
         with:
           go-version: "1.25.13"
           cache-dependency-path: backend/go.sum
-      - name: gofmt (sem ficheiros por formatar)
+      - name: gofmt (no unformatted files)
         run: |
           unformatted="$(gofmt -l .)"
           if [ -n "$unformatted" ]; then
-            echo "Ficheiros por formatar (corra gofmt -w):"; echo "$unformatted"; exit 1
+            echo "Unformatted files (run gofmt -w):"; echo "$unformatted"; exit 1
           fi
       - name: go vet
         run: go vet ./...
@@ -78,12 +78,12 @@ jobs:
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           "$(go env GOPATH)/bin/gosec" -exclude-dir internal/db ./...
-      - name: sqlc — código gerado está atualizado
+      - name: sqlc -- generated code is up to date
         run: |
           go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.27.0
           "$(go env GOPATH)/bin/sqlc" generate
           if ! git diff --exit-code -- internal/db; then
-            echo "internal/db desatualizado: corra 'sqlc generate' e faça commit."; exit 1
+            echo "internal/db is out of date: run 'sqlc generate' and commit."; exit 1
           fi
 
   frontend:
@@ -104,7 +104,7 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - name: Build (tsc strict + vite)
         run: npm run build
-      - name: Testes (vitest)
+      - name: Tests (vitest)
         run: npm test
       - name: npm audit (critical)
         run: npm audit --audit-level=critical
@@ -149,8 +149,8 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      # Dependências de sistema do Tauri 2 no Linux (webkit2gtk 4.1 + libs de janela).
-      - name: Dependências do sistema (Tauri)
+      # Tauri 2's system dependencies on Linux (webkit2gtk 4.1 + window libs).
+      - name: System dependencies (Tauri)
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \

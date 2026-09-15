@@ -1,7 +1,7 @@
-//! Coisas próprias do desktop que a UI web não tem: janela de Definições e a conta mostrada no tray.
+//! Desktop-only things the web UI does not have: the Settings window and the account shown in the tray.
 //!
-//! O tray é construído em Rust e não sabe quem está autenticado — quem sabe é a UI. Por isso a UI
-//! empurra o rótulo da conta para cá (`set_account`) e o tray limita-se a mostrá-lo.
+//! The tray is built in Rust and does not know who is signed in -- the UI does. So the UI pushes
+//! the account label here (`set_account`) and the tray just displays it.
 
 use std::sync::Mutex;
 
@@ -27,8 +27,8 @@ pub fn set_account<R: Runtime>(app: AppHandle<R>, label: Option<String>) {
     }
 }
 
-/// Abre as Definições numa janela própria. Se já estiver aberta, traz-la à frente em vez de abrir
-/// outra — abrir duas cópias da mesma configuração convida a gravações contraditórias.
+/// Opens Settings in its own window. If it is already open, brings it to the front instead of
+/// opening another one -- opening two copies of the same configuration invites conflicting saves.
 pub fn open_settings<R: Runtime>(app: &AppHandle<R>) {
     if let Some(w) = app.get_webview_window("settings") {
         let _ = w.show();
@@ -36,8 +36,8 @@ pub fn open_settings<R: Runtime>(app: &AppHandle<R>) {
         let _ = w.set_focus();
         return;
     }
-    // `index.html?wpath=…` e não `/mail/settings`: o servidor de assets do Tauri não faz fallback de
-    // SPA, então uma rota direta dá 404 na build. O main.tsx lê o wpath e reescreve a URL.
+    // `index.html?wpath=…` and not `/mail/settings`: Tauri's asset server does not do SPA
+    // fallback, so a direct route 404s in the build. main.tsx reads wpath and rewrites the URL.
     let url = WebviewUrl::App("index.html?wpath=%2Fmail%2Fsettings".into());
     let built = WebviewWindowBuilder::new(app, "settings", url)
         .title("Beskos — Definições")
@@ -45,7 +45,7 @@ pub fn open_settings<R: Runtime>(app: &AppHandle<R>) {
         .min_inner_size(560.0, 480.0)
         .build();
     if let Err(e) = built {
-        eprintln!("aviso: não foi possível abrir as Definições: {e}");
+        eprintln!("warning: could not open Settings: {e}");
     }
 }
 

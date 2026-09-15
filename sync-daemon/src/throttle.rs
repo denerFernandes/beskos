@@ -1,16 +1,16 @@
-//! Limite de largura de banda (token bucket) partilhado por todas as transferências.
+//! Bandwidth limit (token bucket) shared by all transfers.
 //!
-//! Um único `Throttle` é partilhado pelas threads de transferência, por isso o limite é GLOBAL (o
-//! utilizador configura "não uses mais de X KB/s", não "X KB/s por ficheiro"). `rate = 0` desliga.
+//! A single `Throttle` is shared by the transfer threads, so the limit is GLOBAL (the user
+//! configures "do not use more than X KB/s", not "X KB/s per file"). `rate = 0` turns it off.
 
 use std::io::{self, Read};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 pub struct Throttle {
-    /// Bytes por segundo. 0 = sem limite (caminho rápido, sem locks).
+    /// Bytes per second. 0 = no limit (fast path, no locks).
     rate: u64,
-    /// (instante do último refill, tokens disponíveis em bytes)
+    /// (instant of the last refill, tokens available in bytes)
     state: Mutex<(Instant, f64)>,
 }
 
@@ -22,8 +22,8 @@ impl Throttle {
         }
     }
 
-    /// Bloqueia até poder "gastar" `n` bytes. Reenche o balde conforme o tempo passado; se não
-    /// houver tokens que cheguem, dorme exatamente o tempo em falta.
+    /// Blocks until it can "spend" `n` bytes. Refills the bucket according to elapsed time; if
+    /// there are not enough tokens, sleeps exactly the missing time.
     pub fn take(&self, n: usize) {
         if self.rate == 0 || n == 0 {
             return;
@@ -35,7 +35,7 @@ impl Throttle {
                 let now = Instant::now();
                 let elapsed = now.duration_since(st.0).as_secs_f64();
                 st.0 = now;
-                // Reenche, com teto de 1 segundo de burst (evita acumular crédito indefinido).
+                // Refills, capped at 1 second of burst (avoids accumulating credit indefinitely).
                 st.1 = (st.1 + elapsed * self.rate as f64).min(self.rate as f64);
                 if st.1 >= need {
                     st.1 -= need;
@@ -48,8 +48,8 @@ impl Throttle {
     }
 }
 
-/// Leitor que respeita o limite de banda — usado tanto no download (corpo da resposta) como no
-/// upload (corpo do pedido), para o limite valer nos dois sentidos.
+/// Reader that respects the bandwidth limit -- used both for downloads (response body) and
+/// uploads (request body), so the limit applies in both directions.
 pub struct ThrottledReader<'a, R: Read> {
     inner: R,
     throttle: &'a Throttle,
@@ -63,8 +63,8 @@ impl<'a, R: Read> ThrottledReader<'a, R> {
 
 impl<R: Read> Read for ThrottledReader<'_, R> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        // Limita o tamanho do pedido de leitura para o atraso ser distribuído (e não em blocos
-        // enormes), mantendo o débito suave.
+        // Caps the read request size so the delay is spread out (rather than in huge chunks),
+        // keeping the throughput smooth.
         let cap = if self.throttle.rate == 0 {
             buf.len()
         } else {
