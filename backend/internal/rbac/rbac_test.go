@@ -2,8 +2,8 @@ package rbac
 
 import "testing"
 
-// Owner, admin e internal_admin têm tudo: quem administra a organização não esbarra em permissões
-// (decisão do produto, 27/07/2026). O que os separa é o RANK, não o conjunto de permissões.
+// Owner, admin, and internal_admin have everything: whoever administers the organization does not
+// run into permission walls. What separates them is RANK, not the set of permissions.
 func TestOwnerAdminAndInternalHaveEverything(t *testing.T) {
 	for _, role := range []Role{RoleOwner, RoleAdmin, RoleInternalAdmin} {
 		for _, p := range AllPermissions() {

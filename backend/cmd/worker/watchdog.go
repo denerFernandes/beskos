@@ -9,20 +9,20 @@ import (
 	"time"
 )
 
-// Sentinela: verifica que o Stalwart está alcançável PELO NOME que os clientes usam.
+// Watchdog checks that Stalwart is reachable BY THE NAME clients actually use.
 //
-// PORQUÊ, e porque não chega o healthcheck do contentor: a 30/07/2026 o correio e o webmail
-// estiveram meia hora em baixo com o Docker a dizer `healthy` o tempo todo — e o Docker tinha razão.
-// O healthcheck da imagem faz `curl http://127.0.0.1:8080/healthz/live` DENTRO do contentor, o
-// processo estava vivo e respondia. O que estava partido era o encaminhamento do Swarm: quem se
-// ligasse a `stalwart:8080` era aceite e depois cortado.
+// Why the container healthcheck is not enough: mail and webmail have gone down for half an hour
+// with Docker reporting `healthy` the whole time — and Docker was right. The image's healthcheck
+// runs `curl http://127.0.0.1:8080/healthz/live` INSIDE the container, where the process was alive
+// and responding. What was broken was Swarm's routing: a connection to `stalwart:8080` was accepted
+// and then dropped.
 //
-// Um healthcheck de loopback não pode ver isso, por definição — não passa pelo caminho que falha.
-// Esta sentinela passa: liga-se pelo mesmo nome e pela mesma rede que a API usa. É a diferença
-// entre "o processo está de pé" e "o serviço está a servir".
+// A loopback healthcheck cannot see that, by definition — it never goes through the path that
+// fails. This watchdog does: it connects using the same name and the same network the API uses.
+// That is the difference between "the process is up" and "the service is serving".
 //
-// Não repara nada, de propósito. Só grita. Uma sentinela que reinicia serviços sozinha transforma
-// um problema de rede numa cascata de reinícios — e o registo passa a contar a história errada.
+// It fixes nothing, on purpose. It only alerts. A watchdog that restarts services on its own turns
+// a network problem into a cascade of restarts, and the log ends up telling the wrong story.
 
 const (
 	watchdogInterval = time.Minute

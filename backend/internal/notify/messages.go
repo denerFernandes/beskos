@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-// Avisos transacionais ao cliente: conta criada, subscrição, teste, cobrança e novo início de
-// sessão. São o único contacto que a pessoa tem connosco fora da app — por isso vão com a marca,
-// no idioma dela, e sempre com a versão em texto simples ao lado (clientes que recusam HTML,
-// leitores de ecrã, e o filtro de spam que gosta de ver as duas partes).
+// Transactional notices to the customer: account created, subscription, trial, billing, and a new
+// sign-in. These are the only contact a person has with us outside the app, so they carry the
+// brand, use the recipient's language, and always ship a plain-text version alongside the HTML one
+// (clients that reject HTML, screen readers, and spam filters that like seeing both parts).
 //
 // O idioma segue o do utilizador: "en" quando começa por en, senão português. Não inventamos mais
 // idiomas do que a app tem.
@@ -156,8 +156,8 @@ func ChargeStarted(lang, plan, amount, invoiceURL, appURL string) Msg {
 	return build(lang, subject, intro, lines, label, url, footerFor(lang))
 }
 
-// NewLogin avisa de um início de sessão, com o que permite reconhecê-lo (ou não): quando, de onde,
-// com que aparelho. É o aviso que faz alguém perceber que lhe roubaram a senha.
+// NewLogin reports a sign-in, with what lets the recipient recognize it (or not): when, where,
+// and from which device. It is the notice that lets someone realize their password was stolen.
 func NewLogin(lang, email, ip, location, device string, when time.Time, appURL string) Msg {
 	subject := tr(lang, "Novo início de sessão na sua conta", "New sign-in to your account")
 	intro := tr(lang,

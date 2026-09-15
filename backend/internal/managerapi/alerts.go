@@ -5,8 +5,8 @@ import (
 	"net/http"
 )
 
-// Alertas de uso exagerado (pedido 22/07/2026). Regras calculadas na hora sobre contadores de
-// HOJE + baseline de 7 dias — sem estado novo (um alerta desaparece quando a condição passa).
+// Overuse alerts. Rules computed on the fly from TODAY's counters plus a 7-day baseline — no new
+// state; an alert disappears once the condition clears.
 //
 //	users_cap      warn ≥90% do teto de utilizadores do plano · crit = no teto
 //	storage_cap    warn ≥80% do pool de storage do plano · crit ≥95%

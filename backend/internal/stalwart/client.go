@@ -1,11 +1,11 @@
-// Package stalwart é o nosso client tipado para o Stalwart v0.16.4.
+// Package stalwart is our typed client for Stalwart v0.16.4.
 //
-// A REST Management API foi REMOVIDA na 0.16 — não há OpenAPI para gerar código.
-// Toda administração é via JMAP, capability "urn:stalwart:jmap", métodos no namespace "x:".
-// Ver deploy/DIVERGENCES.md para o mapeamento completo brief §6 → realidade.
+// The REST Management API was REMOVED in 0.16 — there is no OpenAPI spec to generate code from.
+// All administration goes through JMAP, capability "urn:stalwart:jmap", with methods in the "x:"
+// namespace.
 //
-// Restrição de licença (brief §2): só falamos com o Stalwart pela rede. Nada aqui
-// linka, embute ou modifica o binário do Stalwart.
+// License constraint: we only ever talk to Stalwart over the network. Nothing here links,
+// embeds, or modifies the Stalwart binary.
 package stalwart
 
 import (

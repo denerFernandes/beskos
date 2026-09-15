@@ -62,8 +62,8 @@ type Config struct {
 	// bytes); default 100 GiB. A cota total do plano continua a valer por cima disto.
 	FilesMaxUploadBytes int64
 
-	// App nativo (Tauri): origens permitidas para CORS (APP_ORIGINS, separadas por vírgula) e se o
-	// cookie de sessão é Secure/SameSite=None (COOKIE_SECURE=true em produção HTTPS).
+	// Native app (Tauri): allowed CORS origins (APP_ORIGINS, comma-separated), and whether the
+	// session cookie is Secure/SameSite=None (COOKIE_SECURE=true in production HTTPS).
 	AppOrigins   []string
 	CookieSecure bool
 

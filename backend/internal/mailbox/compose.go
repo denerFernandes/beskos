@@ -7,9 +7,8 @@ import (
 	"strings"
 )
 
-// Draft é uma mensagem por enviar, tal como o assistente a propõe. Sem anexos: o assistente da
-// fase A2 escreve texto, e um anexo que ele escolhesse sozinho seria conteúdo a sair sem ninguém
-// ter visto o que era.
+// Draft is an unsent message, as proposed by the assistant. No attachments: the assistant writes
+// text, and an attachment it picked on its own would be content going out that nobody had reviewed.
 type Draft struct {
 	To      []string `json:"to"`
 	Cc      []string `json:"cc,omitempty"`

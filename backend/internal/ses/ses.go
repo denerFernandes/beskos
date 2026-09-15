@@ -1,7 +1,7 @@
-// Package ses fala com a API do Amazon SES v2 por HTTP assinado (SigV4) — sem SDK (lei 2.5),
-// no mesmo espírito do provider Stripe. Uso: registar o domínio de um tenant como identidade SES
-// quando ele é provisionado, em modo WHITE-LABEL (BYODKIM): NÓS geramos a chave DKIM e o SES assina
-// com ela, para que o DNS do cliente NUNCA revele o Amazon (docs/manager.md §4).
+// Package ses talks to the Amazon SES v2 API over signed HTTP (SigV4) — no SDK, in the same
+// spirit as the Stripe provider. Used to register a tenant's domain as an SES identity when it is
+// provisioned, in WHITE-LABEL (BYODKIM) mode: WE generate the DKIM key and SES signs with it, so
+// the client's DNS NEVER reveals Amazon.
 package ses
 
 import (

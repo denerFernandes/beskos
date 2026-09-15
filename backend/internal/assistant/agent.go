@@ -12,7 +12,7 @@ package assistant
 
 import "github.com/google/uuid"
 
-// Identity é quem executa. Construída a partir da sessão autenticada — nunca de dados do modelo.
+// Identity is who is executing. Built from the authenticated session — never from model data.
 type Identity struct {
 	TenantID uuid.UUID
 	UserID   uuid.UUID
@@ -42,8 +42,8 @@ type Agent struct {
 	Tools []string
 }
 
-// AgentGeneral é a chave do assistente geral — o de menor poder de escrita. Em caso de dúvida, o
-// encaminhamento (fase A3) escolhe este: errar para o lado que faz menos.
+// AgentGeneral is the key of the general-purpose assistant — the one with the least write power.
+// Routing picks this one when in doubt: err on the side that does less.
 const AgentGeneral = "assistant"
 
 // Chaves dos restantes agentes de origem. São parte do produto: mantidos e melhorados por nós, e

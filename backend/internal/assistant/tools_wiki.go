@@ -49,8 +49,8 @@ type WikiPageEdit struct {
 	Content string `json:"content"`
 }
 
-// Acessos ao serviço da wiki — funções, como o resto do catálogo. Recebem SEMPRE a Identity da
-// sessão (§6.2); os adapters em httpapi ligam-nas ao serviço internal/wiki (mesma superfície vis).
+// Wiki service accessors — functions, like the rest of the catalog. They always receive the
+// caller's Identity; the httpapi adapters wire them to the internal/wiki service (same visible surface).
 type (
 	WikiSearch     func(ctx context.Context, id Identity, query string, limit int) ([]WikiHit, error)
 	WikiRead       func(ctx context.Context, id Identity, pageID string) (WikiPageData, error)

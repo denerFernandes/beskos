@@ -20,10 +20,10 @@ type MailBox interface {
 	SendEmail(ctx context.Context, d mailbox.Draft) (string, error)
 }
 
-// MailAccess resolve a caixa do utilizador a partir da Identity — e SÓ da Identity. Resolver por
-// identidade (em vez de receber um cliente já pronto) é o que permite às tarefas em fundo da fase
-// A4 correr sem pedido HTTP, e é o que garante que a caixa aberta é sempre a do utilizador
-// autenticado (§6.2).
+// MailAccess resolves the user's mailbox from the Identity — and ONLY from the Identity. Resolving
+// by identity, rather than taking an already-built client, is what lets background tasks run
+// without an HTTP request, and what guarantees the opened mailbox is always the authenticated
+// user's.
 type MailAccess func(ctx context.Context, id Identity) (MailBox, error)
 
 // mailSearchArgs — repare que não há tenant_id nem user_id, e nunca haverá (§6.2).

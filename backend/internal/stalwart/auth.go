@@ -5,9 +5,9 @@ import (
 	"net/http"
 )
 
-// VerifyUser confirma a credencial de um usuário FINAL (mailbox) fazendo uma sessão JMAP com
-// Basic auth. Usado para autenticar o webmail na NOSSA API sem guardar a senha do usuário
-// (DIVERGENCES §D7: Basic auth é o caminho viável na 0.16). Retorna true se HTTP 200.
+// VerifyUser confirms an end user's (mailbox) credential by making a JMAP session request with
+// Basic auth. Used to authenticate the webmail against OUR API without storing the user's
+// password — Basic auth is the only viable path on this Stalwart version. Returns true on HTTP 200.
 func (c *Client) VerifyUser(ctx context.Context, email, password string) (bool, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/jmap/session", nil)
 	if err != nil {

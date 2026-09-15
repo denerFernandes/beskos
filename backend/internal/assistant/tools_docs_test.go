@@ -106,8 +106,8 @@ func TestDocsCreateDoesNotAskForConfirmation(t *testing.T) {
 	}
 }
 
-// O agente de Documentos consegue criar ficheiros; o de Correio não. É o mesmo isolamento por
-// perfil da A3, agora com a ferramenta nova.
+// The Docs agent can create files; the Mail agent cannot. Same per-agent tool isolation,
+// now exercised with the new tool.
 func TestDocsCreateIsScopedByAgent(t *testing.T) {
 	docs, _ := Builtin(AgentDocs)
 	if !allows(docs, ToolDocsCreate) {

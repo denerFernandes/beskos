@@ -12,8 +12,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
-// Metering do manager (M3, docs/manager.md §3.5): rollup diário idempotente + retenção de
-// gravações conforme o plano do tenant.
+// Manager metering: idempotent daily rollup, plus recording retention per the tenant's plan.
 
 // scanDailyUsage congela o uso por tenant para HOJE e ONTEM (upsert). Rodar de hora em hora cobre
 // mudanças ao longo do dia; refazer ontem no primeiro tick depois da meia-noite fecha o dia certo.

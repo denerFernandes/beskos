@@ -27,8 +27,8 @@ func buildDocx(p Plan) ([]byte, error) {
 	doc := xmlHeader +
 		`<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">` +
 		`<w:body>` + body.String() +
-		// A secção final define o tamanho da página. Sem ela alguns leitores assumem valores
-		// estranhos; com ela, A4 em toda a parte.
+		// The final section sets the page size. Without it, some readers assume unexpected
+		// defaults; with it, the page is consistently ISO 216 (210x297mm) everywhere.
 		`<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>` +
 		`<w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr>` +
 		`</w:body></w:document>`

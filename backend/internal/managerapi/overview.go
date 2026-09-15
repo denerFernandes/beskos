@@ -12,8 +12,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Visão read-only da M1 (docs/manager.md §7): totais do dashboard, lista de tenants com contagens
-// e detalhe de um tenant com os utilizadores. O manager só LÊ dados dos tenants — nunca escreve.
+// Read-only overview: dashboard totals, the tenant list with counts, and a single tenant's detail
+// with its users. The manager only READS tenant data — it never writes it.
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	row, err := s.q.ManagerOverview(r.Context())
@@ -52,7 +52,7 @@ func (s *Server) handleGetTenant(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"tenant": tenant, "users": orEmpty(users)})
 }
 
-// handleTenantUsage devolve o rollup diário do tenant (M3): últimos N dias (default 30, máx 365).
+// handleTenantUsage returns the tenant's daily rollup for the last N days (default 30, max 365).
 func (s *Server) handleTenantUsage(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -72,7 +72,7 @@ func (s *Server) handleTenantUsage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orEmpty(rows))
 }
 
-// handleUsageSeries devolve a série agregada de todos os tenants (dashboard M3+).
+// handleUsageSeries returns the usage series aggregated across all tenants, for the dashboard.
 func (s *Server) handleUsageSeries(w http.ResponseWriter, r *http.Request) {
 	days := 30
 	if v, err := strconv.Atoi(r.URL.Query().Get("days")); err == nil && v > 0 && v <= 365 {
