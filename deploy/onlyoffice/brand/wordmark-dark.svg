@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 432 70" width="432" height="70">
-  <!-- Marca Beskos para cabeçalhos ESCUROS do editor (tinta branca). 432x70 é o tamanho
-       recomendado pelo Document Server para customization.logo. -->
+  <!-- Beskos wordmark for DARK editor headers (white ink). 432x70 is the size
+       recommended by Document Server for customization.logo. -->
   <g transform="translate(-15.17,1.37) scale(0.065657)">
     <g transform="translate(45.0,55.4) scale(0.9077)">
       <path fill="#FFFFFF" d="M408.005615,834.240356

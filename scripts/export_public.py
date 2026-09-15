@@ -57,6 +57,7 @@ EXCLUDE = [
     "docs/DNS-PAGE.md",  # dated planning note; the feature itself is covered in FUNCTIONALITY.md
     "docs/cifra-ficheiros.md",  # superseded by docs/adr/0004-aes-gcm-block-file-encryption.md -- lang:ok
     "docs/wiki-features.md",  # dated design draft; the feature itself is covered in FUNCTIONALITY.md
+    "deploy/backup/MIGRACAO-STALWART-POSTGRES.md",  # dated post-mortem, superseded by DIVERGENCES.md D9 -- lang:ok
     "docs/README-oss.md",  # becomes README.md via OVERRIDES, not kept at its own path too
     "deploy/docker-compose.community.yml",  # becomes deploy/docker-compose.yml via OVERRIDES
     # Agent configuration and the landing gitlink (separate repository).
