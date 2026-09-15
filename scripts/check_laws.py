@@ -73,9 +73,15 @@ SKIP_PARTS = (
     "/public/ort/",
     "/public/models/",
 )
-SKIP_SUFFIX = (".md", ".json", ".lock", ".sum", ".svg", ".png", ".webp", ".ico")
+SKIP_SUFFIX = (".json", ".lock", ".sum", ".svg", ".png", ".webp", ".ico")
 
 CODE_SUFFIX = (".go", ".ts", ".tsx", ".js", ".jsx", ".sql", ".py", ".sh", ".rs", ".yml", ".yaml")
+
+# Documentation prose: checked for language (law 4.6 covers docs, not just code) but never for the
+# 600-line ceiling (law 1.4) -- that rule was written for source files, and a long-form doc growing
+# past it is not the same problem. ".json" stays in SKIP_SUFFIX on purpose: i18n locale files hold
+# real Portuguese (and eight other languages) by design, and this check must never fire on them.
+PROSE_SUFFIX = (".md",)
 
 # Portuguese letters that simply do not occur in English words.
 ACCENTS = re.compile(r"[áàâãéêíóôõúüçÁÀÂÃÉÊÍÓÔÕÚÇ]")
@@ -120,7 +126,7 @@ def is_checkable(path: str) -> bool:
         return False
     if path.endswith(SKIP_SUFFIX):
         return False
-    return path.endswith(CODE_SUFFIX)
+    return path.endswith(CODE_SUFFIX) or path.endswith(PROSE_SUFFIX)
 
 
 def git(*args: str) -> str:
@@ -270,7 +276,8 @@ def check(paths: list[str], base: str = "HEAD", pool_paths: list[str] | None = N
         before = base_line_count(path, base)
         # A file that was already too big is somebody else's debt until you make it worse. Growing
         # one past the limit, or growing one that was already past it, is your change to answer for.
-        if total > MAX_LINES and total > before:
+        # Prose is exempt (law 1.4 was written for source files; PROSE_SUFFIX is never in CODE_SUFFIX).
+        if path.endswith(CODE_SUFFIX) and total > MAX_LINES and total > before:
             grew = f" (was {before})" if before else ""
             problems.append(
                 f"{path}: {total} lines{grew}, the limit is {MAX_LINES} (law 1.4). "
