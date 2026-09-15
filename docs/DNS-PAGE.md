@@ -1,94 +1,99 @@
-# Página de DNS dos domínios — melhoria planeada
+# Domain DNS page — planned improvement
 
-**Estado: implementado em 27/07/2026.** Verificação por registo (`provisioning.CheckZone`), endpoints
-`GET /api/domains/{id}/dns/check` e `.../export`, **página** própria (`/mail/admin/domains/<id>`, era
-um sidecar), estado por registo com o esperado vs o publicado, resumo, "verificar agora", exportação
-de zona BIND/CSV e guia por fornecedor (Cloudflare, Route 53, GoDaddy, Namecheap, Google, outro).
+**Status: implemented on 2026-07-27.** Per-record verification (`provisioning.CheckZone`),
+endpoints `GET /api/domains/{id}/dns/check` and `.../export`, its own **page**
+(`/mail/admin/domains/<id>`, used to be a sidecar), per-record status with expected vs. published,
+a summary, "check now", BIND/CSV zone export, and a per-provider guide (Cloudflare, Route 53,
+GoDaddy, Namecheap, Google, other).
 
-## O que existe hoje
+## What exists today
 
-- **Backend** — [`domains_handlers.go`](../backend/internal/httpapi/domains_handlers.go) devolve
-  `dns_records` (o zonefile do Stalwart passado por
-  [`provisioning.ParseZone`](../backend/internal/provisioning/zone.go)) e dois estados de texto:
-  `dns_status` e `dkim_status`.
-- **Verificação** — [`NetDNSVerifier.Verify`](../backend/internal/provisioning/dns.go) devolve **um
-  único booleano** para o domínio inteiro: procura o MX e **um** registo `_domainkey` com `DKIM1`.
-  Não olha para SPF, DMARC, MTA-STS, autodiscover nem para os SRV. O worker faz polling disto até
-  passar (`stepVerifyDNS`), e o domínio salta de `dns_pending` para `dns_verified`.
-- **Frontend** — [`DomainsSection.tsx`](../frontend/src/panel/DomainsSection.tsx) mostra uma tabela
-  única (Propósito · Tipo · Host · Valor · Copiar), partida em "receber" e "enviar".
+- **Backend** — [`domains_handlers.go`](../backend/internal/httpapi/domains_handlers.go) returns
+  `dns_records` (Stalwart's zonefile parsed by
+  [`provisioning.ParseZone`](../backend/internal/provisioning/zone.go)) and two text states:
+  `dns_status` and `dkim_status`.
+- **Verification** — [`NetDNSVerifier.Verify`](../backend/internal/provisioning/dns.go) returns
+  **a single boolean** for the whole domain: it looks for the MX and **one** `_domainkey` record
+  with `DKIM1`. It doesn't look at SPF, DMARC, MTA-STS, autodiscover, or the SRV records. The
+  worker polls this until it passes (`stepVerifyDNS`), and the domain jumps from `dns_pending` to
+  `dns_verified`.
+- **Frontend** — [`DomainsSection.tsx`](../frontend/src/panel/DomainsSection.tsx) shows a single
+  table (Purpose · Type · Host · Value · Copy), split into "receive" and "send".
 
-## Porque é que confunde
+## Why it's confusing
 
-1. **Estado só do domínio, não do registo.** Diz "à espera" sem dizer de *quê*. Quem publicou 9 de
-   11 registos não tem como saber quais faltam — nem sequer sabe que a verificação só olha para 2.
-2. **A verificação mente por omissão.** Passa com MX + DKIM presentes; SPF ou DMARC em falta dão
-   "verificado" e só se descobre o problema quando o correio começa a cair em spam.
-3. **Copiar um a um.** São ~11 registos; copiar campo a campo para o painel do fornecedor é
-   demorado e propício a erro (aspas, ponto final, prioridade do MX).
-4. **A tabela transborda** em ecrãs estreitos: os valores longos (DKIM, MTA-STS) quebram o layout —
-   é o que se vê no ecrã atual, com a coluna "Copy" partida em letras verticais.
+1. **Status only at the domain level, not the record level.** It says "waiting" without saying
+   *for what*. Someone who has published 9 of 11 records has no way to know which ones are
+   missing — they don't even know that verification only looks at 2 of them.
+2. **Verification lies by omission.** It passes with MX + DKIM present; a missing SPF or DMARC
+   still reads as "verified," and the problem only surfaces once mail starts landing in spam.
+3. **Copying one at a time.** There are ~11 records; copying field by field into the provider's
+   panel is slow and error-prone (quotes, trailing dot, MX priority).
+4. **The table overflows** on narrow screens: the long values (DKIM, MTA-STS) break the layout —
+   which is what the current screen shows, with the "Copy" column broken into vertical letters.
 
-## O que fazer
+## What to do
 
-### 1. Verificação por registo (backend)
+### 1. Per-record verification (backend)
 
-Substituir o booleano por um relatório. Esboço:
+Replace the boolean with a report. Sketch:
 
 ```go
 type RecordCheck struct {
-    Host     string   // como está na zona
+    Host     string   // as it is in the zone
     Type     string   // MX, TXT, CNAME, SRV
     Expected string
-    Found    []string // o que o resolver devolveu (para mostrar o que está lá em vez do esperado)
+    Found    []string // what the resolver returned (to show what's actually there, not just the expected value)
     Status   string   // "ok" | "missing" | "mismatch"
     Purpose  string   // mx, spf, dkim, dmarc, mta_sts, autodiscover, srv…
 }
 ```
 
-- `Verify` passa a devolver `[]RecordCheck` e o booleano agregado passa a ser derivado dos que são
-  **obrigatórios** (MX, SPF, DKIM) — os recomendados (DMARC, MTA-STS, SRV) entram como aviso, não
-  como bloqueio. Hoje o oposto: são ignorados de todo.
-- Endpoint novo `GET /api/domains/{id}/dns/check` que corre a verificação **a pedido** (o polling do
-  worker continua como está, para não mudar a máquina de estados). Rate limit próprio: é I/O de rede.
-- Cache curta (30–60 s) por domínio, senão um refresh repetido martela o resolver.
+- `Verify` now returns `[]RecordCheck`, and the aggregate boolean is derived from the ones that
+  are **required** (MX, SPF, DKIM) — the recommended ones (DMARC, MTA-STS, SRV) become a warning,
+  not a blocker. Today it's the opposite: they're ignored entirely.
+- New endpoint `GET /api/domains/{id}/dns/check` that runs the verification **on demand** (the
+  worker's polling stays as it is, so as not to change the state machine). Its own rate limit:
+  it's network I/O.
+- Short cache (30–60s) per domain, otherwise a repeated refresh hammers the resolver.
 
-### 2. Página com estado granular (frontend)
+### 2. Page with granular status (frontend)
 
-- Uma linha por registo com um sinal claro: **encontrado** / **em falta** / **valor diferente**.
-- Quando é "valor diferente", mostrar lado a lado o esperado e o que está publicado — é o caso mais
-  difícil de diagnosticar às cegas (típico: SPF duplicado, ou o MX do fornecedor antigo).
-- Agrupar por propósito (Receber correio · Enviar · Descoberta de clientes · Segurança), com o
-  estado do grupo no cabeçalho e a possibilidade de fechar os grupos já resolvidos.
-- Botão **"Verificar agora"** ligado ao endpoint acima, com o instante da última verificação.
-- Resolver o transbordo: valor em `code` com `overflow-x:auto` próprio, nunca a empurrar a tabela.
+- One row per record with a clear signal: **found** / **missing** / **different value**.
+- When it's "different value," show the expected and the published value side by side — it's the
+  hardest case to diagnose blind (typical cases: a duplicate SPF, or the old provider's MX).
+- Group by purpose (Receive mail · Send · Client discovery · Security), with the group's status in
+  its header and the ability to collapse groups already resolved.
+- **"Check now"** button wired to the endpoint above, with the timestamp of the last check.
+- Fix the overflow: the value in a `code` block with its own `overflow-x:auto`, never pushing the
+  table itself.
 
-### 3. Exportar
+### 3. Export
 
-- **Ficheiro de zona BIND** (`.zone`) — é o formato que o Cloudflare, o Route 53 e a maioria dos
-  fornecedores importam. É também o que o Stalwart já produz, portanto é quase só servir o que
-  existe: `GET /api/domains/{id}/dns/export?format=zone`.
-- **CSV** para quem edita à mão.
-- Copiar tudo de uma vez para a área de transferência, além do copiar por registo que já existe.
+- **BIND zone file** (`.zone`) — the format Cloudflare, Route 53 and most providers import. It's
+  also what Stalwart already produces, so it's nearly just serving what already exists:
+  `GET /api/domains/{id}/dns/export?format=zone`.
+- **CSV** for anyone editing by hand.
+- Copy everything at once to the clipboard, in addition to the existing per-record copy.
 
-> Nota: o "formato Cloudflare" **é** o ficheiro de zona BIND — o painel deles importa exatamente
-> isso (`DNS › Records › Import`). Não é preciso um formato proprietário.
+> Note: the "Cloudflare format" **is** the BIND zone file — their panel imports exactly that
+> (`DNS › Records › Import`). No proprietary format needed.
 
-### 4. Documentação — FEITO (guia por fornecedor na própria página)
+### 4. Documentation — DONE (per-provider guide on the page itself)
 
-Link para um guia por fornecedor (Cloudflare, Route 53, GoDaddy, Namecheap) a partir da página.
-O guia ainda não existe; criar em `docs/` ou no site público e apontar daqui.
+Link to a per-provider guide (Cloudflare, Route 53, GoDaddy, Namecheap) from the page. The guide
+doesn't exist yet; create it under `docs/` or on the public site and link to it from here.
 
-## O que ficou por fazer
+## What's left undone
 
-- Agrupar por propósito com os grupos já resolvidos fechados: hoje mantêm-se as duas tabelas
-  (receber/enviar), que já era o agrupamento existente.
+- Grouping by purpose with already-resolved groups collapsed: today the two tables
+  (receive/send) remain, which was already the existing grouping.
 
-## Cuidados
+## Caveats
 
-- **Multi-tenancy (lei §5.1):** o domínio tem de ser do tenant do utilizador autenticado — a
-  verificação a pedido não pode virar um scanner de DNS de domínios alheios.
-- **Não mexer na máquina de estados** ao adicionar a verificação a pedido: `stepVerifyDNS` continua
-  a mandar na transição `dns_pending → dns_verified`. A página informa; não promove.
-- **DNS mente por cache.** Mostrar sempre o instante da consulta e evitar prometer propagação
-  imediata; um registo publicado agora pode não aparecer durante minutos.
+- **Multi-tenancy (law §5.1):** the domain has to belong to the authenticated user's tenant — the
+  on-demand verification can't turn into a DNS scanner for other people's domains.
+- **Don't touch the state machine** when adding on-demand verification: `stepVerifyDNS` still
+  drives the `dns_pending → dns_verified` transition. The page informs; it doesn't promote.
+- **DNS lies through caching.** Always show the timestamp of the lookup and avoid promising
+  immediate propagation; a record published just now may not show up for several minutes.

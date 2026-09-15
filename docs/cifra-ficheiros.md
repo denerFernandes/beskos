@@ -1,278 +1,284 @@
-# Plano — cifra de envelope dos ficheiros, com chave nossa
+# Plan — envelope encryption of files, with our own key
 
-> Estado: **no ar** desde 30/07/2026. Escrito como plano a 29/07.
-> Cifra de envelope no nosso backend (não SSE-C, não E2EE). Gravações e cópias de segurança
-> incluídas. Ler o §2f antes de mexer na selagem — custou 43 mensagens de correio.
+> Status: **live** since 2026-07-30. Written as a plan on 07/29.
+> Envelope encryption in our own backend (not SSE-C, not E2EE). Recordings and backups
+> included. Read §2f before touching the sealing logic — it cost 43 emails.
 
-## 1. O problema, dito com precisão
+## 1. The problem, stated precisely
 
-Os ficheiros **estão** cifrados em repouso — pelo Cloudflare R2, com AES-256, de forma transparente.
-A página de segurança diz exatamente isso ("cifrados em repouso **pelo fornecedor**"), pelo que não
-há afirmação falsa publicada. O que falta é cifra com **chave nossa**.
+Files **are** encrypted at rest — by Cloudflare R2, with AES-256, transparently. The security page
+says exactly that ("encrypted at rest **by the provider**"), so there's no false claim published.
+What's missing is encryption with **our own key**.
 
-Em [`storage.go`](../backend/internal/storage/storage.go) o `PutObject` vai sem qualquer opção de
-cifra: escrevemos bytes em claro e o fornecedor cifra-os com a chave dele.
+In [`storage.go`](../backend/internal/storage/storage.go), `PutObject` goes out with no encryption
+option at all: we write bytes in the clear and the provider encrypts them with its own key.
 
-Três consequências, por ordem de gravidade para o posicionamento:
+Three consequences, in order of severity for our positioning:
 
-1. **A Cloudflare detém a chave.** É a única empresa americana da pilha que guarda *conteúdo* de
-   clientes — as outras duas tratam metadados de trânsito e de pagamento. É a linha mais pesada da
-   tabela de `/sovereignty`, e a primeira que um encarregado de proteção de dados aponta.
-2. **Uma credencial R2 fugida expõe tudo.** Hoje dá acesso ao conteúdo; depois daria a cifrado.
-3. **Nós próprios lemos os ficheiros.** Legítimo, e igual ao Google e à Microsoft — mas não é o que
-   dizemos vender.
+1. **Cloudflare holds the key.** It is the only US company in the stack that stores customer
+   *content* — the other two handle transit and payment metadata. It's the heaviest line in the
+   `/sovereignty` table, and the first thing a data protection officer points to.
+2. **A leaked R2 credential exposes everything.** Today it grants access to the content; afterward
+   it would only grant access to ciphertext.
+3. **We ourselves can read the files.** Legitimate, and the same as Google and Microsoft — but not
+   what we claim to be selling.
 
-**Porque não é E2EE.** Cifra ponta a ponta partiria o que o produto promete: link público sem conta,
-anexo grande por e-mail para fora da organização, edição de Office no navegador, miniaturas,
-`Range` no vídeo e pesquisa. A Proton consegue fazê-lo porque não tem nada disso. Fica como opção
-futura, opt-in por pasta, com as limitações declaradas.
+**Why not E2EE.** End-to-end encryption would break what the product promises: a public link
+without an account, a large attachment sent by email outside the organization, browser-based
+Office editing, thumbnails, video `Range` requests, and search. Proton can do it because it has
+none of that. It stays a future option, opt-in per folder, with the limitations stated up front.
 
-## 2. O desenho
+## 2. The design
 
-**Cifra de envelope, dentro do serviço de storage.** O R2 passa a guardar só cifrado; as chaves
-ficam na nossa infraestrutura, na UE. As partilhas continuam a funcionar porque o servidor decifra
-ao servir.
+**Envelope encryption, inside the storage service.** R2 now stores only ciphertext; the keys stay
+in our own infrastructure, in the EU. Shares keep working because the server decrypts when
+serving.
 
-### 2a. Onde entra o código
+### 2a. Where the code plugs in
 
-Todo o tráfego de ficheiros já passa pelo nosso backend — **não há URLs pré-assinadas em lado
-nenhum** (verificado: zero ocorrências de `Presign` no repositório). Isso é o que torna isto
-possível sem mexer no protocolo do cliente nem na app de computador.
+All file traffic already goes through our backend — **there are no pre-signed URLs anywhere**
+(verified: zero occurrences of `Presign` in the repository). That's what makes this possible
+without touching the client protocol or the desktop app.
 
-São **33 pontos de chamada** (15 `Get`, 8 `Put`, 5 `Exists`, 3 `Remove`, 2 `GetSeek`), espalhados por
-ficheiros, versões, chat, wiki, quadros, apresentações, gravações e OnlyOffice. **Nenhum deles muda:**
-a cifra entra dentro do `storage.Service`, que é o único que fala com o balde.
+There are **33 call sites** (15 `Get`, 8 `Put`, 5 `Exists`, 3 `Remove`, 2 `GetSeek`), spread across
+files, versions, chat, wiki, boards, presentations, recordings and OnlyOffice. **None of them
+change:** the encryption goes inside `storage.Service`, the only thing that talks to the bucket.
 
-### 2b. Hierarquia de chaves
-
-```
-KEK (ambiente, versionada)  →  chave do tenant  →  DEK (uma por blob)  →  objeto
-```
-
-- **DEK por blob**, aleatória de 256 bits. O dedup mantém-se: a chave do objeto é
-  `tenant/sha256(conteúdo)` e a DEK é *por objeto*, logo o mesmo conteúdo no mesmo tenant continua a
-  ser um só blob. (Cifra convergente — chave derivada do conteúdo — permitiria dedup entre tenants,
-  mas revela se um ficheiro já existe na plataforma. Não compensa.)
-- **A DEK viaja DENTRO do objeto**, embrulhada, no cabeçalho — não numa tabela. Ver §2d: é o que
-  torna cada escrita atómica. Quem guarda o objeto fica com a chave embrulhada e não a consegue
-  abrir: precisaria da chave do tenant (na nossa base de dados) e da KEK (no nosso ambiente).
-  É o desenho da cifra do lado do cliente da AWS e do Tink, pela mesma razão.
-- Só a **chave do tenant** vive em tabela (`tenant_keys`), embrulhada pela KEK.
-- **Chave por tenant** pela mesma razão que toda a consulta filtra `tenant_id`: apagar a chave de um
-  tenant torna os dados dele ilegíveis, o que é uma garantia de eliminação muito mais forte do que
-  "apagámos as linhas" — e é escrutinável no acordo de subcontratação.
-- **KEK versionada** no ambiente, como o `MFA_ENC_KEY` já faz para o TOTP. Rodar a KEK re-embrulha
-  chaves (rápido, tabela pequena) e **não reescreve um único objeto** — é a razão de existir do
-  envelope.
-
-### 2c. Formato do objeto
-
-Blocos de tamanho fixo, para o `Range` continuar a funcionar. Sem isto, perde-se o avanço no vídeo
-e a leitura por blocos do sync.
+### 2b. Key hierarchy
 
 ```
-cabeçalho (32) | DEK embrulhada | bloco 0 | bloco 1 | ... | bloco n
+KEK (environment, versioned)  →  tenant key  →  DEK (one per blob)  →  object
 ```
 
-- **Cabeçalho:** magia `BSK1`, versão, opções, tamanho de bloco, tamanho em claro, prefixo de nonce,
-  versão da KEK, comprimento da DEK embrulhada. Fixo em 32 bytes: 32 bytes chegam para saber onde
-  começa o bloco 0 e se vale a pena ler mais.
-- **Bloco:** AES-256-GCM, nonce = prefixo ‖ índice do bloco, dados associados = índice + marca de
-  último bloco (impede reordenar e truncar).
-- **Tamanho de bloco: 1 MiB.** Sobrecarga de 16 bytes por bloco (0,0015%) e granularidade suficiente
-  para o seek. Um pedido de bytes traduz-se em blocos; decifram-se só esses.
+- **DEK per blob**, random, 256 bits. Deduplication still works: the object key is
+  `tenant/sha256(content)` and the DEK is *per object*, so the same content in the same tenant is
+  still a single blob. (Convergent encryption — a key derived from the content — would allow
+  dedup across tenants, but reveals whether a file already exists on the platform. Not worth it.)
+- **The DEK travels INSIDE the object**, wrapped, in the header — not in a table. See §2d: this is
+  what makes every write atomic. Whoever stores the object ends up with the wrapped key and can't
+  open it: they would need the tenant key (in our database) and the KEK (in our environment). It's
+  the same design as AWS's and Tink's client-side encryption, for the same reason.
+- Only the **tenant key** lives in a table (`tenant_keys`), wrapped by the KEK.
+- **Per-tenant key** for the same reason every query filters by `tenant_id`: deleting a tenant's
+  key makes their data unreadable, which is a much stronger deletion guarantee than "we deleted
+  the rows" — and it's auditable in the data processing agreement.
+- **Versioned KEK** in the environment, the same way `MFA_ENC_KEY` already works for TOTP.
+  Rotating the KEK re-wraps keys (fast, small table) and **doesn't rewrite a single object** —
+  that's the whole point of the envelope.
 
-### 2d. Uma escrita, e porquê
+### 2c. Object format
 
-O plano original guardava a DEK numa tabela e escrevia o objeto a seguir, escolhendo a ordem cuja
-janela de falha era benigna. **Isso foi abandonado**: com duas escritas, *toda* a ordem tem uma
-janela — o objeto primeiro deixa cifrado sem chave (perda de dados), a linha primeiro deixa linhas
-órfãs. "Benigna" é uma promessa que só se cumpre enquanto ninguém mexer no código.
+Fixed-size blocks, so `Range` keeps working. Without this, video seeking and the sync client's
+block-by-block reads would break.
 
-A DEK passou a viajar **dentro do próprio objeto**, embrulhada pela chave do tenant. Fica **uma
-escrita só**, e o `PUT` do armazenamento ou acontece por inteiro ou não acontece. Não há ordem para
-acertar porque não há duas coisas para ordenar.
+```
+header (32) | wrapped DEK | block 0 | block 1 | ... | block n
+```
 
-Ganhos que vieram atrás: menos uma tabela; o `Get` deixa de fazer uma consulta por cada leitura de
-ficheiro; e o `Remove` volta a ser uma linha, porque a chave morre com o objeto.
+- **Header:** magic `BSK1`, version, options, block size, plaintext size, nonce prefix, KEK
+  version, wrapped DEK length. Fixed at 32 bytes: 32 bytes is enough to know where block 0 starts
+  and whether it's worth reading further.
+- **Block:** AES-256-GCM, nonce = prefix ‖ block index, associated data = index + last-block flag
+  (prevents reordering and truncation).
+- **Block size: 1 MiB.** 16 bytes of overhead per block (0.0015%) and fine enough granularity for
+  seeking. A byte-range request translates to blocks; only those get decrypted.
 
-### 2e. Migração dos objetos que já existem
+### 2d. One write, and why
 
-A deteção é pela **magia no cabeçalho** — pelo próprio objeto, não por uma coluna que possa
-dessincronizar. Isso torna a migração idempotente e imune a reinícios: uma marca na base de dados
-que falhasse a escrever levaria a cifrar o cifrado.
+The original plan stored the DEK in a table and wrote the object afterward, choosing the order
+whose failure window was benign. **That was abandoned**: with two writes, *every* order has a
+window — object-first leaves ciphertext with no key (data loss), row-first leaves orphaned rows.
+"Benign" is a promise that only holds as long as nobody touches the code.
 
-Um trabalho no worker ([`sealing.go`](../backend/cmd/worker/sealing.go)) percorre o balde e sela em
-fundo, com pausa entre objetos — isto corre no mesmo servidor que serve o correio dos clientes, e
-migrar depressa não vale interromper quem está a trabalhar. Uma passagem que não termine não é
-problema: a seguinte salta o que já está feito.
+The DEK now travels **inside the object itself**, wrapped by the tenant key. That leaves **a
+single write**, and the storage `PUT` either happens whole or doesn't happen at all. There's no
+ordering to get right because there are no longer two things to order.
 
-## 2f. O balde não é só nosso
+Gains that came along with it: one fewer table; `Get` no longer does a query per file read; and
+`Remove` goes back to being a single row deletion, because the key dies with the object.
 
-Descoberto à primeira passagem em produção, da pior maneira: a selagem cifrou **43 mensagens de
-correio** e o Stalwart deixou de as conseguir ler. Ele guarda-as em `mail/…`, no mesmo balde,
-escritas e lidas por ele, sem passar por este código.
+### 2e. Migrating objects that already exist
 
-A causa não foi um caso não previsto — foi a **pergunta errada**. A função perguntava "isto parece
-seguro de cifrar?" quando tinha de perguntar "**isto foi escrito por nós?**". Passou a lista branca:
-`<tenant>/…` e `recordings/…`, as únicas famílias de chaves que o `storage.Service` escreve. Uma
-lista negra teria de adivinhar todos os vizinhos futuros, e um balde partilhado só ganha vizinhos.
+Detection is by the **magic bytes in the header** — from the object itself, not from a column that
+could drift out of sync. That makes the migration idempotent and restart-proof: a database flag
+that failed to write would end up encrypting already-encrypted data.
 
-A reversão está em [`cmd/unseal`](../backend/cmd/unseal/main.go), e fica no repositório: se voltar a
-acontecer, quer-se a reversão pronta e não um programa escrito à pressa durante a avaria.
+A worker job ([`sealing.go`](../backend/cmd/worker/sealing.go)) walks the bucket and seals in the
+background, with a pause between objects — this runs on the same server that serves customer mail,
+and migrating fast isn't worth interrupting people at work. A pass that doesn't finish isn't a
+problem: the next one skips whatever's already done.
 
-**Duas consequências, ambas registadas nas páginas públicas:**
+## 2f. The bucket isn't only ours
 
-1. **O conteúdo do correio não é cifrado por nós.** Está fora do alcance deste desenho enquanto o
-   Stalwart escrever direto no balde — e nós não modificamos o Stalwart (CLAUDE.md §5.4). A página
-   de segurança diz isto por palavras nossas em vez de deixar descobrir.
-2. **Os anexos e o original das mensagens NÃO estão na cópia de segurança.** Medido a 30/07
-   restaurando a cópia cifrada para um Postgres descartável e comparando com o balde:
+Discovered on the very first pass in production, the hard way: sealing encrypted **43 email
+messages**, and Stalwart could no longer read them. It stores them under `mail/…`, in the same
+bucket, written and read by itself, never going through this code.
 
-   | | Postgres (tabela `p`) | R2 (`mail/`) |
+The cause wasn't an unforeseen case — it was the **wrong question**. The function was asking "does
+this look safe to encrypt?" when it needed to ask "**did we write this?**". It now uses an
+allowlist: `<tenant>/…` and `recordings/…`, the only key families `storage.Service` writes. A
+denylist would have to guess every future neighbor, and a shared bucket only ever gains neighbors.
+
+The rollback lives in [`cmd/unseal`](../backend/cmd/unseal/main.go), and stays in the repository:
+if this happens again, we want the rollback ready, not a program written in a hurry during the
+outage.
+
+**Two consequences, both recorded on the public pages:**
+
+1. **Mail content is not encrypted by us.** It's outside the scope of this design as long as
+   Stalwart writes directly to the bucket — and we don't modify Stalwart (CLAUDE.md §5.4). The
+   security page states this in our own words instead of leaving it to be discovered.
+2. **Attachments and the original messages are NOT in the backup.** Measured on 07/30 by
+   restoring the encrypted backup into a disposable Postgres and comparing it against the bucket:
+
+   | | Postgres (table `p`) | R2 (`mail/`) |
    |---|---|---|
-   | Total | 115 KiB em 110 linhas | **637 KiB** em 43 ficheiros |
-   | Maior item | 7 885 bytes | **552 638 bytes** |
+   | Total | 115 KiB in 110 rows | **637 KiB** in 43 files |
+   | Largest item | 7,885 bytes | **552,638 bytes** |
 
-   O Stalwart divide: no Postgres fica a mensagem **analisada** (remetente, assunto, termos de
-   pesquisa, texto do corpo) e no R2 a mensagem **crua com os anexos**, que é o que o IMAP entrega
-   quando um cliente pede o original. Um objeto de 540 KiB não cabe numa base cuja maior linha tem
-   7,9 KiB — e confirmou-se por fatias: um pedaço do meio da mensagem grande está na base, o do fim
-   não está.
+   Stalwart splits it: Postgres holds the **parsed** message (sender, subject, search terms, body
+   text) and R2 holds the **raw** message with attachments, which is what IMAP delivers when a
+   client asks for the original. A 540 KiB object doesn't fit in a database whose largest row is
+   7.9 KiB — and this was confirmed slice by slice: a chunk from the middle of the large message
+   is in the database, the one from the end isn't.
 
-   Ou seja, o `pg_dump` sozinho **não restaura o correio**. Devolve caixas, contas e conteúdo
-   pesquisável; perde os anexos e o original. E o R2 não tem segunda cópia nossa.
+   In other words, `pg_dump` alone **does not restore mail**. It gives back mailboxes, accounts and
+   searchable content; it loses the attachments and the original. And R2 has no second copy of
+   ours.
 
-   **O que falta decidir:** incluir o prefixo `mail/` do balde nas cópias de segurança. É barato —
-   637 KiB hoje — e é a diferença entre "temos cópias" e "conseguimos restaurar". Fica registado
-   aqui em vez de na página de segurança, que entretanto deixou de afirmar o que não se sabia.
+   **What's left to decide:** whether to include the bucket's `mail/` prefix in the backups. It's
+   cheap — 637 KiB today — and it's the difference between "we have copies" and "we can restore."
+   Recorded here rather than on the security page, which in the meantime stopped claiming what
+   wasn't actually known.
 
-## 3. As duas vias que não passam pelo backend
+## 3. The two paths that bypass the backend
 
-Foi o achado mais relevante do levantamento, e é por isso que entram nesta fase.
+This was the most significant finding of the review, which is why it's part of this phase.
 
-### 3a. Gravações de reuniões
+### 3a. Meeting recordings
 
-O **LiveKit Egress escreve direto no balde** com as credenciais S3
-([`meet_recording_tracks.go`](../backend/internal/httpapi/meet_recording_tracks.go)). Qualquer cifra
-feita no backend não as apanharia.
+**LiveKit Egress writes directly to the bucket** with S3 credentials
+([`meet_recording_tracks.go`](../backend/internal/httpapi/meet_recording_tracks.go)). Any
+encryption done in the backend would never touch these.
 
-- As gravações **por faixa** já são baixadas pelo worker, compostas com ffmpeg e **reenviadas** pelo
-  `storage.Put` ([`assembly.go`](../backend/cmd/worker/assembly.go)) — essas ficam cifradas de
-  borla, e as faixas cruas são apagadas no fim.
-- As gravações **compostas** (RoomComposite) são escritas pelo egress e ficam assim. São seladas
-  pela **mesma passagem** que migra o conteúdo antigo (§2e) — é o mesmo problema (um objeto que não
-  passou pela nossa cifra) e não merecia dois mecanismos. A selagem reescreve a mesma chave: uma
-  escrita, atómica; quem estiver a ler nesse instante recebe a versão antiga ou a nova, e ambas se
-  leem.
-- As chaves das gravações **novas** levam **prefixo de tenant** (`<tenant>/recordings/…`). Sem ele,
-  a gravação seria embrulhada pela KEK e ficaria de fora da eliminação por tenant — apagar a chave
-  de um tenant tem de tornar ilegível tudo o que é dele, gravações incluídas. As antigas, sem
-  prefixo, são seladas com a KEK.
-- **Fica uma janela de texto claro** entre o fim do egress e a selagem. É honesto dizê-lo.
-  Eliminá-la exigia que o egress escrevesse para um destino nosso, o que o LiveKit não faz sem um
-  servidor S3 intermédio.
+- **Per-track** recordings are already downloaded by the worker, assembled with ffmpeg and
+  **re-uploaded** via `storage.Put` ([`assembly.go`](../backend/cmd/worker/assembly.go)) — those
+  get encrypted for free, and the raw tracks are deleted afterward.
+- **Composite** recordings (RoomComposite) are written by egress and stay that way. They're sealed
+  by the **same pass** that migrates old content (§2e) — it's the same problem (an object that
+  didn't go through our encryption) and didn't deserve two mechanisms. Sealing rewrites the same
+  key: one write, atomic; whoever is reading at that instant gets either the old version or the
+  new one, and both are readable.
+- **New** recording keys carry a **tenant prefix** (`<tenant>/recordings/…`). Without it, the
+  recording would be wrapped by the KEK and left out of per-tenant deletion — deleting a tenant's
+  key has to make everything of theirs unreadable, recordings included. Old ones, without the
+  prefix, are sealed with the KEK.
+- **There's a plaintext window** left between the end of egress and sealing. It's honest to say
+  so. Closing it would require egress to write to a destination of ours, which LiveKit doesn't do
+  without an intermediate S3 server.
 
-### 3b. Cópias de segurança
+### 3b. Backups
 
-O [`backup.sh`](../deploy/backup/backup.sh) envia os dumps por `rclone` **sem cifrar**, e o próprio
-[README](../deploy/backup/README.md) já assinala a lacuna: *"quem tiver a chave do R2 lê os dumps"*.
-Isto inclui a base de dados do correio — mensagens, anexos e configuração das caixas.
+[`backup.sh`](../deploy/backup/backup.sh) sends the dumps via `rclone` **unencrypted**, and the
+[README](../deploy/backup/README.md) itself already flags the gap: *"whoever holds the R2 key can
+read the dumps."* This includes the mail database — messages, attachments and mailbox
+configuration.
 
-- Cifrar com **`age`**, com chave **assimétrica**: o servidor leva só a chave pública. Um servidor
-  comprometido pode escrever cópias novas, mas **não consegue ler as antigas** — o que a cifra
-  simétrica não daria.
-- A chave privada fica fora da infraestrutura. Sem ela não há restauro: **o procedimento tem de ser
-  testado antes de se considerar isto feito**, porque a página de segurança afirma que o restauro é
-  testado.
-- Feito com o [`test-restore.sh`](../deploy/backup/test-restore.sh): levanta um Postgres
-  descartável, corre o `backup.sh` e o `restore.sh` **verdadeiros** e compara o conteúdo. Verifica
-  também o que interessa mais do que o restauro correr — que o ficheiro enviado **não se lê**: tem
-  cabeçalho `age`, o `pg_restore` não o abre, não tem texto do conteúdo lá dentro, e uma chave
-  privada diferente é rejeitada.
+- Encrypt with **`age`**, with an **asymmetric** key: the server only carries the public key. A
+  compromised server can write new backups, but **cannot read the old ones** — which symmetric
+  encryption would not give us.
+- The private key stays outside the infrastructure. Without it there is no restore: **the
+  procedure has to be tested before this can be considered done**, because the security page
+  claims that restore is tested.
+- Done with [`test-restore.sh`](../deploy/backup/test-restore.sh): it spins up a disposable
+  Postgres, runs the **real** `backup.sh` and `restore.sh`, and compares the content. It also
+  checks what matters more than the restore succeeding — that the uploaded file **cannot be
+  read**: it has the `age` header, `pg_restore` can't open it, no content text is inside it, and a
+  different private key is rejected.
 
-## 4. Fases
+## 4. Phases
 
-| # | O quê | Verificação | Estado |
+| # | What | Verification | Status |
 |---|---|---|---|
-| 1 | Formato cifrado + `Put`/`Get`/`Remove` no `storage.Service`, com deteção por magia | testes de ida e volta, e leitura de objeto legado | ✅ 10 testes |
-| 2 | `GetSeek` por blocos | vídeo com avanço/retrocesso; `Range` no meio de um bloco | ✅ |
-| 3 | Chave por tenant, KEK versionada | rodar a KEK sem tocar em objetos | ✅ |
-| 4 | Selagem em fundo (objetos antigos **e** gravações compostas) | contagem: objetos selados = objetos no balde | ✅ código; falta correr em produção |
-| 5 | Prefixo de tenant nas gravações novas | gravação nova cai na chave do tenant | ✅ |
-| 6 | `age` nas cópias de segurança | **restauro completo a partir de uma cópia cifrada** | ✅ ensaio automático |
-| 7 | Gerar chaves e verificar em produção | objeto novo no balde ilegível sem a nossa chave | ⏳ |
-| 8 | Atualizar `/security`, `/sovereignty` e a comparação com a Proton | — | ⏳ |
+| 1 | Encrypted format + `Put`/`Get`/`Remove` in `storage.Service`, with magic-byte detection | round-trip tests, and reading a legacy object | ✅ 10 tests |
+| 2 | Block-based `GetSeek` | video seeking forward/backward; `Range` in the middle of a block | ✅ |
+| 3 | Per-tenant key, versioned KEK | rotating the KEK without touching any objects | ✅ |
+| 4 | Background sealing (old objects **and** composite recordings) | count: sealed objects = objects in the bucket | ✅ code; still needs to run in production |
+| 5 | Tenant prefix on new recordings | a new recording lands under the tenant's key | ✅ |
+| 6 | `age` on backups | **full restore from an encrypted backup** | ✅ automated rehearsal |
+| 7 | Generate keys and verify in production | a new object in the bucket unreadable without our key | ⏳ |
+| 8 | Update `/security`, `/sovereignty` and the Proton comparison | — | ⏳ |
 
-## 5. O que muda na mensagem
+## 5. What changes in the messaging
 
-A linha do R2 passa de *"ficheiros, jurisdição UE, fornecedor americano"* para *"o fornecedor guarda
-apenas cifrado; a chave é nossa e está na UE"*. É a forma mais barata de fortalecer a linha mais
-fraca de `/sovereignty` — mais barata do que trocar de fornecedor, que é a outra saída registada no
-plano da landing (§2).
+The R2 line goes from *"files, EU jurisdiction, US provider"* to *"the provider stores only
+ciphertext; the key is ours and stays in the EU."* It's the cheapest way to strengthen the weakest
+line on `/sovereignty` — cheaper than switching providers, which is the other option recorded in
+the landing page plan (§2).
 
-**O que continua a não se poder afirmar:** que nós não conseguimos ler os ficheiros. Conseguimos —
-temos as chaves, porque o produto precisa delas para gerar miniaturas, editar Office no navegador e
-servir links públicos. Dizer o contrário seria o mesmo erro que a página de soberania existe para
-não cometer.
+**What still can't be claimed:** that we cannot read the files. We can — we hold the keys, because
+the product needs them to generate thumbnails, edit Office documents in the browser, and serve
+public links. Saying otherwise would be exactly the mistake the sovereignty page exists to avoid.
 
-## 6. Custo
+## 6. Cost
 
-- **Rede:** nenhum custo novo. O tráfego já passa todo pelo backend.
-- **CPU:** AES-GCM com aceleração de hardware é praticamente gratuito face ao I/O.
-- **Armazenamento:** +0,0015% (16 bytes por MiB).
-- **Latência:** nenhuma consulta nova por leitura — a chave do objeto vem dentro do objeto (§2d) e a
-  do tenant fica em cache em memória, carregada uma vez.
+- **Network:** no new cost. The traffic already goes entirely through the backend.
+- **CPU:** hardware-accelerated AES-GCM is practically free next to the I/O.
+- **Storage:** +0.0015% (16 bytes per MiB).
+- **Latency:** no new query per read — the object's key travels inside the object (§2d) and the
+  tenant's key is cached in memory, loaded once.
 
 ---
 
-## 7. O gateway do correio (`blobgw`)
+## 7. The mail gateway (`blobgw`)
 
-Feito a 30/07/2026, depois de a §2f mostrar que o correio ficava de fora e de a documentação do
-Stalwart confirmar que **o armazenamento S3 dele não tem opção de cifra nenhuma** — os campos são
-`bucket`, `region`, `accessKey`, `secretKey`, `securityToken`, `profile`, `timeout`, `maxRetries`,
-`verifyAfterWrite`, `keyPrefix` e `allowInvalidCerts`. Nada de SSE-S3, SSE-C ou chave do cliente.
+Built on 2026-07-30, after §2f showed that mail was left out, and after checking Stalwart's
+documentation confirmed that **its S3 storage backend has no encryption option at all** — the
+fields are `bucket`, `region`, `accessKey`, `secretKey`, `securityToken`, `profile`, `timeout`,
+`maxRetries`, `verifyAfterWrite`, `keyPrefix` and `allowInvalidCerts`. No SSE-S3, SSE-C or
+customer key.
 
-**A ideia:** falar a língua dele. O Stalwart aponta o `endpoint` para o
-[`blobgw`](../backend/cmd/blobgw/) em vez da Cloudflare; nós ciframos com o formato que já existe e
-reencaminhamos. Ele não sabe que mudou nada.
+**The idea:** speak its language. Stalwart points its `endpoint` at
+[`blobgw`](../backend/cmd/blobgw/) instead of Cloudflare; we encrypt with the format that already
+exists and forward the request. It has no idea anything changed.
 
-### Porque é pequeno, e porque pode ter réplicas
+### Why it's small, and why it can run replicated
 
-Lido o cliente dele (`crates/store/src/backend/s3/mod.rs`), usa **quatro operações** em estilo de
-caminho: `GET`, `GET` com `Range`, `PUT` de corpo inteiro, `HEAD` (o `verify_after_write`) e
-`DELETE`. **Não usa multipart** — o `put_object` recebe o corpo todo de uma vez.
+Having read its client (`crates/store/src/backend/s3/mod.rs`), it uses **four** path-style
+operations: `GET`, `GET` with `Range`, whole-body `PUT`, `HEAD` (the `verify_after_write`) and
+`DELETE`. **No multipart** — `put_object` receives the whole body at once.
 
-É isso que permite ao serviço **não ter estado nenhum**, e portanto correr em N réplicas. Está em
-duas: enquanto uma reinicia, o correio continua a ser escrito pela outra — que é o que lhe tira o
-estatuto de ponto único de falha no caminho do correio.
+That's what lets the service be **entirely stateless**, and therefore run in N replicas. It runs
+in two: while one restarts, mail keeps being written through the other — which is what removes it
+as a single point of failure on the mail path.
 
-### O que fica de fora, de propósito
+### What's left out, on purpose
 
-Multipart fora de ordem, URLs pré-assinados e listagens — tudo o que o LiveKit precisa para as
-gravações. As gravações continuam com a selagem em fundo (§2e), que tem uma janela de texto claro
-curta e declarada. Uma peça que serve dois clientes com necessidades diferentes acaba por servir mal
-os dois; quando o multipart for feito, será com o gateway já rodado.
+Out-of-order multipart, pre-signed URLs, and listings — everything LiveKit needs for recordings.
+Recordings keep using background sealing (§2e), which has a short, declared plaintext window. A
+single piece serving two clients with different needs ends up serving both badly; once multipart
+is built, it will be with the gateway already running.
 
-### A assinatura é verificada
+### The signature is verified
 
-"Está numa rede privada" é uma suposição sobre a infraestrutura de amanhã, não uma propriedade do
-serviço — e quem falar com ele lê o correio todo. Como a assinatura SigV4 cobre o resumo
-**declarado** do corpo e não o corpo, o corpo é conferido em passagem e um objeto que não bate certo
-é apagado antes de se responder.
+"It's on a private network" is an assumption about tomorrow's infrastructure, not a property of
+the service — and whoever talks to it reads all the mail. Because the SigV4 signature covers the
+body's **declared** hash and not the body itself, the body is checked as it streams through, and
+an object that doesn't match is deleted before a response is sent.
 
-### O que os objetos antigos fazem
+### What happens to old objects
 
-Os 43 blocos que já lá estavam em claro continuam a ler-se: a deteção é pela magia no cabeçalho, e
-um objeto sem ela sai tal como está. Ficam por cifrar até serem reescritos. Selá-los passa a ser
-seguro **desde que o gateway esteja no caminho** — e é por isso que não é automático: a lista branca
-da selagem continua a excluir `mail/`, e mudá-la sem o gateway repetiria a avaria da §2f.
+The 43 blocks that were already sitting there in the clear still read fine: detection is by the
+magic bytes in the header, and an object without them is served as-is. They stay unencrypted until
+rewritten. Sealing them becomes safe **once the gateway is in the path** — which is why it isn't
+automatic: sealing's allowlist still excludes `mail/`, and changing that without the gateway would
+repeat the §2f outage.
 
-### Estado
+### Status
 
 | | |
 |---|---|
-| Código e testes | ✅ 11 testes, incluindo um `PUT` assinado como o `rust-s3` e a recusa de corpo trocado |
-| Ensaio contra o R2 de produção | ✅ PUT, HEAD, GET, Range, cifra confirmada nos bytes, assinatura errada recusada, DELETE |
-| Serviço em produção | ✅ `blobgw`, 2 réplicas, porta 8090, sem exposição pública |
-| Stalwart a apontar para ele | ⏳ falta mudar em Settings → Storage → Blob store |
+| Code and tests | ✅ 11 tests, including a `PUT` signed like `rust-s3` and rejection of a swapped body |
+| Rehearsal against production R2 | ✅ PUT, HEAD, GET, Range, encryption confirmed in the bytes, wrong signature rejected, DELETE |
+| Service in production | ✅ `blobgw`, 2 replicas, port 8090, no public exposure |
+| Stalwart pointed at it | ⏳ still needs to be changed under Settings → Storage → Blob store |
