@@ -400,11 +400,17 @@ documentação, sem perguntar nada (testar com alguém de fora).
 Feito: `.goreleaser.yaml` (binários `api`/`worker`/`bootstrap`, linux+darwin, amd64+arm64;
 validado com `goreleaser release --snapshot --clean`, release como `draft`);
 `.github/workflows/release.yml` (dispara em tag `v*`); templates de issue/PR;
-`.github/CODEOWNERS` (aponta para uma equipa `@beskosorg/maintainers` a criar).
+`.github/CODEOWNERS` (aponta para uma equipa `@beskosorg/maintainers` a criar); Discussions
+ligado no repositório; labels `good first issue`/`help wanted` criadas.
+
+**Branch protection deliberadamente NÃO ligada:** exigir PR+review em `master` bloquearia o
+próprio fluxo de push direto que esta sessão (e o utilizador) usa enquanto o repositório é
+trabalho interno — é uma mudança de fluxo, não uma limpeza, e faz mais sentido perto do
+lançamento (F9) ou por pedido explícito do utilizador.
 
 Por fazer: imagens multi-arch em `ghcr.io/beskosorg/{api,worker,web}`, assinadas com **cosign**,
 SBOM (syft) anexado — precisam de credenciais de registo que este repositório ainda não tem
-configuradas; imagem `edge` a partir de `master`; GitHub Discussions; roadmap público (GitHub
+configuradas; imagem `edge` a partir de `master`; roadmap público (GitHub
 Projects); CLA Assistant; branch protection; política de suporte (Community sem SLA, Pro com).
 - **Pronto quando:** `git tag v0.1.0` produz release completa sem intervenção manual.
 
