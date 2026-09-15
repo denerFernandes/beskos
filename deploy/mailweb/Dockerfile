@@ -1,5 +1,5 @@
-# Imagem mínima para a app `mail` do CapRover: só existe para o nome mail.beskos.com ter
-# certificado válido e responder à descoberta dos clientes de correio. Ver nginx.conf.
+# Minimal image for CapRover's `mail` app: it exists only so the mail.beskos.com name has a
+# valid certificate and responds to mail client discovery. See nginx.conf.
 FROM nginx:1.27-alpine
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
