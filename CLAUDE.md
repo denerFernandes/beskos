@@ -1,151 +1,159 @@
-# Leis do projeto Beskos
+# Beskos project laws
 
-Regras **obrigatórias** para todo código deste repositório. Valem para humanos e agentes.
-Complementam — não substituem — as restrições inegociáveis do [project.md](project.md) (§2) e as
-[divergências do Stalwart](deploy/DIVERGENCES.md).
+**Mandatory** rules for all code in this repository. They apply to humans and agents alike.
+They complement — not replace — the non-negotiable constraints in [project.md](project.md) (§2)
+and the [Stalwart divergences](deploy/DIVERGENCES.md).
 
-## 1. Arquitetura e simplicidade
+## 1. Architecture and simplicity
 
-1.1. **Programe simples.** Prefira a solução óbvia à esperta. Sem abstração especulativa —
-     introduza interface/generics só quando há ≥2 usos reais. YAGNI.
-1.2. **Separe lógicas por responsabilidade.** Cada pacote/módulo tem um propósito. Não misture
-     HTTP, regra de negócio e acesso a dados no mesmo arquivo/função.
-1.3. **Camadas no backend:** `httpapi` (transporte) → serviço/regra → `db` (sqlc) / `stalwart` (JMAP).
-     Handlers não montam SQL nem falam JMAP direto quando há lógica; extraia para um serviço.
-1.4. **Arquivos pequenos.** Máximo **600 linhas** por arquivo (mire em ≤300). Passou disso,
-     quebre por responsabilidade. Exceção única: código **gerado** (`internal/db/*`).
-1.5. **Funções curtas e com nome claro.** Uma função faz uma coisa. Evite >~60 linhas.
+1.1. **Write simple code.** Prefer the obvious solution over the clever one. No speculative
+     abstraction — introduce an interface/generics only once there are ≥2 real call sites. YAGNI.
+1.2. **Separate concerns by responsibility.** Each package/module has one purpose. Don't mix
+     HTTP, business logic, and data access in the same file/function.
+1.3. **Backend layers:** `httpapi` (transport) → service/logic → `db` (sqlc) / `stalwart` (JMAP).
+     Handlers don't build SQL or speak JMAP directly when there's real logic; extract a service.
+1.4. **Small files.** **600 lines** maximum per file (aim for ≤300). Past that, split by
+     responsibility. The one exception: **generated** code (`internal/db/*`).
+1.5. **Short, clearly named functions.** One function does one thing. Avoid going past ~60 lines.
 
-## 2. Padrões Go
+## 2. Go standards
 
-2.1. Siga **Effective Go** e os **Go Code Review Comments**. `gofmt` e `go vet` limpos são
-     condição de merge. Nada entra com formatação suja.
-2.2. **Erros:** retorne, não entre em pânico (exceto `main`/inicialização impossível). Enriqueça com
-     `fmt.Errorf("contexto: %w", err)`. Trate ou propague — nunca engula silenciosamente.
-2.3. **`context.Context`** é o primeiro parâmetro em toda função que faz I/O.
-2.4. Nomes idiomáticos: sem stutter (`stalwart.Client`, não `stalwart.StalwartClient`); acrônimos
-     em maiúscula (`ID`, `URL`, `HTTP`, `JMAP`, `DNS`).
-2.5. **Sem dependências desnecessárias.** Prefira a stdlib. Cada lib nova precisa de justificativa.
-2.6. Config e segredos **só via ambiente** (`internal/config`). Segredo no código = bug.
-2.7. **Testes junto com o código** (brief §11). Todo pacote com lógica tem `_test.go`.
-     Testes de integração são pulados sem as envs (não quebram CI sem container).
-2.8. **Laço que engole erro tem de ESCALAR.** Um trabalhador periódico que faz
-     `log.Printf(...); continue` está certo para uma falha passageira — e cego para uma permanente.
-     Conte as falhas **consecutivas** e grite a partir de um limiar (`consecutive >= N`), avisando
-     também quando recuperar. Ver [`watchdog.go`](backend/cmd/worker/watchdog.go) como referência.
+2.1. Follow **Effective Go** and **Go Code Review Comments**. Clean `gofmt` and `go vet` are a
+     merge condition. Nothing lands with dirty formatting.
+2.2. **Errors:** return them, don't panic (except in `main`/impossible initialization). Enrich
+     with `fmt.Errorf("context: %w", err)`. Handle or propagate — never swallow silently.
+2.3. **`context.Context`** is the first parameter in every function that does I/O.
+2.4. Idiomatic names: no stutter (`stalwart.Client`, not `stalwart.StalwartClient`); acronyms in
+     uppercase (`ID`, `URL`, `HTTP`, `JMAP`, `DNS`).
+2.5. **No unnecessary dependencies.** Prefer the stdlib. Every new library needs a justification.
+2.6. Config and secrets **only via the environment** (`internal/config`). A secret in code is a bug.
+2.7. **Tests live with the code** (brief §11). Every package with logic has a `_test.go`.
+     Integration tests skip themselves without the required env vars (they don't break CI
+     without a container).
+2.8. **A loop that swallows an error has to ESCALATE.** A periodic worker doing
+     `log.Printf(...); continue` is correct for a transient failure — and blind to a permanent
+     one. Count **consecutive** failures and shout past a threshold (`consecutive >= N`), and
+     also announce recovery. See [`watchdog.go`](backend/cmd/worker/watchdog.go) as the reference.
 
-     > Escrita a 31/07/2026 porque o vigia de reputação falhou **100% das passagens** durante dias
-     > sem que ninguém soubesse: a SES devolvia `HTTP 400` de hora a hora, o `continue` seguia para o
-     > domínio seguinte e a linha perdia-se no meio do registo. É a defesa que impede um cliente de
-     > queimar a reputação da conta inteira — esteve desligada e parecia ligada. Um erro que se
-     > repete sempre não é um erro: é uma avaria.
+     > Written on 2026-07-31 because the reputation sentinel failed **100% of its passes** for
+     > days without anyone knowing: SES was returning `HTTP 400` every hour, the `continue`
+     > moved on to the next domain, and the line got lost in the middle of the log. This is the
+     > defense that stops a customer from burning the whole account's reputation — it was off
+     > and looked on. An error that repeats forever isn't an error: it's an outage.
 
-2.9. **"Ainda não" tem de ser distinguível de "nunca".** Um passo que espera por algo de fora
-     (DNS publicado, pagamento, ficheiro carregado) devolve o mesmo "ainda não" quando a espera é
-     legítima e quando a condição nunca se vai cumprir. Se espera por um alvo — um registo, um
-     identificador, um caminho — **registe qual é** na primeira vez e **grite** quando a espera
-     passa de um limiar. Sem isso, o ecrã diz "à espera do cliente" e o cliente já fez a parte dele.
+2.9. **"Not yet" has to be distinguishable from "never."** A step that waits on something
+     external (DNS published, payment, file uploaded) returns the same "not yet" whether the
+     wait is legitimate or the condition will never be met. If it's waiting for a target — a
+     record, an identifier, a path — **log which one** the first time, and **shout** once the
+     wait crosses a threshold. Without that, the screen says "waiting on the customer" and the
+     customer already did their part.
 
-     > Escrita a 01/08/2026 depois de um domínio ficar mais de uma hora em `dns_pending` com todos
-     > os registos publicados e visíveis do mundo inteiro. O verificador procurava um DKIM cujo
-     > conteúdo tinha sido apagado por um bug anterior, e uma consulta que não encontra nada é
-     > exatamente igual, ali, a um cliente que ainda não publicou. Nada nos registos, nada no ecrã:
-     > só o cliente a olhar para "à espera de DNS" e a concluir que o produto não funciona.
+     > Written on 2026-08-01 after a domain sat over an hour in `dns_pending` with every record
+     > published and visible to the whole world. The checker was looking for a DKIM record whose
+     > content an earlier bug had wiped, and a lookup that finds nothing looks, right there,
+     > exactly like a customer who hasn't published yet. Nothing in the logs, nothing on screen:
+     > just the customer staring at "waiting on DNS" and concluding the product doesn't work.
 
-## 3. Padrões Frontend (React/TS)
+## 3. Frontend standards (React/TS)
 
-3.1. TypeScript **strict**. Nada de `any` sem comentário justificando.
-3.2. Componentes pequenos e de responsabilidade única (mesma lei dos 600/300 linhas).
-     Um componente por arquivo; página em `pages/`, reutilizável em `components/`.
-3.3. Estado de servidor via **TanStack Query**; não reinvente cache/fetch.
-3.4. Toda chamada à nossa API passa por `src/api.ts`. Componentes não fazem `fetch` cru.
-3.5. **Nenhuma credencial de admin do Stalwart no frontend** (project.md §2). O webmail fala JMAP
-     com **token do usuário final**; o resto fala com a nossa API Go.
+3.1. TypeScript **strict**. No `any` without a comment justifying it.
+3.2. Small, single-responsibility components (the same 600/300-line law). One component per
+     file; a page goes in `pages/`, a reusable one in `components/`.
+3.3. Server state via **TanStack Query**; don't reinvent caching/fetching.
+3.4. Every call to our API goes through `src/api.ts`. Components don't do raw `fetch`.
+3.5. **No Stalwart admin credential in the frontend** (project.md §2). The webmail speaks JMAP
+     with the **end user's own token**; everything else speaks to our Go API.
 
-3.6. **Um ecrã novo veste-se como os outros.** Todo ecrã do painel usa a mesma armação:
-     `.pnl-top` (título `h1` + `.desc`) → `.pnl-content` → `.pnl-card` com `.pnl-card-h`
-     (ícone + `h3`) e `.pnl-card-b`. Não invente classes de layout: se precisa de uma classe
-     `pnl-*` que não existe, ou usa a que existe ou define-a no CSS — nunca a escreva e siga.
-     Verificado por `scripts/check_laws.py` nas linhas novas.
+3.6. **A new screen dresses like the others.** Every panel screen uses the same shell:
+     `.pnl-top` (title `h1` + `.desc`) → `.pnl-content` → `.pnl-card` with `.pnl-card-h`
+     (icon + `h3`) and `.pnl-card-b`. Don't invent layout classes: if you need a `pnl-*` class
+     that doesn't exist, either use the one that does or define it in the CSS — never write it
+     and move on. Checked by `scripts/check_laws.py` on new lines.
 
-     E **um estado de carregamento não substitui o ecrã**. O título e a descrição aparecem antes
-     de a resposta chegar; só o miolo espera. Uma página que é apenas um `…` não se distingue de
-     uma página avariada — nem sequer se sabe onde se está.
+     And **a loading state doesn't replace the screen**. The title and description show up
+     before the response arrives; only the body waits. A page that is just `…` looks no
+     different from a broken one — you can't even tell where you are.
 
-     > Escrita a 03/08/2026, depois de o ecrã de importação sair com `pnl-section`, uma classe que
-     > nunca ninguém definiu. Não falhou nem avisou: o React não verifica se a classe existe.
-     > Simplesmente desenhou-se sem a armação da casa — sem faixa de título, sem coluna de
-     > conteúdo, com as caixas com o espaçamento errado. Quem a escreveu estava a olhar para o
-     > código, não para o ecrã, e o produto passou a ter uma página que não se parecia com o
-     > produto. No mesmo ecrã, e pelo mesmo descuido, faltava o `retry: false` que todas as outras
-     > consultas têm: a rota ainda não estava em produção, o TanStack tentou três vezes com recuo
-     > exponencial e o utilizador ficou trinta segundos a olhar para três pontinhos.
+     > Written on 2026-08-03, after the import screen shipped with `pnl-section`, a class no one
+     > had ever defined. It didn't fail or warn: React doesn't check whether a class exists. It
+     > just rendered without the house shell — no title band, no content column, boxes with the
+     > wrong spacing. Whoever wrote it was looking at the code, not the screen, and the product
+     > ended up with a page that didn't look like the product. On the same screen, and from the
+     > same oversight, the `retry: false` every other query has was missing too: the route
+     > wasn't live in production yet, TanStack retried three times with exponential backoff, and
+     > the user sat for thirty seconds looking at three dots.
 
-## 4. Internacionalização (i18n) — OBRIGATÓRIO
+## 4. Internationalization (i18n) — MANDATORY
 
-4.1. **Nenhuma string visível ao usuário fica hard-coded.** Todo texto de UI vem do sistema de i18n.
-4.2. Frontend usa **`i18next`/`react-i18next`**. Chaves em `src/i18n/locales/<lang>/*.json`.
-     Idioma default **`pt-BR`**; **`en`** obrigatório. Toda chave existe em todos os idiomas.
-4.3. Use chaves semânticas (`login.submit`, não `"Entrar"`). Plurais/interpolação via i18next.
-4.4. **Mensagens de erro da API** voltam com uma **chave** (`error_code`) além do texto, para o
-     frontend traduzir. Backend não assume idioma do usuário no texto exibível.
-4.5. Datas/números/moeda via `Intl` conforme o locale — não formate à mão.
-4.6. **Idioma do código: TUDO em inglês.** Nomes (variáveis, funções, tipos, campos, ficheiros),
-     **comentários**, colunas da base de dados, chaves JSON, flags de CLI, logs e mensagens de erro.
-     Vale para backend e frontend. A **única** exceção é o texto que o utilizador final lê, que vem
-     do i18n — e onde tiver de ficar em código (ex.: SMS), marque a linha com `lang:ok`.
-     O `error_code` é o contrato estável; o **frontend traduz** o código via i18n (`server.<code>`)
-     e mostra ao usuário no idioma dele. Nunca mostre texto de erro do backend cru na UI.
+4.1. **No user-visible string is hardcoded.** All UI text comes from the i18n system.
+4.2. The frontend uses **`i18next`/`react-i18next`**. Keys in `src/i18n/locales/<lang>/*.json`.
+     Default language **`pt-BR`**; **`en`** mandatory. Every key exists in every language.
+4.3. Use semantic keys (`login.submit`, not `"Sign in"`). Plurals/interpolation via i18next.
+4.4. **API error messages** come back with a **key** (`error_code`) alongside the text, for the
+     frontend to translate. The backend never assumes the user's language in displayed text.
+4.5. Dates/numbers/currency via `Intl`, matching the locale — never formatted by hand.
+4.6. **Language of the code AND its documentation: EVERYTHING in English.** Names (variables,
+     functions, types, fields, files), **comments**, database columns, JSON keys, CLI flags,
+     logs, error messages, and doc prose (`.md` files, including this one). Applies to backend
+     and frontend alike. The **only** exception is text the end user reads, which comes from
+     i18n — and wherever it has to sit in code (e.g. SMS), mark the line with `lang:ok`.
+     `error_code` is the stable contract; the **frontend translates** the code via i18n
+     (`server.<code>`) and shows the user their own language. Never show raw backend error text
+     in the UI.
 
-     > Os comentários eram em português até 31/07/2026. Os que já existem vão sendo migrados; o que
-     > se escreve de novo é em inglês. O verificador só olha para linhas NOVAS, por isso o histórico
-     > não atrapalha.
+     > Comments were in Portuguese until 2026-07-31, and documentation prose until 2026-09-15.
+     > Existing text gets migrated over time; anything written from now on is in English. The
+     > checker only looks at NEW lines, so the history doesn't get in the way.
 
-4.7. **A lei é verificada por máquina, não por boa vontade.** `scripts/check_laws.py` corre
-     automaticamente a cada escrita de ficheiro (hook em `.claude/settings.json`) e valida as leis
-     4.6 e 1.4 nas linhas novas. Corra-o à mão antes de commitar: `make check` ou
-     `python3 scripts/check_laws.py`. Ele existe porque estas leis já estavam escritas e foram
-     quebradas na mesma — um documento não obriga a nada; um comando que falha, sim.
+4.7. **The law is machine-checked, not a matter of goodwill.** `scripts/check_laws.py` runs
+     automatically on every file write (hook in `.claude/settings.json`) and validates laws 4.6
+     and 1.4 on new lines — in code and in documentation prose alike, though 1.4's line ceiling
+     only applies to source files, never to docs. Run it by hand before committing: `make check`
+     or `python3 scripts/check_laws.py`. It exists because these laws were already written down
+     and got broken anyway — a document obligates no one; a command that fails does.
 
-4.8. **Todo o texto que o utilizador lê é formal e corporativo.** Trate o cliente pela forma de
-     cortesia do idioma dele — `usted`/`su` (es), `Sie`/`Ihr` (de), `vous`/`votre` (fr), `lei`/`suo`
-     (it), `u`/`uw` (nl), `Państwa` (pl), terceira pessoa (pt). **Nunca** o tratamento informal:
-     `tu`, `tú`, `du`, `je`/`jij`, `tuo`, `Twój`. Sem exclamações, emoji, gíria nem piadas; frases
-     declarativas. Vale para a landing, a documentação, a UI e as mensagens transacionais (email,
-     SMS) — **todas as superfícies**, porque o cliente não sabe que são projetos diferentes.
-     Verificado por `scripts/check_register.py`, incluído no `make check`.
+4.8. **All text the user reads is formal and corporate.** Address the customer with their
+     language's formal register — `usted`/`su` (es), `Sie`/`Ihr` (de), `vous`/`votre` (fr),
+     `lei`/`suo` (it), `u`/`uw` (nl), `Państwa` (pl), third person (pt). **Never** the informal
+     register: `tu`, `tú`, `du`, `je`/`jij`, `tuo`, `Twój` -- foreign pronouns quoted as data, lang:ok
+     No exclamation marks, emoji, slang, or jokes; declarative sentences. Applies to the landing
+     page, the documentation, the UI, and
+     transactional messages (email, SMS) — **every surface**, because the customer doesn't know
+     they're different projects. Checked by `scripts/check_register.py`, included in `make check`.
 
-     **O tratamento formal não chega — o tom também é a lei.** Escreva declarativo: diga o que o
-     sistema faz. Não justifique a decisão de desenho ao leitor, não comente, não opine, não faça
-     perguntas retóricas. "O envio é suspenso até haver subscrição" — não "o envio para, porque um
-     teste que esconde o que se estava a avaliar responde à pergunta errada". Isto **não** é
-     verificado por máquina: os pronomes são, o tom é item de revisão.
+     **Formal address isn't enough — tone is law too.** Write declaratively: say what the system
+     does. Don't justify the design decision to the reader, don't editorialize, don't ask
+     rhetorical questions. "Sending is suspended until there is a subscription" — not "sending
+     stops, because a test that hides what it was evaluating answers the wrong question." This
+     is **not** machine-checked: the pronouns are, the tone is a review item.
 
-     > Escrita a 03/08/2026, depois de o registo já divergir entre superfícies sem ninguém dar por
-     > isso: a documentação polaca tratava o cliente por `Państwa` e a landing polaca por `Twój`; o
-     > mailcheck italiano estava inteiramente em `tu` enquanto o resto do italiano usava `lei`. Quem
-     > abre as duas páginas na mesma sessão não vê duas escolhas de estilo — vê duas empresas. E o
-     > mailcheck é a porta de entrada do site: era exatamente a página onde a informalidade custava
-     > mais.
+     > Written on 2026-08-03, after the register had already drifted between surfaces without
+     > anyone noticing: the Polish documentation addressed the customer formally while the
+     > Polish landing page used the informal pronoun; the Italian mail checker was entirely
+     > informal while the rest of the Italian copy stayed formal. Someone who opens both pages
+     > in the same session
+     > doesn't see two style choices — they see two companies. And the mail checker is the
+     > site's front door: it was exactly the page where informality cost the most.
      >
-     > O parágrafo do tom foi acrescentado no mesmo dia, algumas horas depois. O verificador tinha
-     > acabado de dar tudo por limpo e a documentação inteira — dezassete artigos em oito idiomas —
-     > continuava escrita em registo de ensaio, a justificar cada decisão ao leitor. Os pronomes
-     > estavam certos. Uma máquina que só sabe medir pronomes assina por baixo de um texto que
-     > nenhum cliente empresarial leria até ao fim, e o "limpo" que ela imprime passa a valer menos
-     > do que parece.
+     > The tone paragraph was added the same day, a few hours later. The checker had just
+     > declared everything clean, and the entire documentation set — seventeen articles across
+     > eight languages — was still written in essay register, justifying every decision to the
+     > reader. The pronouns were correct. A machine that only knows how to measure pronouns signs
+     > off on a text no enterprise customer would read to the end, and the "clean" bill it prints
+     > ends up worth less than it looks.
 
-## 5. Segurança e multi-tenancy (reforço do project.md)
+## 5. Security and multi-tenancy (reinforcing project.md)
 
-5.1. **Toda query de dados de cliente filtra `tenant_id`.** Use sempre o tenant do usuário
-     autenticado (contexto), nunca um vindo do request.
-5.2. Cheque **posse do recurso** antes de qualquer operação admin no Stalwart.
-5.3. **Idempotência** em provisionamento e webhooks — assuma que toda chamada de rede pode repetir.
-5.4. Nunca modifique o Stalwart; só via rede (JMAP). Ver [DIVERGENCES.md](deploy/DIVERGENCES.md).
+5.1. **Every customer-data query filters by `tenant_id`.** Always use the authenticated user's
+     tenant (from context), never one that came from the request.
+5.2. Check **resource ownership** before any admin operation on Stalwart.
+5.3. **Idempotency** in provisioning and webhooks — assume every network call can repeat.
+5.4. Never modify Stalwart; only over the network (JMAP). See [DIVERGENCES.md](deploy/DIVERGENCES.md).
 
-## 6. Processo
+## 6. Process
 
-6.1. **Uma fase por vez** (project.md §9). Não comece a Fase N+1 antes da N testada.
-6.2. Decisões estruturais (libs, schema, auth): proponha trade-offs e **pergunte** antes.
-6.3. Documente decisões e setup no README conforme avança.
-6.4. Divergências entre brief e realidade do Stalwart → confie na realidade e **registre em DIVERGENCES.md**.
+6.1. **One phase at a time** (project.md §9). Don't start Phase N+1 before N is tested.
+6.2. Structural decisions (libraries, schema, auth): propose trade-offs and **ask** first.
+6.3. Document decisions and setup in the README as you go.
+6.4. Divergences between the brief and Stalwart's reality → trust reality and **record it in
+     DIVERGENCES.md**.
