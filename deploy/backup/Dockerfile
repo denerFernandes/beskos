@@ -1,15 +1,16 @@
-# Serviço de backup: pg_dump + rclone, três vezes por dia.
+# Backup service: pg_dump + rclone, three times a day.
 #
-# Imagem própria e pequena em vez de meter o pg_dump na imagem da API: são responsabilidades
-# diferentes, e uma falha aqui não deve poder derrubar a aplicação (nem o contrário).
+# Its own small image instead of putting pg_dump in the API image: they're different
+# responsibilities, and a failure here shouldn't be able to bring down the application (nor the
+# other way around).
 FROM alpine:3.20
 
-# postgresql16-client: a versão do cliente TEM de ser >= à do servidor (produção é pg16), senão o
-# pg_dump recusa-se a exportar.
+# postgresql16-client: the client version MUST be >= the server's, or pg_dump refuses to export
+# (production is on pg16).
 #
-# age: cifra as cópias antes de saírem daqui. Fica na mesma imagem que o restore.sh usa, para que
-# a ferramenta que decifra seja exatamente a que cifrou — descobrir uma incompatibilidade de versões
-# no dia do restauro é o pesadelo que este serviço existe para evitar.
+# age: encrypts the copies before they leave here. It lives in the same image restore.sh uses, so
+# the tool that decrypts is exactly the one that encrypted — discovering a version mismatch on
+# restore day is the nightmare this service exists to avoid.
 RUN apk add --no-cache bash postgresql16-client rclone curl tzdata age
 
 COPY backup.sh /usr/local/bin/backup.sh
