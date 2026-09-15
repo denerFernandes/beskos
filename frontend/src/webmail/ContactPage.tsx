@@ -367,8 +367,8 @@ function Tasks({ id, contactName }: { id: string; contactName: string }) {
   );
 }
 
-// Criar um card do Kanban já ligado a este contacto: escolhe quadro + coluna, dá título. O card
-// aparece depois na aba Tarefas do contacto (e no quadro). (24/07/2026)
+// Creates a Kanban card already linked to this contact: pick a board + column, give it a title.
+// The card then shows up in the contact's Tasks tab (and on the board).
 function NewCardModal({ contactId, contactName, onClose, onCreated }: {
   contactId: string; contactName: string; onClose: () => void; onCreated: () => void;
 }) {

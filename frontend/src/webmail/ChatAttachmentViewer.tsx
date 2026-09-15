@@ -5,8 +5,8 @@ import type { ChatAttachment } from "./backend";
 import { IcDownload, IcPaperclip } from "../panel/icons";
 import { ViewerBar } from "./ViewerBar";
 
-// Visualizador em tela cheia de um anexo do chat. Como o download é same-origin (cookie de sessão),
-// os elementos <img>/<iframe>/<video>/<audio> recebem a URL direto — sem fetch de blob.
+// Full-screen viewer for a chat attachment. Since the download is same-origin (session cookie),
+// <img>/<iframe>/<video>/<audio> elements get the URL directly — no blob fetch needed.
 export function ChatAttachmentViewer({ attachment, onClose }: { attachment: ChatAttachment; onClose: () => void }) {
   const { t } = useTranslation();
   const name = attachment.name || "anexo";

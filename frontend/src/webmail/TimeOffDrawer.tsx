@@ -7,11 +7,11 @@ import { Drawer } from "./Drawer";
 import { Switch } from "./Switch";
 import { toast } from "./toast";
 
-// Ausências (24/07/2026): day off (dia inteiro OU intervalo de horas) ou férias (período). Vira
-// evento com kind próprio — o booking bloqueia automaticamente. Se colidir com eventos já
-// agendados, o backend devolve a lista e aqui perguntamos: cancelar (avisa todos os convidados —
-// internos por notificação, externos por e-mail; convites de outros são recusados) ou manter.
-// Nas férias dá para ligar a resposta automática do e-mail (se a app de e-mail estiver ativa).
+// Time off: a day off (full day OR an hour range) or vacation (a date range). Becomes an event
+// with its own kind — booking blocks automatically during it. If it collides with events already
+// scheduled, the backend returns the list and here we ask: cancel them (notifies every guest —
+// internal by notification, external by email; other people's invites during it are declined) or
+// keep them. Vacation can also turn on the email auto-reply (when the mail app is enabled).
 const today = () => new Date().toISOString().slice(0, 10);
 const mm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const toMin = (v: string) => { const [h, m] = v.split(":").map(Number); return (h || 0) * 60 + (m || 0); };

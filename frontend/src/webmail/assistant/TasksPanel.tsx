@@ -13,8 +13,8 @@ export function useAssistantTasks() {
     queryKey: ["assistant-tasks"],
     queryFn: () => assistantApi.tasks(),
     retry: false,
-    // Só se sonda enquanto houver trabalho a decorrer. Uma lista parada não precisa de ser
-    // consultada de 3 em 3 segundos para o resto da sessão.
+    // Only polls while work is in progress. A settled list does not need to be checked every
+    // three seconds for the rest of the session.
     refetchInterval: (query) =>
       (query.state.data?.items ?? []).some((t) => LIVE.includes(t.status)) ? 3000 : false,
   });

@@ -20,9 +20,9 @@ export function RecipientField({ label, value, onChange, contacts, groups, autoF
   const { t } = useTranslation();
   const [input, setInput] = useState("");
   const q = input.trim().toLowerCase();
-  // Colegas da organização são SEMPRE sugeríveis (mesmo sem nunca lhes ter escrito); os contactos
-  // incluem quem já se contactou (o envio grava-os via /contacts/seen). Colegas primeiro, dedup por
-  // e-mail (24/07/2026).
+  // Colleagues in the organization are ALWAYS suggestible (even if never emailed before); contacts
+  // include people already reached (sending saves them via /contacts/seen). Colleagues first,
+  // deduplicated by email.
   const colleaguesQ = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false, staleTime: 300000 });
   const suggestions = q
     ? (() => {

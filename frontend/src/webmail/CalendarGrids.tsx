@@ -5,9 +5,9 @@ import { type CalEvent } from "./backend";
 import { hueFor } from "./util";
 import { IcVideo } from "../panel/icons";
 
-// Grades do calendário (réplica SyncWise, 23/07/2026): cartões PASTEL — fundo = cor da categoria
-// misturada com branco, texto escuro fixo (igual nos dois temas, como a referência), avatares dos
-// convidados no rodapé do cartão e linha violeta do "agora".
+// Calendar grids (SyncWise replica): PASTEL cards — background is the category color mixed with
+// white, fixed dark text (same in both themes, matching the reference), guest avatars at the
+// bottom of the card, and a violet "now" line.
 export const ROW = 88; // px por hora — cartões altos como na referência
 const DAY_START = 0, DAY_END = 24, BUSINESS_HOUR = 7;
 

@@ -47,7 +47,7 @@ export function openInWindow(label: string, path: string, title: string): boolea
 
 // --- Pontes para o lado nativo (só existem no app de desktop) ---
 
-/** Diz ao menu do tray quem está autenticado. `null` ao terminar sessão. */
+/** setTrayAccount tells the tray menu who is signed in; pass `null` on logout. */
 export async function setTrayAccount(label: string | null): Promise<void> {
   try {
     const { invoke } = await import("@tauri-apps/api/core");
