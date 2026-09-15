@@ -20,14 +20,14 @@ import (
 	"time"
 )
 
-// Capabilities usadas em toda request administrativa.
+// Capabilities used in every administrative request.
 var adminUsing = []string{"urn:ietf:params:jmap:core", "urn:stalwart:jmap"}
 
-// Client fala JMAP com um Stalwart. A credencial é o admin GLOBAL de recuperação
-// (STALWART_RECOVERY_ADMIN). Só o backend Go a carrega — nunca o frontend (brief §2).
+// Client speaks JMAP with a Stalwart. The credential is the GLOBAL recovery admin
+// (STALWART_RECOVERY_ADMIN). Only the Go backend loads it — never the frontend (brief §2).
 type Client struct {
-	baseURL  string // ex.: http://stalwart:8080
-	adminID  string // basic-auth user, ex.: "admin"
+	baseURL  string // e.g.: http://stalwart:8080
+	adminID  string // basic-auth user, e.g.: "admin"
 	adminPwd string
 	http     *http.Client
 }
@@ -41,11 +41,11 @@ func New(baseURL, adminUser, adminPwd string) *Client {
 	}
 }
 
-// BaseURL devolve a URL base do Stalwart (ex.: http://stalwart:8080). Usada pelo proxy JMAP do
-// control plane (o app nativo não tem reverse proxy same-origin; ver jmap_proxy.go).
+// BaseURL returns Stalwart's base URL (e.g.: http://stalwart:8080). Used by the control plane's
+// JMAP proxy (the native app has no same-origin reverse proxy; see jmap_proxy.go).
 func (c *Client) BaseURL() string { return c.baseURL }
 
-// --- Envelope JMAP -----------------------------------------------------------
+// --- JMAP envelope -----------------------------------------------------------
 
 type methodCall [3]any // [ "x:Object/fn", args, callId ]
 
@@ -59,7 +59,7 @@ type jmapResponse struct {
 	SessionState    string            `json:"sessionState"`
 }
 
-// APIError é um erro JMAP de nível de request (ex.: notRequest, forbidden em bootstrap).
+// APIError is a request-level JMAP error (e.g.: notRequest, forbidden during bootstrap).
 type APIError struct {
 	Type   string `json:"type"`
 	Status int    `json:"status"`
@@ -70,9 +70,9 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("stalwart jmap error: status=%d type=%s detail=%s", e.Status, e.Type, e.Detail)
 }
 
-// call executa uma única chamada de método e devolve o payload cru da resposta desse método.
-// Idempotência (brief §10): o caller usa creationIds/updates determinísticos; retry é seguro
-// para operações set desde que a checagem de existência preceda o create no control plane.
+// call executes a single method call and returns the raw payload of that method's response.
+// Idempotency (brief §10): the caller uses deterministic creationIds/updates; retry is safe for
+// set operations as long as the existence check precedes the create in the control plane.
 func (c *Client) call(ctx context.Context, method string, args any) (json.RawMessage, error) {
 	body, err := json.Marshal(jmapRequest{
 		Using:       adminUsing,
@@ -100,7 +100,7 @@ func (c *Client) call(ctx context.Context, method string, args any) (json.RawMes
 		return nil, err
 	}
 
-	// Erros de nível de request vêm como objeto de erro JMAP (status != 200).
+	// Request-level errors come as a JMAP error object (status != 200).
 	if resp.StatusCode != http.StatusOK {
 		var apiErr APIError
 		if json.Unmarshal(raw, &apiErr) == nil && apiErr.Type != "" {
@@ -117,12 +117,12 @@ func (c *Client) call(ctx context.Context, method string, args any) (json.RawMes
 		return nil, fmt.Errorf("stalwart: response has no methodResponses")
 	}
 
-	// methodResponses[0] = [ method, payload, callId ]. Extraímos o payload (índice 1).
+	// methodResponses[0] = [ method, payload, callId ]. We extract the payload (index 1).
 	var triple []json.RawMessage
 	if err := json.Unmarshal(jr.MethodResponses[0], &triple); err != nil || len(triple) < 2 {
-		return nil, fmt.Errorf("stalwart: methodResponse malformado: %s", string(jr.MethodResponses[0]))
+		return nil, fmt.Errorf("stalwart: malformed methodResponse: %s", string(jr.MethodResponses[0]))
 	}
-	// Detecta erro de nível de método (ex.: {"type":"...","description":"..."} sob "error").
+	// Detects a method-level error (e.g.: {"type":"...","description":"..."} under "error").
 	var maybeName string
 	_ = json.Unmarshal(triple[0], &maybeName)
 	if maybeName == "error" {
@@ -133,7 +133,7 @@ func (c *Client) call(ctx context.Context, method string, args any) (json.RawMes
 	return triple[1], nil
 }
 
-// MethodError é um erro JMAP de nível de método (ex.: forbidden em bootstrap mode, invalidPatch).
+// MethodError is a method-level JMAP error (e.g.: forbidden in bootstrap mode, invalidPatch).
 type MethodError struct {
 	Type        string `json:"type"`
 	Description string `json:"description"`
@@ -147,7 +147,7 @@ func (e *MethodError) Error() string {
 	return "stalwart method error: " + e.Raw
 }
 
-// setResult é a resposta padrão de um x:Object/set.
+// setResult is the standard response of an x:Object/set.
 type setResult struct {
 	Created map[string]struct {
 		ID string `json:"id"`
@@ -173,12 +173,13 @@ func firstCreatedID(r *setResult) (string, error) {
 	return "", fmt.Errorf("stalwart: no object created in the response")
 }
 
-// ErrWeakPassword: o Stalwart tem um medidor de força (zxcvbn) e recusa a senha antes de criar a
-// caixa. É erro de QUEM PEDE, não do servidor de correio — quem chama deve responder 400 com um
-// texto que explique, em vez do 502 genérico que só dizia "Bad gateway".
+// ErrWeakPassword: Stalwart has a strength meter (zxcvbn) and refuses the password before
+// creating the mailbox. This is an error from WHOEVER MADE THE REQUEST, not from the mail
+// server — the caller should respond with 400 and explanatory text, instead of the generic 502
+// that just said "Bad gateway".
 var ErrWeakPassword = errors.New("stalwart: password too weak")
 
-// isWeakSecret reconhece a recusa da senha na resposta do set (invalidProperties sobre `secret`).
+// isWeakSecret recognizes the password refusal in the set response (invalidProperties on `secret`).
 func isWeakSecret(m map[string]json.RawMessage) bool {
 	for _, raw := range m {
 		var e struct {
@@ -193,7 +194,7 @@ func isWeakSecret(m map[string]json.RawMessage) bool {
 			continue
 		}
 		for _, p := range e.Properties {
-			// "secret" na criação, "credentials/0/secret" na troca de senha.
+			// "secret" on creation, "credentials/0/secret" on password change.
 			if p == "secret" || strings.HasSuffix(p, "/secret") {
 				return true
 			}

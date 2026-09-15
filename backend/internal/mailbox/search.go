@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// EmailHeader é o cabeçalho de uma mensagem devolvido por uma pesquisa. Sem corpo: quem quiser
-// o conteúdo pede-o à parte (Read), para não arrastar megabytes numa listagem.
+// EmailHeader is the header of a message returned by a search. No body: whoever wants
+// the content requests it separately (Read), so a listing does not drag megabytes along.
 type EmailHeader struct {
 	ID         string    `json:"id"`
 	ThreadID   string    `json:"thread_id"`
@@ -21,24 +21,24 @@ type EmailHeader struct {
 	HasAttach  bool      `json:"has_attachment"`
 }
 
-// EmailBody é o conteúdo de uma mensagem. Text é o corpo em texto simples; o HTML não é devolvido
-// de propósito, porque quem consome isto é um modelo de linguagem e a marcação só adiciona ruído
-// (e superfície de injeção — §6.1).
+// EmailBody is the content of a message. Text is the body in plain text; the HTML is not returned
+// on purpose, because what consumes this is a language model and markup only adds noise
+// (and injection surface — §6.1).
 type EmailBody struct {
 	EmailHeader
 	Text        string   `json:"text"`
 	Attachments []string `json:"attachments"`
 }
 
-// bodyCharLimit trava o corpo devolvido. Um e-mail com um anexo em texto de 10 MB estouraria a
-// janela de contexto do modelo e a fatura junto.
+// bodyCharLimit caps the returned body. An e-mail with a 10 MB text attachment would blow
+// past the model's context window, and the bill along with it.
 const bodyCharLimit = 20000
 
-// SearchEmails procura mensagens por texto livre em toda a caixa (JMAP Email/query com filtro
-// "text", que o Stalwart aplica a remetente, assunto e corpo). Mais recentes primeiro.
+// SearchEmails searches messages by free text across the whole mailbox (JMAP Email/query with the
+// "text" filter, which Stalwart applies to sender, subject and body). Most recent first.
 //
-// query vazia devolve as mensagens mais recentes da conta, o que é o comportamento útil para
-// "o que chegou hoje?".
+// An empty query returns the account's most recent messages, which is the useful behavior for
+// "what came in today?".
 func (u *UserClient) SearchEmails(ctx context.Context, query string, limit int) ([]EmailHeader, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
@@ -81,9 +81,9 @@ func (u *UserClient) SearchEmails(ctx context.Context, query string, limit int) 
 	return out, nil
 }
 
-// ReadEmail devolve o cabeçalho e o corpo em texto de uma mensagem. O id vem de uma pesquisa
-// anterior; se não existir (ou for de outra conta), o Stalwart devolve lista vazia e isto dá erro
-// de não encontrado — nunca o conteúdo de outra caixa.
+// ReadEmail returns the header and the text body of a message. The id comes from an earlier
+// search; if it doesn't exist (or belongs to another account), Stalwart returns an empty list
+// and this raises a not-found error — never another mailbox's content.
 func (u *UserClient) ReadEmail(ctx context.Context, id string) (EmailBody, error) {
 	if strings.TrimSpace(id) == "" {
 		return EmailBody{}, fmt.Errorf("jmap user: empty email id")
@@ -130,7 +130,7 @@ func (u *UserClient) ReadEmail(ctx context.Context, id string) (EmailBody, error
 	return body, nil
 }
 
-// wireEmail é a forma JMAP de um Email, com só os campos que pedimos.
+// wireEmail is the JMAP form of an Email, with only the fields we requested.
 type wireEmail struct {
 	ID            string      `json:"id"`
 	ThreadID      string      `json:"threadId"`
@@ -186,7 +186,7 @@ func (a wireAddr) display() string {
 	return a.Email
 }
 
-// text junta as partes de texto do corpo, resolvendo cada partId no mapa bodyValues.
+// text joins the body's text parts, resolving each partId in the bodyValues map.
 func (e wireEmail) text() string {
 	var b strings.Builder
 	for _, p := range e.TextBody {

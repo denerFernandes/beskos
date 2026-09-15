@@ -1,8 +1,8 @@
-// Package ai é a camada de IA do Beskos. A interface Provider abstrai o modelo/fornecedor,
-// para que a troca (DeepSeek hoje; Claude/OpenAI/etc. no futuro) seja só configuração — o
-// resto do código depende de `Provider`, nunca de um SDK específico (lei §1.1/2.5).
+// Package ai is Beskos's AI layer. The Provider interface abstracts the model/vendor,
+// so that switching (DeepSeek today; Claude/OpenAI/etc. in the future) is just configuration — the
+// rest of the code depends on `Provider`, never on a specific SDK (law §1.1/2.5).
 //
-// A chave de API vive SÓ no backend, via ambiente (lei §3.5/§10). Nada aqui vaza ao frontend.
+// The API key lives ONLY in the backend, via the environment (law §3.5/§10). Nothing here leaks to the frontend.
 package ai
 
 import (
@@ -16,42 +16,42 @@ const (
 	RoleSystem    Role = "system"
 	RoleUser      Role = "user"
 	RoleAssistant Role = "assistant"
-	// RoleTool carrega o RESULTADO de uma ferramenta de volta ao modelo. O conteúdo é sempre
-	// dado não fiável — nunca instrução (§6.1 do desenho do assistente).
+	// RoleTool carries the RESULT of a tool back to the model. The content is always
+	// untrusted data — never an instruction (§6.1 of the assistant design).
 	RoleTool Role = "tool"
 )
 
 type Message struct {
 	Role    Role   `json:"role"`
 	Content string `json:"content"`
-	// ToolCalls é preenchido em mensagens do assistente que pedem ferramentas.
+	// ToolCalls is populated on assistant messages that request tools.
 	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
-	// ToolCallID liga uma mensagem RoleTool à chamada que a originou.
+	// ToolCallID links a RoleTool message to the call that originated it.
 	ToolCallID string `json:"tool_call_id,omitempty"`
 }
 
-// Tool descreve uma ferramenta ao modelo. Parameters é um JSON Schema do tipo "object".
-// O catálogo real vive no pacote assistant; aqui só passa a descrição ao fornecedor.
+// Tool describes a tool to the model. Parameters is a JSON Schema of type "object".
+// The real catalog lives in the assistant package; here it only passes the description to the provider.
 type Tool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Parameters  json.RawMessage `json:"parameters"`
 }
 
-// ToolCall é um pedido do modelo para invocar uma ferramenta. Arguments é o JSON cru tal como o
-// modelo o produziu — validar antes de usar é responsabilidade de quem despacha.
+// ToolCall is a request from the model to invoke a tool. Arguments is the raw JSON exactly as the
+// model produced it — validating it before use is the dispatcher's responsibility.
 type ToolCall struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
 	Arguments string `json:"arguments"`
 }
 
-// Request é o pedido genérico de completude. Campos zero usam os defaults do provider.
+// Request is the generic completion request. Zero-valued fields use the provider's defaults.
 type Request struct {
 	Messages    []Message
 	Temperature float64
 	MaxTokens   int
-	// Tools, quando não vazio, permite ao modelo pedir ferramentas em vez de só responder texto.
+	// Tools, when non-empty, lets the model request tools instead of only replying with text.
 	Tools []Tool
 }
 
@@ -65,23 +65,23 @@ type Response struct {
 	Text  string
 	Model string
 	Usage Usage
-	// ToolCalls não é vazio quando o modelo quer invocar ferramentas em vez de responder.
+	// ToolCalls is non-empty when the model wants to invoke tools instead of replying.
 	ToolCalls []ToolCall
-	// FinishReason é o motivo de paragem do fornecedor (ex.: "stop", "tool_calls", "length").
+	// FinishReason is the provider's stop reason (e.g., "stop", "tool_calls", "length").
 	FinishReason string
 }
 
-// Provider é o contrato que todo fornecedor de LLM implementa. Manter mínimo e estável:
-// adicionar um modelo novo = implementar esta interface, sem tocar nos consumidores.
+// Provider is the contract every LLM vendor implements. Keep it minimal and stable:
+// adding a new model = implementing this interface, without touching the consumers.
 type Provider interface {
-	// Name identifica o provider (ex.: "deepseek") para logs/métricas.
+	// Name identifies the provider (e.g., "deepseek") for logs/metrics.
 	Name() string
-	// Complete faz uma completude síncrona. ctx carrega timeout/cancelamento.
+	// Complete performs a synchronous completion. ctx carries timeout/cancellation.
 	Complete(ctx context.Context, req Request) (Response, error)
 }
 
-// StreamingProvider é opcional: providers que suportam streaming token-a-token o implementam.
-// Consumidores fazem type assertion quando quiserem stream; a interface base não exige.
+// StreamingProvider is optional: providers that support token-by-token streaming implement it.
+// Consumers do a type assertion when they want streaming; the base interface does not require it.
 type StreamingProvider interface {
 	Provider
 	Stream(ctx context.Context, req Request, onDelta func(string)) (Response, error)

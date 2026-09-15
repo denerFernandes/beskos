@@ -6,14 +6,14 @@ import (
 	"io"
 )
 
-// SeekReader dá acesso aleatório ao conteúdo em claro de um objeto cifrado.
+// SeekReader gives random access to the plaintext content of an encrypted object.
 //
-// É isto que mantém o vídeo com avanço e retrocesso a funcionar depois da cifra: o http.ServeContent
-// pede um intervalo de bytes, este leitor traduz o intervalo em blocos, vai buscar só esses ao
-// armazenamento e decifra-os. Um salto para o meio de um ficheiro de 2 GB lê 1 MiB, não 2 GB.
+// This is what keeps video seek forward/back working after encryption: http.ServeContent
+// requests a byte range, this reader translates the range into blocks, fetches only those from
+// storage, and decrypts them. A jump to the middle of a 2 GB file reads 1 MiB, not 2 GB.
 //
-// `src` é o objeto CIFRADO com acesso aleatório — no nosso caso o *minio.Object, que resolve cada
-// Seek com um pedido Range ao armazenamento.
+// `src` is the ENCRYPTED object with random access — in our case *minio.Object, which resolves
+// each Seek with a Range request to storage.
 type SeekReader struct {
 	src io.ReadSeeker
 	h   Header
@@ -21,13 +21,13 @@ type SeekReader struct {
 		Open([]byte, []byte, []byte, []byte) ([]byte, error)
 	}
 
-	pos   int64 // posição atual, em bytes de conteúdo em claro
+	pos   int64 // current position, in bytes of plaintext content
 	chunk []byte
-	// Índice do bloco que está em `chunk`. -1 quando não há nada carregado.
+	// Index of the block currently in `chunk`. -1 when nothing is loaded.
 	chunkIndex int64
 }
 
-// NewSeekReader monta o leitor. O cabeçalho já tem de ter sido lido de `src`.
+// NewSeekReader assembles the reader. The header must have already been read from `src`.
 func NewSeekReader(src io.ReadSeeker, h Header, key []byte) (*SeekReader, error) {
 	gcm, err := newGCM(key)
 	if err != nil {
@@ -36,7 +36,7 @@ func NewSeekReader(src io.ReadSeeker, h Header, key []byte) (*SeekReader, error)
 	return &SeekReader{src: src, h: h, gcm: gcm, chunkIndex: -1}, nil
 }
 
-// Size devolve o tamanho em claro — o que o cliente tem de ver nos cabeçalhos HTTP.
+// Size returns the plaintext size — what the client has to see in the HTTP headers.
 func (r *SeekReader) Size() int64 { return r.h.PlainSize }
 
 func (r *SeekReader) Read(p []byte) (int, error) {
@@ -70,14 +70,14 @@ func (r *SeekReader) Seek(offset int64, whence int) (int64, error) {
 	if abs < 0 {
 		return 0, errors.New("filecrypt: negative position")
 	}
-	// Posicionar depois do fim é legítimo (o io.Seeker permite-o); a leitura seguinte dá EOF.
+	// Positioning past the end is legitimate (io.Seeker allows it); the next read gives EOF.
 	r.pos = abs
 	return abs, nil
 }
 
-// carregar traz um bloco do armazenamento e decifra-o.
+// load fetches a block from storage and decrypts it.
 func (r *SeekReader) load(idx int64) error {
-	// O último bloco é mais curto: o tamanho vem do que falta até ao fim em claro.
+	// The last block is shorter: the size comes from what's left until the plaintext end.
 	remaining := r.h.PlainSize - idx*int64(r.h.ChunkSize)
 	if remaining <= 0 {
 		return io.EOF

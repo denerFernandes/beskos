@@ -8,9 +8,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Grants por PÁGINA (docs/wiki-features.md §3.4/§5, Bloco 2 B3): um grant na página ACRESCENTA/eleva
-// sobre o que o espaço já dá — nunca reduz. Gerir os grants de uma página exige papel manager NELA
-// (que pode vir do espaço ou de um grant local). Mesma validação/subject dos grants de espaço.
+// Per-PAGE grants (docs/wiki-features.md §3.4/§5, Block 2 B3): a grant on the page ADDS TO/raises
+// what the space already gives — it never lowers it. Managing a page's grants requires the manager
+// role ON IT (which can come from the space or from a local grant). Same validation/subject as space grants.
 
 // ListPageGrants lists a page's own access entries (role >= manager on the page).
 func (s *Service) ListPageGrants(ctx context.Context, tenantID, userID, pageID uuid.UUID) ([]db.WikiPageGrant, error) {

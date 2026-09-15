@@ -5,20 +5,20 @@ import (
 	"strings"
 )
 
-// buildPptx constrói um .pptx mínimo mas válido.
+// buildPptx builds a minimal but valid .pptx.
 //
-// É o formato mais exigente dos três: um slide não abre sozinho — precisa de um esquema (layout),
-// que precisa de um modelo global (master), que precisa de um tema. Um pacote sem qualquer um deles
-// é recusado pelo PowerPoint com "o ficheiro está corrompido", sem dizer o que falta. Daí estarem
-// todos aqui, mesmo os que não se veem.
+// It's the most demanding format of the three: a slide does not open on its own — it needs a
+// layout, which needs a global model (master), which needs a theme. A package missing any one of
+// them gets rejected by PowerPoint with "the file is corrupted," without saying what's missing.
+// Hence all of them being here, even the ones that aren't visible.
 //
-// O desenho é deliberadamente sóbrio: título e pontos, tipos de letra do tema. Gerar slides bonitos
-// é outro problema, e resolvê-lo com XML à mão seria a troca errada.
+// The design is deliberately plain: title and bullets, theme fonts. Generating pretty slides
+// is a different problem, and solving it with hand-written XML would be the wrong trade-off.
 func buildPptx(p Plan) ([]byte, error) {
 	slides := p.Slides
 	if len(slides) == 0 {
-		// Uma apresentação sem slides não é um ficheiro que se abra. Se houver título, faz-se o
-		// slide de capa com ele; senão, um slide vazio — melhor do que um erro por um plano magro.
+		// A presentation with no slides is not a file that opens. If there's a title, make the
+		// cover slide with it; otherwise, an empty slide — better than an error over a thin plan.
 		slides = []Slide{{Title: p.Title}}
 	}
 
@@ -28,7 +28,7 @@ func buildPptx(p Plan) ([]byte, error) {
 	for i, s := range slides {
 		n := i + 1
 		path := fmt.Sprintf("ppt/slides/slide%d.xml", n)
-		rid := fmt.Sprintf("rId%d", n+1) // rId1 fica para o master
+		rid := fmt.Sprintf("rId%d", n+1) // rId1 is reserved for the master
 		slideRefs.WriteString(fmt.Sprintf(`<p:sldId id="%d" r:id="%s"/>`, 255+n, rid))
 		presRels.WriteString(fmt.Sprintf(
 			`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide%d.xml"/>`, rid, n))
@@ -61,7 +61,7 @@ func buildPptx(p Plan) ([]byte, error) {
 			`<p:presentation xmlns:a="` + nsDrawing + `" xmlns:r="` + nsRel + `" xmlns:p="` + nsPres + `">` +
 			`<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>` +
 			`<p:sldIdLst>` + slideRefs.String() + `</p:sldIdLst>` +
-			// 16:9 em EMU (English Metric Units). É o formato que toda a gente espera hoje.
+			// 16:9 in EMU (English Metric Units). It's the format everyone expects today.
 			`<p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/>` +
 			`</p:presentation>`},
 		{"ppt/_rels/presentation.xml.rels", xmlHeader +
@@ -92,28 +92,28 @@ const (
 	nsPres    = "http://schemas.openxmlformats.org/presentationml/2006/main"
 )
 
-// Paleta do desenho. srgbClr explícito (não schemeClr) para o resultado ser igual em qualquer
-// leitor, sem depender do mapa de cores do tema.
+// Design palette. Explicit srgbClr (not schemeClr) so the result is the same in any
+// reader, without depending on the theme's color map.
 const (
-	accentHex  = "116466" // verde Beskos — faixas de título e capa
-	accent2Hex = "0C4A4C" // tom mais escuro — realce fino sob a faixa
-	lightHex   = "F4F1EC" // creme — régua decorativa e subtítulo na capa
-	inkHex     = "1C1B1A" // quase-preto — texto dos pontos
+	accentHex  = "116466" // Beskos green — title bands and cover
+	accent2Hex = "0C4A4C" // darker tone — thin accent under the band
+	lightHex   = "F4F1EC" // cream — decorative rule and subtitle on the cover
+	inkHex     = "1C1B1A" // near-black — bullet text
 )
 
-// Slide inteiro: 16:9 em EMU. Constantes para posicionar as caixas sem números soltos no meio.
+// Whole slide: 16:9 in EMU. Constants to position the boxes without loose numbers in the middle.
 const (
 	slideW   = 12192000
 	slideH   = 6858000
-	bandH    = 1500000 // altura da faixa de título nos slides de conteúdo
+	bandH    = 1500000 // title band height on content slides
 	marginX  = 838200
 	contentW = slideW - 2*marginX
 )
 
-// slideXML escolhe o desenho pelo conteúdo: um slide SEM pontos é uma CAPA (fundo colorido, título
-// grande e centrado); um slide COM pontos é um slide de CONTEÚDO (faixa de título colorida + pontos
-// estilizados). Assim o slide de abertura, que o modelo costuma fazer só com título, ganha ar de
-// capa sem ser preciso um campo novo no plano.
+// slideXML picks the design by content: a slide WITHOUT bullets is a COVER (colored background,
+// large centered title); a slide WITH bullets is a CONTENT slide (colored title band + styled
+// bullets). This way the opening slide, which the model usually makes with just a title, gets
+// a cover look without needing a new field in the plan.
 func slideXML(s Slide) string {
 	if !hasBullets(s) {
 		return coverSlide(s)
@@ -130,7 +130,7 @@ func hasBullets(s Slide) bool {
 	return false
 }
 
-// coverSlide: fundo cheio na cor de destaque, régua decorativa e título grande em branco.
+// coverSlide: solid accent-colored background, decorative rule, and a large white title.
 func coverSlide(s Slide) string {
 	shapes := rectXML(2, "BG", 0, 0, slideW, slideH, accentHex) +
 		rectXML(3, "Rule", marginX, 3630000, 2600000, 50000, lightHex) +
@@ -139,8 +139,8 @@ func coverSlide(s Slide) string {
 	return slideWrap(shapes)
 }
 
-// contentSlide: faixa de título colorida no topo (título branco) e pontos por baixo em texto escuro,
-// cada um com um marcador na cor de destaque.
+// contentSlide: colored title band at the top (white title) and bullets below in dark text,
+// each with a marker in the accent color.
 func contentSlide(s Slide) string {
 	var bullets strings.Builder
 	for _, b := range s.Bullets {
@@ -160,7 +160,7 @@ func contentSlide(s Slide) string {
 	return slideWrap(shapes)
 }
 
-// slideWrap embrulha as formas no XML de um slide.
+// slideWrap wraps the shapes in a slide's XML.
 func slideWrap(shapes string) string {
 	return xmlHeader +
 		`<p:sld xmlns:a="` + nsDrawing + `" xmlns:r="` + nsRel + `" xmlns:p="` + nsPres + `">` +
@@ -172,7 +172,7 @@ func slideWrap(shapes string) string {
 		`</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`
 }
 
-// rectXML é um retângulo preenchido a cor sólida (faixas, fundo, réguas). Sem texto.
+// rectXML is a solid-color-filled rectangle (bands, background, rules). No text.
 func rectXML(id int, name string, x, y, cx, cy int, fill string) string {
 	return fmt.Sprintf(
 		`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="%s"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>`+
@@ -183,7 +183,7 @@ func rectXML(id int, name string, x, y, cx, cy int, fill string) string {
 		id, name, x, y, cx, cy, fill)
 }
 
-// textBoxXML é uma caixa de texto posicionada; anchor é o alinhamento vertical (t|ctr|b).
+// textBoxXML is a positioned text box; anchor is the vertical alignment (t|ctr|b).
 func textBoxXML(id int, name string, x, y, cx, cy int, anchor, body string) string {
 	return fmt.Sprintf(
 		`<p:sp><p:nvSpPr><p:cNvPr id="%d" name="%s"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>`+
@@ -193,7 +193,7 @@ func textBoxXML(id int, name string, x, y, cx, cy int, anchor, body string) stri
 		id, name, x, y, cx, cy, anchor, body)
 }
 
-// paraXML é um parágrafo com uma corrida de texto formatada (tamanho, cor, negrito, alinhamento).
+// paraXML is a paragraph with one formatted text run (size, color, bold, alignment).
 func paraXML(text string, sz int, color string, bold bool, align string) string {
 	b := "0"
 	if bold {
@@ -204,7 +204,7 @@ func paraXML(text string, sz int, color string, bold bool, align string) string 
 		align, sz, b, color, esc(text))
 }
 
-// bulletXML é um ponto com marcador na cor de destaque e texto escuro, com recuo pendente.
+// bulletXML is a bullet point with an accent-colored marker and dark text, with a hanging indent.
 func bulletXML(text string) string {
 	return `<a:p><a:pPr marL="285750" indent="-285750"><a:spcBef><a:spcPts val="600"/></a:spcBef>` +
 		`<a:buClr><a:srgbClr val="` + accentHex + `"/></a:buClr><a:buFont typeface="Arial"/><a:buChar char="&#8226;"/></a:pPr>` +
@@ -212,7 +212,7 @@ func bulletXML(text string) string {
 		`<a:t>` + esc(text) + `</a:t></a:r></a:p>`
 }
 
-// slideMasterXML é o modelo global. Não se vê, mas sem ele o pacote é recusado.
+// slideMasterXML is the global model. It isn't visible, but without it the package is rejected.
 const slideMasterXML = xmlHeader +
 	`<p:sldMaster xmlns:a="` + nsDrawing + `" xmlns:r="` + nsRel + `" xmlns:p="` + nsPres + `">` +
 	`<p:cSld><p:spTree>` +
@@ -220,13 +220,13 @@ const slideMasterXML = xmlHeader +
 	`<p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/>` +
 	`<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>` +
 	`</p:spTree></p:cSld>` +
-	// O mapa de cores liga os papéis (fundo, texto, destaque) às cores do tema. É obrigatório.
+	// The color map links the roles (background, text, accent) to the theme's colors. It's mandatory.
 	`<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" ` +
 	`accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>` +
 	`<p:sldLayoutIdLst><p:sldLayoutId id="2147483649" r:id="rId1"/></p:sldLayoutIdLst>` +
 	`</p:sldMaster>`
 
-// slideLayoutXML é o esquema que os slides dizem seguir.
+// slideLayoutXML is the layout the slides declare they follow.
 const slideLayoutXML = xmlHeader +
 	`<p:sldLayout xmlns:a="` + nsDrawing + `" xmlns:r="` + nsRel + `" xmlns:p="` + nsPres + `" type="blank">` +
 	`<p:cSld name="Blank"><p:spTree>` +
@@ -235,8 +235,8 @@ const slideLayoutXML = xmlHeader +
 	`<a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>` +
 	`</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sldLayout>`
 
-// themeXML é o tema mínimo. O esquema exige as seis cores de destaque, as duas de ligação, as duas
-// claras e as duas escuras, mais os esquemas de tipo de letra e de formato — nenhum é opcional.
+// themeXML is the minimal theme. The schema requires the six accent colors, the two link
+// colors, the two light and two dark ones, plus the font and format schemes — none is optional.
 const themeXML = xmlHeader +
 	`<a:theme xmlns:a="` + nsDrawing + `" name="Beskos">` +
 	`<a:themeElements>` +

@@ -19,16 +19,16 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
-// Teste de integração contra o MinIO e o Postgres locais (CLAUDE.md §2.7). Sem as envs é saltado,
-// para não partir o `go test ./...` numa máquina sem containers.
+// Integration test against local MinIO and Postgres (CLAUDE.md §2.7). It is skipped without the
+// envs, so it doesn't break `go test ./...` on a machine without containers.
 //
 //	STORAGE_TEST_ENDPOINT=localhost:9000 STORAGE_TEST_KEY=… STORAGE_TEST_SECRET=… \
 //	STORAGE_TEST_BUCKET=mailin STORAGE_TEST_DB=postgres://… \
 //	go test ./internal/storage -run TestIntegration -v
 //
-// O que este teste prova, e que os testes do filecrypt não podem provar: que o que fica NO BALDE é
-// ilegível. Os testes de unidade verificam a ida e volta do formato — passariam na mesma se o
-// Service se esquecesse de cifrar antes de enviar. Aqui olha-se para os bytes do lado de lá.
+// What this test proves, and what the filecrypt tests cannot prove: that what ends up IN THE BUCKET
+// is unreadable. The unit tests verify the format's round trip — they would pass just the same if
+// Service forgot to encrypt before uploading. Here we look at the bytes on the other side.
 
 func testService(t *testing.T) (*Service, *db.Queries, uuid.UUID) {
 	t.Helper()
@@ -40,7 +40,7 @@ func testService(t *testing.T) (*Service, *db.Queries, uuid.UUID) {
 	s, err := New(endpoint, os.Getenv("STORAGE_TEST_KEY"), os.Getenv("STORAGE_TEST_SECRET"),
 		os.Getenv("STORAGE_TEST_BUCKET"), "", false)
 	if err != nil {
-		t.Fatalf("ligar ao armazenamento: %v", err)
+		t.Fatalf("connect to storage: %v", err)
 	}
 
 	pool, err := pgxpool.New(context.Background(), os.Getenv("STORAGE_TEST_DB"))
@@ -50,7 +50,7 @@ func testService(t *testing.T) (*Service, *db.Queries, uuid.UUID) {
 	t.Cleanup(pool.Close)
 	q := db.New(pool)
 
-	// Um tenant que existe mesmo: a chave do tenant tem uma referência para `tenants`.
+	// A tenant that really exists: the tenant key has a reference to `tenants`.
 	tenant := testTenant(t, pool)
 
 	kek := make([]byte, filecrypt.KeySize)
@@ -58,7 +58,7 @@ func testService(t *testing.T) (*Service, *db.Queries, uuid.UUID) {
 		t.Fatal(err)
 	}
 	if err := s.EnableEncryption(q, "1:"+hex.EncodeToString(kek)); err != nil {
-		t.Fatalf("ligar a cifra: %v", err)
+		t.Fatalf("enable encryption: %v", err)
 	}
 	if !s.Encrypting() {
 		t.Fatal("encryption should be on")
@@ -72,11 +72,11 @@ func testTenant(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 	id := uuid.New()
 	_, err := pool.Exec(ctx, `INSERT INTO tenants (id, nome) VALUES ($1, $2)`, id, "storage-test")
 	if err != nil {
-		t.Fatalf("criar tenant de teste: %v", err)
+		t.Fatalf("create test tenant: %v", err)
 	}
 	t.Cleanup(func() {
-		// A chave do tenant desaparece com ele (ON DELETE CASCADE) — é essa a garantia de
-		// eliminação que a migração 00128 existe para dar.
+		// The tenant's key disappears with it (ON DELETE CASCADE) — that's the deletion guarantee
+		// migration 00128 exists to give.
 		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE id = $1`, id)
 	})
 	return id
@@ -87,7 +87,7 @@ func TestIntegrationEncryptsInBucket(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	// Maior do que um bloco, para exercitar mais de um bloco de verdade.
+	// Bigger than one chunk, to actually exercise more than one chunk.
 	plain := bytes.Repeat([]byte("conteudo confidencial do cliente. "), 40_000)
 	key := fmt.Sprintf("%s/teste-%s", tenant, uuid.NewString())
 	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
@@ -96,7 +96,7 @@ func TestIntegrationEncryptsInBucket(t *testing.T) {
 		t.Fatalf("Put: %v", err)
 	}
 
-	// 1. O que está NO BALDE não é o que foi enviado.
+	// 1. What is IN THE BUCKET is not what was sent.
 	raw := readRaw(t, s, key)
 	if bytes.Contains(raw, []byte("conteudo confidencial")) {
 		t.Fatal("the object in the bucket contains the plaintext")
@@ -105,7 +105,7 @@ func TestIntegrationEncryptsInBucket(t *testing.T) {
 		t.Fatalf("the object in the bucket lacks the %q magic, it starts with %q", filecrypt.Magic, raw[:4])
 	}
 
-	// 2. A chave do objeto viaja lá dentro — é o que torna a escrita uma operação só.
+	// 2. The object's key travels inside it — that's what makes the write a single operation.
 	h, err := filecrypt.ParseHeader(raw[:filecrypt.FixedHeaderSize])
 	if err != nil {
 		t.Fatalf("header: %v", err)
@@ -120,7 +120,7 @@ func TestIntegrationEncryptsInBucket(t *testing.T) {
 		t.Fatalf("plaintext size %d, want %d", h.PlainSize, len(plain))
 	}
 
-	// 3. E volta inteiro pelo Get.
+	// 3. And it comes back whole through Get.
 	r, err := s.Get(ctx, key)
 	if err != nil {
 		t.Fatalf("Get: %v", err)
@@ -140,8 +140,8 @@ func TestIntegrationSeekInTheMiddle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	// 5 MiB: o salto cai no meio de um bloco que não é o primeiro nem o último, que é o caso em que
-	// um erro de aritmética de blocos aparece.
+	// 5 MiB: the seek lands in the middle of a chunk that is neither the first nor the last, which
+	// is the case where a chunk-arithmetic error shows up.
 	plain := make([]byte, 5<<20)
 	if _, err := rand.Read(plain); err != nil {
 		t.Fatal(err)
@@ -159,7 +159,7 @@ func TestIntegrationSeekInTheMiddle(t *testing.T) {
 	}
 	defer sr.Close()
 
-	const skip = 3<<20 + 12345 // no meio do quarto bloco
+	const skip = 3<<20 + 12345 // in the middle of the fourth chunk
 	if _, err := sr.Seek(skip, io.SeekStart); err != nil {
 		t.Fatalf("Seek: %v", err)
 	}
@@ -172,21 +172,21 @@ func TestIntegrationSeekInTheMiddle(t *testing.T) {
 	}
 }
 
-// TestIntegracaoSelagem prova o caminho por onde entram as gravações compostas e o conteúdo
-// anterior à cifra: um objeto que chegou ao balde em claro é selado sem mudar de sítio nem de nome.
+// TestIntegrationSealing proves the path composite recordings and content predating encryption
+// take: an object that reached the bucket in the clear is sealed without changing place or name.
 func TestIntegrationSealing(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	plain := []byte("gravação escrita pelo egress, direto no balde, sem passar por nós")
+	plain := []byte("recording written by the egress, straight to the bucket, without going through us")
 	key := fmt.Sprintf("%s/recordings/selar-%s.mp4", tenant, uuid.NewString())
 	t.Cleanup(func() { _ = s.Remove(context.Background(), key) })
 
-	// Escreve à socapa da cifra, como o LiveKit faz com as credenciais S3.
+	// Writes behind encryption's back, the way LiveKit does with the S3 credentials.
 	unencrypted := &Service{client: s.client, bucket: s.bucket}
 	if err := unencrypted.Put(ctx, key, bytes.NewReader(plain), int64(len(plain)), "video/mp4"); err != nil {
-		t.Fatalf("Put em claro: %v", err)
+		t.Fatalf("Put in the clear: %v", err)
 	}
 
 	cifrado, err := s.IsEncrypted(ctx, key)
@@ -197,8 +197,8 @@ func TestIntegrationSealing(t *testing.T) {
 		t.Fatal("it was just written in the clear and claims to be encrypted")
 	}
 
-	// Antes de selar, o objeto em claro TEM de continuar a ler-se — é o que permite migrar sem
-	// paragem.
+	// Before sealing, the plaintext object HAS to keep being readable — that's what allows
+	// migrating without downtime.
 	if read := readAll(t, s, ctx, key); !bytes.Equal(read, plain) {
 		t.Fatal("an object predating encryption stopped being readable")
 	}
@@ -213,19 +213,19 @@ func TestIntegrationSealing(t *testing.T) {
 		t.Fatal("the content changed with sealing")
 	}
 
-	// Selar outra vez não pode cifrar o cifrado: a passagem em fundo repete-se de dez em dez
-	// minutos e passa por todos os objetos, incluindo os que já selou.
+	// Sealing again cannot encrypt the encrypted: the background pass repeats every ten minutes
+	// and goes through every object, including the ones it has already sealed.
 	if err := s.Seal(ctx, key); err != nil {
-		t.Fatalf("segunda selagem: %v", err)
+		t.Fatalf("second sealing: %v", err)
 	}
 	if read := readAll(t, s, ctx, key); !bytes.Equal(read, plain) {
 		t.Fatal("sealing twice broke the object")
 	}
 }
 
-// TestIntegrationObjetoVazio cobre o caso que apareceu no primeiro dia em produção: os marcadores
-// de pasta do Drive têm zero bytes, o pedido do cabeçalho responde 416, e a passagem de selagem
-// enchia o registo de erros que não eram erros.
+// TestIntegrationEmptyObject covers the case that showed up on the first day in production: the
+// Drive folder markers are zero bytes, the header request answers 416, and the sealing pass used to
+// fill the log with errors that weren't errors.
 func TestIntegrationEmptyObject(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -251,10 +251,10 @@ func TestIntegrationEmptyObject(t *testing.T) {
 	}
 }
 
-// TestIntegrationSelagemNaoRevelaTipo: depois de selar, o fornecedor deixa de saber que aquilo é um
-// vídeo. O tipo é metadado sobre o conteúdo, e o conteúdo passou a ser opaco — dizer-lhe que é um
-// `video/mp4` devolvia-lhe parte do que a cifra escondeu. Quem serve o ficheiro tira o tipo do nome
-// na nossa base de dados (`mime.TypeByExtension`), nunca do armazenamento.
+// TestIntegrationSealingHidesContentType: after sealing, the provider no longer knows that's a
+// video. The type is metadata about the content, and the content has become opaque — telling it
+// that it's a `video/mp4` would hand back part of what encryption hid. Whoever serves the file gets
+// the type from the name in our database (`mime.TypeByExtension`), never from storage.
 func TestIntegrationSealingHidesContentType(t *testing.T) {
 	s, _, tenant := testService(t)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
@@ -280,10 +280,10 @@ func TestIntegrationSealingHidesContentType(t *testing.T) {
 	}
 }
 
-// lerCru busca os bytes diretamente do balde, sem passar pelo Service — é literalmente o que o
-// fornecedor de armazenamento tem. Não dá para reutilizar um Service sem chaves: esse recusa-se a
-// servir um objeto cifrado, e ainda bem (devolver bytes cifrados como se fossem o ficheiro seria
-// pior do que falhar).
+// readRaw fetches the bytes directly from the bucket, without going through Service — it's
+// literally what the storage provider has. A keyless Service can't be reused here: it refuses to
+// serve an encrypted object, and rightly so (returning encrypted bytes as if they were the file
+// would be worse than failing).
 func readRaw(t *testing.T, s *Service, key string) []byte {
 	t.Helper()
 	r, err := s.client.GetObject(context.Background(), s.bucket, key, minio.GetObjectOptions{})

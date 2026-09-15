@@ -7,17 +7,17 @@ import (
 	"time"
 )
 
-// Teste de integração contra um Stalwart de teste em container (brief §10).
-// Rode com:
+// Integration test against a test Stalwart in a container (brief §10).
+// Run with:
 //   STALWART_TEST_URL=http://localhost:18080 STALWART_TEST_USER=admin \
 //   STALWART_TEST_PWD=probe-secret go test ./internal/stalwart -run TestIntegration -v
-// Sem as envs, o teste é pulado (não quebra `go test ./...` em CI sem container).
+// Without the envs, the test is skipped (doesn't break `go test ./...` in CI without a container).
 
 func testClient(t *testing.T) *Client {
 	t.Helper()
 	url := os.Getenv("STALWART_TEST_URL")
 	if url == "" {
-		t.Skip("STALWART_TEST_URL não definido; pulando teste de integração")
+		t.Skip("STALWART_TEST_URL not set; skipping integration test")
 	}
 	return New(url, os.Getenv("STALWART_TEST_USER"), os.Getenv("STALWART_TEST_PWD"))
 }
@@ -32,46 +32,46 @@ func TestIntegrationProvisioning(t *testing.T) {
 		t.Fatalf("IsBootstrapped: %v", err)
 	}
 	if !ok {
-		t.Skip("servidor em bootstrap mode; rode Bootstrap()+restart antes deste teste")
+		t.Skip("server in bootstrap mode; run Bootstrap()+restart before this test")
 	}
 
-	// Nome único-ish sem depender de time.Now() no domínio (base32 curto do unix nano).
+	// Somewhat-unique name without depending on time.Now() in the domain (short base32 of unix nano).
 	domain := "it-" + time.Now().Format("150405") + ".test"
 
-	// autoDKIM=true: o teste de integração quer a zona completa, incluindo o registo DKIM.
+	// autoDKIM=true: the integration test wants the full zone, including the DKIM record.
 	domID, err := c.CreateDomain(ctx, domain, "tenant_id=integration", true)
 	if err != nil {
 		t.Fatalf("CreateDomain: %v", err)
 	}
-	t.Logf("domínio criado id=%s", domID)
+	t.Logf("domain created id=%s", domID)
 
-	// DNS zonefile deve conter registros essenciais.
+	// DNS zonefile should contain essential records.
 	zone, err := c.GetDomainDNSZone(ctx, domID)
 	if err != nil {
 		t.Fatalf("GetDomainDNSZone: %v", err)
 	}
-	// Garantidos no momento do create. O DKIM TXT (_domainkey) NÃO aparece imediatamente
-	// no zonefile de um domínio recém-criado (geração das assinaturas não é instantânea);
-	// a tela de DNS deve fazer polling até o registro DKIM surgir. Ver DIVERGENCES §D4.
+	// Guaranteed at create time. The DKIM TXT (_domainkey) does NOT appear immediately
+	// in the zonefile of a freshly created domain (signature generation isn't instant);
+	// the DNS screen should poll until the DKIM record shows up. See DIVERGENCES §D4.
 	for _, want := range []string{"MX", "spf1", "DMARC1"} {
 		if !contains(zone, want) {
-			t.Errorf("dnsZoneFile não contém %q. zona=%s", want, zone)
+			t.Errorf("dnsZoneFile does not contain %q. zone=%s", want, zone)
 		}
 	}
 
 	acctID, err := c.CreateAccount(ctx, AccountInput{
 		Login:       "joao",
 		DomainID:    domID,
-		DisplayName: "João Integração",
+		DisplayName: "John Integration",
 		Password:    "correct-horse-battery-staple-9273",
 		QuotaBytes:  5 << 30,
 	})
 	if err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
-	t.Logf("conta criada id=%s", acctID)
+	t.Logf("account created id=%s", acctID)
 
-	// Teardown na ordem correta (conta → domínio) por causa da integridade referencial.
+	// Teardown in the correct order (account → domain) because of referential integrity.
 	if err := c.DeleteAccount(ctx, acctID); err != nil {
 		t.Errorf("DeleteAccount: %v", err)
 	}

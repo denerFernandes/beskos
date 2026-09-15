@@ -8,7 +8,7 @@ func TestOwnerAdminAndInternalHaveEverything(t *testing.T) {
 	for _, role := range []Role{RoleOwner, RoleAdmin, RoleInternalAdmin} {
 		for _, p := range AllPermissions() {
 			if !Has(role, p) {
-				t.Errorf("%s deveria ter %s", role, p)
+				t.Errorf("%s should have %s", role, p)
 			}
 		}
 	}
@@ -22,10 +22,10 @@ func TestPermissionMatrix(t *testing.T) {
 	}{
 		{RoleAdmin, PermDomainsManage, true},
 		{RoleAdmin, PermMembersManage, true},
-		{RoleAdmin, PermBillingManage, true}, // admin tem tudo
+		{RoleAdmin, PermBillingManage, true}, // admin has everything
 		{RoleAdmin, PermTenantDelete, true},
 		{RoleMember, PermDomainsView, true},
-		{RoleMember, PermDomainsManage, false}, // member é leitura
+		{RoleMember, PermDomainsManage, false}, // member is read-only
 		{RoleMember, PermMembersManage, false},
 		{RoleBilling, PermBillingManage, true},
 		{RoleBilling, PermDomainsManage, false},
@@ -33,52 +33,52 @@ func TestPermissionMatrix(t *testing.T) {
 	}
 	for _, c := range cases {
 		if got := Has(c.role, c.perm); got != c.want {
-			t.Errorf("Has(%s,%s)=%v, quer %v", c.role, c.perm, got, c.want)
+			t.Errorf("Has(%s,%s)=%v, want %v", c.role, c.perm, got, c.want)
 		}
 	}
 }
 
 func TestUnknownRoleFailsClosed(t *testing.T) {
 	if Has(Role("hacker"), PermDomainsView) {
-		t.Error("papel desconhecido não pode ter permissão")
+		t.Error("unknown role must not have any permission")
 	}
 	if len(Permissions(Role(""))) != 0 {
-		t.Error("papel vazio não tem permissões")
+		t.Error("empty role must have no permissions")
 	}
 }
 
 func TestOnlyAdminsCanDeleteTenant(t *testing.T) {
 	for _, r := range []Role{RoleMember, RoleBilling} {
 		if Has(r, PermTenantDelete) {
-			t.Errorf("%s não pode excluir tenant", r)
+			t.Errorf("%s must not be able to delete a tenant", r)
 		}
 	}
 }
 
-// O admin tem todas as permissões, mas continua abaixo do owner na hierarquia: a proteção de quem
-// pode agir SOBRE quem é o rank, e essa não mudou.
+// Admin has all permissions, but is still below owner in the hierarchy: the protection over who
+// can act ON whom is the rank, and that hasn't changed.
 func TestAdminStillCannotActOnOwner(t *testing.T) {
 	if CanManage(RoleAdmin, RoleOwner) {
-		t.Error("admin não pode gerir um owner")
+		t.Error("admin must not be able to manage an owner")
 	}
 	if !CanManage(RoleAdmin, RoleMember) {
-		t.Error("admin tem de poder gerir um member")
+		t.Error("admin must be able to manage a member")
 	}
 }
 
 func TestInternalAdminNotClientAssignable(t *testing.T) {
 	if IsAssignableRole(RoleInternalAdmin) {
-		t.Error("internal_admin não pode ser atribuído por clientes (escalonamento)")
+		t.Error("internal_admin must not be assignable by customers (privilege escalation)")
 	}
 	for _, r := range []Role{RoleOwner, RoleAdmin, RoleMember, RoleBilling} {
 		if !IsAssignableRole(r) {
-			t.Errorf("%s deveria ser atribuível", r)
+			t.Errorf("%s should be assignable", r)
 		}
 	}
 }
 
-// As exceções por membro são decisão de segurança: o que interessa testar é a ordem de precedência
-// (retirar ganha), o que fica intocado e que uma permissão inventada não entra por engano.
+// Per-member exceptions are a security decision: what matters to test is the precedence order
+// (revoke wins), what stays untouched, and that a made-up permission doesn't sneak in by mistake.
 func TestEffectiveOverrides(t *testing.T) {
 	has := func(list []Permission, p Permission) bool {
 		for _, x := range list {
@@ -89,41 +89,41 @@ func TestEffectiveOverrides(t *testing.T) {
 		return false
 	}
 
-	// Conceder por cima do papel: um admin não apaga domínios, mas pode receber a permissão.
+	// Grant on top of the role: an admin doesn't delete domains, but can be given the permission.
 	got := Effective(RoleAdmin, []Permission{PermDomainsDelete}, nil)
 	if !has(got, PermDomainsDelete) {
-		t.Error("conceder devia acrescentar domains.delete ao admin")
+		t.Error("granting should add domains.delete to admin")
 	}
 	if !has(got, PermMembersManage) {
-		t.Error("conceder não pode tirar o que o papel já dava")
+		t.Error("granting must not remove what the role already gave")
 	}
 
-	// Retirar do papel: admin sem gestão de membros.
+	// Revoke from the role: admin without member management.
 	got = Effective(RoleAdmin, nil, []Permission{PermMembersManage})
 	if has(got, PermMembersManage) {
-		t.Error("retirar devia tirar members.manage ao admin")
+		t.Error("revoking should remove members.manage from admin")
 	}
 
-	// Contradição: retirar ganha, sempre (fail-closed).
+	// Contradiction: revoke always wins (fail-closed).
 	got = Effective(RoleAdmin, []Permission{PermBillingManage}, []Permission{PermBillingManage})
 	if has(got, PermBillingManage) {
-		t.Error("com conceder e retirar ao mesmo tempo, deve ficar retirado")
+		t.Error("with both grant and revoke at once, it must end up revoked")
 	}
 
-	// Permissão desconhecida não entra na lista efetiva.
+	// Unknown permission doesn't make it into the effective list.
 	got = Effective(RoleMember, []Permission{"inventada.qualquer"}, nil)
 	for _, p := range got {
 		if p == "inventada.qualquer" {
-			t.Error("permissão desconhecida não devia ser concedida")
+			t.Error("unknown permission should not be granted")
 		}
 	}
 
-	// Owner com uma exceção a retirar continua a perder a permissão (ninguém está acima da regra).
+	// Owner with a revoke exception still loses the permission (nobody is above the rule).
 	if HasEffective(RoleOwner, nil, []Permission{PermTenantDelete}, PermTenantDelete) {
-		t.Error("retirar tem de valer também para o owner")
+		t.Error("revoking must also apply to the owner")
 	}
-	// E o caminho rápido concorda com o completo.
+	// And the fast path agrees with the full one.
 	if HasEffective(RoleMember, []Permission{PermUsageView}, nil, PermUsageView) != has(Effective(RoleMember, []Permission{PermUsageView}, nil), PermUsageView) {
-		t.Error("HasEffective e Effective têm de dar a mesma resposta")
+		t.Error("HasEffective and Effective must give the same answer")
 	}
 }

@@ -7,13 +7,13 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Lister é o subconjunto do db.Queries que o Runner usa para achar trabalho pendente.
+// Lister is the subset of db.Queries the Runner uses to find pending work.
 type Lister interface {
 	ListDomainsInState(ctx context.Context, arg db.ListDomainsInStateParams) ([]db.Domain, error)
 }
 
-// Runner varre os domínios em estados não-terminais e avança cada um uma transição por tick.
-// Erros em um domínio não param os demais (isolamento de falha). O worker chama Tick num loop.
+// Runner sweeps domains in non-terminal states and advances each one transition per tick.
+// Errors on one domain don't stop the others (failure isolation). The worker calls Tick in a loop.
 type Runner struct {
 	machine *Machine
 	lister  Lister
@@ -24,7 +24,7 @@ func NewRunner(m *Machine, l Lister) *Runner {
 	return &Runner{machine: m, lister: l, batch: 50}
 }
 
-// Tick processa uma rodada. Retorna quantas transições ocorreram (útil para logs/testes).
+// Tick processes one round. Returns how many transitions occurred (useful for logs/tests).
 func (r *Runner) Tick(ctx context.Context) int {
 	advanced := 0
 	for _, state := range ActiveStates {
@@ -38,7 +38,7 @@ func (r *Runner) Tick(ctx context.Context) int {
 		for _, d := range domains {
 			changed, err := r.machine.AdvanceOnce(ctx, d)
 			if err != nil {
-				// Erro (provavelmente transiente): loga e tenta de novo no próximo tick.
+				// Error (probably transient): log it and try again next tick.
 				log.Printf("provisioning: domain %s (%s): %v", d.Domain, d.ProvisionState, err)
 				continue
 			}

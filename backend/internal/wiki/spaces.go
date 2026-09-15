@@ -90,9 +90,9 @@ func (s *Service) UpdateSpace(ctx context.Context, tenantID, userID, spaceID uui
 	})
 }
 
-// DeleteSpace removes a space and all its pages (ON DELETE CASCADE). B4: destruir uma wiki inteira é
-// só do DONO do espaço ou de um admin da organização — ser manager (concedido) não chega. Quem nem
-// vê o espaço leva 404 (não revelar existência); quem vê mas não pode, 403.
+// DeleteSpace removes a space and all its pages (ON DELETE CASCADE). B4: destroying an entire wiki
+// is for the space's OWNER or an organization admin only — being a (granted) manager is not enough.
+// Whoever can't even see the space gets 404 (don't reveal existence); whoever sees it but can't, gets 403.
 func (s *Service) DeleteSpace(ctx context.Context, tenantID, userID, spaceID uuid.UUID, isOrgAdmin bool) error {
 	role, err := s.spaceRole(ctx, tenantID, userID, spaceID)
 	if err != nil {

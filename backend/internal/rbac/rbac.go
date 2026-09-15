@@ -1,53 +1,53 @@
-// Package rbac define o controle de acesso do painel: papéis FIXOS mapeados para permissões
-// granulares, checadas no backend (lei §5.2). Papéis customizáveis por tenant ficam para depois.
+// Package rbac defines the panel's access control: FIXED roles mapped to granular
+// permissions, checked on the backend (law §5.2). Per-tenant customizable roles are for later.
 //
-// Segurança: a fonte de verdade é o papel salvo do usuário autenticado (nunca vindo do request).
-// A checagem é allow-list explícita — na dúvida, nega.
+// Security: the source of truth is the authenticated user's saved role (never from the request).
+// The check is an explicit allow-list — when in doubt, deny.
 package rbac
 
-// Permission é uma capacidade granular. Handlers exigem uma permissão específica.
+// Permission is a granular capability. Handlers require a specific permission.
 type Permission string
 
 const (
 	PermDomainsView   Permission = "domains.view"
-	PermDomainsManage Permission = "domains.manage" // adicionar/editar domínio
-	PermDomainsDelete Permission = "domains.delete" // remover domínio (destrutivo, à parte)
+	PermDomainsManage Permission = "domains.manage" // add/edit domain
+	PermDomainsDelete Permission = "domains.delete" // remove domain (destructive, separate)
 	PermMailboxManage Permission = "mailboxes.manage"
 	// Destroying a mailbox is separate from running one, the same way removing a domain is: the
 	// person who creates accounts and resets passwords every day has no need to destroy anybody's
 	// correspondence, and should not be one misclick away from it.
 	PermMailboxDelete Permission = "mailboxes.delete"
 	PermMembersView   Permission = "members.view"
-	PermMembersInvite Permission = "members.invite" // convidar/criar conta
-	PermMembersManage Permission = "members.manage" // mudar papel, remover, permissões
-	PermGroupsManage  Permission = "groups.manage"  // grupos de utilizadores
-	PermBillingView   Permission = "billing.view"   // ver plano e faturas
-	PermBillingManage Permission = "billing.manage" // trocar plano, portal, cancelar
+	PermMembersInvite Permission = "members.invite" // invite/create account
+	PermMembersManage Permission = "members.manage" // change role, remove, permissions
+	PermGroupsManage  Permission = "groups.manage"  // user groups
+	PermBillingView   Permission = "billing.view"   // view plan and invoices
+	PermBillingManage Permission = "billing.manage" // change plan, portal, cancel
 	PermUsageView     Permission = "usage.view"
 	PermTenantDelete  Permission = "tenant.delete"
 	// org.settings used to be the catch-all bucket for anything "organization-level" — branding,
 	// apps, security policy, announcements, assistant, and the wiki home. Split apart so one of
 	// those can be entrusted to someone without handing over the rest, per the request for
 	// finer-grained permissions.
-	PermOrgBranding     Permission = "org.branding"      // marca/aparência e apps visíveis
-	PermOrgSecurity     Permission = "org.security"      // política de segurança (MFA, sessões)
-	PermAnnouncements   Permission = "org.announcements" // comunicados internos
-	PermAssistantManage Permission = "assistant.manage"  // agentes e governança do assistente
-	PermWikiManage      Permission = "wiki.manage"       // home da wiki (conteúdo da organização)
+	PermOrgBranding     Permission = "org.branding"      // brand/appearance and visible apps
+	PermOrgSecurity     Permission = "org.security"      // security policy (MFA, sessions)
+	PermAnnouncements   Permission = "org.announcements" // internal announcements
+	PermAssistantManage Permission = "assistant.manage"  // assistant agents and governance
+	PermWikiManage      Permission = "wiki.manage"       // wiki home (organization content)
 )
 
-// Role é um papel fixo. A hierarquia é por conjunto de permissões, não por herança implícita.
+// Role is a fixed role. The hierarchy is by permission set, not implicit inheritance.
 type Role string
 
 const (
-	RoleOwner         Role = "owner"          // dono da organização — tudo
-	RoleAdmin         Role = "admin"          // administra a organização — todas as permissões
-	RoleMember        Role = "member"         // leitura
-	RoleBilling       Role = "billing"        // faturamento + uso
-	RoleInternalAdmin Role = "internal_admin" // nossa equipe (suporte) — tudo
+	RoleOwner         Role = "owner"          // organization owner — everything
+	RoleAdmin         Role = "admin"          // administers the organization — all permissions
+	RoleMember        Role = "member"         // read-only
+	RoleBilling       Role = "billing"        // billing + usage
+	RoleInternalAdmin Role = "internal_admin" // our team (support) — everything
 )
 
-// rolePermissions é a matriz autoritativa. Adicionar papel/permissão = editar aqui.
+// rolePermissions is the authoritative matrix. Adding a role/permission means editing here.
 var rolePermissions = map[Role]map[Permission]bool{
 	RoleOwner:         allPerms(),
 	RoleInternalAdmin: allPerms(),
@@ -64,7 +64,7 @@ var rolePermissions = map[Role]map[Permission]bool{
 	),
 }
 
-// AllPermissions lista todas as permissões conhecidas (usado por owner/internal e nos testes).
+// AllPermissions lists all known permissions (used by owner/internal and in tests).
 func AllPermissions() []Permission {
 	return []Permission{
 		PermDomainsView, PermDomainsManage, PermDomainsDelete, PermMailboxManage, PermMailboxDelete,
@@ -74,8 +74,8 @@ func AllPermissions() []Permission {
 	}
 }
 
-// AssignableRoles são os papéis que um admin pode atribuir num convite/edição.
-// internal_admin NÃO é atribuível por clientes (só provisionado internamente).
+// AssignableRoles are the roles an admin can assign in an invite/edit.
+// internal_admin is NOT assignable by customers (only provisioned internally).
 func AssignableRoles() []Role { return []Role{RoleOwner, RoleAdmin, RoleMember, RoleBilling} }
 
 func IsAssignableRole(r Role) bool {
@@ -87,9 +87,9 @@ func IsAssignableRole(r Role) bool {
 	return false
 }
 
-// roleRank define a hierarquia para operações administrativas ENTRE usuários (reset de senha,
-// remoção, mudança de papel). Papel desconhecido = 0. A checagem de permissão (Has) diz se o ator
-// PODE gerir membros; o rank diz sobre QUEM ele pode agir — nunca sobre alguém de rank ≥ o seu.
+// roleRank defines the hierarchy for administrative operations BETWEEN users (password reset,
+// removal, role change). Unknown role = 0. The permission check (Has) says whether the actor
+// CAN manage members; the rank says WHO it can act on — never someone of rank >= its own.
 var roleRank = map[Role]int{
 	RoleInternalAdmin: 100,
 	RoleOwner:         90,
@@ -98,17 +98,17 @@ var roleRank = map[Role]int{
 	RoleMember:        10,
 }
 
-// Rank devolve o nível hierárquico do papel (0 se desconhecido).
+// Rank returns the role's hierarchical level (0 if unknown).
 func Rank(role Role) int { return roleRank[role] }
 
-// CanManage responde se o ator pode executar uma ação administrativa sobre o alvo.
-// Regra fail-closed: o rank do ator precisa ser ESTRITAMENTE maior que o do alvo. Assim um admin
-// não redefine a senha de um owner nem de outro admin (lei §5.2).
+// CanManage answers whether the actor can perform an administrative action on the target.
+// Fail-closed rule: the actor's rank must be STRICTLY greater than the target's. This way an
+// admin does not reset an owner's password, nor another admin's (law §5.2).
 func CanManage(actor, target Role) bool {
 	return roleRank[actor] > roleRank[target]
 }
 
-// Has responde se o papel possui a permissão. Papel desconhecido → nega (fail-closed).
+// Has answers whether the role has the permission. Unknown role -> deny (fail-closed).
 func Has(role Role, perm Permission) bool {
 	perms, ok := rolePermissions[role]
 	if !ok {
@@ -117,7 +117,7 @@ func Has(role Role, perm Permission) bool {
 	return perms[perm]
 }
 
-// Permissions devolve as permissões do papel (para o /me, a UI gatear botões).
+// Permissions returns the role's permissions (for /me, for the UI to gate buttons).
 func Permissions(role Role) []Permission {
 	var out []Permission
 	for _, p := range AllPermissions() {
@@ -128,9 +128,10 @@ func Permissions(role Role) []Permission {
 	return out
 }
 
-// Effective devolve as permissões de alguém: as do papel, mais as concedidas à pessoa, menos as
-// retiradas. É a resposta autoritativa — os handlers e o /me passam por aqui, nunca por Has direto.
-// Retirar ganha sempre a conceder: numa contradição, a decisão mais restritiva é a que fica.
+// Effective returns someone's permissions: the role's, plus those granted to the person, minus
+// those revoked. This is the authoritative answer — handlers and /me go through here, never Has
+// directly. Revoking always wins over granting: in a contradiction, the most restrictive decision
+// stands.
 func Effective(role Role, allow, deny []Permission) []Permission {
 	granted := map[Permission]bool{}
 	for _, p := range AllPermissions() {
@@ -153,7 +154,7 @@ func Effective(role Role, allow, deny []Permission) []Permission {
 	return out
 }
 
-// HasEffective é o Effective para uma única permissão (o caminho quente dos handlers).
+// HasEffective is Effective for a single permission (the handlers' hot path).
 func HasEffective(role Role, allow, deny []Permission, perm Permission) bool {
 	for _, p := range deny {
 		if p == perm {

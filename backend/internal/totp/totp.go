@@ -1,8 +1,8 @@
-// Package totp implementa TOTP (RFC 6238, HMAC-SHA1, 6 dígitos, período 30s) em Go puro —
-// compatível com Google/Microsoft Authenticator. Sem dependências externas.
+// Package totp implements TOTP (RFC 6238, HMAC-SHA1, 6 digits, 30s period) in pure Go —
+// compatible with Google/Microsoft Authenticator. No external dependencies.
 //
-// Segurança: comparação de código em tempo constante; janela de ±1 passo (tolerância de relógio).
-// O segredo é sensível — ver nota em db/migrations sobre cifrar em repouso no futuro.
+// Security: constant-time code comparison; ±1 step window (clock tolerance).
+// The secret is sensitive — see the note in db/migrations about encrypting at rest in the future.
 package totp
 
 import (
@@ -26,7 +26,7 @@ const (
 
 var b32 = base32.StdEncoding.WithPadding(base32.NoPadding)
 
-// GenerateSecret cria um segredo base32 de 160 bits (20 bytes), padrão do RFC 4226.
+// GenerateSecret creates a 160-bit (20-byte) base32 secret, as required by RFC 4226.
 func GenerateSecret() (string, error) {
 	buf := make([]byte, 20)
 	if _, err := rand.Read(buf); err != nil {
@@ -35,7 +35,7 @@ func GenerateSecret() (string, error) {
 	return b32.EncodeToString(buf), nil
 }
 
-// ProvisioningURI devolve o otpauth:// para o QR code do app autenticador.
+// ProvisioningURI returns the otpauth:// URI for the authenticator app's QR code.
 func ProvisioningURI(secret, account string) string {
 	label := url.PathEscape(issuer + ":" + account)
 	q := url.Values{}
@@ -47,7 +47,7 @@ func ProvisioningURI(secret, account string) string {
 	return "otpauth://totp/" + label + "?" + q.Encode()
 }
 
-// code calcula o TOTP para um contador (passo de tempo).
+// code computes the TOTP for a counter (time step).
 func code(secret string, counter uint64) (string, error) {
 	key, err := b32.DecodeString(strings.ToUpper(strings.TrimSpace(secret)))
 	if err != nil {
@@ -64,7 +64,7 @@ func code(secret string, counter uint64) (string, error) {
 	return fmt.Sprintf("%0*d", digits, bin%1_000_000), nil
 }
 
-// Validate confere um código no instante t, aceitando ±1 passo (janela de 90s). Tempo constante.
+// Validate checks a code at instant t, accepting ±1 step (90s window). Constant time.
 func Validate(secret, input string, t time.Time) bool {
 	input = strings.TrimSpace(input)
 	if len(input) != digits {
@@ -83,11 +83,12 @@ func Validate(secret, input string, t time.Time) bool {
 	return false
 }
 
-// Now valida usando o relógio atual (conveniência).
+// Now validates using the current clock (convenience).
 func Now(secret, input string) bool { return Validate(secret, input, time.Now()) }
 
-// ValidateStep confere o código e devolve o passo de tempo aceito, para o chamador impedir replay
-// (rejeitar um passo já usado antes). ok=false se nenhum passo na janela ±1 bate. Tempo constante.
+// ValidateStep checks the code and returns the accepted time step, for the caller to prevent
+// replay (rejecting a step already used before). ok=false if no step in the ±1 window matches.
+// Constant time.
 func ValidateStep(secret, input string, t time.Time) (step int64, ok bool) {
 	input = strings.TrimSpace(input)
 	if len(input) != digits {
@@ -107,5 +108,5 @@ func ValidateStep(secret, input string, t time.Time) (step int64, ok bool) {
 	return 0, false
 }
 
-// NowStep valida com o relógio atual e devolve o passo aceito (para anti-replay).
+// NowStep validates with the current clock and returns the accepted step (for anti-replay).
 func NowStep(secret, input string) (int64, bool) { return ValidateStep(secret, input, time.Now()) }
