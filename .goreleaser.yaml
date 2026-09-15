@@ -1,0 +1,55 @@
+# Builds the backend's binaries for a tagged release. Run locally with `goreleaser release
+# --snapshot --clean` to try it without publishing. Container images, cosign signing, and an SBOM
+# are follow-up work (docs/OPEN-SOURCE.md F7) -- they need registry credentials this repository
+# does not have configured yet.
+version: 2
+
+project_name: beskos
+
+before:
+  hooks:
+    - sh -c "cd backend && go mod tidy"
+
+builds:
+  - id: api
+    dir: backend
+    main: ./cmd/api
+    binary: beskos-api
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+  - id: worker
+    dir: backend
+    main: ./cmd/worker
+    binary: beskos-worker
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+  - id: bootstrap
+    dir: backend
+    main: ./cmd/bootstrap
+    binary: beskos-bootstrap
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: default
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude: ["^docs:", "^test:", "^ci:"]
+
+release:
+  github:
+    owner: beskosorg
+    name: beskos
+  draft: true   # review before publishing -- a release is hard to take back once notified
