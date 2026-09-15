@@ -65,7 +65,7 @@ pub fn run() {
     // O motor de sincronização vive DENTRO da app (não há segunda aplicação). Arranca já, mas só
     // sincroniza de facto quando houver credenciais gravadas — senão fica quieto à espera de a UI
     // chamar `sync_configure`.
-    let engine = mailin_sync::engine::Engine::start(SYNC_INTERVAL_SECS);
+    let engine = beskos_sync::engine::Engine::start(SYNC_INTERVAL_SECS);
 
     let tray_engine = std::sync::Arc::clone(&engine);
 
