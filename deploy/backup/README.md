@@ -1,133 +1,139 @@
 # Backups
 
-Três vezes por dia — **02:00, 10:00 e 18:00 UTC** — mais uma corrida a cada arranque do serviço,
-para que um erro de configuração apareça no minuto do deploy e não às duas da manhã.
+Three times a day — **02:00, 10:00, and 18:00 UTC** — plus one run on every service startup,
+so a configuration error shows up the minute it deploys, not at two in the morning.
 
-Destino: `r2://beskos-backup/<base>/AAAA/MM/DD/<base>-<carimbo>.dump.age`, em **jurisdição UE**.
-Retenção 30 dias. **Cifrados** — ver [Cifra](#cifra) já a seguir.
+Destination: `r2://beskos-backup/<base>/YYYY/MM/DD/<base>-<timestamp>.dump.age`, in **EU
+jurisdiction**. 30-day retention. **Encrypted** — see [Encryption](#encryption) right below.
 
-## O que está coberto, e o que não está
+## What's covered, and what isn't
 
-| | Estado |
+| | Status |
 |---|---|
-| Base de dados da aplicação (`beskos`) — contas, ficheiros, calendário, chat, wiki, faturação | **Coberta** |
-| Base de dados do correio (`stalwart`) — mensagens, anexos, caixas e a configuração do servidor | **Coberta** |
-| Ficheiros do Drive e anexos grandes (R2) | Vivem no R2, com durabilidade do fornecedor. **Não há segunda cópia nossa** — um apagamento acidental do balde não é recuperável |
+| Application database (`beskos`) — accounts, files, calendar, chat, wiki, billing | **Covered** |
+| Mail database (`stalwart`) — messages, attachments, mailboxes, and server configuration | **Covered** |
+| Drive files and large attachments (R2) | Live in R2, with the provider's own durability. **We keep no second copy** — an accidental bucket deletion is not recoverable |
 
-O Stalwart guarda tudo em **PostgreSQL** (ver [DIVERGENCES.md](../DIVERGENCES.md) §D9): mensagens,
-anexos, contas e a própria configuração dele. Por isso o correio entra aqui como qualquer outra
-base — **a quente, sem parar nada**. Se algum dia voltar a um armazenamento embutido, isto deixa de
-ser verdade e o backup do correio passa a exigir paragem: é uma decisão a tomar com essa conta
-feita.
+Stalwart stores everything in **PostgreSQL** (see [DIVERGENCES.md](../DIVERGENCES.md) §D9):
+messages, attachments, accounts, and its own configuration. That's why mail goes through here
+like any other database — **live, without stopping anything**. If it ever moves back to an
+embedded store, this stops being true and backing up mail will require a stop: that's a decision
+to make with that trade-off in mind.
 
-## O que o script faz que a maioria não faz
+## What this script does that most don't
 
-1. **Verifica o ficheiro antes de o enviar** (`pg_restore --list`, e conta as tabelas com dados).
-   Um dump que não se consegue ler não é um backup, é um ficheiro — e isso descobre-se sempre no
-   pior dia possível.
-2. **Confirma do outro lado.** Compara o tamanho no R2 com o local. Enviar sem confirmar é assumir
-   que a rede nunca mente.
-3. **Avisa quando corre bem.** Se `HEARTBEAT_URL` estiver definido, faz ping a um monitor de *push*
-   da página de estado; se um backup não acontecer dentro da janela, o monitor cai e nós sabemos.
-   O modo de falha clássico dos backups não é falharem — é terem deixado de correr há três semanas
-   sem ninguém reparar.
-4. **Falha alto.** Qualquer erro aborta com mensagem. Nada de continuar como se nada fosse.
-5. **Cifra antes de enviar**, com chave assimétrica. Ponto seguinte.
+1. **Verifies the file before sending it** (`pg_restore --list`, and counts the tables with
+   data). A dump that can't be read isn't a backup, it's a file — and that's always discovered on
+   the worst possible day.
+2. **Confirms on the other end.** Compares the size in R2 with the local size. Sending without
+   confirming assumes the network never lies.
+3. **Signals when it runs fine.** If `HEARTBEAT_URL` is set, it pings a push monitor on the
+   status page; if a backup doesn't happen within the window, the monitor goes red and we know.
+   The classic failure mode for backups isn't failing — it's having stopped running three weeks
+   ago with no one noticing.
+4. **Fails loud.** Any error aborts with a message. No carrying on as if nothing happened.
+5. **Encrypts before sending**, with an asymmetric key. Next section.
 
-## Cifra
+## Encryption
 
-Os dumps saem daqui cifrados com [`age`](https://age-encryption.org), para uma chave **assimétrica**.
-O servidor leva só a **chave pública**: pode escrever cópias novas e **não consegue ler as antigas**.
+Dumps leave here encrypted with [`age`](https://age-encryption.org), for an **asymmetric** key.
+The server holds only the **public key**: it can write new copies and **cannot read old ones**.
 
-Não é um detalhe de configuração — é a diferença entre dois cenários. Com cifra simétrica (ou sem
-cifra), quem comprometesse este contentor, ou a chave do R2, lia o histórico inteiro. E o histórico
-aqui **inclui as mensagens de correio**, porque o Stalwart guarda tudo em Postgres. Com chave
-assimétrica, o mesmo atacante consegue no máximo escrever lixo por cima de cópias futuras.
+This isn't a configuration detail — it's the difference between two scenarios. With symmetric
+encryption (or no encryption), anyone who compromised this container, or the R2 key, could read
+the entire history. And that history **includes the mail messages**, because Stalwart stores
+everything in Postgres. With an asymmetric key, the same attacker can at most overwrite future
+copies with garbage.
 
-A **chave privada vive fora desta infraestrutura** — não está no contentor, nem no balde, nem no
-CapRover. Só aparece no momento do restauro, passada em `AGE_IDENTITY_FILE`.
+The **private key lives outside this infrastructure** — it isn't in the container, the bucket, or
+CapRover. It only appears at restore time, passed in via `AGE_IDENTITY_FILE`.
 
-> **Perder a chave privada torna todas as cópias inúteis.** É o preço, e é consciente: sem ela, o
-> backup é uma cópia legível dos dados de todos os clientes num balde de um fornecedor americano.
-> Guarde-a em dois sítios independentes do resto (cofre de senhas + papel, por exemplo).
+> **Losing the private key makes every copy useless.** That's the price, and it's a deliberate
+> one: without it, the backup is a readable copy of every customer's data sitting in a bucket at
+> a US provider. Keep it in two places independent of everything else (password vault + paper,
+> for example).
 
-Gerar o par:
+Generate the pair:
 
 ```sh
-age-keygen -o beskos-backup.key     # a privada; guardar FORA daqui
-# a pública sai no stderr e no comentário do ficheiro: "age1..."
+age-keygen -o beskos-backup.key     # the private key; store it OUTSIDE of here
+# the public key is printed to stderr and in the file's comment: "age1..."
 ```
 
-A pública vai para `BACKUP_AGE_RECIPIENT`. **Sem ela o backup aborta** — enviar em claro é
-exatamente o que esta cifra existe para evitar, e uma variável esquecida não pode degradar isso em
-silêncio.
+The public key goes into `BACKUP_AGE_RECIPIENT`. **Without it the backup aborts** — sending
+unencrypted is exactly what this encryption exists to prevent, and a forgotten variable must not
+be able to silently degrade that guarantee.
 
-## Restaurar
+## Restoring
 
 ```sh
-# 1. Escolher a cópia. --files-only é OBRIGATÓRIO: sem ele o rclone também lista as PASTAS e
-#    um `tail -1` distraído devolve "2026/07/29/" em vez do ficheiro. (Aconteceu no primeiro teste.)
+# 1. Pick the copy. --files-only is MANDATORY: without it rclone also lists FOLDERS, and an
+#    absent-minded `tail -1` returns "2026/07/29/" instead of the file. (Happened during the
+#    first test.)
 rclone lsf r2:beskos-backup/beskos --recursive --files-only | sort | tail -5
 
-# 2. Restaurar para uma base NOVA (nunca por cima da que está a servir, sem antes olhar para ela).
-#    O restore.sh trata de descarregar, decifrar e verificar antes de escrever seja o que for.
-createdb beskos_restaurado
-AGE_IDENTITY_FILE=/caminho/para/beskos-backup.key BACKUP_BUCKET=beskos-backup \
-  restore.sh beskos beskos/2026/07/29/beskos-<carimbo>.dump.age \
-  --to "postgres://.../beskos_restaurado"
+# 2. Restore to a NEW database (never over the one currently serving traffic, without looking at
+#    it first). restore.sh takes care of downloading, decrypting, and verifying before it writes
+#    anything at all.
+createdb beskos_restored
+AGE_IDENTITY_FILE=/path/to/beskos-backup.key BACKUP_BUCKET=beskos-backup \
+  restore.sh beskos beskos/2026/07/29/beskos-<timestamp>.dump.age \
+  --to "postgres://.../beskos_restored"
 
-# 3. Conferir antes de trocar seja o que for
-psql "postgres://.../beskos_restaurado" -c "select count(*) from tenants;"
+# 3. Check before switching anything over
+psql "postgres://.../beskos_restored" -c "select count(*) from tenants;"
 ```
 
-Sem `--to`, o `restore.sh` decifra, verifica e deixa o dump em claro em disco — que é o que se quer
-quando o destino ainda não existe ou quando só se quer espreitar lá para dentro.
+Without `--to`, `restore.sh` decrypts, verifies, and leaves the plaintext dump on disk — which is
+what you want when the destination doesn't exist yet, or when you just want to peek inside.
 
-O `--no-owner --no-privileges` no dump e no restauro é de propósito: o restauro deixa de depender
-de os mesmos papéis existirem no destino, que é o que estraga metade dos restauros de emergência.
+The `--no-owner --no-privileges` on both the dump and the restore is deliberate: the restore no
+longer depends on the same roles existing at the destination, which is what ruins half of all
+emergency restores.
 
-### Ensaio
+### Rehearsal
 
 ```sh
 deploy/backup/test-restore.sh
 ```
 
-Levanta um Postgres descartável, corre o **`backup.sh` e o `restore.sh` verdadeiros** (não cópias
-adaptadas para teste — um ensaio que exercita um script parecido não prova nada sobre o que corre às
-duas da manhã), e compara o conteúdo no fim. O R2 é substituído por um remoto `local` do rclone: o
-mesmo comando, o mesmo caminho de código, a escrever num diretório.
+Spins up a disposable Postgres, runs the **real `backup.sh` and `restore.sh`** (not copies
+adapted for testing — a rehearsal that exercises a similar script proves nothing about what runs
+at two in the morning), and compares the content at the end. R2 is replaced with a rclone `local`
+remote: the same command, the same code path, writing to a directory instead.
 
-Verifica, por esta ordem: que o ficheiro enviado começa pelo cabeçalho do `age`; que o `pg_restore`
-**não** o consegue ler; que não há texto do conteúdo lá dentro; que não sobrou dump em claro em
-disco; que uma **chave privada diferente é rejeitada**; e que o restauro com a chave certa devolve as
-linhas com o conteúdo idêntico (comparação por *hash* do conteúdo, não por contagem de linhas — uma
-contagem deixaria passar um restauro que trouxesse as linhas certas com o conteúdo trocado).
+Checks, in this order: that the uploaded file starts with the `age` header; that `pg_restore`
+**cannot** read it; that there's no content text inside it; that no plaintext dump was left on
+disk; that a **different private key is rejected**; and that restoring with the right key returns
+rows with identical content (compared by content hash, not row count — a count would let through
+a restore that brought back the right rows with swapped content).
 
-Correr sempre que se mexer no `backup.sh`, no `restore.sh` ou na imagem. A cifra assimétrica faz com
-que um erro do lado da chave só se manifeste no dia do restauro — o pior dia possível para o
-descobrir.
+Run this every time `backup.sh`, `restore.sh`, or the image changes. The asymmetric encryption
+means an error on the key side only shows up on restore day — the worst possible day to discover
+it.
 
-## Configuração
+## Configuration
 
-App `backup` no CapRover, imagem `beskos-backup`. Variáveis:
+App `backup` on CapRover, image `beskos-backup`. Variables:
 
-| Variável | Para quê |
+| Variable | Purpose |
 |---|---|
-| `DATABASE_URL` | A mesma da API |
-| `R2_ENDPOINT` | `<conta>.eu.r2.cloudflarestorage.com` — o endpoint da **jurisdição UE** |
-| `R2_ACCESS_KEY` / `R2_SECRET_KEY` | Credenciais do R2 |
+| `DATABASE_URL` | Same as the API's |
+| `R2_ENDPOINT` | `<account>.eu.r2.cloudflarestorage.com` — the **EU jurisdiction** endpoint |
+| `R2_ACCESS_KEY` / `R2_SECRET_KEY` | R2 credentials |
 | `BACKUP_BUCKET` | `beskos-backup` |
-| `BACKUP_AGE_RECIPIENT` | Chave **pública** `age1…`. **Obrigatória** — sem ela o backup aborta |
-| `BACKUP_DATABASES` | `beskos stalwart` (por omissão) |
+| `BACKUP_AGE_RECIPIENT` | **Public** key `age1…`. **Required** — without it the backup aborts |
+| `BACKUP_DATABASES` | `beskos stalwart` (default) |
 | `RETENTION_DAYS` | 30 |
-| `HEARTBEAT_URL` | Monitor de *push* da página de estado (opcional, mas é o que nos avisa) |
+| `HEARTBEAT_URL` | Push monitor on the status page (optional, but it's what alerts us) |
 
-## Por melhorar
+## To improve
 
-- **Credencial dedicada.** Hoje o serviço usa a mesma chave do R2 que a aplicação, que também lê os
-  ficheiros dos clientes. Um token com escrita apenas no balde de backups reduz o estrago de uma
-  fuga. Menos grave desde a cifra — o que lá está já não se lê — mas continua a permitir apagar.
-- **Cópia fora do R2.** Tudo num fornecedor só é um risco de conta, não de disco.
-- **Ensaio de restauro periódico.** O `test-restore.sh` prova a ida e volta em qualquer máquina, mas
-  correr à mão. Agendá-lo apanharia uma degradação silenciosa — é a diferença entre "foi provado uma
-  vez" e "sabemos que funciona hoje".
+- **Dedicated credential.** Today the service uses the same R2 key as the application, which also
+  reads customer files. A token with write-only access to the backups bucket would limit the
+  damage of a leak. Less critical since encryption was added — what's stored there is already
+  unreadable — but it still allows deletion.
+- **Copy outside of R2.** Everything with a single provider is an account risk, not a disk risk.
+- **Periodic restore rehearsal.** `test-restore.sh` proves the round trip on any machine, but it
+  runs by hand. Scheduling it would catch a silent degradation — that's the difference between
+  "it was proven once" and "we know it works today."

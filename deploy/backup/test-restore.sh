@@ -1,40 +1,41 @@
 #!/bin/bash
-# Ensaio de restauro. Levanta um Postgres descartável, corre o backup e o restauro de verdade, e
-# compara o conteúdo no fim.
+# Restore rehearsal. Spins up a disposable Postgres, runs the real backup and restore, and
+# compares the content at the end.
 #
 #   deploy/backup/test-restore.sh
 #
-# Não toca em produção nem na rede: nem a base de dados nem o "balde" saem daqui. Corre-o sempre que
-# se mexer no backup.sh, no restore.sh ou na imagem — a cifra assimétrica faz com que um erro do
-# lado da chave só se manifeste no dia do restauro, que é o pior dia possível para o descobrir.
+# Touches neither production nor the network: neither the database nor the "bucket" leave this
+# machine. Run it every time backup.sh, restore.sh, or the image changes — the asymmetric
+# encryption means an error on the key side only shows up on restore day, the worst possible day
+# to discover it.
 
 set -euo pipefail
 cd "$(dirname "$0")"
 
-REDE=mailin-backup-test
+NETWORK=mailin-backup-test
 PG=mailin-backup-test-pg
 IMG=mailin-backup:test
 
-limpar() { docker rm -f "$PG" >/dev/null 2>&1 || true; docker network rm "$REDE" >/dev/null 2>&1 || true; }
-trap limpar EXIT
-limpar
+cleanup() { docker rm -f "$PG" >/dev/null 2>&1 || true; docker network rm "$NETWORK" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+cleanup
 
-echo "→ a construir a imagem de backup"
+echo "→ building the backup image"
 docker build -q -t "$IMG" . >/dev/null
 
-echo "→ a levantar um Postgres descartável"
-docker network create "$REDE" >/dev/null
-docker run -d --name "$PG" --network "$REDE" --network-alias pg \
+echo "→ starting a disposable Postgres"
+docker network create "$NETWORK" >/dev/null
+docker run -d --name "$PG" --network "$NETWORK" --network-alias pg \
   -e POSTGRES_PASSWORD=testpw postgres:16-alpine >/dev/null
 
 for _ in $(seq 30); do
   docker exec "$PG" pg_isready -q && break
   sleep 1
 done
-docker exec "$PG" pg_isready -q || { echo "o Postgres não arrancou"; exit 1; }
+docker exec "$PG" pg_isready -q || { echo "Postgres did not start"; exit 1; }
 
-echo "→ ida e volta"
+echo "→ round trip"
 echo
-docker run --rm --network "$REDE" -e PGPASSWORD=testpw \
+docker run --rm --network "$NETWORK" -e PGPASSWORD=testpw \
   -v "$PWD/round-trip.sh:/round-trip.sh:ro" \
   --entrypoint bash "$IMG" /round-trip.sh
