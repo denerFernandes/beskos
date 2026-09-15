@@ -1,269 +1,285 @@
-# Roadmap de funcionalidades (análise de lacunas) — Beskos
+# Feature roadmap (gap analysis) — Beskos
 
-> Levantamento por módulo (webmail, contatos, chat, kanban, calendário, ficheiros, meet) frente aos
-> concorrentes modernos (Gmail, Slack, Trello, Google Calendar/Drive/Meet). Marcado o que já ficou
-> pronto. **Legenda:** `[x]` feito · `[ ]` pendente · **🔴 essencial** · **🟡 nice-to-have**.
+> Survey by module (webmail, contacts, chat, kanban, calendar, files, meet) against modern
+> competitors (Gmail, Slack, Trello, Google Calendar/Drive/Meet). Marked what's already done.
+> **Legend:** `[x]` done · `[ ]` pending · **🔴 essential** · **🟡 nice-to-have**.
 >
-> Última atualização: 2026-07-18.
+> Last updated: 2026-07-18.
 
-## Progresso
+## Progress
 
-| Bloco | Feito | Total (essenciais) |
+| Block | Done | Total (essentials) |
 |---|---|---|
-| Bloco 1 — "prometido e não funciona" | **5 / 5** ✅ | 5 |
+| Block 1 — "promised and not working" | **5 / 5** ✅ | 5 |
 | Chat | **6 / 6** ✅ | 6 |
-| Webmail | 2 / 8 | 8 (2 do Bloco 1) |
-| Kanban | 1 / 8 | 8 (1 do Bloco 1) |
-| Calendário | 0 / 8 | 8 |
-| Contatos/CRM | 0 / 5 | 5 |
-| Ficheiros | 0 / 6 | 6 |
-| Meet | 1 / 7 | 7 (1 do Bloco 1) |
+| Webmail | 2 / 8 | 8 (2 from Block 1) |
+| Kanban | 1 / 8 | 8 (1 from Block 1) |
+| Calendar | 0 / 8 | 8 |
+| Contacts/CRM | 0 / 5 | 5 |
+| Files | 0 / 6 | 6 |
+| Meet | 1 / 7 | 7 (1 from Block 1) |
 
 ---
 
-## ✅ Bloco 1 — Prometido na UI e não funcionava (CONCLUÍDO)
+## ✅ Block 1 — Promised in the UI and not working (DONE)
 
-Bugs de completude: a opção existia mas não tinha efeito. Todos corrigidos e validados (build +
-typecheck; #2 e #3 testados ao vivo contra a stack).
+Completeness bugs: the option existed but had no effect. All fixed and validated (build +
+typecheck; #2 and #3 tested live against the stack).
 
-- [x] **🔴 Regras de e-mail de SAÍDA avaliadas no envio.** `outboundBcc()` aplica Bcc automático das
-      regras que casam (honra `stop`); o editor de saída passou a oferecer só ações aplicáveis.
+- [x] **🔴 OUTBOUND e-mail rules evaluated on send.** `outboundBcc()` applies automatic Bcc from
+      matching rules (honors `stop`); the outbound editor now only offers applicable actions.
       → `frontend/src/webmail/rules.ts`, `Compose.tsx`, `RulesView.tsx`.
-- [x] **🔴 UI de marcadores (labels) de e-mail.** Aplicar/remover/criar/apagar no reader, chips na
-      lista e no e-mail aberto, filtro na barra lateral (`/mail/mail/label:<id>`). Labels = keyword
-      JMAP derivada do id do catálogo. → `MailLabels.tsx`, `MailView.tsx`, `MailReader.tsx`, `jmap/mail.ts`.
-- [x] **🔴 Ordenação vertical do Kanban.** Novo `POST /columns/{id}/reorder` (atômico, `WITH
-      ORDINALITY`); drop posição-aware. Antes gravava sempre `position=0`. → `tasks_handlers.go`, `KanbanView.tsx`.
-- [x] **🔴 Extração de tarefas por IA preserva o responsável.** O nome sugerido é casado com um colega
-      real (nome/e-mail) → `assignee_id`; mostra "sem correspondência" quando não bate. → `ExtractTasksModal.tsx`.
-- [x] **🔴 Meet: chat vs. data channel.** `canPublishData` sempre `true` (não quebra apresentação/laser
-      ao desligar o chat); chat on/off aplicado no cliente. → `meet.go`, `MeetRoom.tsx`.
+- [x] **🔴 E-mail label UI.** Apply/remove/create/delete in the reader, chips in the list and in
+      the open e-mail, sidebar filter (`/mail/mail/label:<id>`). Labels = JMAP keyword derived
+      from the catalog id. → `MailLabels.tsx`, `MailView.tsx`, `MailReader.tsx`, `jmap/mail.ts`.
+- [x] **🔴 Kanban vertical ordering.** New `POST /columns/{id}/reorder` (atomic, `WITH
+      ORDINALITY`); position-aware drop. Previously always wrote `position=0`. → `tasks_handlers.go`, `KanbanView.tsx`.
+- [x] **🔴 AI task extraction preserves the assignee.** The suggested name is matched against a
+      real teammate (name/e-mail) → `assignee_id`; shows "no match" when it doesn't. → `ExtractTasksModal.tsx`.
+- [x] **🔴 Meet: chat vs. data channel.** `canPublishData` is always `true` (doesn't break
+      presenting/laser pointer when chat is disabled); chat on/off applied client-side. → `meet.go`, `MeetRoom.tsx`.
 
 ---
 
 ## 💬 Chat (Slack-like)
 
-**Essenciais**
-- [x] **🔴 Paginação de histórico.** Cursor `?before=` (nano-precisão) + "Carregar anteriores" com
-      preservação de scroll. Antes, além das 100 últimas era inacessível. → `chat_handlers.go`,
-      `ListMessagesBeforeByChannel`, `ChatView.tsx`. *(validado ao vivo)*
-- [x] **🔴 Notificação de DM/mensagem.** DM sempre avisa o outro; canal avisa quem escolheu "all"
-      (nunca o autor nem quem já recebeu menção). → `chat_handlers.go`, `GetChannelMeta`/`ListChannelMemberPrefs`. *(validado ao vivo)*
-- [x] **🔴 Saltar para a mensagem.** `?around=<id>` devolve uma janela (antigas+novas) em torno do
-      alvo; a busca e os pins rolam até a mensagem e a destacam (flash). → `chat_handlers.go`
-      (`ListMessagesAfterByChannel`, branch `around`), `ChatView.tsx`. *(validado ao vivo)*
-- [x] **🔴 Linha de "novas mensagens" + marcar como não lido.** Divisória captura o `last_read_at` na
-      abertura; ação "marcar não lido" recua o cursor. → `chat_handlers.go` (`SetLastReadAt`,
-      `handleMarkChannelUnread`), `ChatView.tsx`. *(validado ao vivo)*
-- [x] **🔴 DMs em grupo.** `POST /chat/group-dm` com `dm_key` canônico (dedup por conjunto de
-      pessoas); nome junta os participantes; modal de nova conversa vira multi-seleção (1=DM, 2+=grupo).
-      → `chat_handlers.go` (`handleOpenGroupDM`, `dmKeyN`, `dmOther`), `ChatView.tsx`. *(validado ao vivo)*
-- [x] **🔴 Moderação.** Gestor/owner apaga msg de terceiro (`DeleteMessageAny`); owner exclui o canal
-      (`DeleteChannel`, cascata). → `chat_handlers.go`, `ChatView.tsx`. *(validado ao vivo)*
+**Essentials**
+- [x] **🔴 History pagination.** Cursor `?before=` (nanosecond precision) + "Load earlier" with
+      scroll preservation. Previously, anything past the last 100 was unreachable. → `chat_handlers.go`,
+      `ListMessagesBeforeByChannel`, `ChatView.tsx`. *(validated live)*
+- [x] **🔴 DM/message notification.** A DM always notifies the other party; a channel notifies
+      whoever opted into "all" (never the author, nor anyone already mentioned). → `chat_handlers.go`,
+      `GetChannelMeta`/`ListChannelMemberPrefs`. *(validated live)*
+- [x] **🔴 Jump to message.** `?around=<id>` returns a window (older+newer) around the target;
+      search and pins scroll to the message and highlight it (flash). → `chat_handlers.go`
+      (`ListMessagesAfterByChannel`, `around` branch), `ChatView.tsx`. *(validated live)*
+- [x] **🔴 "New messages" divider + mark as unread.** The divider captures `last_read_at` on
+      open; the "mark unread" action rewinds the cursor. → `chat_handlers.go` (`SetLastReadAt`,
+      `handleMarkChannelUnread`), `ChatView.tsx`. *(validated live)*
+- [x] **🔴 Group DMs.** `POST /chat/group-dm` with a canonical `dm_key` (dedup by participant
+      set); name concatenates the participants; the new-conversation modal becomes multi-select
+      (1=DM, 2+=group). → `chat_handlers.go` (`handleOpenGroupDM`, `dmKeyN`, `dmOther`), `ChatView.tsx`. *(validated live)*
+- [x] **🔴 Moderation.** A manager/owner deletes someone else's message (`DeleteMessageAny`); the
+      owner deletes the channel (`DeleteChannel`, cascading). → `chat_handlers.go`, `ChatView.tsx`. *(validated live)*
 
 **Nice-to-have**
-- [x] 🟡 **Encaminhar/citar mensagem.** `POST /chat/messages/{id}/forward` cria no destino uma
-      mensagem citando a original (exige ser membro da origem e do destino); ação no hover + modal de
-      escolha do canal. → `chat_handlers.go` (`handleForwardMessage`, `fanoutMessage`), `ChatView.tsx`. *(validado ao vivo)*
-- [x] 🟡 **Salvar mensagem (saved items).** Salvar/dessalvar (`saved_messages`, migração 00043), estado
-      por mensagem na lista, painel "Salvos" no rail com jump. → `chat_handlers.go`, `ChatView.tsx`. *(validado ao vivo)*
-- [x] 🟡 Lembretes ("remind me"), agendar envio de mensagem
-- [x] 🟡 **Recibos de leitura ("visto por").** O endpoint de membros passou a expor `last_read_at`; a
-      última mensagem mostra "Visto"/"Visto por …" de quem leu (≥ created_at). → `chat_handlers.go`, `ChatView.tsx`.
-- [x] 🟡 **Link unfurl (preview de URLs).** `GET /chat/unfurl` busca OG/title com **guarda de SSRF**
-      (bloqueia IP privado/loopback/link-local no dial — testado contra 169.254.169.254/minio/stalwart),
-      timeout, teto de corpo, redirects limitados, cache 1h. Cartão de preview na mensagem.
-      → `unfurl.go`, `ChatView.tsx`. *(validado ao vivo)*
-- [x] 🟡 **Slash commands, webhooks de entrada, bots.** Slash client-side (`/me`, `/shrug`,
-      `/tableflip`, `/unflip`) transformam o texto antes do envio. Webhooks de entrada: token por
-      canal (`chat_webhooks`, migração 00073), `POST /api/public/chat/hook/{token}` (público, rate-
-      limited) com `{text}` vira mensagem-bot (`messages.bot_name`) publicada em tempo real via Hub.
-      Gestores criam/copiam/removem no painel do canal; mensagens de bot mostram avatar + badge APP.
-      → `chat_webhooks.go`, `ChatView.tsx`. *(validado ao vivo: criar→POST público→bot_name→apagar; empty=400, bad token=404)*
-- [x] 🟡 **Busca FTS com filtros `from:`/`before:`/`after:`.** Coluna `body_tsv` gerada + índice GIN
-      (migração 00044); busca por `plainto_tsquery` e filtros parseados no handler. → `chat_handlers.go`. *(validado ao vivo)*
-- [x] 🟡 **`@channel` / `@here`.** Notificam todos os membros / só os online (`OnlineAmong`), com dedup
-      e respeitando mute; autocomplete oferece as opções. → `chat_handlers.go` (`hasMentionToken`), `ChatView.tsx`. *(validado ao vivo)*
-- [x] 🟡 **Presença rica (ativo/ausente/não-perturbe).** `mail_users.presence` (migração 00045), seletor
-      na UI, cor por estado na presença dos DMs, e **DND suprime o web push**. → `chat_handlers.go`,
-      `push_handlers.go`, `App.tsx`, `ChatView.tsx`. *(validado ao vivo)*
-- [x] 🟡 Emoji custom do workspace
-- [x] 🟡 **Edição multilinha** (`<textarea>`; Enter salva, Shift+Enter quebra linha).
-- [x] 🟡 **Entrega otimista.** O evento WS "message" apenda a mensagem ao cache (dedup por id) em vez
-      de refazer o fetch inteiro do canal; edição/remoção/reação ainda recarregam. → `ChatView.tsx`.
-- [x] 🟡 **Removidos handlers órfãos** `ListChannelFiles`/`ListChannelLinkMessages` (sem rota).
+- [x] 🟡 **Forward/quote message.** `POST /chat/messages/{id}/forward` creates a message in the
+      target channel quoting the original (requires membership in both source and target); a
+      hover action + channel-picker modal. → `chat_handlers.go` (`handleForwardMessage`, `fanoutMessage`), `ChatView.tsx`. *(validated live)*
+- [x] 🟡 **Save message (saved items).** Save/unsave (`saved_messages`, migration 00043), per-message
+      state in the list, a "Saved" panel in the rail with jump. → `chat_handlers.go`, `ChatView.tsx`. *(validated live)*
+- [x] 🟡 Reminders ("remind me"), scheduled message send
+- [x] 🟡 **Read receipts ("seen by").** The members endpoint now exposes `last_read_at`; the last
+      message shows "Seen"/"Seen by …" for whoever read it (≥ created_at). → `chat_handlers.go`, `ChatView.tsx`.
+- [x] 🟡 **Link unfurl (URL previews).** `GET /chat/unfurl` fetches OG/title with an **SSRF guard**
+      (blocks private/loopback/link-local IPs on dial — tested against 169.254.169.254/minio/stalwart),
+      timeout, body cap, limited redirects, 1h cache. Preview card in the message.
+      → `unfurl.go`, `ChatView.tsx`. *(validated live)*
+- [x] 🟡 **Slash commands, incoming webhooks, bots.** Client-side slash commands (`/me`, `/shrug`,
+      `/tableflip`, `/unflip`) transform the text before sending. Incoming webhooks: a per-channel
+      token (`chat_webhooks`, migration 00073), `POST /api/public/chat/hook/{token}` (public,
+      rate-limited) turns `{text}` into a bot message (`messages.bot_name`) published live via the
+      Hub. Managers create/copy/remove them in the channel panel; bot messages show an avatar +
+      APP badge. → `chat_webhooks.go`, `ChatView.tsx`. *(validated live: create→public POST→bot_name→delete; empty=400, bad token=404)*
+- [x] 🟡 **FTS search with `from:`/`before:`/`after:` filters.** Generated `body_tsv` column + GIN
+      index (migration 00044); search via `plainto_tsquery` with filters parsed in the handler. → `chat_handlers.go`. *(validated live)*
+- [x] 🟡 **`@channel` / `@here`.** Notify all members / only those online (`OnlineAmong`), with
+      dedup and respecting mute; autocomplete offers the options. → `chat_handlers.go` (`hasMentionToken`), `ChatView.tsx`. *(validated live)*
+- [x] 🟡 **Rich presence (active/away/do-not-disturb).** `mail_users.presence` (migration 00045), a
+      UI selector, color by state in DM presence, and **DND suppresses web push**. → `chat_handlers.go`,
+      `push_handlers.go`, `App.tsx`, `ChatView.tsx`. *(validated live)*
+- [x] 🟡 Custom workspace emoji
+- [x] 🟡 **Multiline editing** (`<textarea>`; Enter saves, Shift+Enter breaks line).
+- [x] 🟡 **Optimistic delivery.** The WS "message" event appends the message to the cache (dedup by
+      id) instead of refetching the whole channel; edit/delete/reaction still refetch. → `ChatView.tsx`.
+- [x] 🟡 **Removed orphan handlers** `ListChannelFiles`/`ListChannelLinkMessages` (no route).
 
 ---
 
 ## ✉️ Webmail (Gmail-like)
 
-Já muito completo (threads, busca avançada, Sieve, agendar/undo-send, anexos grandes, IA). Restam:
+Already quite complete (threads, advanced search, Sieve, schedule/undo-send, large attachments,
+AI). What remains:
 
-**Essenciais**
-- [x] **🔴 Regras de saída** (ver Bloco 1)
-- [x] **🔴 Labels de e-mail** (ver Bloco 1)
-- [x] **🔴 Push de e-mail NOVO com app fechado** (hoje só notifica com aba aberta; o backend não observa a chegada no Stalwart).
-- [x] **🔴 Resposta de férias com UI própria** (datas início/fim, escopo interno/externo). Hoje só como ação de "regra".
-- [x] **🔴 Botão Arquivar de 1 clique** (+ atalho) — hoje é "Mover para".
-- [x] **🔴 Gestão de pastas** (renomear/apagar/aninhar — só criar na raiz existe).
-- [x] **🔴 Aliases / múltiplos "De:"** (remetente fixo hoje).
-- [x] **🔴 Snooze/adiar e-mail.**
+**Essentials**
+- [x] **🔴 Outbound rules** (see Block 1)
+- [x] **🔴 E-mail labels** (see Block 1)
+- [x] **🔴 Push for NEW e-mail with the app closed** (today it only notifies with a tab open; the
+      backend doesn't watch for arrival on Stalwart).
+- [x] **🔴 Vacation responder with its own UI** (start/end dates, internal/external scope). Today
+      it's only available as a rule action.
+- [x] **🔴 One-click Archive button** (+ shortcut) — today it's "Move to".
+- [x] **🔴 Folder management** (rename/delete/nest — only creating at the root exists).
+- [x] **🔴 Aliases / multiple "From:"** (a fixed sender today).
+- [x] **🔴 Snooze/defer e-mail.**
 
 **Nice-to-have**
-- [x] 🟡 Rascunho/resposta preservando HTML (hoje recarrega só texto)
-- [x] 🟡 Atalhos de teclado (j/k/e/r/#); ordenação da lista
-- [x] 🟡 **Undo-send server-side; gerir e-mails agendados.** Outbox no servidor (`outbox_emails`,
-      migração 00074): o cliente cria o rascunho no JMAP (`prepareOutbox`) e regista o envio real
-      (email_id + envelope + `send_at`); o worker submete quando vence via `UserClient.SubmitEmail`
-      (`EmailSubmission/set` com a credencial JMAP brokerada, destrói o rascunho no sucesso), num
-      ticker rápido de 10s. Undo-send = `send_at` agora+janela, cancelável no servidor (sobrevive
-      fechar a aba); agendados gerenciáveis num modal (listar/cancelar). Substitui o timer client-side
-      e o HOLDFOR. → `outbox_handlers.go`, `mailbox/user.go`, `cmd/worker` (`scanOutbox`),
-      `jmap/mail.ts`, `Compose.tsx`, `ScheduledModal.tsx`. *(validado ao vivo: rascunho→outbox→worker
-      entrega + rascunho destruído + status `sent`; agendado→cancelar 200→409; validação 400)*
-- [x] 🟡 **Templates de resposta; aviso de anexo esquecido.** Templates (canned responses):
-      `mail_templates` (migração 00075, CRUD por dono), menu no compositor para inserir (preenche
-      assunto se vazio + prepende o corpo HTML sanitizado), salvar o rascunho atual como modelo e
-      apagar. Aviso de anexo esquecido: heurística no compositor (`ATTACH_RE` pt/en) confirma antes
-      de enviar quando o texto menciona anexo mas nada foi anexado. → `templates_handlers.go`,
-      `Compose.tsx`. *(validado ao vivo: CRUD 200/400/404 owner-scoped)*
-- [ ] 🟡 Caixas partilhadas (shared mailboxes) — adiado: exige arquitetura JMAP multi-conta (o
-      webmail fala JMAP com o token do próprio utilizador; caixa partilhada implica delegação/ACL no
-      Stalwart). Decidir provisionamento antes de implementar.
+- [x] 🟡 Draft/reply preserving HTML (today it reloads as plain text only)
+- [x] 🟡 Keyboard shortcuts (j/k/e/r/#); list sorting
+- [x] 🟡 **Server-side undo-send; managing scheduled e-mails.** Server-side outbox
+      (`outbox_emails`, migration 00074): the client creates the draft over JMAP (`prepareOutbox`)
+      and registers the actual send (email_id + envelope + `send_at`); the worker submits it when
+      due via `UserClient.SubmitEmail` (`EmailSubmission/set` with the brokered JMAP credential,
+      destroying the draft on success), on a fast 10s ticker. Undo-send = `send_at` set to now +
+      window, cancelable server-side (survives closing the tab); scheduled e-mails are manageable
+      in a modal (list/cancel). Replaces the client-side timer and HOLDFOR. → `outbox_handlers.go`,
+      `mailbox/user.go`, `cmd/worker` (`scanOutbox`), `jmap/mail.ts`, `Compose.tsx`, `ScheduledModal.tsx`.
+      *(validated live: draft→outbox→worker delivers + draft destroyed + status `sent`;
+      scheduled→cancel 200→409; validation 400)*
+- [x] 🟡 **Reply templates; forgotten-attachment warning.** Templates (canned responses):
+      `mail_templates` (migration 00075, owner-scoped CRUD), a menu in the composer to insert them
+      (fills the subject if empty + prepends the sanitized HTML body), save the current draft as a
+      template, and delete. Forgotten-attachment warning: a heuristic in the composer (`ATTACH_RE`
+      pt/en) confirms before sending when the text mentions an attachment but nothing was attached.
+      → `templates_handlers.go`, `Compose.tsx`. *(validated live: CRUD 200/400/404 owner-scoped)*
+- [ ] 🟡 Shared mailboxes — deferred: requires a multi-account JMAP architecture (the webmail
+      speaks JMAP with the end user's own token; a shared mailbox implies delegation/ACL in
+      Stalwart). Decide provisioning before implementing.
 
 ---
 
-## 📇 Contatos / CRM
+## 📇 Contacts / CRM
 
-Partilha por equipa acima da média; faltam os básicos de interoperabilidade e o elo com a caixa.
+Above-average team sharing; what's missing are the interoperability basics and the link to the
+mailbox.
 
-**Essenciais**
-- [x] **🔴 Importar/Exportar vCard/CSV.**
-- [x] **🔴 Histórico de e-mails na ficha do contato** (a busca `from:/to:` já existe — é ligar).
-- [x] **🔴 Múltiplos e-mails/telefones por contato** (hoje 1 de cada).
-- [x] **🔴 Captura automática** (remetente do e-mail → "adicionar aos contatos").
-- [x] **🔴 Grupo como lista de distribuição** (escrever para o grupo inteiro).
+**Essentials**
+- [x] **🔴 Import/Export vCard/CSV.**
+- [x] **🔴 E-mail history on the contact page** (the `from:/to:` search already exists — just wire
+      it up).
+- [x] **🔴 Multiple e-mails/phones per contact** (today, one of each).
+- [x] **🔴 Automatic capture** (e-mail sender → "add to contacts").
+- [x] **🔴 Group as a distribution list** (write to the entire group).
 
 **Nice-to-have**
-- [x] 🟡 Campos customizados; fusão de duplicados; foto/avatar
-- [x] 🟡 Pipeline/negócios (deals); notas editáveis; transferência de dono
-- [x] 🟡 **Enriquecimento por domínio (logo, pessoa↔empresa automático).** Vínculo automático:
-      ao criar/editar uma pessoa, se não houver empresa explícita, liga à empresa do dono com o mesmo
-      domínio (do campo `domain` ou do e-mail) via `FindCompanyByDomain`. Botão "Enriquecer" roda
-      `LinkPeopleByDomain` (idempotente) para ligar as pessoas já existentes. Logo da empresa via
-      favicon do próprio site (`faviconOf`, sem provedor externo/broker) com fallback ao monograma.
+- [x] 🟡 Custom fields; duplicate merging; photo/avatar
+- [x] 🟡 Pipeline/deals; editable notes; owner transfer
+- [x] 🟡 **Domain enrichment (logo, automatic person↔company link).** Automatic link: when
+      creating/editing a person, if there's no explicit company, link them to the owner's company
+      with the same domain (from the `domain` field or the e-mail) via `FindCompanyByDomain`. An
+      "Enrich" button runs `LinkPeopleByDomain` (idempotent) to link existing people. Company logo
+      via the site's own favicon (`faviconOf`, no external provider/broker) with a monogram fallback.
       → `contacts_handlers.go`, `queries.sql`, `ContactPage.tsx`, `ContactsView.tsx`, `util.ts`.
-      *(validado ao vivo: auto-link no create + enrich pós-fato `{linked:1}`)*
+      *(validated live: auto-link on create + post-hoc enrich `{linked:1}`)*
 
 ---
 
-## 🗂️ Kanban / Tarefas (Trello-like)
+## 🗂️ Kanban / Tasks (Trello-like)
 
-**Essenciais**
-- [x] **🔴 Ordenação vertical no drag** (ver Bloco 1)
-- [x] **🔴 Checklist / subtarefas.**
-- [x] **🔴 Anexos no card** (o módulo Files existe, mas não liga a cards).
-- [x] **🔴 Prioridade** (existia em `tickets`, removida na 00024).
-- [x] **🔴 Histórico/atividade do card.**
-- [x] **🔴 Notificação de prazo vencendo/vencido** (o `due` é só texto; nada avisa).
-- [x] **🔴 Reordenar colunas** (`position` existe; falta o drag/endpoint).
-- [x] **🔴 Labels reais com cor** (ligar ao catálogo de tags do tenant).
+**Essentials**
+- [x] **🔴 Vertical ordering on drag** (see Block 1)
+- [x] **🔴 Checklist / subtasks.**
+- [x] **🔴 Card attachments** (the Files module exists, but isn't linked to cards).
+- [x] **🔴 Priority** (existed in `tickets`, removed in 00024).
+- [x] **🔴 Card history/activity.**
+- [x] **🔴 Due-date-approaching/overdue notification** (`due` is just text; nothing alerts on it).
+- [x] **🔴 Reorder columns** (`position` exists; the drag/endpoint is missing).
+- [x] **🔴 Real colored labels** (link to the tenant's tag catalog).
 
 **Nice-to-have**
-- [x] 🟡 Múltiplos responsáveis; dependências; WIP limit; data de início
-- [x] 🟡 Visões lista/calendário/timeline; swimlanes; automações
-- [x] 🟡 Arquivar card/quadro; editar comentário; tempo real no board
-- [x] 🟡 Corrigir: extração IA envia `assignee`/`due` só p/ 1ª coluna — ok, mas descrição rich-text
+- [x] 🟡 Multiple assignees; dependencies; WIP limit; start date
+- [x] 🟡 List/calendar/timeline views; swimlanes; automations
+- [x] 🟡 Archive card/board; edit comment; real-time on the board
+- [x] 🟡 Fix: AI extraction only sends `assignee`/`due` to the 1st column — fine, but the
+      description needs rich text
 
 ---
 
-## 📅 Calendário (Google Calendar-like) — módulo mais atrás
+## 📅 Calendar (Google Calendar-like) — the furthest-behind module
 
-**Essenciais**
-- [x] **🔴 Eventos recorrentes (RRULE).** Lacuna nº1 — sem "toda segunda 10h" não serve p/ rotina.
-- [x] **🔴 Convidados / RSVP em eventos** (RSVP só existe no Meet; evento não entra na agenda do convidado).
-- [x] **🔴 Lembretes/alertas** ("evento em 10 min") — há infra de push, falta o disparo.
-- [x] **🔴 Evento de dia inteiro / multi-dia** (hoje só aparece no 1º dia).
-- [x] **🔴 Fuso horário por usuário** (hoje `America/Sao_Paulo` hard-coded na IA).
-- [x] **🔴 Grade além de 07h–22h** (eventos fora da faixa saem da grade).
-- [x] **🔴 Aviso de conflito na EDIÇÃO** (só na criação hoje).
-- [x] **🔴 Import/export ICS / convite por e-mail** (irônico num servidor de e-mail).
+**Essentials**
+- [x] **🔴 Recurring events (RRULE).** Gap #1 — without "every Monday at 10am" it's useless for
+      routine.
+- [x] **🔴 Guests / RSVP on events** (RSVP only exists in Meet; the event doesn't land on the
+      guest's calendar).
+- [x] **🔴 Reminders/alerts** ("event in 10 min") — push infrastructure exists, the trigger is
+      missing.
+- [x] **🔴 All-day / multi-day events** (today it only shows on the 1st day).
+- [x] **🔴 Per-user timezone** (today `America/Sao_Paulo` is hard-coded in the AI).
+- [x] **🔴 Grid beyond 07:00–22:00** (events outside the range fall off the grid).
+- [x] **🔴 Conflict warning on EDIT** (today only on creation).
+- [x] **🔴 ICS import/export / e-mail invitation** (ironic for an e-mail server).
 
 **Nice-to-have**
-- [x] 🟡 Múltiplos calendários; ver agenda de colega / free-busy
-- [x] 🟡 Arrastar/redimensionar na grade; adicionar Meet a evento existente
-- [x] 🟡 Duplicar evento; desfazer exclusão; visão "agenda/lista"
+- [x] 🟡 Multiple calendars; view a colleague's agenda / free-busy
+- [x] 🟡 Drag/resize on the grid; add Meet to an existing event
+- [x] 🟡 Duplicate event; undo delete; "agenda/list" view
 
 ---
 
-## 📁 Ficheiros (Drive-like)
+## 📁 Files (Drive-like)
 
-Núcleo sólido (upload/dedup/pastas/partilha/link público/OnlyOffice/viewer/cota). Faltam:
+Solid core (upload/dedup/folders/sharing/public link/OnlyOffice/viewer/quota). What's missing:
 
-**Essenciais**
-- [x] **🔴 Lixeira / restaurar** (delete é definitivo — maior risco de perda de dado).
-- [x] **🔴 Histórico de versões navegável + restaurar** (o save do OnlyOffice sobrescreve).
-- [x] **🔴 Busca global recursiva** (hoje filtra só a pasta atual, no cliente).
-- [x] **🔴 Upload múltiplo + drag do SO + barra de progresso** (input single-file hoje).
-- [x] **🔴 Mover pastas** (só renomear; sem mudar `parent_id`).
-- [x] **🔴 Compartilhar com grupo/equipe** (hoje só e-mail individual).
+**Essentials**
+- [x] **🔴 Trash / restore** (delete is permanent today — the biggest data-loss risk).
+- [x] **🔴 Browsable version history + restore** (OnlyOffice's save overwrites today).
+- [x] **🔴 Recursive global search** (today it only filters the current folder, client-side).
+- [x] **🔴 Multi-file upload + OS drag-and-drop + progress bar** (single-file input today).
+- [x] **🔴 Move folders** (rename only; no changing `parent_id`).
+- [x] **🔴 Share with a group/team** (individual e-mail only today).
 
 **Nice-to-have**
-- [x] 🟡 Expiração configurável do link (hoje fixo 30d); senha no link
-- [x] 🟡 Favoritos/estrelas; thumbnails reais; ordenação por coluna
-- [x] 🟡 Copiar/duplicar; download de pasta (zip); ações em lote
+- [x] 🟡 Configurable link expiration (fixed at 30 days today); link password
+- [x] 🟡 Favorites/starring; real thumbnails; column sorting
+- [x] 🟡 Copy/duplicate; folder download (zip); batch actions
 
 ---
 
 ## 🎥 Meet (Google Meet-like)
 
-Cobertura ampla (lobby, gravação, apresentação estilo BBB, notas com IA, fundos virtuais). Restam:
+Broad coverage (lobby, recording, BBB-style presenting, AI notes, virtual backgrounds). What
+remains:
 
-**Essenciais**
-- [x] **🔴 Chat vs. data channel** (ver Bloco 1)
-- [x] **🔴 Mão levantada + reações emoji** (o data channel da apresentação já existe — barato).
-- [x] **🔴 Mutar participante individual** (só há política global e expulsar).
-- [ ] **🔴 Legendas/transcrição** (com a IA no produto, transcrição pós-gravação é o passo natural).
-- [x] **🔴 Editar/reagendar/recorrer reunião** (só criar e cancelar).
-- [x] **🔴 Trancar sala a novas entradas** (lobby só vale p/ convidado externo).
-- [x] **🔴 Pré-join** (testar câmera/mic antes de entrar).
-- [x] **🔴 Gestão de gravações** (escopo por reunião, apagar, indicador "gravando" p/ todos; player sem HTTP Range).
+**Essentials**
+- [x] **🔴 Chat vs. data channel** (see Block 1)
+- [x] **🔴 Raise hand + emoji reactions** (the presentation's data channel already exists — cheap).
+- [x] **🔴 Mute an individual participant** (only a global policy and expel exist today).
+- [ ] **🔴 Captions/transcription** (with AI already in the product, post-recording transcription
+      is the natural next step).
+- [x] **🔴 Edit/reschedule/recur a meeting** (create and cancel only, today).
+- [x] **🔴 Lock the room to new entries** (the lobby only applies to external guests).
+- [x] **🔴 Pre-join** (test camera/mic before entering).
+- [x] **🔴 Recording management** (per-meeting scope, delete, a "recording" indicator for
+      everyone; player has no HTTP Range).
 
 **Nice-to-have**
-- [x] 🟡 **Breakout rooms; co-hosts; limite de participantes por plano.** Co-hosts: `meeting_cohosts`
-      (migração 00076); gate `meetingAsHost` dá poderes de moderação (mutar/remover) e presença de
-      qualquer host abre a sala trancada; dono promove/despromove na lista (badge + estrela).
-      Limite por plano: `billing.Plan.MaxMeetParticipants` (trial 5 · starter 25 · growth 50 ·
-      business 200), checado no `handleJoinMeet` contando a sala LiveKit (não-hosts → `full:true`;
-      `RoomPage` reintenta até vagar). Breakout rooms: `meeting_breakouts`+`breakout_assignments`
-      (migração 00077); host cria N salas (auto-distribui os presentes em rodízio), fecha tudo; cada
-      breakout é uma sala LiveKit própria (`<sala>-b<idx>`); o cliente troca de sala (remonta o
-      `LiveKitRoom`) e volta à principal (auto quando o host fecha). → `meet_cohosts.go`,
-      `meet_breakouts.go`, `meet.go`, `billing/plans.go`, `MeetRoom.tsx`, `Room.tsx`.
-      *(validado ao vivo: cohost CRUD; breakouts criar/atribuir/token/fechar; plano trial=5)*
-- [x] 🟡 **Layout de gravação configurável; PiP.** Layout: o host escolhe grid/orador+grade/só-orador
-      antes de gravar; o backend valida contra a lista do Egress e cai em `grid` para nunca falhar
-      (`recordLayout`). PiP: botão na barra de ações põe o vídeo em foco (partilha/orador) numa janela
-      flutuante do SO; feature-detected (some no WKWebView do iOS). → `meet_recording.go`,
+- [x] 🟡 **Breakout rooms; co-hosts; per-plan participant limit.** Co-hosts: `meeting_cohosts`
+      (migration 00076); the `meetingAsHost` gate grants moderation powers (mute/remove), and the
+      presence of any host opens a locked room; the owner promotes/demotes from the list (badge +
+      star). Per-plan limit: `billing.Plan.MaxMeetParticipants` (trial 5 · starter 25 · growth 50 ·
+      business 200), checked in `handleJoinMeet` by counting the LiveKit room (non-hosts →
+      `full:true`; `RoomPage` retries until a slot opens). Breakout rooms:
+      `meeting_breakouts`+`breakout_assignments` (migration 00077); the host creates N rooms
+      (auto-distributes attendees round-robin), closes them all; each breakout is its own LiveKit
+      room (`<room>-b<idx>`); the client switches rooms (remounts `LiveKitRoom`) and returns to the
+      main room (automatically when the host closes it). → `meet_cohosts.go`, `meet_breakouts.go`,
+      `meet.go`, `billing/plans.go`, `MeetRoom.tsx`, `Room.tsx`.
+      *(validated live: cohost CRUD; breakouts create/assign/token/close; trial plan=5)*
+- [x] 🟡 **Configurable recording layout; PiP.** Layout: the host picks grid/speaker+grid/speaker-only
+      before recording; the backend validates against the Egress list and falls back to `grid` so it
+      never fails (`recordLayout`). PiP: an action-bar button puts the focused video (share/speaker)
+      in a floating OS window; feature-detected (absent in iOS WKWebView). → `meet_recording.go`,
       `MeetRoom.tsx` (`PipButton`, `RecordButton`), `backend.ts`.
-- [x] 🟡 **Indicador de qualidade de rede por tile.** Já entregue pelo `ParticipantTile` do
-      LiveKit (prebuilt `<VideoConference />` em uso no `MeetRoom`/`Guest`), que renderiza o
-      `ConnectionQualityIndicator` por tile por padrão (verde/amarelo/vermelho conforme a conexão).
-      → `MeetRoom.tsx`, `Guest.tsx`. *(confirmado no bundle @livekit/components-react)*
+- [x] 🟡 **Per-tile network quality indicator.** Already delivered by LiveKit's `ParticipantTile`
+      (the prebuilt `<VideoConference />` used in `MeetRoom`/`Guest`), which renders the
+      `ConnectionQualityIndicator` per tile by default (green/yellow/red based on the connection).
+      → `MeetRoom.tsx`, `Guest.tsx`. *(confirmed in the @livekit/components-react bundle)*
 
 ---
 
-## Ordem de ataque sugerida (impacto × esforço)
+## Suggested attack order (impact × effort)
 
-1. ✅ **Bloco 1** — feito.
-2. ✅ **Chat: paginação + notificação de DM** — feito.
-3. **Chat: saltar-para-mensagem, não-lidas, DMs em grupo, moderação** — completa o uso diário.
-4. **Calendário: recorrência + convidados/RSVP + lembretes** — módulo mais atrás.
-5. **Ficheiros: lixeira/soft-delete** — evita perda de dado irreversível.
-6. **Sinergias do "é um servidor de e-mail":** ICS no calendário, histórico de e-mails na ficha do
-   contato, push de e-mail novo.
-7. **Kanban: checklist/anexos/prioridade**; **Meet: mão levantada/mute individual**.
+1. ✅ **Block 1** — done.
+2. ✅ **Chat: pagination + DM notification** — done.
+3. **Chat: jump-to-message, unread, group DMs, moderation** — rounds out daily use.
+4. **Calendar: recurrence + guests/RSVP + reminders** — the furthest-behind module.
+5. **Files: trash/soft-delete** — avoids irreversible data loss.
+6. **"It's an e-mail server" synergies:** ICS in the calendar, e-mail history on the contact
+   page, push for new e-mail.
+7. **Kanban: checklist/attachments/priority**; **Meet: raise hand/individual mute**.
 
-## Débito técnico anexo (não é feature, mas apareceu na análise)
-- [x] Notificações guardam texto em PT no backend (viola i18n §4.6); refatorar p/ códigos + tradução no front.
-- [x] Chat: evento WS refaz o fetch inteiro do canal (não escala em canais movimentados).
+## Attached technical debt (not a feature, but surfaced during the analysis)
+- [x] Notifications store text in Portuguese on the backend (violates i18n §4.6); refactor into
+      codes + translation on the front end.
+- [x] Chat: the WS event refetches the entire channel (doesn't scale in busy channels).

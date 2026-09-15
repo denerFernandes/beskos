@@ -1,134 +1,144 @@
-# Roadmap — Identidade, Admin no menu, Grupos e CRM de contatos
+# Roadmap — Identity, Admin in the menu, Groups, and Contact CRM
 
-Épico grande, quebrado em fases (lei §6.1: uma fase por vez, testada antes da próxima).
-Decisões abaixo foram tomadas com o cliente — estão fixas; mudar exige nova conversa.
+Large epic, broken into phases (law §6.1: one phase at a time, tested before the next).
+The decisions below were made with the customer — they're fixed; changing them needs a new
+conversation.
 
-## Decisões
+## Decisions
 
-| Tema | Decisão | Consequência |
+| Topic | Decision | Consequence |
 |---|---|---|
-| **Identidade** | **Unificar: matar `panel_users`** | Uma só identidade (`mail_users`) para painel e webmail. Migração de dados + refatorar login/MFA/sessões. Maior risco do épico. |
-| **Empresa × contato** | **Tabela `companies` separada** | `contacts.company_id` → subcontatos com cargo. Busca/tags/compartilhamento precisam cobrir as duas entidades. |
-| **Chamados** | **Sistema de tickets completo** | Status, prioridade, fila, responsável, thread de respostas, SLA. Subsistema próprio (fase 6). |
-| **Tasks do cliente** | **Reusar o Kanban** | `cards.contact_id`. Uma só noção de "tarefa" no produto; reusa IA, filtros, responsável e prazo. |
+| **Identity** | **Unify: kill `panel_users`** | A single identity (`mail_users`) for panel and webmail. Data migration + refactor login/MFA/sessions. The epic's biggest risk. |
+| **Company × contact** | **Separate `companies` table** | `contacts.company_id` → sub-contacts with a job title. Search/tags/sharing need to cover both entities. |
+| **Tickets** | **Full ticketing system** | Status, priority, queue, assignee, reply thread, SLA. Its own subsystem (phase 6). |
+| **Customer tasks** | **Reuse the Kanban** | `cards.contact_id`. A single notion of "task" in the product; reuses AI, filters, assignee, and due date. |
 
-## Revisão do modelo (2026-07-15) — "estamos misturando conceitos"
+## Model review (2026-07-15) — "we're mixing concepts"
 
-Diagnóstico: `contacts` servia três donos com regras opostas — agenda (minha, privada), cliente
-(da empresa, partilhado) e atendimento (da equipa). Sintoma que apareceu no teste: chamado visível
-a todos com `contact_name` a `null` → "Chamado #12 de —". O modelo contradizia-se em voz alta.
+Diagnosis: `contacts` served three owners with opposite rules — an address book (mine, private), a
+customer (the company's, shared), and support (the team's). The symptom that showed up in testing:
+a ticket visible to everyone with `contact_name` set to `null` → "Ticket #12 from —". The model was
+contradicting itself out loud.
 
-Decisões do cliente:
+Customer decisions:
 
-| Tema | Decisão | Consequência |
+| Topic | Decision | Consequence |
 |---|---|---|
-| **Agenda × Cliente** | **Duas entidades** | `contacts` volta a ser agenda pessoal (sempre privada, dentro do E-mail). Nasce `clients` (kind = company \| person) + `client_contacts`. |
-| **Visibilidade** | **Cortar o nível "grupos"** | Agenda = privada; cliente = da empresa. Somem `contact_shares`, `company_shares`, o seletor e a subquery de visibilidade repetida em cada leitura. Zero partilhas existiam — a migração não perde nada. |
-| **Atendimento** | **Dentro de Clientes** | Sem ícone próprio; o chamado é sempre de um cliente e vive na ficha dele. |
+| **Address book × Customer** | **Two entities** | `contacts` goes back to being a personal address book (always private, inside E-mail). `clients` is born (kind = company \| person) + `client_contacts`. |
+| **Visibility** | **Cut the "groups" level** | Address book = private; customer = the company's. `contact_shares`, `company_shares`, the selector, and the visibility subquery repeated in every read all go away. Zero shares existed — the migration loses nothing. |
+| **Support** | **Inside Clients** | No icon of its own; a ticket always belongs to a customer and lives on their page. |
 
-Ângulo comercial que orienta o corte: o concorrente é o **Google Workspace + 2 SaaS**, não o
-Zendesk. A promessa é "o e-mail da tua empresa já sabe quem é o cliente" — ninguém migra pelo CRM,
-migra pelo e-mail e fica pelo resto. CRM/Atendimento leves = upsell natural; CRM pesado = motivo
-para não comprar nenhum dos dois.
+The commercial angle driving the cut: the competitor is **Google Workspace + 2 SaaS products**,
+not Zendesk. The pitch is "your company's e-mail already knows who the customer is" — nobody
+migrates for the CRM, they migrate for the e-mail and stay for the rest. A light CRM/Support is a
+natural upsell; a heavy CRM is a reason not to buy either.
 
-Nomes (duas colisões a corrigir): `user_groups` → **Equipas**; `contact_groups` → **Etiquetas**.
-Regra tarefa × chamado, escrita na UI: *veio de fora com prazo? chamado. decidimos nós? tarefa.*
+Names (two collisions to fix): `user_groups` → **Teams**; `contact_groups` → **Labels**.
+Task-vs-ticket rule, written into the UI: *did it come from outside with a deadline? Ticket. Did
+we decide it? Task.*
 
-Custo assumido: parte da UI construída em 15/07 (seletor de visibilidade, `CompaniesView`,
-`ContactPage` com abas) é reescrita. Melhor agora, com 7 contatos e 1 empresa, do que com clientes
-reais lá dentro.
+Assumed cost: part of the UI built on 07/15 (the visibility selector, `CompaniesView`,
+`ContactPage` with tabs) gets rewritten. Better now, with 7 contacts and 1 company, than with real
+customers in there.
 
-## Estado (2026-07-15, fim do dia) — modelo FINAL
+## State (2026-07-15, end of day) — FINAL model
 
-Houve duas voltas hoje. Registo as três para o próximo não repetir o caminho:
+There were two turns today. Recording all three so the next person doesn't retrace the path:
 
-1. **De manhã**: `contacts` servia agenda (privada) e cliente (partilhado) ao mesmo tempo → contradição
-   (sintoma: "Chamado #12 de —"). Cortámos o seletor de visibilidade de 3 níveis e separámos em
-   `contacts` (agenda) + `clients`/`client_contacts` (CRM). Migração 00022.
-2. **À tarde**: a separação resolveu a contradição mas criou **dois lugares para "gente"**. O cliente
-   percebeu ao ver: *"não gostei, estamos misturando conceitos"*. A queixa original nunca tinha sido a
-   tabela única — era a **cerimónia** da privacidade.
-3. **Final** (migração 00023): **um só `contacts`**, `kind` = company|person, `company_id` aponta para
-   o contato-empresa. Contatos volta ao rail; o Atendimento vive dentro dele.
+1. **Morning**: `contacts` served both address book (private) and customer (shared) at once →
+   contradiction (symptom: "Ticket #12 from —"). We cut the 3-level visibility selector and split
+   into `contacts` (address book) + `clients`/`client_contacts` (CRM). Migration 00022.
+2. **Afternoon**: the split fixed the contradiction but created **two places for "people."** The
+   customer noticed and said: *"I don't like it, we're mixing concepts."* The original complaint
+   was never the single table — it was the **ceremony** around privacy.
+3. **Final** (migration 00023): **one single `contacts`**, `kind` = company|person, `company_id`
+   points to the company-contact. Contacts goes back to the rail; Support lives inside it.
 
-Regras (decididas com o cliente, testadas):
+Rules (decided with the customer, tested):
 
-| | regra |
+| | Rule |
 |---|---|
-| **Ver** | pelo **GRUPO**: sou o dono, ou estou numa **equipa** com que um grupo do contato foi partilhado. Uma pessoa herda da empresa dela. Grupo não partilhado = só o dono vê. |
-| **Editar/apagar** | **só o dono** (`UpdateContact` filtra por `owner_user_id`; a UI mostra "Só leitura"). |
-| **Notas** | quem **vê** pode comentar — comentar não é editar. |
-| **Lista** | empresas e pessoas juntas; a pessoa mostra `cargo · empresa`. Filtro Todos/Empresa/Pessoa + busca. |
+| **View** | by **GROUP**: I'm the owner, or I'm on a **team** that one of the contact's groups was shared with. A person inherits from their company. An unshared group = only the owner sees it. |
+| **Edit/delete** | **owner only** (`UpdateContact` filters by `owner_user_id`; the UI shows "Read-only"). |
+| **Notes** | whoever **can view** can comment — commenting isn't editing. |
+| **List** | companies and people together; a person shows `title · company`. Filter All/Company/Person + search. |
 
-Nomes, colisão resolvida: **Grupos** = grupos de contato (dão acesso). **Equipas** = `user_groups`.
-"Etiqueta" foi descartado: etiqueta não concede permissão, grupo sim.
+Names, collision resolved: **Groups** = contact groups (grant access). **Teams** = `user_groups`.
+"Label" was dropped: a label doesn't grant permission, a group does.
 
-Verificado a correr (Chrome, sessões reais): Ana vê 8 contatos e os grupos dela; **Bob vê 3** (só os
-do grupo partilhado com a equipa dele), sem os grupos da Ana, e a ficha diz **"Só leitura"** sem botão
-de editar. Backend: partilhar/despartilhar o grupo faz o contato aparecer/desaparecer para o Bob;
-Bob não consegue partilhar o grupo da Ana (404); PATCH no contato da Ana → 404; nota → 201.
+Verified running (Chrome, real sessions): Ana sees 8 contacts and her groups; **Bob sees 3** (only
+the ones in the group shared with his team), without Ana's groups, and the page says
+**"Read-only"** with no edit button. Backend: sharing/unsharing the group makes the contact
+appear/disappear for Bob; Bob can't share Ana's group (404); PATCH on Ana's contact → 404; a note
+→ 201.
 
-Armadilha apanhada na migração: eu ia criar um grupo "Clientes" para os ex-clientes, mas a Ana já
-tinha um com esse nome — sem restrição única teriam ficado dois homónimos e o `JOIN ... ON name`
-casaria com ambos, partilhando o grupo **pessoal** dela com a equipa comercial. Criei "Contatos da
-empresa"; o "Clientes" dela continua só dela.
+A trap caught during the migration: I was about to create a "Customers" group for the former
+customers, but Ana already had one with that name — without a unique constraint there would have
+been two identically-named groups, and the `JOIN ... ON name` would have matched both, sharing her
+**personal** group with the sales team. I created "Company contacts" instead; her "Customers" stays
+hers alone.
 
-Falta: fase **6b** (envio MIME com `Message-ID` + hook de entrada do Stalwart).
+Missing: phase **6b** (MIME sending with `Message-ID` + Stalwart inbound hook).
 
-## Fases
+## Phases
 
-### 1. Unificar identidade (base de tudo)
-Hoje existem dois mundos: `panel_users` (painel `/app`, RBAC, MFA, senha) e `mail_users` (webmail,
-caixa no Stalwart). Criar usuário cria **os dois** com o mesmo e-mail e a mesma role — e trocar o
-papel em `/members/{id}/role` atualiza **só o painel**, deixando `mail_users.role` desatualizado.
-Esse bug é o motivo de a unificação vir primeiro.
+### 1. Unify identity (foundation for everything)
+Today there are two worlds: `panel_users` (the `/app` panel, RBAC, MFA, password) and `mail_users`
+(webmail, mailbox on Stalwart). Creating a user creates **both** with the same e-mail and the same
+role — and changing the role at `/members/{id}/role` updates **only the panel**, leaving
+`mail_users.role` stale. That bug is why unification comes first.
 
-- `mail_users` absorve: `password_hash`, `language`, `totp_secret`, `mfa_totp_enabled`,
+- `mail_users` absorbs: `password_hash`, `language`, `totp_secret`, `mfa_totp_enabled`,
   `mfa_sms_enabled`, `phone`.
-- Repontar FKs: `sessions.user_id`, `recovery_codes.user_id`, `invites.invited_by`,
+- Repoint FKs: `sessions.user_id`, `recovery_codes.user_id`, `invites.invited_by`,
   `mfa_challenges` → `mail_users`.
-- Migração: casar por (tenant, e-mail); `panel_user` sem `mail_user` (conta de signup, ainda sem
-  caixa) vira `mail_user` com `stalwart_account_id` nulo.
-- **Nota:** `mail_users` passa a significar "usuário", com ou sem caixa de correio.
+- Migration: match by (tenant, e-mail); a `panel_user` without a `mail_user` (a signup account,
+  still without a mailbox) becomes a `mail_user` with a null `stalwart_account_id`.
+- **Note:** `mail_users` now means "user," with or without a mailbox.
 
-### 2. Admin no menu do webmail
-- **Um ícone** no rail → menu interno (padrão do E-mail): Usuários, Domínios, Pagamentos, Grupos.
-- **RBAC aplicado nos dois lados**: item some da UI **e** a API recusa (defesa real, não só UI).
-- Permissões existentes: `domains.view/manage`, `mailboxes.manage`, `members.view/manage`,
+### 2. Admin in the webmail menu
+- **One icon** in the rail → internal menu (same pattern as E-mail): Users, Domains, Billing,
+  Groups.
+- **RBAC enforced on both sides**: the item disappears from the UI **and** the API refuses it
+  (real defense, not just UI).
+- Existing permissions: `domains.view/manage`, `mailboxes.manage`, `members.view/manage`,
   `billing.manage`, `usage.view`, `tenant.delete`.
 
-### 3. Grupos de utilizadores
-- `user_groups` + `user_group_members` (≠ `contact_groups`, que é catálogo de contatos).
-- **Criar grupo cria automaticamente um canal privado no chat** com os membros.
-- Admin adiciona usuários a grupos ao criar/editar usuário; gerir grupos na área admin.
+### 3. User groups
+- `user_groups` + `user_group_members` (≠ `contact_groups`, which is the contact catalog).
+- **Creating a group automatically creates a private chat channel** with the members.
+- An admin adds users to groups when creating/editing a user; groups are managed in the admin
+  area.
 
-### 4. Contatos ricos
-- `companies` (empresa) + `contacts.company_id` + `contacts.title` (cargo).
-- Telefones com flags: **é WhatsApp**, **pode ligar**, **pode e-mail** (consentimento — LGPD).
-- **Privacidade**: `visibility` = `private` | `groups` | `tenant`; `contact_shares(contact_id, group_id)`.
-  Toda query de contato passa a filtrar dono + visibilidade + grupos do usuário.
+### 4. Rich contacts
+- `companies` (company) + `contacts.company_id` + `contacts.title` (job title).
+- Phone numbers with flags: **is WhatsApp**, **can call**, **can e-mail** (consent — LGPD).
+- **Privacy**: `visibility` = `private` | `groups` | `tenant`; `contact_shares(contact_id, group_id)`.
+  Every contact query now filters by owner + visibility + the user's groups.
 
 ### 5. CRM
-- Página de detalhe moderna por cliente (empresa e pessoa).
-- **Notas** (timeline), **tasks** (card do Kanban ligado ao contato), **histórico** agregado.
+- A modern detail page per customer (company and person).
+- **Notes** (timeline), **tasks** (a Kanban card linked to the contact), an aggregated
+  **history**.
 
-### 6. Chamados — REMOVIDO (00024)
+### 6. Tickets — REMOVED (00024)
 
-Construído (00021) e removido no mesmo dia, a pedido do cliente. O motivo é coerente com o
-posicionamento: o produto é "mais simples e simplificado que o Workspace", e helpdesk com
-SLA/fila/thread/primeira-resposta é **outro produto**. O contato ficou com **notas** e **tarefas**,
-que é o que resolve o dia a dia de uma empresa pequena.
+Built (00021) and removed the same day, at the customer's request. The reason is consistent with
+the positioning: the product is "simpler and more streamlined than Workspace," and a helpdesk
+with SLA/queue/thread/first-response is **a different product**. The contact ended up with
+**notes** and **tasks**, which is what actually handles a small company's day-to-day.
 
-O desenho inteiro fica em `00021_tickets.sql` e no histórico do git, se um dia voltar. Junto com
-ele saíram: política de SLA (Admin → SLA), "abrir chamado a partir do e-mail" no leitor, e a
-integração de e-mail da fase 6b (nunca construída).
+The full design remains in `00021_tickets.sql` and in git history, should it come back one day.
+Removed along with it: the SLA policy (Admin → SLA), "open a ticket from the e-mail" in the
+reader, and the phase 6b e-mail integration (never built).
 
-**Achado técnico que sobrevive à remoção** (vale para qualquer coisa que precise de e-mail de
-entrada): o Stalwart 0.16.4 **aceita MTA hooks por JMAP** — `x:MtaHook/get` responde (lista vazia) na
-sessão admin com `urn:stalwart:jmap`. Ou seja, dá para o Stalwart **chamar a nossa API** quando chega
-mensagem, sem caixa de serviço com senha guardada na nossa base (que violaria a lei §2.6) nem
-polling. `x:Setting/get` não existe — a configuração é por objeto (`x:MtaHook`, `x:Domain`, …).
+**Technical finding that survives the removal** (relevant to anything that needs inbound e-mail):
+Stalwart 0.16.4 **accepts MTA hooks over JMAP** — `x:MtaHook/get` responds (empty list) in the
+admin session with `urn:stalwart:jmap`. In other words, Stalwart **can call our API** when a
+message arrives, without a service mailbox with a password stored in our database (which would
+violate law §2.6) and without polling. `x:Setting/get` doesn't exist — configuration is
+per-object (`x:MtaHook`, `x:Domain`, …).
 
-O que o backend NÃO tem, e precisaria para e-mail de saída a sério: MIME com `Message-ID` /
-`In-Reply-To` / `References`. O único sender é `notify/email.go` (`net/smtp`, texto puro, 1
-destinatário, sem anexo/HTML).
+What the backend does NOT have, and would need for real outbound e-mail: MIME with `Message-ID` /
+`In-Reply-To` / `References`. The only sender is `notify/email.go` (`net/smtp`, plain text, 1
+recipient, no attachment/HTML).
