@@ -48,6 +48,7 @@ type Server struct {
 	corsOrigins  []string      // origens permitidas para CORS (app nativo Tauri, web externa)
 	cookieSecure bool          // cookie de sessão como Secure+SameSite=None (HTTPS/cross-site)
 	publicURL    string        // URL pública da app p/ links absolutos que saem em e-mails (sem "/" final)
+	brandURL     string        // fallback for appURL when publicURL is unset (BRAND_URL)
 	mailHost     string        // host público do servidor de correio (IMAP/SMTP/JMAP) para os clientes externos
 	mtaStsHost   string        // public name serving MTA-STS policies; every customer's mta-sts.<domain> points here
 	aiProxyBase  string        // endpoint DeepSeek (OpenAI-compat) p/ o proxy de IA do editor
