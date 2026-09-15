@@ -129,9 +129,15 @@ func main() {
 
 	// Edição de office via OnlyOffice Document Server (opcional). Sem URLs/segredos, fica desligado.
 	srv.EnableOnlyOffice(cfg.OnlyOfficeURL, cfg.OnlyOfficeInternalURL, cfg.FilesHostURL, cfg.OnlyOfficeJWTSecret, cfg.DocTokenSecret)
-	// Marca Beskos no editor. sourceURL é a oferta de fonte modificado exigida pela AGPL §13 —
-	// a config já recusa arrancar sem ela em produção; em dev, o "Sobre" sai sem o endereço.
-	srv.SetOfficeBranding(cfg.OnlyOfficeSourceURL, cfg.PublicURL)
+	// Brand shown in the editor's "about" panel. sourceURL is the modified-source offer AGPL §13
+	// requires -- config already refuses to start without it in production; in dev, "about" ships
+	// without the address. Falls back to BRAND_URL when PUBLIC_URL is unset (self-hosted, no
+	// public domain yet).
+	brandLinkURL := cfg.PublicURL
+	if brandLinkURL == "" {
+		brandLinkURL = cfg.BrandURL
+	}
+	srv.SetOfficeBranding(cfg.OnlyOfficeSourceURL, brandLinkURL)
 	if cfg.OnlyOfficeURL != "" {
 		log.Printf("office editing enabled (OnlyOffice %s)", cfg.OnlyOfficeURL)
 		if cfg.OnlyOfficeSourceURL == "" {
@@ -176,11 +182,8 @@ func main() {
 	}
 
 	// Where the website's contact form delivers. A real mailbox somebody reads, not a table.
-	sales := os.Getenv("SALES_EMAIL")
-	if sales == "" {
-		sales = "sales@beskos.com" // lang:ok
-	}
-	srv.SetSalesEmail(sales)
+	srv.SetSalesEmail(cfg.SalesEmail)
+	srv.SetBrandURL(cfg.BrandURL)
 
 	srv.SetSignupsOpen(cfg.SignupsOpen)
 	if !cfg.SignupsOpen {

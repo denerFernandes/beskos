@@ -27,11 +27,12 @@ func (s *Server) sendMsg(to string, m notify.Msg) {
 	}()
 }
 
-// appURL é o endereço da app para os botões dos avisos.
+// appURL is the address used for the buttons in alert e-mails. A relative link would be useless
+// there, so an unset PUBLIC_URL falls back to BRAND_URL rather than leaving the button broken.
 func (s *Server) appURL(path string) string {
 	base := strings.TrimSuffix(s.publicURL, "/")
 	if base == "" {
-		base = "https://app.beskos.com"
+		base = s.brandURL
 	}
 	return base + path
 }

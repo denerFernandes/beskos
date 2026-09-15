@@ -64,9 +64,6 @@ func (o *onlyoffice) attributionNotice() string {
 	return officeUpstreamNotice + " Fonte das modificações: " + o.sourceURL
 }
 
-func (o *onlyoffice) brandSiteURL() string {
-	if o.brandURL == "" {
-		return "https://beskos.com"
-	}
-	return o.brandURL
-}
+// brandSiteURL is what the editor's logo links to. Its caller (cmd/api's main) already resolves
+// the fallback chain (PUBLIC_URL, then BRAND_URL); an empty result here just omits the link.
+func (o *onlyoffice) brandSiteURL() string { return o.brandURL }

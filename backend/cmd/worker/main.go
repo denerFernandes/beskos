@@ -512,6 +512,8 @@ func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client)
 		log.Fatalf("edition: %v", err)
 	}
 	srv := httpapi.NewServer(q, sw, aiProvider, nil, st, nil, billing.Settings{}, ed)
+	srv.SetPublicURL(cfg.PublicURL)         // absolute links in the alert e-mails the worker sends
+	srv.SetBrandURL(cfg.BrandURL)           // fallback for those links when PUBLIC_URL is unset
 	srv.EnableTOTPEncryption(cfg.MFAEncKey) // decifra a credencial JMAP das caixas
 	worker := httpapi.NewAssistantTaskWorker(srv)
 

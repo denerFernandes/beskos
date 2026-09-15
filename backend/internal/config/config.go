@@ -71,6 +71,13 @@ type Config struct {
 	// absolutos que saem para fora — como o link de uma sala de reunião num e-mail. Vazio → os
 	// links ficam relativos (útil em dev; num e-mail seriam inúteis).
 	PublicURL string
+
+	// Branding (BRAND_NAME/BRAND_URL/SALES_EMAIL): the identity used wherever the product faces
+	// someone outside it -- OnlyOffice's "about" panel, and the link destination when PUBLIC_URL
+	// is empty. A self-hosted instance overrides these with its own.
+	BrandName  string
+	BrandURL   string
+	SalesEmail string
 	// SignupsOpen: registo self-service aberto. Fechado, /signup mostra "em breve" e a API
 	// recusa — para abrir ao público quando se quiser, sem novo deploy.
 	SignupsOpen bool
@@ -130,6 +137,9 @@ func Load() (*Config, error) {
 		// Remetente dos avisos ao cliente. O endereço tem de existir como caixa no Stalwart (ou ser
 		// aceite pelo SMTP configurado) — senão o servidor recusa o envio.
 		NotifyFrom:          getenv("NOTIFY_FROM", "Beskos <noreply@beskos.com>"),
+		BrandName:           getenv("BRAND_NAME", "Beskos"),
+		BrandURL:            getenv("BRAND_URL", "https://beskos.com"),
+		SalesEmail:          getenv("SALES_EMAIL", "sales@beskos.com"),
 		NotifySMTPUser:      getenv("NOTIFY_SMTP_USER", ""),
 		NotifySMTPPassword:  os.Getenv("NOTIFY_SMTP_PASSWORD"),
 		NotifySMTPInsecure:  getenv("NOTIFY_SMTP_INSECURE", "false") == "true",

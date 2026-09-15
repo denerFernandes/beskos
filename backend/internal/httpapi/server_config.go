@@ -84,6 +84,10 @@ func (s *Server) SetAppOrigins(origins []string, cookieSecure bool) {
 // inúteis fora da app.
 func (s *Server) SetPublicURL(u string) { s.publicURL = strings.TrimRight(u, "/") }
 
+// SetBrandURL sets the fallback address for links that must stay absolute (e.g. inside an
+// e-mail) when PublicURL is unset -- see appURL in mail_alerts.go.
+func (s *Server) SetBrandURL(u string) { s.brandURL = strings.TrimRight(u, "/") }
+
 // originHostPatterns extrai os hosts das origens configuradas para o OriginPatterns do WebSocket.
 // Autoriza o app nativo (cross-origin) sem abrir o WS para qualquer site — o default (lista vazia)
 // já aceita só same-origin, fechando o CSWSH.
