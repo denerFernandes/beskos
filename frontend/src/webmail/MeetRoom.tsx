@@ -260,9 +260,9 @@ function HostPanel({ meetingId, initial, initialAccess, isOwner }: {
     </label>
   );
 
-  // Ordem lógica (24/07/2026): 1) como se ENTRA (acesso + tranca), 2) o que se PODE fazer
-  // (permissões de media), 3) quem está na sala, 4) dividir em breakout. As opções de sala/acesso
-  // são do DONO; o co-host só modera as pessoas.
+  // Logical order: 1) how one ENTERS (access + lock), 2) what one CAN do (media permissions),
+  // 3) who is in the room, 4) splitting into breakouts. Room/access options belong to the OWNER;
+  // a co-host only moderates people.
   return (
     <>
       {isOwner && <>

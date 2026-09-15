@@ -1,7 +1,7 @@
 import { apiUrl, authHeaders, notifyUnauthorized } from "./apiBase";
-// Client da NOSSA API Go (control plane). O webmail (Fase 2) falará JMAP direto com o
-// Stalwart; aqui é só painel/admin/billing/storage. Nenhuma credencial de admin do
-// Stalwart passa por aqui (brief §2/§8). Sessão via cookie HttpOnly (same-origin).
+// Client for OUR Go API (control plane). The webmail talks JMAP directly to Stalwart; this file
+// is only for panel/admin/billing/storage. No Stalwart admin credential ever passes through here.
+// Session via HttpOnly cookie (same-origin).
 
 // Capabilities this instance has unlocked -- Community (all false) or a Pro license key.
 // Gates Pro-only UI; unauthenticated on purpose (see GET /api/edition on the backend).
@@ -47,7 +47,7 @@ export interface Invite { id: string; email: string; role: string; token: string
 export interface Plan {
   id: string; name: string; mailbox_range: string;
   max_mailboxes: number; max_storage_bytes: number; max_daily_send: number; price_cents_per_user: number;
-  // Recursos do catálogo do manager (docs/manager.md §3.1) — a tabela de planos lista tudo.
+  // Plan catalog entitlements -- the plans table is the source of truth for all of them.
   min_users: number; apps_enabled: string[]; ai_tokens_per_window: number;
   max_meet_participants: number; meet_max_minutes: number;
   recording: string; recording_retention_days: number;
@@ -154,8 +154,8 @@ export const api = {
   deleteAlias: (id: string) => req<{ status: string }>(`/api/aliases/${id}`, { method: "DELETE" }),
   // Verificação do DNS a pedido (informativa: quem promove o domínio é o worker).
   dnsCheck: (id: string) => req<DNSCheckResult>(`/api/domains/${id}/dns/check`),
-  // Exportar a zona: descarrega por fetch (com a sessão) e guarda como ficheiro — assim o token
-  // nunca vai parar a uma URL num href.
+  // Exports the zone: downloads it via fetch (with the session) and saves it as a file -- this
+  // way the token never ends up in a URL inside an href.
   dnsExport: async (id: string, format: "zone" | "csv", domain: string): Promise<void> => {
     const res = await fetch(apiUrl(`/api/domains/${id}/dns/export?format=${format}`), {
       credentials: "include", headers: authHeaders(),
@@ -312,7 +312,7 @@ export const api = {
   saveBillingProfile: (p: BillingProfile) => req<{ status: string }>("/api/billing/profile", { method: "PUT", body: JSON.stringify(p) }),
   billingQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string }) =>
     req<BillingQuote>("/api/billing/quote", { method: "POST", body: JSON.stringify(q) }),
-  // Registo self-service: catálogo e simulação SEM sessão (a organização ainda não existe).
+  // Self-service signup: catalog and quote WITHOUT a session (the organisation does not exist yet).
   publicPlans: () => req<{ plans: Plan[]; currency: string; trial_days: number; months_charged: number; seller_country: string; signups_open: boolean }>("/api/public/plans"),
   publicQuote: (q: { plan: string; cycle: BillingCycle; kind: string; country: string; tax_id: string; seats: number }) =>
     req<BillingQuote>("/api/public/quote", { method: "POST", body: JSON.stringify(q) }),

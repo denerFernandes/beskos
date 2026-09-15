@@ -11,24 +11,26 @@ export function apiUrl(path: string): string {
   return API_BASE + path;
 }
 
-// Origem PÚBLICA da app web — para links PARTILHÁVEIS (convite de reunião, link em e-mail, partilha
-// de ficheiro, link de tarefa). No app nativo a origem local é tauri://localhost, inútil para
-// terceiros; usa-se VITE_PUBLIC_BASE (URL pública da web) ou, na falta, API_BASE (em produção o
-// Caddy serve SPA e API na mesma origem). Na web fica a própria origem. NUNCA anexar aqui o token
-// de sessão: um link partilhado não pode transportar credenciais de quem o copiou.
+// PUBLIC origin of the web app -- for SHAREABLE links (meeting invite, link in an email, file
+// share, task link). In the native app the local origin is tauri://localhost, useless to third
+// parties; use VITE_PUBLIC_BASE (the public web URL) or, failing that, API_BASE (in production
+// Caddy serves the SPA and the API from the same origin). On the web it is just the origin itself.
+// NEVER attach the session token here: a shared link must not carry the credentials of whoever
+// copied it.
 export const PUBLIC_BASE = String((import.meta as { env?: Record<string, string> }).env?.VITE_PUBLIC_BASE ?? "").replace(/\/$/, "");
 export function publicUrl(path: string): string {
   const base = PUBLIC_BASE || API_BASE || (typeof location !== "undefined" ? location.origin : "");
   return base + path;
 }
 
-// Token de sessão do backend. Na web o cookie (HttpOnly) chega; mas o app nativo (Tauri) é
-// cross-site e não recebe o cookie, por isso guardamos o token do login e enviamo-lo em
-// `Authorization: Bearer`. O backend aceita header OU cookie.
+// Backend session token. On the web the HttpOnly cookie is enough, but the native app (Tauri) is
+// cross-site and never receives the cookie, so it keeps the login token and sends it as
+// `Authorization: Bearer`. The backend accepts either the header or the cookie.
 const TOKEN_KEY = "mailin.session";
-// Na web (same-origin) o cookie HttpOnly já mantém a sessão — manter uma cópia do token em
-// localStorage só dá a um XSS um segredo a mais para roubar. Por isso, na web o token fica só em
-// memória; só o app nativo (cross-site, sem cookie) o persiste para reenviar em Authorization.
+// On the web (same-origin) the HttpOnly cookie already keeps the session alive -- keeping a copy
+// of the token in localStorage would just give an XSS one more secret to steal. So on the web the
+// token stays in memory only; only the native app (cross-site, no cookie) persists it, to resend
+// it via Authorization.
 let memToken = "";
 const nativeApp = API_BASE !== ""; // build empacotado (Tauri) define VITE_API_BASE
 export function getSessionToken(): string {
@@ -57,10 +59,11 @@ export function authHeaders(): Record<string, string> {
   return h;
 }
 
-// mediaUrl monta uma URL absoluta da API para usar em <img>/<video>/<iframe>/<a> ou download. Como
-// essas requisições NÃO enviam header (nem cookie cross-site no app nativo), o token de sessão vai
-// na query (?access_token=) — o backend aceita-o (ver requireWebmailSession). Na web (sem token
-// guardado) fica só o cookie same-origin, sem expor o token na URL.
+// mediaUrl builds an absolute API URL for use in <img>/<video>/<iframe>/<a> or a download. Since
+// those requests send no header (and no cross-site cookie in the native app), the session token
+// rides in the query string (?access_token=) -- the backend accepts it (see
+// requireWebmailSession). On the web (no stored token) only the same-origin cookie is used, so the
+// token never appears in the URL.
 export function mediaUrl(path: string): string {
   const url = apiUrl(path);
   const t = getSessionToken();
@@ -81,11 +84,12 @@ export function triggerDownload(url: string, filename?: string): void {
   a.remove();
 }
 
-// ---- Sessão inválida (401) — tratamento GLOBAL (23/07/2026) ----
-// Quando a sessão morre no servidor (expirou, admin ligou a política de MFA e matou as sessões,
-// senha trocada noutra sessão…), qualquer chamada protegida devolve 401. O handler registado
-// (auth.ts) limpa o estado local e a app volta ao ecrã de login — sem isto ficava-se a navegar
-// numa app vazia. Endpoints de login/logout não disparam (o 401 deles é "senha errada").
+// ---- Invalid session (401) -- handled GLOBALLY ----
+// When the session dies on the server (it expired, an admin turned on the MFA policy and killed
+// all sessions, the password changed on another device...), any protected call returns 401. The
+// registered handler (auth.ts) clears local state and the app falls back to the login screen --
+// without this it would keep navigating an empty app. Login/logout endpoints do not trigger it
+// (their 401 means "wrong password").
 let unauthorizedHandler: (() => void) | null = null;
 export function setUnauthorizedHandler(h: () => void): void { unauthorizedHandler = h; }
 export function notifyUnauthorized(path: string): void {

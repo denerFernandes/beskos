@@ -58,7 +58,8 @@ export interface AgentDraft {
 export interface StoredMessage {
   id: string;
   role: "user" | "assistant";
-  // agent é quem respondeu. Vazio nas mensagens do utilizador e nas anteriores à fase A3.
+  // agent identifies who answered. Empty on user messages, and on assistant messages recorded
+  // before this field existed.
   agent?: string;
   content: string;
   steps: ToolStep[];

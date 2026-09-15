@@ -131,8 +131,9 @@ export function useAssistant() {
     setMessages((prev) => [...prev, { role: "user", content: message, steps: [] }]);
   }, [conversationId, pinned]);
 
-  // stop corta o fio. O trabalho JÁ feito fica gravado no servidor — a A0 e a A1 não cancelam a
-  // execução no backend, só deixam de a ouvir. O cancelamento a sério é a fase A4.
+  // stop only cuts the client-side stream. Work already done stays recorded on the server — this
+  // does not cancel execution on the backend, it only stops listening to it. True cancellation is
+  // not implemented yet.
   const stop = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;

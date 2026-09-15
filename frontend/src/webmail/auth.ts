@@ -4,10 +4,11 @@ import { MailService } from "../jmap/mail";
 import { API_BASE, getSessionToken, setSessionToken, setUnauthorizedHandler } from "../apiBase";
 import { backend } from "./backend";
 
-// Auth do webmail (H11 / brokering): a credencial da caixa NÃO vive mais no browser. Login autentica
-// na nossa API (sessão: cookie HttpOnly na web, token opaco no app nativo) e o backend guarda a
-// credencial JMAP cifrada; o proxy a injeta server-to-server. Aqui só persistimos dados NÃO-secretos
-// (e-mail + accountId) para reidratar a UI entre visitas — nada de senha.
+// Webmail auth (credential brokering): the mailbox credential no longer lives in the browser.
+// Login authenticates against our API (session: HttpOnly cookie on the web, opaque token in the
+// native app) and the backend stores the encrypted JMAP credential; the proxy injects it
+// server-to-server. Here we only persist NON-secret data (email + accountId) to rehydrate the UI
+// between visits — never the password.
 const KEY = "mailin.wm.auth";
 
 interface Stored {
@@ -25,8 +26,8 @@ const listeners = new Set<() => void>();
 function emit() { listeners.forEach((l) => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
 
-// Sessão inválida em QUALQUER chamada → limpa o estado local; o useSyncExternalStore re-renderiza
-// para o ecrã de login. (Registado no módulo: corre uma vez, sem depender de componente montado.)
+// An invalid session on ANY call clears local state; useSyncExternalStore then re-renders into
+// the login screen. (Registered at module scope: runs once, without depending on a mounted component.)
 setUnauthorizedHandler(() => {
   if (!localStorage.getItem(KEY)) return; // já deslogado — evita loops
   setSessionToken("");
@@ -50,9 +51,10 @@ export function useWebmail(): { session: WebmailSession | null; login: typeof lo
     emit();
   }, []);
 
-  // Memoiza por conta: o MailService (e o JmapClient) mantêm identidade estável entre renders,
-  // essencial para o push SSE (useJmapPush) não reconectar a cada render. O JMAP autentica-se pela
-  // sessão: cookie same-origin na web, Bearer do token no app nativo (getSessionToken).
+  // Memoized per account: the MailService (and the JmapClient) keep a stable identity across
+  // renders, essential so the SSE push (useJmapPush) does not reconnect on every render. JMAP
+  // authenticates via the session: same-origin cookie on the web, Bearer token in the native app
+  // (getSessionToken).
   const session = useMemo<WebmailSession | null>(() => {
     if (!stored) return null;
     const parsed = JSON.parse(stored) as Stored;
@@ -66,12 +68,13 @@ export function useWebmail(): { session: WebmailSession | null; login: typeof lo
   return { session, login };
 }
 
-// MfaChallenge: quando o utilizador tem 2º fator, o login devolve isto em vez de uma sessão. A UI
-// pede o código e chama verifyMfa para completar.
+// MfaChallenge: when the user has a second factor, login returns this instead of a session. The
+// UI asks for the code and calls verifyMfa to complete it.
 export interface MfaChallenge { challenge: string; methods: string[] }
 
-// establishSession termina o login com o token emitido: guarda-o (memória/localStorage), valida a
-// sessão JMAP pelo nosso proxy e persiste a conta. Partilhado pelos caminhos sem MFA e pós-MFA.
+// establishSession finishes login with the issued token: stores it (memory/localStorage),
+// validates the JMAP session through our proxy, and persists the account. Shared by both the
+// no-MFA and post-MFA paths.
 async function establishSession(email: string, token: string): Promise<void> {
   setSessionToken(token); // memória (web) / localStorage (app nativo) — token opaco, não a senha
   const client = new JmapClient(API_BASE, { bearer: getSessionToken() });
@@ -81,9 +84,11 @@ async function establishSession(email: string, token: string): Promise<void> {
   emit();
 }
 
-// login abre a sessão na nossa API (que valida a credencial no Stalwart e guarda a cred JMAP cifrada
-// server-side). Se a conta tem 2º fator, NÃO há sessão ainda: devolve o desafio para a UI pedir o
-// código (senão o token vinha vazio e a sessão JMAP dava 401 — bug 24/07/2026). Sem MFA, entra logo.
+// login opens the session on our API (which validates the credential against Stalwart and stores
+// the encrypted JMAP credential server-side). If the account has a second factor, there is NO
+// session yet: it returns the challenge for the UI to ask for the code — returning early here
+// matters, since an empty token would otherwise make the JMAP session fail with a 401. Without
+// MFA, it signs in right away.
 export async function login(email: string, password: string): Promise<MfaChallenge | null> {
   const resp = await backend.login(email, password); // 401 → lança e não persiste
   if (resp.mfa_required) return { challenge: resp.challenge ?? "", methods: resp.methods ?? [] };

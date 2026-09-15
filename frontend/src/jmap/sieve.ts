@@ -1,10 +1,11 @@
-// Regras de e-mail = script Sieve no Stalwart, gerido pela sessão do PRÓPRIO utilizador (JMAP).
+// Email rules = a Sieve script on Stalwart, managed via the user's OWN session (JMAP).
 //
-// Por que aqui e não no backend Go: o Sieve de uma conta só se escreve com a credencial dessa
-// conta, e o backend nunca a tem (§D7: não guardamos senha; o webmail usa Basic auth em memória).
-// É o mesmo caminho do resto do webmail — JMAP direto.
+// Why here and not in the Go backend: an account's Sieve script can only be written with that
+// account's own credential, and the backend never holds it -- no password is stored; the webmail
+// keeps Basic auth in memory only. It is the same path as the rest of the webmail -- direct JMAP.
 //
-// As regras correm NA ENTREGA, no servidor: valem com o browser fechado, no telemóvel, em tudo.
+// Rules run AT DELIVERY TIME, on the server: they apply with the browser closed, on the phone, in
+// every client.
 import type { JmapClient } from "./client";
 
 export const SIEVE_CAP = "urn:ietf:params:jmap:sieve";

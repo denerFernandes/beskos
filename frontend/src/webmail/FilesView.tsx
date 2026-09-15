@@ -167,8 +167,8 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
     return (Date.now() - new Date(iso).getTime()) <= days * 86400_000;
   }
   const withMe = peopleF === "with-me";
-  // Partilhados COMIGO aparecem na vista principal (raiz, sem filtro/busca) numa secção própria —
-  // senão um ficheiro que alguém me partilha "não aparece no meu Drive" (24/07/2026).
+  // Files shared WITH ME appear in the main view (root, no filter/search) as their own section —
+  // otherwise a file someone shares with me "does not show up in my Drive".
   const sharedWithMeIds = new Set((sharedWithMe.data?.files ?? []).map((f) => f.id));
   const rootDefault = folderId === null && peopleF === "" && !searching && typeF === "" && modF === "";
   // Em "partilhado comigo" a fonte é outra (ficheiros de terceiros); ao buscar, a fonte é o resultado

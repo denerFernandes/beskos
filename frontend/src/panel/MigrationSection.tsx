@@ -28,7 +28,7 @@ export function MigrationSection() {
     queryFn: api.migration,
     // No retries, as everywhere else here. TanStack retries three times with exponential backoff by
     // default and keeps the query pending throughout, so a route that answers 404 -- an API not yet
-    // deployed, say -- showed half a minute of "…" and no way to tell it was broken. (03/08/2026)
+    // deployed, say -- showed half a minute of "…" and no way to tell it was broken.
     retry: false,
     // While a job runs the numbers are the whole screen. Polling stops the moment it ends, so a
     // finished migration is not a page that talks to the server every three seconds forever.

@@ -4,10 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { colleaguesApi } from "./backend";
 import { hueFor, initials } from "./util";
 
-// Avatar partilhado (24/07/2026): mostra a FOTO do utilizador onde quer que o nome apareça (topo,
-// chat, kanban, meet, correio…). A foto vem explicitamente por prop `src`, ou é resolvida por
-// e-mail/id no DIRETÓRIO de colegas (que já traz a foto) — assim qualquer sítio que mostre um
-// colega ganha a foto sem alterar cada payload. Sem foto, cai no círculo com iniciais (hueFor).
+// Shared avatar: shows the user's PHOTO wherever their name appears (top bar, chat, kanban,
+// meet, mail…). The photo either comes explicitly via the `src` prop, or is resolved by
+// email/id from the colleagues DIRECTORY (which already carries the photo) — so any screen
+// showing a colleague gets the photo without changing every payload. No photo falls back to
+// the initials circle (hueFor).
 
 // useAvatarDir: mapa e-mail→foto e id→foto, a partir dos colegas do tenant (query cacheada).
 function useAvatarDir() {

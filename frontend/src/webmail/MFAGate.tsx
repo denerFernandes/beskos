@@ -4,9 +4,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { TotpDrawer, SmsDrawer } from "../panel/SecuritySection";
 import { IcShield, IcKey, IcPhone, IcChevron, IcLogout } from "../panel/icons";
 
-// Gate BLOQUEANTE do MFA obrigatório da organização: ecrã próprio (classes mfagate-*, tokens do
-// webmail — nada de estilos do painel fora de contexto). Sem fechar; as saídas são concluir o
-// enrollment ou terminar a sessão. A política pode fixar o método (só a opção permitida aparece).
+// Blocking gate for the organization's mandatory MFA: its own screen (mfagate-* classes, webmail
+// tokens — no panel styles out of context). It cannot be closed; the only ways out are completing
+// enrollment or signing out. The policy can pin the method (only the allowed option shows).
 export function MFAGate({ method = "any", email = "", onLogout }: {
   method?: string; email?: string; onLogout?: () => void;
 }) {
