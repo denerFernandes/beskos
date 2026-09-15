@@ -1,7 +1,7 @@
-//! Ícone na barra de menu da app (tray nativo do Tauri 2).
+//! App menu bar icon (Tauri 2's native tray).
 //!
-//! Mostra o estado da sincronização sem ser preciso abrir a janela, e dá as ações rápidas.
-//! O motor é o mesmo que a UI usa (`SyncEngine` no estado do Tauri) — aqui é só apresentação.
+//! Shows the sync status without needing to open the window, and gives the quick actions.
+//! The engine is the same one the UI uses (`SyncEngine` in Tauri's state) -- this is presentation only.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -11,7 +11,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, Runtime};
 
-/// Abre um caminho/URL no ambiente do utilizador (Finder/Explorer/browser).
+/// Opens a path/URL in the user's environment (Finder/Explorer/browser).
 fn open_path(target: &str) {
     #[cfg(target_os = "macos")]
     let cmd = "open";
@@ -22,7 +22,7 @@ fn open_path(target: &str) {
     let _ = std::process::Command::new(cmd).arg(target).spawn();
 }
 
-/// Traz a janela principal para a frente (o "Abrir Beskos" do menu).
+/// Brings the main window to the front (the menu's "Abrir Beskos"). lang:ok
 fn focus_main<R: Runtime>(app: &AppHandle<R>) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -31,11 +31,11 @@ fn focus_main<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
-/// Constrói o ícone da barra e arranca a thread que o mantém a par do estado.
+/// Builds the bar icon and starts the thread that keeps it in step with the state.
 pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Result<()> {
-    // Primeira linha do menu: só informativa (desativada), atualizada pela thread abaixo.
-    // Quem está autenticado (linha informativa, tal como o estado). Fica no topo porque é a pergunta
-    // que mais depressa se faz a um ícone na barra: "esta app está ligada a que conta?".
+    // First menu line: informational only (disabled), updated by the thread below.
+    // Who is signed in (informational line, same as the status). Sits at the top because it is
+    // the question people ask a tray icon first: "which account is this app connected to?".
     let account_i = MenuItem::with_id(app, "account", "Sessão não iniciada", false, None::<&str>)?;
     let status_i = MenuItem::with_id(app, "status", "A iniciar…", false, None::<&str>)?;
     let sync_i = MenuItem::with_id(app, "sync_now", "Sincronizar agora", true, None::<&str>)?;
@@ -64,11 +64,11 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
 
     let eng = Arc::clone(&engine);
     let pause_item = pause_i.clone();
-    // Ícones PRÓPRIOS do tray (template: o macOS usa só a forma e recolore-a conforme a barra).
-    // Estados: monograma (desligado), ✓ (sincronizado), spinner animado (a sincronizar), erro, pausa.
+    // The tray's OWN icons (template: macOS uses only the shape and recolors it to match the bar).
+    // States: monogram (off), check (synced), animated spinner (syncing), error, paused.
     macro_rules! trayimg {
         ($p:expr) => {
-            tauri::image::Image::from_bytes(include_bytes!($p)).expect(concat!("ícone ", $p))
+            tauri::image::Image::from_bytes(include_bytes!($p)).expect(concat!("icon ", $p))
         };
     }
     let ico_base = trayimg!("../icons/tray/base.png");
@@ -91,7 +91,7 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
     ];
     let tray = TrayIconBuilder::with_id("beskos-sync")
         .icon(ico_base.clone())
-        .icon_as_template(true) // no macOS adapta-se a barra clara/escura
+        .icon_as_template(true) // on macOS it adapts to the light/dark bar
         .tooltip("Beskos")
         .menu(&menu)
         .on_menu_event(move |app, event| match event.id.as_ref() {
@@ -102,7 +102,7 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
                 let _ = pause_item.set_text(if paused { "Retomar" } else { "Pausar" });
             }
             "open_folder" => {
-                // Abre a primeira pasta sincronizada (as restantes veem-se em Definições › Sincronização).
+                // Opens the first synced folder (the rest are visible in Settings > Sync). lang:ok
                 if let Some(p) = eng.status().pairs.first() {
                     open_path(&p.local_path);
                 }
@@ -114,9 +114,9 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
         })
         .build(app)?;
 
-    // Mantém o ÍCONE + menu a par do estado. Quando sincroniza, anima o spinner (frame a cada ~90ms);
-    // nos outros estados, um ícone fixo e uma espera maior. Texto/tooltip só mudam quando mudam de
-    // facto (evita piscar o menu se estiver aberto).
+    // Keeps the ICON + menu in step with the state. While syncing, animates the spinner (a frame
+    // every ~90ms); in the other states, a fixed icon and a longer wait. Text/tooltip only change
+    // when they actually change (avoids flickering the menu if it is open).
     let eng = Arc::clone(&engine);
     let app_h = app.clone();
     std::thread::spawn(move || {
@@ -129,9 +129,9 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
             let active = s.configured && !s.pairs.is_empty();
             let syncing = active && !s.paused && matches!(s.phase, Phase::Syncing);
 
-            // Ícone conforme o estado — só se TROCA quando muda de facto. Re-setar o mesmo ícone a
-            // cada volta fazia o tray piscar; assim o spinner anima (a chave muda por frame) e os
-            // estados fixos ficam quietos. O modo template vem do builder e persiste.
+            // Icon per state -- only SWAPPED when it actually changes. Resetting the same icon on
+            // every loop made the tray flicker; this way the spinner animates (the key changes per
+            // frame) and the fixed states stay still. The template mode comes from the builder and persists.
             let (icon, key): (&tauri::image::Image, String) = if syncing {
                 let f = frame % spinner.len();
                 frame = frame.wrapping_add(1);
@@ -150,13 +150,14 @@ pub fn setup<R: Runtime>(app: &AppHandle<R>, engine: Arc<Engine>) -> tauri::Resu
             };
             if key != last_icon {
                 let _ = tray.set_icon(Some(icon.clone()));
-                // set_icon reseta o modo template no macOS → repor a cada TROCA (não a cada volta,
-                // senão volta o flicker). Sem isto o ícone fica preto e não segue a barra clara/escura.
+                // set_icon resets the template mode on macOS -> restore it on every SWAP (not
+                // every loop, or the flicker comes back). Without this the icon goes black and
+                // stops following the light/dark bar.
                 let _ = tray.set_icon_as_template(true);
                 last_icon = key;
             }
 
-            // Texto do menu + tooltip (só quando muda).
+            // Menu text + tooltip (only when it changes).
             let acct = crate::desktop::account_label(&app_h)
                 .unwrap_or_else(|| "Sessão não iniciada".to_string());
             if acct != last_acct {

@@ -1,5 +1,5 @@
-//! Árvore de pastas do utilizador, para o espelho de subpastas. Traduz `folder_id` ⇄ caminho
-//! relativo (com '/'). Também resolve/cria a pasta do servidor para um caminho local ao subir.
+//! The user's folder tree, for the subfolder mirror. Translates `folder_id` <-> relative path
+//! (with '/'). Also resolves/creates the server folder for a local path when uploading.
 
 use std::collections::HashMap;
 
@@ -18,8 +18,9 @@ impl Tree {
         Tree { by_id }
     }
 
-    /// Caminho relativo (com '/') de uma pasta. Raiz (`None`) → "". Devolve None se houver ciclo ou
-    /// um nome de segmento inseguro (nesse caso o chamador cai na raiz — nunca escreve fora dela).
+    /// Relative path (with '/') of a folder. Root (`None`) -> "". Returns None if there is a cycle
+    /// or an unsafe segment name (in that case the caller falls back to the root -- it never
+    /// writes outside it).
     pub fn rel_path(&self, folder_id: Option<&str>) -> Option<String> {
         let mut segs = Vec::new();
         let mut cur = folder_id.map(|s| s.to_string());
@@ -27,7 +28,7 @@ impl Tree {
         while let Some(id) = cur {
             guard += 1;
             if guard > 64 {
-                return None; // ciclo / profundidade absurda
+                return None; // cycle / absurd depth
             }
             let f = self.by_id.get(&id)?;
             segs.push(sanitize_name(&f.name)?);
@@ -37,10 +38,10 @@ impl Tree {
         Some(segs.join("/"))
     }
 
-    /// Caminho de `folder_id` RELATIVO a `root_id` (a pasta da nuvem de um par sincronizado).
-    /// - `Some("")` se for a própria pasta-raiz do par;
-    /// - `Some("sub/dir")` se for descendente;
-    /// - `None` se estiver fora do par (é assim que se ignora o resto do drive).
+    /// Path of `folder_id` RELATIVE to `root_id` (a synced pair's cloud folder).
+    /// - `Some("")` if it is the pair's own root folder;
+    /// - `Some("sub/dir")` if it is a descendant;
+    /// - `None` if it is outside the pair (this is how the rest of the drive gets ignored).
     pub fn rel_path_under(&self, folder_id: Option<&str>, root_id: &str) -> Option<String> {
         let mut segs: Vec<String> = Vec::new();
         let mut cur = folder_id.map(|s| s.to_string());
@@ -52,18 +53,19 @@ impl Tree {
             }
             guard += 1;
             if guard > 64 {
-                return None; // ciclo
+                return None; // cycle
             }
             let f = self.by_id.get(&id)?;
             segs.push(sanitize_name(&f.name)?);
             cur = f.parent_id.clone();
         }
-        None // chegou à raiz do drive sem passar pela pasta do par
+        None // reached the drive root without passing through the pair's folder
     }
 
-    /// Resolve o `folder_id` do servidor para uma sequência de segmentos de pasta locais, criando os
-    /// que faltarem (reusa os existentes por (pai, nome), evitando duplicados). `[]` → raiz (None).
-    /// Como `resolve_or_create`, mas a partir da pasta de um par (não da raiz do drive).
+    /// Resolves the server's `folder_id` into a sequence of local folder segments, creating
+    /// whichever are missing (reuses existing ones by (parent, name), avoiding duplicates).
+    /// `[]` -> root (None). Like `resolve_or_create`, but starting from a pair's folder instead of
+    /// the drive root.
     pub fn resolve_or_create_under(
         &mut self,
         client: &Client,
@@ -133,7 +135,7 @@ mod tests {
 
     #[test]
     fn detects_cycle() {
-        // a → b → a: um ciclo não deve prender o daemon.
+        // a -> b -> a: a cycle must not hang the daemon.
         let t = Tree::new(vec![f("a", Some("b"), "x"), f("b", Some("a"), "y")]);
         assert_eq!(t.rel_path(Some("a")), None);
     }

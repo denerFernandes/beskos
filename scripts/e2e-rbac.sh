@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2E de segurança do RBAC: papéis, permissões, convites, último-owner, isolamento entre tenants.
+# RBAC security E2E: roles, permissions, invites, last-owner, isolation between tenants.
 set -euo pipefail
 PG=rbac-pg; PGPORT=55437; APIPORT=8204
 BACKEND="$(cd "$(dirname "$0")/../backend" && pwd)"
@@ -21,41 +21,41 @@ fail(){ echo "   ✗ $1"; exit 1; }
 
 echo "== owner (signup) =="
 curl -s -c /tmp/owner -X POST $API/auth/signup -d '{"org_name":"Org A","email":"owner@a.com","password":"'$PW'"}' >/dev/null
-ROLE=$(curl -s -b /tmp/owner $API/me | J "['role']"); [[ $ROLE == owner ]]&&pass "signup vira owner"||fail "role=$ROLE"
-NPERM=$(curl -s -b /tmp/owner $API/me | J "['permissions'].__len__()"); [[ $NPERM -ge 8 ]]&&pass "owner tem todas as permissões ($NPERM)"||fail "perms=$NPERM"
+ROLE=$(curl -s -b /tmp/owner $API/me | J "['role']"); [[ $ROLE == owner ]]&&pass "signup becomes owner"||fail "role=$ROLE"
+NPERM=$(curl -s -b /tmp/owner $API/me | J "['permissions'].__len__()"); [[ $NPERM -ge 8 ]]&&pass "owner has all permissions ($NPERM)"||fail "perms=$NPERM"
 
-echo "== convite + aceite =="
+echo "== invite + accept =="
 TOKEN=$(curl -s -b /tmp/owner -X POST $API/invites -d '{"email":"member@a.com","role":"member"}' | J "['token']")
-[[ -n $TOKEN ]]&&pass "owner cria convite"||fail "sem token"
-EMAIL=$(curl -s $API/invites/$TOKEN | J "['email']"); [[ $EMAIL == member@a.com ]]&&pass "convite público resolvível"||fail "get invite"
+[[ -n $TOKEN ]]&&pass "owner creates invite"||fail "no token"
+EMAIL=$(curl -s $API/invites/$TOKEN | J "['email']"); [[ $EMAIL == member@a.com ]]&&pass "public invite resolvable"||fail "get invite"
 curl -s -c /tmp/member -X POST $API/auth/accept 2>/dev/null >/dev/null || true
 curl -s -c /tmp/member -X POST $API/invites/accept -d '{"token":"'$TOKEN'","name":"Member","password":"'$PW'"}' >/dev/null
-MROLE=$(curl -s -b /tmp/member $API/me | J "['role']"); [[ $MROLE == member ]]&&pass "aceite cria member logado"||fail "role=$MROLE"
+MROLE=$(curl -s -b /tmp/member $API/me | J "['role']"); [[ $MROLE == member ]]&&pass "accept logs member in"||fail "role=$MROLE"
 
-echo "== permissões (member é leitura) =="
-[[ $(code -b /tmp/member -X POST $API/domains -d '{"dominio":"x.com"}') == 403 ]]&&pass "member NÃO cria domínio (403)"||fail "member criou domínio!"
-[[ $(code -b /tmp/member $API/domains) == 200 ]]&&pass "member vê domínios (200)"||fail "member não vê domínios"
-[[ $(code -b /tmp/member $API/members) == 403 ]]&&pass "member NÃO lista membros (403)"||fail "member listou membros!"
-[[ $(code -b /tmp/member -X POST $API/invites -d '{"email":"x@a.com","role":"member"}') == 403 ]]&&pass "member NÃO convida (403)"||fail "member convidou!"
+echo "== permissions (member is read-only) =="
+[[ $(code -b /tmp/member -X POST $API/domains -d '{"dominio":"x.com"}') == 403 ]]&&pass "member does NOT create a domain (403)"||fail "member created a domain!"
+[[ $(code -b /tmp/member $API/domains) == 200 ]]&&pass "member sees domains (200)"||fail "member cannot see domains"
+[[ $(code -b /tmp/member $API/members) == 403 ]]&&pass "member does NOT list members (403)"||fail "member listed members!"
+[[ $(code -b /tmp/member -X POST $API/invites -d '{"email":"x@a.com","role":"member"}') == 403 ]]&&pass "member does NOT invite (403)"||fail "member invited!"
 
-echo "== escalonamento de privilégio =="
+echo "== privilege escalation =="
 MID=$(curl -s -b /tmp/owner $API/members | python3 -c "import sys,json;print([m['id'] for m in json.load(sys.stdin) if m['role']=='member'][0])")
 curl -s -b /tmp/owner -X PATCH $API/members/$MID/role -d '{"role":"admin"}' >/dev/null
-[[ $(curl -s -b /tmp/member $API/me | J "['role']") == admin ]]&&pass "owner promove member→admin"||fail "promoção falhou"
-[[ $(code -b /tmp/member -X POST $API/invites -d '{"email":"y@a.com","role":"owner"}') == 403 ]]&&pass "admin NÃO convida como owner (anti-escalonamento)"||fail "admin criou owner!"
-[[ $(code -b /tmp/member -X POST $API/invites -d '{"email":"y@a.com","role":"member"}') == 201 ]]&&pass "admin convida member (201)"||fail "admin não convidou"
-# internal_admin não é atribuível
-[[ $(code -b /tmp/owner -X POST $API/invites -d '{"email":"z@a.com","role":"internal_admin"}') == 400 ]]&&pass "internal_admin não é atribuível (400)"||fail "internal_admin atribuído!"
+[[ $(curl -s -b /tmp/member $API/me | J "['role']") == admin ]]&&pass "owner promotes member->admin"||fail "promotion failed"
+[[ $(code -b /tmp/member -X POST $API/invites -d '{"email":"y@a.com","role":"owner"}') == 403 ]]&&pass "admin does NOT invite as owner (anti-escalation)"||fail "admin created an owner!"
+[[ $(code -b /tmp/member -X POST $API/invites -d '{"email":"y@a.com","role":"member"}') == 201 ]]&&pass "admin invites member (201)"||fail "admin failed to invite"
+# internal_admin is not assignable
+[[ $(code -b /tmp/owner -X POST $API/invites -d '{"email":"z@a.com","role":"internal_admin"}') == 400 ]]&&pass "internal_admin is not assignable (400)"||fail "internal_admin assigned!"
 
-echo "== último owner protegido =="
+echo "== last owner protected =="
 OID=$(curl -s -b /tmp/owner $API/members | python3 -c "import sys,json;print([m['id'] for m in json.load(sys.stdin) if m['role']=='owner'][0])")
-[[ $(code -b /tmp/owner -X PATCH $API/members/$OID/role -d '{"role":"admin"}') == 409 ]]&&pass "não rebaixa o único owner (409)"||fail "rebaixou último owner!"
-[[ $(code -b /tmp/owner -X DELETE $API/members/$OID) == 409 ]]&&pass "não remove o único owner (409)"||fail "removeu último owner!"
+[[ $(code -b /tmp/owner -X PATCH $API/members/$OID/role -d '{"role":"admin"}') == 409 ]]&&pass "does not demote the sole owner (409)"||fail "demoted the last owner!"
+[[ $(code -b /tmp/owner -X DELETE $API/members/$OID) == 409 ]]&&pass "does not remove the sole owner (409)"||fail "removed the last owner!"
 
-echo "== isolamento entre tenants =="
+echo "== isolation between tenants =="
 curl -s -c /tmp/owner2 -X POST $API/auth/signup -d '{"org_name":"Org B","email":"owner@b.com","password":"'$PW'"}' >/dev/null
-# owner A tenta remover membro de A que não existe em B: usar MID (de A) a partir de B
-[[ $(code -b /tmp/owner2 -X DELETE $API/members/$MID) == 404 ]]&&pass "tenant B não enxerga membro de A (404)"||fail "vazou entre tenants!"
-[[ $(code -b /tmp/owner2 -X PATCH $API/members/$MID/role -d '{"role":"member"}') == 404 ]]&&pass "tenant B não altera membro de A (404)"||fail "alterou entre tenants!"
+# owner A tries to remove a member of A that does not exist in B: use MID (from A) from B's session
+[[ $(code -b /tmp/owner2 -X DELETE $API/members/$MID) == 404 ]]&&pass "tenant B cannot see tenant A's member (404)"||fail "leaked across tenants!"
+[[ $(code -b /tmp/owner2 -X PATCH $API/members/$MID/role -d '{"role":"member"}') == 404 ]]&&pass "tenant B cannot change tenant A's member (404)"||fail "changed across tenants!"
 
-echo; echo "✅ E2E RBAC PASSOU — papéis, permissões, convites, anti-escalonamento, último-owner, isolamento."
+echo; echo "✅ E2E RBAC PASSED -- roles, permissions, invites, anti-escalation, last-owner, isolation."

@@ -31,21 +31,21 @@ pub struct Stats {
     pub uploaded: usize,
     pub conflicts: usize,
     pub moved: usize,
-    /// Ficheiros apagados localmente que foram para a lixeira do servidor.
+    /// Files deleted locally that went to the server's trash.
     pub trashed: usize,
-    /// Falhas de envio/criação (cota, rede, servidor). Visível no estado para não parecer que
-    /// "0 enviados" = "nada a fazer" quando na verdade o upload falhou.
+    /// Upload/creation failures (quota, network, server). Visible in the state so "0 uploaded"
+    /// does not look like "nothing to do" when the upload actually failed.
     pub errors: usize,
 }
 
-/// Guarda de segurança: se MUITOS ficheiros rastreados desaparecerem de uma vez, é quase certo que a
-/// pasta ficou indisponível (disco externo, cloud drive desmontado, backup a meio) e não que a pessoa
-/// apagou tudo. Nesse caso NÃO propagamos apagar/mover — mais vale ficar dessincronizado do que
-/// mandar a nuvem inteira para a lixeira.
+/// Safety guard: if MANY tracked files disappear at once, it is almost certainly the folder that
+/// became unavailable (external disk, unmounted cloud drive, backup mid-way), not the person
+/// deleting everything. In that case we do NOT propagate the delete/move -- better to end up
+/// out of sync than to send the whole cloud drive to the trash.
 const MAX_MISSING_TO_PROPAGATE: usize = 50;
 
-/// mtime (epoch s) + tamanho de um ficheiro. (0,0) se não der para ler — nesse caso o pré-filtro
-/// nunca acerta e caímos no caminho seguro (ler e hashear).
+/// mtime (epoch s) + size of a file. (0,0) if it cannot be read -- in that case the pre-filter
+/// never matches and we fall back to the safe path (read and hash).
 fn stat_of(path: &Path) -> (i64, i64) {
     match fs::metadata(path) {
         Ok(md) => {
@@ -61,7 +61,7 @@ fn stat_of(path: &Path) -> (i64, i64) {
     }
 }
 
-/// SHA-256 de um ficheiro, lido em blocos (não carrega o ficheiro inteiro em memória).
+/// SHA-256 of a file, read in blocks (does not load the whole file into memory).
 fn hash_file(path: &Path) -> Result<String> {
     use std::io::Read;
     let mut f = fs::File::open(path)?;
@@ -82,9 +82,9 @@ fn hash_file(path: &Path) -> Result<String> {
     Ok(s)
 }
 
-/// Abaixo deste tamanho não compensa o delta (duas viagens à rede para poupar pouco).
+/// Below this size the delta is not worth it (two network round-trips to save little).
 const DELTA_MIN_SIZE: u64 = 8 << 20; // 8 MiB
-/// Tamanho de bloco pedido ao servidor.
+/// Block size requested from the server.
 const DELTA_BLOCK: u64 = 4 << 20; // 4 MiB
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -98,7 +98,7 @@ fn sha256_hex(bytes: &[u8]) -> String {
     s
 }
 
-/// Lê até encher `buf` (ou até ao fim do ficheiro). Devolve quantos bytes leu.
+/// Reads until `buf` is full (or the file ends). Returns how many bytes it read.
 fn read_block(f: &mut fs::File, buf: &mut [u8]) -> std::io::Result<usize> {
     use std::io::Read;
     let mut got = 0;
@@ -124,14 +124,14 @@ fn try_delta_upload(
         Err(_) => return Ok(None),
     };
     if size < DELTA_MIN_SIZE {
-        return Ok(None); // ficheiro pequeno: enviar inteiro é mais simples e igualmente rápido
+        return Ok(None); // small file: sending it whole is simpler and just as fast
     }
     let info = match client.file_blocks(id, DELTA_BLOCK) {
         Ok(i) => i,
-        Err(_) => return Ok(None), // servidor antigo/sem suporte: caminho normal
+        Err(_) => return Ok(None), // old/unsupported server: normal path
     };
-    // O delta só é válido sobre a MESMA base; se o servidor já mudou, deixa o caminho normal
-    // apanhar o 412 e tratar o conflito.
+    // The delta is only valid against the SAME base; if the server already changed, let the
+    // normal path catch the 412 and handle the conflict.
     if info.hash != base_hash || info.block_size == 0 {
         return Ok(None);
     }
@@ -153,18 +153,18 @@ fn try_delta_upload(
         if n == 0 {
             break;
         }
-        // Bloco difere do que o servidor tem (ou é novo, para lá do fim do ficheiro remoto).
+        // Block differs from what the server has (or is new, past the end of the remote file).
         if info.hashes.get(i).map(String::as_str) != Some(sha256_hex(&buf[..n]).as_str()) {
             changed.push(i);
             body.extend_from_slice(&buf[..n]);
         }
         i += 1;
         if n < bs {
-            break; // último bloco (parcial)
+            break; // last block (partial)
         }
     }
 
-    // Se mudou quase tudo, o delta só acrescenta uma viagem extra — envia inteiro.
+    // If almost everything changed, the delta just adds an extra round-trip -- send it whole.
     if body.len() as u64 * 10 >= size * 7 {
         return Ok(None);
     }
@@ -178,24 +178,24 @@ fn try_delta_upload(
     )?))
 }
 
-/// De quanto em quanto tempo se faz a reconciliação completa (varredura do feed desde o início).
+/// How often the full reconciliation runs (sweeping the feed from the start).
 const RECONCILE_EVERY: Duration = Duration::from_secs(3600);
 const RECONCILE_KEY: &str = "last_reconcile";
 
-/// Reconciliação por varredura — resolve o furo do feed incremental: quando alguém **esvazia a
-/// lixeira** no servidor, a linha desaparece (hard delete) e o feed (que é baseado em `updated_at`)
-/// nunca emite tombstone. Sem isto o ficheiro ficaria órfão localmente para sempre.
+/// Sweep-based reconciliation -- fixes the incremental feed's blind spot: when someone **empties
+/// the trash** on the server, the row disappears (hard delete) and the feed (which is based on
+/// `updated_at`) never emits a tombstone. Without this the file would stay orphaned locally forever.
 ///
-/// Varre o feed DESDE O INÍCIO (sem tocar no cursor incremental), junta os ids que o servidor ainda
-/// conhece, e remove localmente o que já não existe lá.
+/// Sweeps the feed FROM THE START (without touching the incremental cursor), collects the ids the
+/// server still knows about, and removes locally whatever no longer exists there.
 
-/// Atalho para incrementar um contador do `Stats` partilhado sem espalhar locks pelo código.
+/// Shortcut to increment a counter on the shared `Stats` without scattering locks through the code.
 fn bump(stats: &Mutex<Stats>, f: impl FnOnce(&mut Stats)) {
     f(&mut stats.lock().unwrap_or_else(|e| e.into_inner()));
 }
 
-/// Corre uma passagem completa: primeiro sobe o local (push), depois aplica o feed (pull).
-/// `workers` = transferências em paralelo (o índice é serializado por mutex; a rede é que paraleliza).
+/// Runs a full pass: first uploads local changes (push), then applies the feed (pull).
+/// `workers` = parallel transfers (the index is serialized by a mutex; the network is what parallelizes).
 pub fn run_once(
     client: &Client,
     index: &Index,
@@ -216,7 +216,7 @@ pub fn run_once(
         errors: 0,
     });
 
-    // Árvore de pastas do servidor (para colocar/criar ficheiros no sítio certo).
+    // The server's folder tree (to place/create files in the right spot).
     let mut tree = Tree::new(client.folders()?);
 
     for pair in pairs {
@@ -229,22 +229,22 @@ pub fn run_once(
         if page.changes.is_empty() {
             break;
         }
-        // Os ficheiros de uma página são independentes entre si (ids distintos) — aplica-os em
-        // paralelo. Uma falha isolada não aborta a passagem: fica para a próxima (o cursor só
-        // avança no fim da página, por isso nada se perde).
+        // A page's files are independent of each other (distinct ids) -- apply them in parallel.
+        // An isolated failure does not abort the pass: it is picked up next time (the cursor only
+        // advances at the end of the page, so nothing is lost).
         crate::parallel::for_each(page.changes.clone(), workers, |ch| {
             if let Err(e) = apply_one(client, index, pairs, &tree, &ch, &stats) {
-                eprintln!("aviso: falhou aplicar {}: {e:#}", ch.name);
+                eprintln!("warning: failed to apply {}: {e:#}", ch.name);
             }
         });
-        // Só agora avançamos o cursor: se algo acima falhar, retomamos a mesma página (idempotente).
+        // Only now do we advance the cursor: if something above fails, we retry the same page (idempotent).
         index.set_cursor(&page.cursor)?;
         if !page.has_more {
             break;
         }
     }
 
-    // Reconciliação periódica (apanha purgas que o feed incremental não consegue reportar).
+    // Periodic reconciliation (catches purges the incremental feed cannot report).
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -261,20 +261,20 @@ pub fn run_once(
     Ok(stats.into_inner().unwrap_or_else(|e| e.into_inner()))
 }
 
-/// Caminho relativo (com '/') onde um ficheiro do feed deve ficar: <pasta>/<nome>. Cai na raiz se a
-/// pasta não resolver. Devolve None se o próprio nome do ficheiro for inseguro.
+/// Relative path (with '/') where a feed file should land: <folder>/<name>. Falls back to the root
+/// if the folder does not resolve. Returns None if the file's own name is unsafe.
 ///
-/// Os partilhados comigo vão para `Partilhados/<nome>`: a `folder_id` deles pertence à árvore do
-/// DONO, que eu não consigo (nem devo) resolver — por isso ficam planos na pasta reservada.
+/// Files shared with me go to `Partilhados/<name>`: their `folder_id` belongs to the OWNER's tree,
+/// which I cannot (and should not) resolve -- so they land flat in the reserved folder.
 
-/// Sobe as mudanças locais: ficheiros rastreados cujo conteúdo mudou (PUT com If-Match) e ficheiros
-/// novos em qualquer subpasta (POST, criando as pastas do servidor em falta). Delete local NÃO é
-/// propagado (segurança contra apagar dados por engano).
+/// Uploads local changes: tracked files whose content changed (PUT with If-Match) and new files in
+/// any subfolder (POST, creating the missing server folders). A local delete is NOT propagated
+/// (safety against accidentally deleting data).
 
-/// Junta os caminhos relativos (com '/') de todos os ficheiros sob `dir`, recursivamente.
-/// Lixo do sistema operativo e temporários de edição: nunca sobem para o Drive. São ruído para o
-/// utilizador (o `.DS_Store` do macOS aparecia na lista de ficheiros) e mudam sozinhos o tempo todo,
-/// gerando sincronizações inúteis.
+/// Collects the relative paths (with '/') of every file under `dir`, recursively.
+/// OS junk and editing temporaries: never uploaded to Drive. They are noise for the user (macOS's
+/// `.DS_Store` used to show up in the file list) and keep changing on their own, generating
+/// useless syncs.
 fn is_ignored(name: &str) -> bool {
     const EXACT: &[&str] = &[
         ".DS_Store",
@@ -286,7 +286,7 @@ fn is_ignored(name: &str) -> bool {
     if EXACT.iter().any(|n| n.eq_ignore_ascii_case(name)) {
         return true;
     }
-    // Temporários de edição (Office `~$x.docx`, vim `x.swp`, guardados parciais nossos).
+    // Editing temporaries (Office `~$x.docx`, vim `x.swp`, our own partial saves).
     name.starts_with("~$")
         || name.starts_with(".~lock.")
         || name.ends_with(".swp")
@@ -307,7 +307,7 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<String>) -> Result<()> {
             collect_files(root, &path, out)?;
         } else if path.is_file() {
             if let Ok(rel) = path.strip_prefix(root) {
-                // Normaliza para '/' (o índice e o servidor usam '/').
+                // Normalizes to '/' (the index and the server use '/').
                 let rel = rel
                     .to_string_lossy()
                     .replace(std::path::MAIN_SEPARATOR, "/");
@@ -318,7 +318,7 @@ fn collect_files(root: &Path, dir: &Path, out: &mut Vec<String>) -> Result<()> {
     Ok(())
 }
 
-/// Copia o ficheiro para `<nome> (conflito <epoch>).<ext>` — preserva a versão local sem a perder.
+/// Copies the file to `<name> (conflito <epoch>).<ext>` -- preserves the local version without losing it.
 fn save_conflict_copy(src: &Path) -> Result<()> {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -335,9 +335,9 @@ fn save_conflict_copy(src: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Onde é que uma mudança do feed deve aterrar no disco — ou `None` se o ficheiro **não pertence a
-/// nenhum par sincronizado** (é o que faz com que só as pastas escolhidas sincronizem, em vez do
-/// drive inteiro). Devolve também o par, para se saber a que pasta local pertence.
+/// Where a feed change should land on disk -- or `None` if the file **does not belong to any
+/// synced pair** (this is what makes only the chosen folders sync, instead of the whole drive).
+/// Also returns the pair, so the caller knows which local folder it belongs to.
 fn dest_for<'a>(
     tree: &Tree,
     pairs: &'a [SyncPair],
@@ -358,7 +358,7 @@ fn dest_for<'a>(
     None
 }
 
-/// Aplica uma mudança vinda do servidor (pull), se ela cair dentro de algum par.
+/// Applies a change coming from the server (pull), if it falls inside some pair.
 fn apply_one(
     client: &Client,
     index: &Index,
@@ -368,7 +368,7 @@ fn apply_one(
     stats: &Mutex<Stats>,
 ) -> Result<()> {
     if ch.deleted {
-        // Tombstone: só apaga o que ESTE agente baixou (está no índice). Nunca toca noutros ficheiros.
+        // Tombstone: only deletes what THIS agent downloaded (it is in the index). Never touches other files.
         if let Some(entry) = index.get(&ch.id)? {
             let path = Path::new(&entry.rel_path);
             if path.exists() {
@@ -382,7 +382,7 @@ fn apply_one(
 
     let (_pair, dest) = match dest_for(tree, pairs, ch) {
         Some(d) => d,
-        None => return Ok(()), // fora das pastas sincronizadas: ignora
+        None => return Ok(()), // outside the synced folders: ignore
     };
     let dest_str = dest.to_string_lossy().to_string();
 
@@ -392,7 +392,7 @@ fn apply_one(
                 bump(stats, |s| s.skipped += 1);
                 return Ok(());
             }
-            // Mesmo conteúdo noutro caminho ⇒ movido/renomeado no servidor: move o ficheiro local.
+            // Same content at another path => moved/renamed on the server: move the local file.
             let from = Path::new(&entry.rel_path);
             if from.exists() {
                 if let Some(parent) = dest.parent() {
@@ -414,7 +414,7 @@ fn apply_one(
     if let Some(parent) = dest.parent() {
         fs::create_dir_all(parent)?;
     }
-    let tmp = dest.with_extension("mailin-part"); // escrita atómica
+    let tmp = dest.with_extension("mailin-part"); // atomic write
     fs::write(&tmp, &bytes)?;
     fs::rename(&tmp, &dest)?;
 
@@ -424,8 +424,8 @@ fn apply_one(
     Ok(())
 }
 
-/// Sobe as mudanças de UM par: conteúdo alterado, ficheiros novos (criando as subpastas na nuvem
-/// DENTRO da pasta do par), moves e apagados (→ lixeira).
+/// Uploads the changes for ONE pair: changed content, new files (creating the cloud subfolders
+/// INSIDE the pair's folder), moves and deletes (-> trash).
 fn push_pair(
     client: &Client,
     index: &Index,
@@ -435,7 +435,7 @@ fn push_pair(
     stats: &Mutex<Stats>,
 ) -> Result<()> {
     let root = Path::new(&pair.local_path);
-    // Só as entradas do índice que pertencem a ESTA pasta local.
+    // Only the index entries that belong to THIS local folder.
     let tracked: Vec<_> = index
         .all()?
         .into_iter()
@@ -450,9 +450,9 @@ fn push_pair(
         .map(|r| root.join(r).to_string_lossy().to_string())
         .collect();
 
-    // 1) Alterados / desaparecidos.
+    // 1) Changed / missing.
     let mut missing: Vec<&crate::index::Tracked> = Vec::new();
-    let mut to_upload: Vec<(String, String, String)> = Vec::new(); // (id, caminho abs, hash base)
+    let mut to_upload: Vec<(String, String, String)> = Vec::new(); // (id, abs path, base hash)
     for t in &tracked {
         if !found_abs.contains(&t.rel_path) {
             missing.push(t);
@@ -461,7 +461,7 @@ fn push_pair(
         let path = Path::new(&t.rel_path);
         let (mtime, size) = stat_of(path);
         if mtime == t.mtime && size == t.size {
-            continue; // pré-filtro: nada mudou
+            continue; // pre-filter: nothing changed
         }
         let h = match hash_file(path) {
             Ok(h) => h,
@@ -494,13 +494,13 @@ fn push_pair(
                 bump(stats, |s| s.conflicts += 1);
             }
             Err(e) => {
-                eprintln!("aviso: envio de {abs} falhou: {e:#}");
+                eprintln!("warning: upload of {abs} failed: {e:#}");
                 bump(stats, |s| s.errors += 1);
             }
         }
     });
 
-    // 2) Novos locais (ainda não rastreados).
+    // 2) New local files (not yet tracked).
     let mut new_rel: Vec<String> = found_rel
         .into_iter()
         .filter(|r| {
@@ -509,10 +509,10 @@ fn push_pair(
         })
         .collect();
 
-    // 3) Os que sumiram: movidos (mesmo hash noutro sítio) ou apagados (→ lixeira).
+    // 3) The ones that disappeared: moved (same hash elsewhere) or deleted (-> trash).
     if missing.len() > MAX_MISSING_TO_PROPAGATE {
         eprintln!(
-            "aviso: {} ficheiros em falta em {} — apagar/mover NÃO foi propagado (pasta indisponível?)",
+            "warning: {} missing files in {} -- delete/move was NOT propagated (folder unavailable?)",
             missing.len(),
             pair.name
         );
@@ -552,8 +552,8 @@ fn push_pair(
         new_rel.retain(|r| !consumed.contains(r));
     }
 
-    // 4) Criar os novos na nuvem, DENTRO da pasta do par.
-    let mut to_create: Vec<(String, String, String)> = Vec::new(); // (rel, nome, pasta destino)
+    // 4) Create the new ones in the cloud, INSIDE the pair's folder.
+    let mut to_create: Vec<(String, String, String)> = Vec::new(); // (rel, name, destination folder)
     for rel in new_rel {
         let mut segs: Vec<String> = rel.split('/').map(String::from).collect();
         let name = segs.pop().unwrap_or_default();
@@ -577,7 +577,7 @@ fn push_pair(
                 bump(stats, |s| s.uploaded += 1);
             }
             Err(e) => {
-                eprintln!("aviso: criar {rel} falhou: {e:#}");
+                eprintln!("warning: creating {rel} failed: {e:#}");
                 bump(stats, |s| s.errors += 1);
             }
         }
@@ -585,8 +585,8 @@ fn push_pair(
     Ok(())
 }
 
-/// Reconciliação: apanha purgas (hard delete no servidor, que o feed não reporta) e ficheiros que
-/// saíram das pastas sincronizadas. Guardas iguais às de antes.
+/// Reconciliation: catches purges (hard delete on the server, which the feed does not report) and
+/// files that left the synced folders. Same guards as above.
 fn reconcile(
     client: &Client,
     index: &Index,
@@ -602,7 +602,7 @@ fn reconcile(
             break;
         }
         for ch in &page.changes {
-            // Só conta como "vivo" o que ainda pertence a um par (e não está na lixeira).
+            // Only counts as "alive" what still belongs to a pair (and is not in the trash).
             if !ch.deleted && dest_for(tree, pairs, ch).is_some() {
                 alive.insert(ch.id.clone());
             }
@@ -615,7 +615,7 @@ fn reconcile(
 
     let tracked = index.all()?;
     if alive.is_empty() && !tracked.is_empty() {
-        eprintln!("aviso: reconciliação abortada — o servidor não devolveu ficheiros");
+        eprintln!("warning: reconciliation aborted -- the server returned no files");
         return Ok(());
     }
     let orphans: Vec<_> = tracked
@@ -624,7 +624,7 @@ fn reconcile(
         .collect();
     if orphans.len() > MAX_MISSING_TO_PROPAGATE {
         eprintln!(
-            "aviso: reconciliação abortada — {} órfãos (demasiados para apagar sem confirmação)",
+            "warning: reconciliation aborted -- {} orphans (too many to delete without confirmation)",
             orphans.len()
         );
         return Ok(());
@@ -665,9 +665,9 @@ mod tests {
             "video.mp4.part",
             "x.mailin-part",
         ] {
-            assert!(is_ignored(junk), "devia ser ignorado: {junk}");
+            assert!(is_ignored(junk), "should be ignored: {junk}");
         }
-        // Ficheiros legítimos com nomes parecidos continuam a sincronizar.
+        // Legitimate files with similar-looking names still sync.
         for ok in [
             "relatorio.docx",
             "notas.txt",
@@ -675,7 +675,7 @@ mod tests {
             "DS_Store.txt",
             "a~$b.txt",
         ] {
-            assert!(!is_ignored(ok), "NÃO devia ser ignorado: {ok}");
+            assert!(!is_ignored(ok), "should NOT be ignored: {ok}");
         }
     }
 
@@ -701,8 +701,8 @@ mod tests {
         }
     }
 
-    /// O ponto central do modelo: **só** o que está dentro de uma pasta sincronizada aterra no
-    /// disco. Um ficheiro noutro sítio do Drive (ou na raiz) é ignorado.
+    /// The core point of the model: **only** what is inside a synced folder lands on disk. A file
+    /// elsewhere in the Drive (or at the root) is ignored.
     #[test]
     fn only_files_inside_a_pair_are_synced() {
         let tree = Tree::new(vec![
@@ -712,17 +712,17 @@ mod tests {
         ]);
         let pairs = vec![pair("/local/Trabalho", "work")];
 
-        // Na própria pasta do par → vai para a raiz da pasta local.
+        // In the pair's own folder -> goes to the local folder's root.
         let (_, dest) = dest_for(&tree, &pairs, &change("1", Some("work"), "a.txt")).unwrap();
         assert_eq!(dest, Path::new("/local/Trabalho/a.txt"));
 
-        // Numa subpasta → mantém a subárvore.
+        // In a subfolder -> keeps the subtree.
         let (_, dest) = dest_for(&tree, &pairs, &change("2", Some("sub"), "b.txt")).unwrap();
         assert_eq!(dest, Path::new("/local/Trabalho/2024/b.txt"));
 
-        // Fora do par (outra pasta de topo) → NÃO sincroniza.
+        // Outside the pair (another top-level folder) -> does NOT sync.
         assert!(dest_for(&tree, &pairs, &change("3", Some("other"), "c.txt")).is_none());
-        // Na raiz do Drive → também não (não pertence a nenhum par).
+        // At the Drive root -> also not (does not belong to any pair).
         assert!(dest_for(&tree, &pairs, &change("4", None, "d.txt")).is_none());
     }
 
@@ -740,13 +740,13 @@ mod tests {
         assert_eq!(d2, Path::new("/local/Fotos/b.jpg"));
     }
 
-    /// Um nome vindo do servidor nunca pode escapar da pasta do par.
+    /// A name coming from the server can never escape the pair's folder.
     #[test]
     fn traversal_in_name_cannot_escape_the_pair() {
         let tree = Tree::new(vec![folder("w", None, "Trabalho")]);
         let pairs = vec![pair("/local/Trabalho", "w")];
         let (_, dest) =
             dest_for(&tree, &pairs, &change("1", Some("w"), "../../etc/passwd")).unwrap();
-        assert!(dest.starts_with("/local/Trabalho"), "escapou: {dest:?}");
+        assert!(dest.starts_with("/local/Trabalho"), "escaped: {dest:?}");
     }
 }

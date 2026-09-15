@@ -9,7 +9,7 @@ use std::sync::Arc;
 use beskos_sync::engine::{Engine, Status};
 use tauri::State;
 
-/// Guardado no estado do Tauri para os comandos alcançarem o mesmo motor.
+/// Stored in Tauri's state so the commands reach the same engine.
 pub struct SyncEngine(pub Arc<Engine>);
 
 /// Sync status for the CURRENT account. Takes the session identity (server_url + account) and,
@@ -47,8 +47,8 @@ pub fn sync_connect(
         .map_err(|e| e.to_string())
 }
 
-/// Adiciona uma pasta local: cria a pasta correspondente no Drive e começa a sincronizar só o que
-/// estiver lá dentro. Devolve o par criado (para a UI mostrar já).
+/// Adds a local folder: creates the matching folder in Drive and starts syncing only what is
+/// inside it. Returns the created pair (for the UI to show right away).
 #[tauri::command]
 pub fn sync_add_folder(
     engine: State<'_, SyncEngine>,
@@ -57,7 +57,7 @@ pub fn sync_add_folder(
     engine.0.add_pair(&local_path).map_err(|e| e.to_string())
 }
 
-/// Deixa de sincronizar uma pasta (não apaga ficheiros de lado nenhum).
+/// Stops syncing a folder (does not delete files on either side).
 #[tauri::command]
 pub fn sync_remove_folder(engine: State<'_, SyncEngine>, local_path: String) -> Result<(), String> {
     engine.0.remove_pair(&local_path).map_err(|e| e.to_string())
@@ -73,7 +73,7 @@ pub fn sync_set_paused(engine: State<'_, SyncEngine>, paused: bool) {
     engine.0.set_paused(paused);
 }
 
-/// Limite de banda atual (KB/s; 0 = sem limite).
+/// Current bandwidth limit (KB/s; 0 = no limit).
 #[tauri::command]
 pub fn sync_bandwidth(engine: State<'_, SyncEngine>) -> u64 {
     engine.0.bandwidth()
