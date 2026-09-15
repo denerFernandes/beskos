@@ -3,6 +3,20 @@ import { apiUrl, authHeaders, notifyUnauthorized } from "./apiBase";
 // Stalwart; aqui é só painel/admin/billing/storage. Nenhuma credencial de admin do
 // Stalwart passa por aqui (brief §2/§8). Sessão via cookie HttpOnly (same-origin).
 
+// Capabilities this instance has unlocked -- Community (all false) or a Pro license key.
+// Gates Pro-only UI; unauthenticated on purpose (see GET /api/edition on the backend).
+export interface Edition {
+  edition: "community" | "pro";
+  org?: string;
+  seats?: number;
+  expires?: string;
+  recording: boolean;
+  branding: boolean;
+  audit_log: boolean;
+  org_policies: boolean;
+  agents: boolean;
+}
+
 export interface Me {
   id: string;
   email: string;
@@ -132,6 +146,7 @@ export type Mailbox = {
 
 export const api = {
   me: () => req<Me>("/api/me"),
+  edition: () => req<Edition>("/api/edition"),
   // Aliases de e-mail (endereço extra que entrega noutra caixa). Não são membros: só correio.
   aliases: () => req<{ aliases: EmailAlias[] }>("/api/aliases"),
   createAlias: (local: string, domain_id: string, owner_id: string) =>

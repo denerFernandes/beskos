@@ -22,6 +22,7 @@ import (
 	"mailin/backend/internal/chat"
 	"mailin/backend/internal/config"
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/edition"
 	"mailin/backend/internal/httpapi"
 	"mailin/backend/internal/mailbox"
 	"mailin/backend/internal/provisioning"
@@ -506,7 +507,11 @@ func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client)
 			log.Printf("assistant tasks: storage unavailable, docs.create will fail: %v", serr)
 		}
 	}
-	srv := httpapi.NewServer(q, sw, aiProvider, nil, st, nil, billing.Settings{})
+	ed, err := edition.Load()
+	if err != nil {
+		log.Fatalf("edition: %v", err)
+	}
+	srv := httpapi.NewServer(q, sw, aiProvider, nil, st, nil, billing.Settings{}, ed)
 	srv.EnableTOTPEncryption(cfg.MFAEncKey) // decifra a credencial JMAP das caixas
 	worker := httpapi.NewAssistantTaskWorker(srv)
 

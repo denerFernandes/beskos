@@ -277,9 +277,13 @@ Dependabot; `deploy/__pycache__` e `tsconfig.tsbuildinfo` deixam de ser versiona
 `scripts/export_public.py` com a lista de exclusão e o relatório de resíduo; repositórios
 `beskosorg/beskos` e `beskosorg/beskos-cloud` criados (privados).
 
-Por fazer: cessão de copyright do segundo autor do histórico; rotar a senha do operador cujo hash
-bcrypt está na migração 00106; secret scanning e push protection nos repositórios da organização
-(gratuitos quando o `beskos` passar a público).
+~~Cessão de copyright do segundo autor~~ **resolvido:** `katisuhara@gmail.com` é a mesma pessoa
+(`dener.php@gmail.com`) noutra configuração local de `git`; sem terceiros no histórico, sem CLA
+retroativo necessário. **Chave Stripe `sk_live_...` do primeiro commit:** o utilizador confirmou
+que vai rodar na Stripe, mas só no final do processo (antes do lançamento, F9) — decisão dele,
+registada aqui para não se perder. Por fazer: rotar a senha do operador cujo hash bcrypt está na
+migração 00106; secret scanning e push protection nos repositórios da organização (gratuitos
+quando o `beskos` passar a público).
 
 
 - Correr `gitleaks detect --source . --log-opts=--all` e `trufflehog git` sobre **todo o histórico**.
@@ -293,9 +297,19 @@ bcrypt está na migração 00106; secret scanning e push protection nos reposit�
 - Ativar no GitHub: secret scanning, push protection, Dependabot, CodeQL.
 - **Pronto quando:** `gitleaks` limpo, `git ls-files` sem nada da lista da §2, CodeQL a correr.
 
-### F2 — Separação Community / Pro / Cloud (3 a 4 semanas)
+### F2 — Separação Community / Pro / Cloud (3 a 4 semanas) — iniciada em 2026-09-15
 
-Executar a §3.3. Ordem: `internal/edition` e stub `ee/` → mover Manager e billing para
+Feito: pacote `backend/internal/edition` (verificação Ed25519 offline de chave Pro, período de
+tolerância de 14 dias, `Community()`/`Load()`, 11 testes); endpoint público `GET /api/edition`
+ligado ao `Server` de `cmd/api` e `cmd/worker`; tipo `Edition` e `api.edition()` no frontend
+(`src/api.ts`). Build, `go vet`, testes do backend (35 pacotes) e `tsc --noEmit` do frontend
+verdes; `check_laws.py` limpo.
+
+Falta o grosso da F2: emitir chaves reais (repositório privado, ainda sem esse serviço — F8);
+mover `manager/`, `cmd/manager-api`, `internal/managerapi`, `cmd/ses-tenants` e a metering do
+worker para `beskos-cloud`; extrair as rotas de billing Stripe; ficheiros `ee_stub.go` e
+`//go:build pro` para as funcionalidades Pro da tabela §3.2; ajustar `docker-compose.yml` público
+(Valkey em vez de Redis, alternativa ao MinIO). Continua a executar a §3.3 abaixo. Ordem: `internal/edition` e stub `ee/` → mover Manager e billing para
 `beskos-cloud` → compose público a arrancar do zero numa máquina limpa → mover funcionalidades Pro
 para `ee/` uma a uma, com teste que prova que sem chave a rota devolve `403 edition_required`.
 **Pronto quando:** `go build ./...` e `go build -tags pro ./...` verdes; `docker compose up` em
@@ -457,7 +471,7 @@ Exemplo real, `internal/billing/plans.go`:
 2. ~~Nome da organização~~ **Decidido 2026-09-15: `beskosorg`**, repositórios `beskosorg/beskos`
    (público na F9, privado até lá) e `beskosorg/beskos-cloud` (privado). Ambos criados. O nome
    interno `mailin` desaparece na F4.
-3. **Tabela Community/Pro** (§3.2): aprovar, mover ou retirar linhas.
+3. ~~Tabela Community/Pro~~ **Aprovada 2026-09-15 tal como proposta na §3.2.** Destrava a F2.
 4. ~~Histórico~~ **Decidido 2026-09-15: histórico novo.** O repositório atual continua a ser o de
    trabalho até ao fim da F2 e passa então a `beskos-cloud`; o público nasce por exportação
    (`scripts/export_public.py`) num único commit inicial.

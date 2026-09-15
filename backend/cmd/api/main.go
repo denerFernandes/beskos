@@ -16,6 +16,7 @@ import (
 	"mailin/backend/internal/chat"
 	"mailin/backend/internal/config"
 	"mailin/backend/internal/db"
+	"mailin/backend/internal/edition"
 	"mailin/backend/internal/httpapi"
 	"mailin/backend/internal/mailaudit"
 	"mailin/backend/internal/notify"
@@ -103,7 +104,13 @@ func main() {
 	bset := billingCfg.Settings()
 	log.Printf("billing enabled (provider=%s currency=%s min_paid_users=%d)", billingProvider.Name(), bset.Currency, bset.MinPaidUsers)
 
-	srv := httpapi.NewServer(q, sw, aiProvider, smsSender, st, billingProvider, bset)
+	ed, err := edition.Load()
+	if err != nil {
+		log.Fatalf("edition: %v", err)
+	}
+	log.Printf("edition: %s", ed.Edition)
+
+	srv := httpapi.NewServer(q, sw, aiProvider, smsSender, st, billingProvider, bset, ed)
 
 	// Prontidão (/readyz): pinga o Postgres. O orquestrador só encaminha tráfego quando a base responde.
 	srv.SetReadiness(pool.Ping)
