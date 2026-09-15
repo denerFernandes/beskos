@@ -1,651 +1,679 @@
-# Plano — reposicionar a landing na soberania de dados europeia
+# Plan — repositioning the landing page around European data sovereignty
 
-> Estado: **Fases 0 a 5 implementadas e no ar** (ver §7b a §7e). Escrito a 29/07/2026.
-> Falta a `/public-sector` e o nível 2 de idiomas (Fase 6), ambos dependentes de tração.
-> A app (`frontend/`) continua em dois idiomas — a tradução feita foi só a da landing.
+> Status: **Phases 0 through 5 implemented and live** (see §7b to §7e). Written 2026-07-29.
+> Still missing: `/public-sector` and language tier 2 (Phase 6), both dependent on traction.
+> The app (`frontend/`) still ships in two languages — only the landing page has been translated
+> so far.
 
-## 0. Decisões já tomadas
+## 0. Decisions already made
 
-| Tema | Decisão |
+| Topic | Decision |
 |---|---|
-| URLs | **Sempre em inglês**, em todos os idiomas: `/sub-processors`, `/sla`, `/dpa`, `/security`, `/privacy`, `/cookies`, `/terms`, `/acceptable-use`. Só o conteúdo é traduzido |
-| Ficheiros | R2 passa a **jurisdição UE** (em vez de trocar de fornecedor) |
-| Assistente de IA | DeepSeek deixa de ser chamado diretamente: passa pela **TensorX** (`tensorx.ai`) |
-| Embeddings | OpenAI sai; entra **`qwen/qwen3-embedding-8b`** pela TensorX |
-| Idiomas | Os oito propostos, **`pt-BR` fora** por agora |
-| Âmbito dos idiomas | Landing **e app** — não só o site |
-| Páginas legais | As oito do desenho: Privacy, Cookies, Terms, Security, DPA, Acceptable Use, SLA, Sub-processors |
-| IA | **TensorX corre 100% na UE** — a IA entra na frase "processado na UE", sem nota de rodapé |
-| Aviso de novo subprocessador | **14 dias** |
-| Entidade | **Open Solutions** (nome comercial de *Dener Santos Fernandes*, empresário individual — JDG, não sp. z o.o.) · NIP **PL7773457857** · REGON 543340675 · Poznań |
-| Certificações | **Nenhuma ainda** — a página de segurança descreve práticas, não invoca normas |
-| Morada legal e objeções | **Wawrzyńca Engeströma 10, 60-571 Poznań, Polónia** · NIP PL7773457857 · REGON 543340675 |
-| Página de estado | **Sim**, em `status.beskos.com`, na mesma infraestrutura por agora (VPS separado em breve) |
-| Tom | **Corporativo**, igual em todos os idiomas — tratamento formal em cada um |
-| Seguro | **Não por agora** — o que obriga a limitar a responsabilidade nos Termos (ver §2b) |
-| SLA | **Fora por agora.** Em vez dele, uma página de *compromissos de serviço* sem créditos (ver §4c) |
+| URLs | **Always in English**, in every language: `/sub-processors`, `/sla`, `/dpa`, `/security`, `/privacy`, `/cookies`, `/terms`, `/acceptable-use`. Only the content is translated |
+| Files | R2 moves to **EU jurisdiction** (instead of switching providers) |
+| AI assistant | DeepSeek is no longer called directly: it now goes through **TensorX** (`tensorx.ai`) |
+| Embeddings | OpenAI is out; **`qwen/qwen3-embedding-8b`** via TensorX is in |
+| Languages | The eight proposed, **`pt-BR` excluded** for now |
+| Language scope | Landing page **and app** — not just the site |
+| Legal pages | The eight from the design: Privacy, Cookies, Terms, Security, DPA, Acceptable Use, SLA, Sub-processors |
+| AI | **TensorX runs 100% in the EU** — AI is included in the "processed in the EU" sentence, no footnote |
+| New sub-processor notice | **14 days** |
+| Entity | **Open Solutions** (trade name of *Dener Santos Fernandes*, sole proprietor — JDG, not an sp. z o.o.) · NIP **PL7773457857** · REGON 543340675 · Poznań |
+| Certifications | **None yet** — the security page describes practices, doesn't claim standards |
+| Registered address and objections | **Wawrzyńca Engeströma 10, 60-571 Poznań, Poland** · NIP PL7773457857 · REGON 543340675 |
+| Status page | **Yes**, at `status.beskos.com`, on the same infrastructure for now (a separate VPS is coming) |
+| Tone | **Corporate**, the same in every language — the formal register in each one |
+| Insurance | **Not for now** — which requires limiting liability in the Terms (see §2b) |
+| SLA | **Out for now.** Instead, a *service commitments* page with no credits (see §4c) |
 
-## 1. O que muda
+## 1. What changes
 
-Hoje a landing vende **substituição de pilha por preço**: *"Cancele quatro assinaturas. Pague
-uma."* Funciona, mas é o argumento mais fácil de copiar — qualquer suite mais barata diz o mesmo, e
-atrai quem compra por preço e sai por preço.
+Today the landing page sells **stack replacement by price**: *"Cancel four subscriptions. Pay
+one."* It works, but it's the easiest argument to copy — any cheaper suite says the same thing,
+and it attracts people who buy on price and leave on price.
 
-O novo eixo é **soberania**: onde estão os dados, quem manda neles, e a quem a empresa que os aloja
-tem de responder. O preço passa a segundo argumento (bom para fechar, mau para abrir).
+The new axis is **sovereignty**: where the data sits, who controls it, and who the company
+hosting it answers to. Price becomes the second argument (good for closing, bad for opening).
 
-| | Antes | Depois |
+| | Before | After |
 |---|---|---|
-| Promessa | Nove ferramentas, uma conta, mais barato | O trabalho da equipa inteiro sob jurisdição europeia |
-| Prova | Calculadora de poupança | Onde correm os dados, quem os opera, que lei se aplica |
-| Comparação | Google/Microsoft por preço | Google/Microsoft por **exposição legal**; Proton/Nextcloud por **âmbito** |
-| Objeção a vencer | "é barato demais para ser bom" | "e se eu precisar de sair?" / "quem é esta gente?" |
-| Quem compra | PME atenta ao custo | Quem tem de justificar a escolha a um DPO, a um auditor ou a um concurso |
+| Promise | Nine tools, one account, cheaper | The whole team's work under European jurisdiction |
+| Proof | Savings calculator | Where the data runs, who operates it, which law applies |
+| Comparison | Google/Microsoft on price | Google/Microsoft on **legal exposure**; Proton/Nextcloud on **scope** |
+| Objection to overcome | "it's too cheap to be good" | "what if I need to leave?" / "who are these people?" |
+| Who buys | Cost-conscious SMBs | Whoever has to justify the choice to a DPO, an auditor, or a tender |
 
-O que nos separa dos vizinhos: a **Proton** é privacidade individual a crescer para equipas; o
-**Nextcloud/openDesk** é software que alguém tem de alojar e manter; a **Infomaniak** é o par mais
-próximo (suíça, não UE). Nós somos suite **completa, gerida e da UE** — e-mail, Office, drive,
-reuniões, chat, calendário, wiki, quadros e assistente, numa conta e numa fatura.
+What sets us apart from our neighbors: **Proton** is individual privacy growing into teams;
+**Nextcloud/openDesk** is software someone has to host and maintain; **Infomaniak** is the
+closest peer (Swiss, not EU). We are a **complete, managed, EU** suite — email, Office, drive,
+meetings, chat, calendar, wiki, boards, and an assistant, on one account and one invoice.
 
 ---
 
-## 2. O bloqueador: a pilha ainda não é o que a mensagem vai dizer
+## 2. The blocker: the stack isn't yet what the message will say
 
-Isto vem primeiro porque **não se pode publicar a página antes de resolver**. Dizer "100% na UE"
-com a pilha de hoje é falso, e é o tipo de afirmação que um comprador público verifica.
+This comes first because **the page cannot be published before this is resolved**. Saying "100%
+in the EU" with today's stack would be false, and it's exactly the kind of claim a public-sector
+buyer checks.
 
-| Peça | Hoje | Problema para a mensagem | Saída |
+| Piece | Today | Problem for the message | Fix |
 |---|---|---|---|
-| Servidores (app, BD, e-mail) | **Netcup**, Alemanha | Nenhum — é o melhor argumento que temos | Usar: "servidores na Alemanha" |
-| Ficheiros (Drive) | **Cloudflare R2**, jurisdição a mudar para **UE** | Dados ficam na UE; a Cloudflare continua americana (CLOUD Act aplica-se à empresa, não ao sítio dos bytes) | Decidido: manter com jurisdição UE. A página tem de o dizer assim, sem prometer "fora do alcance dos EUA" |
-| Envio de e-mail | **Amazon SES** (eu-west-1) | Dados na Irlanda, mas fornecedor **americano** | Relay europeu, ou enviar do próprio Stalwart |
-| DNS/CDN/TLS | **Cloudflare** | Todo o tráfego passa por um edge americano | Bunny (SI), ou Cloudflare só como DNS e TLS na origem |
-| Assistente de IA | DeepSeek **via TensorX (100% UE)** | Resolvido: o conteúdo deixa de sair da UE | Escrever na página: modelo servido na UE, não pelo criador do modelo |
-| Embeddings da wiki | **`qwen/qwen3-embedding-8b`** via TensorX (UE) | Resolvido | Idem |
+| Servers (app, DB, mail) | **Netcup**, Germany | None — it's the best argument we have | Use: "servers in Germany" |
+| Files (Drive) | **Cloudflare R2**, jurisdiction moving to **EU** | Data stays in the EU; Cloudflare itself remains American (the CLOUD Act applies to the company, not to where the bytes sit) | Decided: keep it, with EU jurisdiction. The page must say it this way, without promising "beyond US reach" |
+| Email sending | **Amazon SES** (eu-west-1) | Data in Ireland, but an **American** provider | European relay, or send directly from Stalwart |
+| DNS/CDN/TLS | **Cloudflare** | All traffic passes through an American edge | Bunny (SI), or Cloudflare as DNS only, with TLS at the origin |
+| AI assistant | DeepSeek **via TensorX (100% EU)** | Resolved: content no longer leaves the EU | Write on the page: model served in the EU, not by the model's creator |
+| Wiki embeddings | **`qwen/qwen3-embedding-8b`** via TensorX (EU) | Resolved | Same |
 
-**Com as decisões tomadas, sobra isto:** o envio (SES) e o CDN (Cloudflare) continuam americanos, e
-o R2 fica americano com dados na UE. Ou seja, a frase que a página pode sustentar é **"os seus dados
-são processados e guardados na UE"** — e não "nenhum fornecedor nosso é americano", que seria falso.
+**With the decisions made, this remains:** sending (SES) and the CDN (Cloudflare) stay
+American, and R2 remains American with data in the EU. In other words, the sentence the page can
+support is **"your data is processed and stored in the EU"** — not "none of our providers are
+American," which would be false.
 
-A diferença não é retórica: é a primeira pergunta de um DPO alemão. A saída honesta, e que nos
-distingue, é a **página de subprocessadores** dizer tudo — quem, para quê, onde, com que
-salvaguarda. Quem publica a lista ganha a conversa mesmo com fornecedores americanos lá dentro;
-quem a esconde perde-a assim que alguém pergunta.
+The difference isn't rhetorical: it's the first question a German DPO asks. The honest way out,
+and the one that sets us apart, is for the **sub-processors page** to say everything — who, for
+what, where, with what safeguard. Whoever publishes the list wins the conversation even with
+American providers in it; whoever hides it loses it the moment someone asks.
 
-**[decidir]** trocar o SES por um relay europeu e a CDN por Bunny fica para depois do lançamento?
-Recomendo que sim, mas com data marcada — e a lista de subprocessadores mostra o progresso sozinha.
-
----
-
-## 2b. A entidade legal (e o que ela obriga)
-
-Verifiquei o NIP na VIES: **PL7773457857 está válido para operações intracomunitárias**, o que
-confirma que a autoliquidação que já implementámos funciona connosco como vendedor. Duas coisas
-saltaram à vista:
-
-1. **Morada:** publica-se `Wawrzyńca Engeströma 10, 60-571 Poznań` — escritório virtual. A VIES
-   devolve a **residência** (`Skrzynki, Łagodna 7 m1`), que é o que está no registo. Publicar a
-   morada virtual está certo (não se põe a casa de ninguém numa página pública), mas há um passo a
-   dar: **registar Poznań no CEIDG como morada para entrega de correspondência** (*adres do
-   doręczeń*) e confirmar que o contrato do escritório virtual aceita receber citações. Assim o que
-   está publicado, o que está no registo e o que sai nas faturas passam a bater certo — sem isso,
-   uma carta oficial vai para a sua casa e o cliente que confia na página fica a olhar para outra
-   morada.
-2. **O sujeito legal é a pessoa, não a marca.** Em JDG, quem contrata é *Dener Santos Fernandes*;
-   "Open Solutions" é nome comercial. As páginas legais devem identificar assim:
-   *"Open Solutions — Dener Santos Fernandes, Poznań, NIP PL7773457857, REGON 543340675"*. Esconder
-   o nome não é opção: a identificação do prestador é obrigatória (art. 5 da Diretiva 2000/31/CE e
-   a lei polaca dos serviços eletrónicos), e num mercado que compra confiança, ser claro joga a
-   favor.
-
-**O que isto custa, dito sem rodeios:** como empresário individual, responde com o património
-pessoal. Um SLA com créditos e um DPA com indemnizações são obrigações reais. E há concursos
-públicos e empresas grandes que exigem sociedade — a JDG chega para PME, trava em contratos
-grandes. Não é impeditivo hoje; é um marcador para quando aparecer o primeiro cliente sério.
-
-**Sem seguro (decidido), a proteção passa a ser contratual.** É legítimo, mas tem de estar escrito:
-- **limitação de responsabilidade** nos Termos — teto igual ao que o cliente pagou nos últimos 12
-  meses, que é o padrão do setor;
-- **exclusão de danos indiretos** (lucros cessantes, perda de dados de terceiros);
-- **créditos de SLA como único remédio** pela indisponibilidade, e pagos em crédito de conta, não em
-  dinheiro.
-
-Sem estas três cláusulas, um SLA com créditos e um DPA com indemnizações apontam ao património
-pessoal. Com elas, o risco fica dimensionado ao contrato. A sp. z o.o. e o seguro ficam para quando
-aparecer o primeiro contrato que os exija.
-
-**Falta uma página** nas oito: `/imprint` (identificação legal). É esperada na Alemanha e na
-Áustria, e resolve a obrigação nos restantes. Barata de fazer: nome, morada, NIP, contacto,
-responsável.
+**[decide]** does swapping SES for a European relay and the CDN for Bunny wait until after
+launch? I recommend yes, but with a set date — and the sub-processors list shows the progress on
+its own.
 
 ---
 
-## 3. Mensagem
+## 2b. The legal entity (and what it requires)
 
-**Promessa (título):** o trabalho da sua equipa — e-mail, ficheiros, documentos, reuniões — sob a
-lei europeia, operado por uma empresa europeia.
+I checked the NIP in VIES: **PL7773457857 is valid for intra-community operations**, which
+confirms the reverse-charge mechanism we've already implemented works with us as the seller. Two
+things stood out:
 
-**As três provas** (a página tem de as mostrar, não afirmar):
-1. **Onde** — servidores nomeados, país, operador. Mapa simples, sem marketing.
-2. **Quem** — empresa polaca, sem holding americana, lista de subprocessadores pública.
-3. **O quê** — o âmbito: correio, Office, drive, reuniões, chat, agenda, wiki, quadros, IA.
+1. **Address:** we publish `Wawrzyńca Engeströma 10, 60-571 Poznań` — a virtual office. VIES
+   returns the **residential address** (`Skrzynki, Łagodna 7 m1`), which is what's on record.
+   Publishing the virtual address is correct (you don't put anyone's home on a public page), but
+   there's a step to take: **register Poznań with CEIDG as the correspondence address**
+   (*adres do doręczeń*) and confirm the virtual office contract accepts receiving legal
+   notices. That way what's published, what's on record, and what's on the invoices all line
+   up — without it, an official letter goes to your home while the customer trusting the page
+   is looking at a different address.
+2. **The legal subject is the person, not the brand.** Under a JDG, the contracting party is
+   *Dener Santos Fernandes*; "Open Solutions" is a trade name. The legal pages must identify it
+   this way: *"Open Solutions — Dener Santos Fernandes, Poznań, NIP PL7773457857, REGON
+   543340675."* Hiding the name isn't an option: provider identification is mandatory
+   (Article 5 of Directive 2000/31/EC and Polish electronic services law), and in a market that
+   buys trust, being clear works in our favor.
 
-**Objeções a responder na própria página** (cada uma merece uma secção ou uma FAQ):
-- "E se quiser sair?" → exportação em formatos abertos, sem contrato de fidelização.
-- "Aguenta a minha auditoria?" → DPA, subprocessadores, retenção, cifra, registos de acesso.
-- "E se avariar?" → réplica, backups, histórico de disponibilidade.
-- "É uma empresa pequena." → sim; e o código do servidor de correio é aberto, os dados são
-  exportáveis, e não há refém.
-- "A IA não estraga tudo isto?" → onde corre o modelo, o que sai da UE, como se desliga.
+**What this costs, stated plainly:** as a sole proprietor, you're liable with your personal
+assets. An SLA with credits and a DPA with indemnities are real obligations. And there are
+public tenders and large companies that require a limited company — a JDG is enough for SMBs, it
+stops at large contracts. This isn't a blocker today; it's a marker for when the first serious
+customer shows up.
 
-**Tom: corporativo, e igual em todos os idiomas** (decidido). Isso muda o texto atual, que é
-informal e imperativo (*"Cancele quatro assinaturas"*). Na prática, por idioma:
+**With no insurance (decided), protection becomes contractual.** That's legitimate, but it has
+to be written down:
+- **liability limitation** in the Terms — a cap equal to what the customer paid in the last 12
+  months, which is the industry standard;
+- **exclusion of indirect damages** (lost profits, third-party data loss);
+- **SLA credits as the sole remedy** for downtime, paid as account credit, not cash.
 
-| Idioma | Tratamento formal |
-|---|---|
-| Português (PT) | 3.ª pessoa — "a sua equipa", "poderá exportar" |
-| Inglês | Neutro-formal; sem gíria nem exclamações |
-| Alemão | **Sie** (nunca *du*) |
-| Francês | **vous** |
-| Espanhol | **usted** |
-| Italiano | **Lei** |
-| Neerlandês | **u** |
-| Polaco | **Pan/Pani/Państwo** |
+Without these three clauses, an SLA with credits and a DPA with indemnities point straight at
+personal assets. With them, the risk is scoped to the contract. The sp. z o.o. and insurance
+wait for the first contract that requires them.
 
-Corporativo aqui quer dizer **sóbrio e preciso**, não pomposo: frases curtas, números concretos,
-zero superlativos. É também o registo que o comprador de soberania espera — quem escolhe onde ficam
-os dados da empresa não quer um site a falar-lhe como a um amigo. Isto entra no prompt de tradução,
-por isso é barato de aplicar e de corrigir.
-
-**O que NÃO dizer:** "conformidade garantida", "certificado ISO" (sem o ser), "imune ao CLOUD Act"
-(ninguém é imune — o que existe é não estar sujeito), "os seus dados nunca saem da UE" enquanto o
-R2/SES/DeepSeek estiverem lá.
-
----
-
-## 4. Arquitetura do site
-
-**Regra das URLs:** sempre em **inglês**, iguais em todos os idiomas (`/de/sub-processors`,
-`/fr/sub-processors`). Traduz-se o conteúdo, não o caminho — links partilhados entre colegas de
-países diferentes continuam a funcionar, e os documentos legais são citados pelo mesmo endereço em
-qualquer contrato.
-
-**Novas — produto e argumento**
-
-| URL | Porquê |
-|---|---|
-| `/sovereignty` | O argumento central. Onde estão os dados, que leis, que fornecedores, o que muda face aos EUA |
-| `/migration` | O maior travão de compra: sair do Google/Microsoft sem perder correio nem agenda |
-| `/public-sector` | Compras públicas, requisitos de alojamento, faturação, referências |
-| `/product/<app>` | Uma por app (mail, drive, docs, meet, chat, calendar, wiki, boards): é o que traz tráfego de pesquisa |
-| `/compare/opendesk`, `/compare/proton`, `/compare/infomaniak` | Já há Google/Microsoft; falta a dos vizinhos europeus |
-
-**Novas — legais e confiança** (as oito do desenho). São a espinha da mensagem: o que nos distingue
-não é dizer "soberania", é ter isto escrito e público.
-
-| URL | O que leva |
-|---|---|
-| `/privacy` | Política de privacidade (existe, a rever para a nova posição) |
-| `/cookies` | Política de cookies — separada da privacidade, como no desenho |
-| `/terms` | Termos de serviço (existe) |
-| `/security` | Como se protege: cifra em trânsito e em repouso, acesso, backups, réplica, resposta a incidentes, divulgação responsável |
-| `/dpa` | Acordo de subcontratação, **texto completo na página** (o modelo da TensorX é bom): definições, papéis, violação de dados, subprocessadores, transferências, auditoria + Anexo I (detalhes do tratamento) e Anexo II (medidas técnicas e SCCs) |
-| `/acceptable-use` | O que não se pode fazer com a plataforma — é o que permite suspender abuso sem discussão |
-| `/sla` | **Compromissos de serviço**, não SLA contratual (§4c): objetivo de 99,5%/mês, janelas de manutenção, objetivos de resposta do suporte, e a frase que diz que não é garantia |
-| `/sub-processors` | A lista completa: **Subprocessador · Finalidade · Localização · Mecanismo de transferência**, com data da última atualização, compromisso de **aviso prévio** antes de acrescentar um novo, direito de objeção do cliente e subscrição de avisos |
-
-A página de subprocessadores é a mais importante das oito. É lá que se vê que a Cloudflare e a AWS
-existem na pilha — e é precisamente por o dizermos que a conversa se ganha. Com as decisões atuais,
-a lista fica com: Netcup (servidores, DE), Cloudflare R2 (ficheiros, jurisdição UE), Cloudflare
-(DNS/CDN), Amazon SES (envio, IE), TensorX (IA), Stripe (pagamentos), e o que mais entrar.
-
-Aviso prévio fixado em **14 dias**. As objeções vão para a morada legal (Poznań) e — porque ninguém
-manda carta para objetar a um subprocessador — também para **`privacy@beskos.com`**, que é o canal
-prático. A página de estado passa a existir (§4b) e é a fonte de medição do SLA.
-
-**Mudam:** início (novo herói e nova ordem — soberania, âmbito, provas, preço), `/compare` (juntar
-a coluna "jurisdição"), `/pricing` (manter a calculadora, boa, mas mais abaixo).
+**One page is missing** from the eight: `/imprint` (legal identification). It's expected in
+Germany and Austria, and it resolves the obligation in the rest. Cheap to make: name, address,
+NIP, contact, the person responsible.
 
 ---
 
-## 4c. Sem SLA (por agora)
+## 3. Message
 
-Decidido: **não há SLA**. É a decisão certa para uma pessoa só — um SLA com créditos é uma dívida
-que se paga sozinho às três da manhã, e sem seguro nem sociedade aponta ao património pessoal.
+**Promise (headline):** your team's work — email, files, documents, meetings — under European
+law, operated by a European company.
 
-Mas não publicar nada sobre disponibilidade também custa: é a segunda pergunta de qualquer
-comprador. A saída é uma página de **compromissos de serviço** — mesma URL `/sla`, outro conteúdo:
+**The three proofs** (the page has to show them, not just state them):
+1. **Where** — named servers, country, operator. A simple map, no marketing gloss.
+2. **Who** — a Polish company, no American holding, a public sub-processors list.
+3. **What** — the scope: mail, Office, drive, meetings, chat, calendar, wiki, boards, AI.
 
-| Em vez de… | Escrevemos |
+**Objections to answer on the page itself** (each deserves a section or an FAQ entry):
+- "What if I want to leave?" → export in open formats, no lock-in contract.
+- "Can it survive my audit?" → DPA, sub-processors, retention, encryption, access logs.
+- "What if it breaks?" → replication, backups, uptime history.
+- "It's a small company." → yes; and the mail server's code is open, the data is exportable,
+  and there's no lock-in.
+- "Doesn't AI break all of this?" → where the model runs, what leaves the EU, how it's turned
+  off.
+
+**Tone: corporate, and the same across every language** (decided). This changes the current
+copy, which is informal and imperative (*"Cancel four subscriptions"*). In practice, per
+language:
+
+| Language | Formal address |
 |---|---|
-| "99,5% garantidos, com créditos" | "Trabalhamos para **99,5%** ao mês. Não é uma garantia contratual" |
-| Créditos automáticos | "Se falharmos de forma prolongada, falamos consigo" |
-| Compensação por indisponibilidade | Janelas de manutenção anunciadas, histórico público na página de estado |
-| — | Tempos de resposta do suporte como **objetivo**, não promessa |
+| Portuguese (PT) | Third person — formal verb forms, e.g. referring to "your team" and "may export" |
+| English | Neutral-formal; no slang, no exclamation marks |
+| German | **Sie** (never *du*) |
+| French | **vous** |
+| Spanish | **usted** |
+| Italian | **Lei** |
+| Dutch | **u** |
+| Polish | **Pan/Pani/Państwo** |
 
-Isto dá ao comprador o que ele precisa (saber o que esperar) sem criar uma obrigação que hoje não
-consegue honrar. E é coerente com o resto da mensagem: quem publica a lista de subprocessadores é
-quem também admite não ter SLA.
+Corporate here means **sober and precise**, not pompous: short sentences, concrete numbers, zero
+superlatives. It's also the register a sovereignty buyer expects: whoever decides where a
+company's data lives doesn't want a site talking to them like a friend. This goes into the
+translation prompt, so it's cheap to apply and to fix.
 
-**Quando voltar a fazer sentido:** com sociedade (sp. z o.o.), seguro e alguém de piquete. Aí o SLA
-passa a argumento de venda em vez de risco.
-
-**Nos Termos, isto tem de ficar explícito:** serviço prestado em regime de *melhores esforços*,
-teto de responsabilidade nos 12 meses pagos, exclusão de danos indiretos. Sem SLA, estas cláusulas
-são ainda mais importantes — são a única fronteira que existe.
+**What NOT to say:** "guaranteed compliance," "ISO certified" (when it isn't), "immune to the
+CLOUD Act" (no one is immune — what exists is not being subject to it), "your data never leaves
+the EU" while R2/SES/DeepSeek are still there.
 
 ---
 
-## 4b. Página de estado
+## 4. Site architecture
 
-Decidido: existe, é pública, e cobre todas as APIs. É ela que sustenta o SLA — sem uma medição que
-o cliente possa ver, "99,5%" é uma afirmação nossa contra a memória dele.
+**URL rule:** always in **English**, the same across every language (`/de/sub-processors`,
+`/fr/sub-processors`). Content is translated, not the path — links shared between colleagues in
+different countries keep working, and legal documents are cited by the same address in any
+contract.
 
-**O que se mede** (um componente por linha na página):
+**New — product and argument**
 
-| Componente | Sonda |
+| URL | Why |
 |---|---|
-| Aplicação (app.beskos.com) | GET da página, código 200 |
-| API | endpoint público de saúde, com verificação da base de dados |
-| Correio — entrega (SMTP) | ligação a `mail.beskos.com:465` + `EHLO` |
-| Correio — leitura (IMAP/JMAP) | sessão JMAP com conta de teste |
-| Drive / ficheiros | escrita e leitura de um objeto pequeno no armazenamento |
-| Documentos (OnlyOffice) | saúde do serviço de edição |
-| Reuniões (LiveKit) | saúde do servidor de sala |
-| Assistente (TensorX) | pedido mínimo ao modelo |
-| Consola do operador | GET da página |
-| Site | GET da página |
+| `/sovereignty` | The central argument. Where the data sits, which laws, which providers, what changes versus the US |
+| `/migration` | The biggest purchase blocker: leaving Google/Microsoft without losing mail or the calendar |
+| `/public-sector` | Public procurement, hosting requirements, invoicing, references |
+| `/product/<app>` | One per app (mail, drive, docs, meet, chat, calendar, wiki, boards): this is what brings search traffic |
+| `/compare/opendesk`, `/compare/proton`, `/compare/infomaniak` | We already have Google/Microsoft; missing the ones against European neighbors |
 
-**Onde vive:** `status.beskos.com`, por agora na mesma infraestrutura, com a troca para um VPS
-separado a caminho. **Sem aviso na página** sobre essa limitação (decidido) — e o risco é pequeno:
-numa falha total a página fica inacessível, o que é bem menos mau do que uma página a garantir que
-está tudo bem enquanto não está. Nas falhas parciais, que são a maioria, ela funciona e é útil.
+**New — legal and trust** (the eight from the design). These are the backbone of the message:
+what sets us apart isn't saying "sovereignty," it's having this written down and public.
 
-O subdomínio é a convenção (`status.stripe.com`, `status.github.com`) e é o que as pessoas escrevem
-à mão quando algo falha. Além disso poupa a migração: quando a página mudar de servidor, muda-se um
-registo de DNS e mais nada. `/status` no site redireciona para lá.
+| URL | What it covers |
+|---|---|
+| `/privacy` | Privacy policy (exists, to be revised for the new positioning) |
+| `/cookies` | Cookie policy — separate from privacy, as in the design |
+| `/terms` | Terms of service (exists) |
+| `/security` | How we protect data: encryption in transit and at rest, access, backups, replication, incident response, responsible disclosure |
+| `/dpa` | Data processing agreement, **full text on the page** (the TensorX template is good): definitions, roles, data breaches, sub-processors, transfers, audit + Annex I (processing details) and Annex II (technical measures and SCCs) |
+| `/acceptable-use` | What can't be done on the platform — this is what lets us suspend abuse without argument |
+| `/sla` | **Service commitments**, not a contractual SLA (§4c): a 99.5%/month target, maintenance windows, support response targets, and the sentence saying it isn't a guarantee |
+| `/sub-processors` | The full list: **Sub-processor · Purpose · Location · Transfer mechanism**, with a last-updated date, a commitment to **prior notice** before adding a new one, the customer's right to object, and a notice subscription |
 
-**Como:** [Uptime Kuma](https://github.com/louislam/uptime-kuma) (código aberto, self-hosted,
-alojável na UE) resolve 90% — sondas, histórico, página pública, avisos, RSS. Alternativa: escrever
-a nossa, o que só faz sentido se quisermos as sondas profundas (enviar um e-mail de teste de ponta a
-ponta e medir quanto tempo demora a chegar). Recomendo começar pelo Kuma e só depois acrescentar as
-sondas profundas.
+The sub-processors page is the most important of the eight. It's where you see that Cloudflare
+and AWS exist in the stack — and it's precisely by saying so that the conversation is won. With
+the current decisions, the list holds: Netcup (servers, DE), Cloudflare R2 (files, EU
+jurisdiction), Cloudflare (DNS/CDN), Amazon SES (sending, IE), TensorX (AI), Stripe (payments),
+and whatever else gets added.
 
-**O que a página tem de mostrar:** estado de cada componente, **90 dias** de histórico, incidentes
-com cronologia (detetado → causa → resolvido), e subscrição por e-mail. A mesma subscrição serve
-para os avisos de subprocessadores — é uma lista só.
+Prior notice set at **14 days**. Objections go to the registered address (Poznań) and — because
+no one mails a letter to object to a sub-processor — also to **`privacy@beskos.com`**, which is
+the practical channel. The status page now exists (§4b) and is the source of the SLA's
+measurement.
 
-**[decidir]** `status.beskos.com` (subdomínio) ou `/status`? Recomendo subdomínio: se o ingress
-principal cair, o `/status` cai com ele.
+**Changing:** the homepage (new hero and new order — sovereignty, scope, proof, price),
+`/compare` (adding a "jurisdiction" column), `/pricing` (keeping the calculator, which is good,
+but placed further down).
 
 ---
 
-## 5. Idiomas
+## 4c. No SLA (for now)
 
-Hoje: `pt` (neutro, a puxar para o Brasil), `en`, `es`. Estrutura já feita (`/[locale]`,
-dicionários tipados) — acrescentar idiomas é trabalho de tradução, não de código.
+Decided: **there's no SLA**. It's the right call for a one-person operation — an SLA with
+credits is a debt that comes due at three in the morning, and with no insurance and no limited
+company, it points straight at personal assets.
 
-**Nível 1 — no lançamento**
+But publishing nothing about availability has a cost too: it's the second question any buyer
+asks. The way out is a **service commitments** page — same `/sla` URL, different content:
 
-| Idioma | Porquê |
+| Instead of… | We write |
 |---|---|
-| **Inglês** | Idioma franco da UE nos negócios; serve Irlanda, Nórdicos, Báltico e quem não tiver a sua língua |
-| **Alemão** | Maior mercado, maior orçamento para soberania, e o que mais valoriza "servidores na Alemanha" |
-| **Francês** | Política de soberania estabelecida; público habituado a alternativas nacionais |
-| **Polaco** | É a nossa sede: credibilidade local, faturação local, concursos locais |
-| **Espanhol (ES)** | Mercado grande, adoção de SaaS a crescer |
-| **Italiano** | Idem, e setor público ativo em nuvem nacional |
-| **Português (PT)** | Pedido seu; mercado pequeno mas nosso de casa |
-| **Neerlandês** | Países Baixos + Flandres: dos maiores gastos em SaaS por pessoa da UE e debate político vivo sobre dependência americana |
+| "99.5% guaranteed, with credits" | "We work toward **99.5%** per month. This is not a contractual guarantee" |
+| Automatic credits | "If we fail for a prolonged period, we'll talk to you" |
+| Downtime compensation | Announced maintenance windows, public history on the status page |
+| — | Support response times as a **target**, not a promise |
 
-**Nível 2 — depois de validar**: sueco, dinamarquês, checo, romeno.
-Sueco e dinamarquês porque os debates municipais sobre a legalidade do Microsoft 365 são
-exatamente a nossa conversa. Checo e romeno por dimensão e concorrência fraca.
+This gives the buyer what they need (knowing what to expect) without creating an obligation we
+can't currently honor. And it's consistent with the rest of the message: whoever publishes the
+sub-processors list is also the one who admits to having no SLA.
 
-**Deixar de fora por agora:** norueguês (fora da UE — a história muda, e leem inglês), finlandês,
-grego, húngaro e os bálticos (pequenos e confortáveis em inglês). Malta e Irlanda: inglês.
+**When it will make sense again:** with a limited company (sp. z o.o.), insurance, and someone
+on call. Then the SLA becomes a selling point instead of a risk.
 
-**Decidido:** `pt-BR` sai por agora. O português passa a ser **de Portugal** — o que obriga a uma
-passagem de vocabulário no que já existe ("arquivos"→"ficheiros", "baixar"→"transferir",
-"equipe"→"equipa", "usuário"→"utilizador", "tela"→"ecrã"), tanto na landing como na app.
+**In the Terms, this has to be explicit:** service provided on a *best-efforts* basis, a
+liability cap at 12 months paid, exclusion of indirect damages. Without an SLA, these clauses
+matter even more — they're the only boundary that exists.
 
-**A fonte de verdade passa a ser o inglês.** Hoje é o `pt.ts`. Com oito idiomas, traduzir a partir
-do inglês é mais barato, mais fiável e é o que qualquer agência ou ferramenta espera.
+---
 
-### E a app, que é o trabalho grande
+## 4b. Status page
 
-Os idiomas não são só do site. A app tem hoje **2 413 textos por idioma** (110 KB de JSON), em
-`pt-BR` e `en`. Passar a oito é multiplicar isso por quatro face ao que existe:
+Decided: it exists, it's public, and it covers every API. It's what backs the SLA — without a
+measurement the customer can see, "99.5%" is just our claim against their memory.
 
-| Superfície | Onde | Estado | Trabalho |
+**What gets measured** (one component per row on the page):
+
+| Component | Probe |
+|---|---|
+| App (app.beskos.com) | GET the page, status code 200 |
+| API | public health endpoint, with a database check |
+| Mail — delivery (SMTP) | connect to `mail.beskos.com:465` + `EHLO` |
+| Mail — reading (IMAP/JMAP) | JMAP session with a test account |
+| Drive / files | write and read a small object in storage |
+| Documents (OnlyOffice) | editing service health |
+| Meetings (LiveKit) | room server health |
+| Assistant (TensorX) | minimal request to the model |
+| Operator console | GET the page |
+| Site | GET the page |
+
+**Where it lives:** `status.beskos.com`, on the same infrastructure for now, with a move to a
+separate VPS on the way. **No notice on the page** about that limitation (decided) — and the
+risk is small: during a total outage the page becomes unreachable, which is much better than a
+page claiming everything's fine when it isn't. During partial outages, which are most of them,
+it works and is useful.
+
+The subdomain is convention (`status.stripe.com`, `status.github.com`) and what people type by
+hand when something breaks. It also saves the migration: when the page moves servers, only a DNS
+record changes and nothing else. `/status` on the site redirects there.
+
+**How:** [Uptime Kuma](https://github.com/louislam/uptime-kuma) (open source, self-hosted,
+hostable in the EU) covers 90% of it — probes, history, a public page, notices, RSS.
+Alternative: write our own, which only makes sense if we want deep probes (send an end-to-end
+test email and measure how long it takes to arrive). I recommend starting with Kuma and adding
+the deep probes only afterward.
+
+**What the page must show:** each component's status, **90 days** of history, incidents with a
+timeline (detected → cause → resolved), and email subscription. The same subscription serves the
+sub-processor notices — it's a single list.
+
+**[decide]** `status.beskos.com` (subdomain) or `/status`? I recommend the subdomain: if the
+main ingress goes down, `/status` goes down with it.
+
+---
+
+## 5. Languages
+
+Today: `pt` (neutral, leaning Brazilian), `en`, `es`. The structure is already in place
+(`/[locale]`, typed dictionaries) — adding languages is translation work, not code work.
+
+**Tier 1 — at launch**
+
+| Language | Why |
+|---|---|
+| **English** | The EU's business lingua franca; serves Ireland, the Nordics, the Baltics, and anyone without their own language |
+| **German** | The biggest market, the biggest sovereignty budget, and the one that values "servers in Germany" most |
+| **French** | An established sovereignty policy; an audience used to national alternatives |
+| **Polish** | Our home base: local credibility, local invoicing, local tenders |
+| **Spanish (ES)** | A large market, growing SaaS adoption |
+| **Italian** | Same, plus an active public sector on national cloud |
+| **Portuguese (PT)** | You asked for it; a small but home market |
+| **Dutch** | The Netherlands + Flanders: among the EU's highest SaaS spend per person, and a live political debate over US dependency |
+
+**Tier 2 — after validating traction**: Swedish, Danish, Czech, Romanian.
+Swedish and Danish because the municipal debates over Microsoft 365's legality are exactly our
+conversation. Czech and Romanian for size and weak competition.
+
+**Leaving out for now:** Norwegian (outside the EU — the story changes, and they read English),
+Finnish, Greek, Hungarian, and the Baltics (small and comfortable in English). Malta and
+Ireland: English.
+
+**Decided:** `pt-BR` is out for now. Portuguese becomes **European Portuguese** — which requires
+a vocabulary pass over what already exists (Brazilian → European terms throughout), on both the
+landing page and the app.
+
+**English becomes the source of truth.** Today it's `pt.ts`. With eight languages, translating
+from English is cheaper, more reliable, and what any agency or tool expects.
+
+### And the app, which is the big job
+
+The languages aren't just for the site. The app currently has **2,413 strings per language**
+(110 KB of JSON), in `pt-BR` and `en`. Going to eight multiplies that by four relative to what
+exists today:
+
+| Surface | Where | Status | Work |
 |---|---|---|---|
-| App (webmail, painel, registo, primeiro acesso) | `frontend/src/i18n/locales/<lang>/common.json` | 2 413 textos × 2 idiomas | +6 idiomas, e converter o `pt-BR` em `pt-PT` |
-| Erros do servidor | mesmos ficheiros (`server.<código>`) | já traduzidos pelo cliente | acompanham o resto |
-| **E-mails transacionais** | `backend/internal/notify/messages.go` | **escritos em código**, só pt e en | tirar para ficheiros e traduzir — são o que o cliente lê fora da app |
-| Landing | `landing/lib/locales/…` | pt, en, es | +5, e a passagem para pt-PT |
-| Consola do operador (manager) | `manager/src/lib/strings.ts` | interno | **não traduzir** — é para nós |
+| App (webmail, admin panel, sign-up, onboarding) | `frontend/src/i18n/locales/<lang>/common.json` | 2,413 strings × 2 languages | +6 languages, and converting `pt-BR` to `pt-PT` |
+| Server errors | same files (`server.<code>`) | already translated by the client | come along with the rest |
+| **Transactional emails** | `backend/internal/notify/messages.go` | **hardcoded in code**, pt and en only | pull them into files and translate — this is what the customer reads outside the app |
+| Landing page | `landing/lib/locales/…` | pt, en, es | +5, plus the pt-PT conversion |
+| Operator console (manager) | `manager/src/lib/strings.ts` | internal | **do not translate** — this is for us |
 
-Duas coisas a acertar já, porque mudam o desenho:
-- **Idioma por utilizador** já existe (`mail_users.language`) e o seletor também. Falta decidir se
-  a organização impõe um idioma por omissão aos novos utilizadores. **[decidir]**
-- **Os e-mails saem no idioma de quem recebe** — já é assim; mas com oito idiomas convém que o
-  texto viva em ficheiros de tradução como o resto, e não em Go.
+Two things to settle now, because they affect the design:
+- **Per-user language** already exists (`mail_users.language`) and so does the selector. Still
+  to decide: should the organization set a default language for new users? **[decide]**
+- **Emails go out in the recipient's language** — already the case; but with eight languages the
+  text should live in translation files like the rest, not in Go.
 
-**Custo realista por idioma:** ~700 linhas de texto hoje, ~1 200–1 500 com as páginas novas. Por
-idioma: tradução + revisão nativa + manutenção de cada página futura. É a manutenção que morde —
-cada secção nova passa a ser oito. Sugiro fixar o conteúdo em português/inglês, congelar, e só
-depois traduzir tudo de uma vez.
-
----
-
-## 6. Mecânica (SEO e i18n)
-
-- **URLs em inglês em todos os idiomas.** Perde-se um pouco de SEO local (uma página `/de/preise`
-  posicionaria melhor em alemão do que `/de/pricing`), mas ganha-se em partilha, suporte e citação
-  legal. Compensa-se com `<title>`, `<h1>` e conteúdo no idioma — que é o que mais pesa.
-- `hreflang` recíproco entre os oito, mais `x-default` para o inglês.
-- Deteção por `Accept-Language` já existe; manter o seletor visível — quem chega de fora não quer
-  ser adivinhado.
-- Moeda por país já existe (5 moedas) — acrescentar zloty se faltar, e mostrar preços **com IVA**
-  para consumidor e **sem** para empresa, com a nota da autoliquidação.
-- **Páginas legais têm de ser datadas e versionadas.** "Última atualização" visível, e o histórico
-  guardado: um cliente que assinou em março tem direito a ver o texto de março.
-- Termos, privacidade e DPA são texto **legal**: revisão jurídica por idioma, não tradução
-  automática.
-- Páginas por país (`/de/…` com "servidores na Alemanha" em destaque) valem mais que páginas por
-  idioma genéricas.
-- Na app, o mesmo dicionário serve oito idiomas: convém uma verificação no CI de que **nenhuma
-  chave falta** em nenhum idioma (hoje o TypeScript garante-o na landing, mas não no JSON da app).
+**Realistic cost per language:** ~700 lines of text today, ~1,200–1,500 with the new pages. Per
+language: translation + native review + ongoing maintenance of every future page. Maintenance is
+what bites — every new section becomes eight. I suggest locking the content in
+Portuguese/English, freezing it, and only then translating everything at once.
 
 ---
 
-## 6b. Tradução: tudo por IA, com revisão manual depois
+## 6. Mechanics (SEO and i18n)
 
-**Decidido:** traduzimos tudo por IA e o Dener revê. Sem agência, sem freelancers.
+- **English URLs in every language.** Some local SEO is lost (a `/de/preise` page would rank
+  better in German than `/de/pricing`), but it's gained back in sharing, support, and legal
+  citation. It's offset by the `<title>`, `<h1>`, and content being in the local language, which
+  matters most anyway.
+- Reciprocal `hreflang` across the eight, plus `x-default` for English.
+- `Accept-Language` detection already exists; keep the selector visible — visitors from abroad
+  don't want to be guessed at.
+- Currency by country already exists (5 currencies) — add zloty if it's missing, and show prices
+  **with VAT** for consumers and **without** for businesses, with the reverse-charge note.
+- **Legal pages must be dated and versioned.** A visible "Last updated," and history kept: a
+  customer who signed up in March has the right to see March's text.
+- Terms, privacy, and the DPA are **legal** text: legal review per language, not machine
+  translation.
+- Country pages (`/de/…` featuring "servers in Germany") are worth more than generic
+  language pages.
+- In the app, the same dictionary serves eight languages: worth a CI check that **no key is
+  missing** in any language (TypeScript already guarantees this on the landing page, but not in
+  the app's JSON).
 
-Volume real (contado, em inglês): **app ~8 400 palavras** (2 413 textos) + **landing ~3 200
-palavras** (~500 textos) ≈ **11 600 por idioma hoje**, e cerca de **25 000** com as páginas novas.
-Seis idiomas novos.
+---
 
-### O que isto exige para correr bem
+## 6b. Translation: all by AI, with manual review afterward
 
-**1. Glossário primeiro.** Antes da primeira palavra: como se diz *mailbox, drive, board, meet,
-workspace, sub-processor, seat, tenant* em cada idioma. Sem glossário, a mesma coisa ganha dois
-nomes em ecrãs diferentes — o defeito mais visível de tradução automática, e o mais caro de
-desfazer depois.
+**Decided:** we translate everything by AI and Dener reviews it. No agency, no freelancers.
 
-**2. Plurais não são todos iguais.** É o erro técnico que mais aparece:
+Real volume (counted, in English): **app ~8,400 words** (2,413 strings) + **landing page
+~3,200 words** (~500 strings) ≈ **11,600 per language today**, and about **25,000** with the new
+pages. Six new languages.
 
-| Idioma | Formas que o i18next precisa |
+### What this requires to go well
+
+**1. Glossary first.** Before the first word: how *mailbox, drive, board, meet, workspace,
+sub-processor, seat, tenant* are said in each language. Without a glossary, the same thing gets
+two names on different screens — the most visible flaw of machine translation, and the most
+expensive to undo afterward.
+
+**2. Plurals aren't all the same.** This is the technical error that shows up most:
+
+| Language | Forms i18next needs |
 |---|---|
 | en, de, es, it, nl, sv | `_one`, `_other` |
 | fr | `_one`, `_many`, `_other` |
 | **pl** | `_one`, `_few`, `_many`, `_other` |
-| pt | `_one`, `_other` (mas com "milhões" a puxar `_many` em alguns casos) |
+| pt | `_one`, `_other` (but the word for "millions" pulls `_many` in some cases) |
 
-Hoje temos chaves como `unreadElsewhere_one/_other`. O polaco precisa de **quatro** — se a tradução
-não as gerar, a app mostra a chave crua a um cliente polaco. O script tem de conhecer isto por
-idioma, e o teste de chaves em falta tem de o verificar.
+Today we have keys like `unreadElsewhere_one/_other`. Polish needs **four** — if the translation
+doesn't generate them, the app shows the raw key to a Polish customer. The script has to know
+this per language, and the missing-keys test has to check for it.
 
-**3. Marcadores e formatação intactos.** `{{count}}`, `{{email}}`, `<b>`, `\n` — a IA às vezes
-traduz o nome do marcador ou come a pontuação. Validação automática: cada texto traduzido tem de
-ter exatamente os mesmos marcadores que o original.
+**3. Placeholders and formatting must stay intact.** `{{count}}`, `{{email}}`, `<b>`, `\n` — AI
+sometimes translates the placeholder name or eats the punctuation. Automated validation: every
+translated string must have exactly the same placeholders as the original.
 
-**4. O alemão é ~30% mais comprido que o inglês.** Botões, menus e o rail de apps vão rebentar.
-Depois de traduzir: passar o ecrã principal, as definições e o registo em alemão e ver o que
-transborda. É trabalho de layout, não de tradução.
+**4. German runs ~30% longer than English.** Buttons, menus, and the app rail will overflow.
+After translating: walk through the main screen, settings, and sign-up in German and see what
+overflows. This is layout work, not translation work.
 
-**5. Legal: o inglês prevalece.** Com tradução por IA isto deixa de ser conselho e passa a ser
-condição. Cada página legal traduzida leva: *"Esta tradução é fornecida por conveniência. Em caso de
-divergência, prevalece a versão em inglês."* Uma revisão jurídica **em inglês** (advogado polaco com
-prática de GDPR/SaaS) e as traduções seguem por IA sem risco contratual.
+**5. Legal: English prevails.** With AI translation this stops being advice and becomes a
+condition. Every translated legal page carries: *"This translation is provided for
+convenience. In case of discrepancy, the English version prevails."* One legal review **in
+English** (a Polish lawyer with GDPR/SaaS practice), and the translations follow by AI with no
+contractual risk.
 
-**6. O limite da revisão manual, dito com franqueza.** Você revê português, inglês e espanhol com
-propriedade, e polaco até certo ponto. **Alemão, francês, neerlandês e italiano ficam sem revisor**
-— e são três dos mercados que queremos. Duas redes de segurança baratas:
-- um link discreto *"reportar erro de tradução"* no rodapé, que abre e-mail com a página e o idioma;
-- tratar os primeiros clientes de cada mercado como revisores: um pedido simpático apanha mais
-  erros do que uma agência.
+**6. The limit of manual review, stated plainly.** You review Portuguese, English, and Spanish
+competently, and Polish to some extent. **German, French, Dutch, and Italian have no
+reviewer** — and those are three of the markets we want. Two cheap safety nets:
+- a discreet *"report a translation error"* link in the footer, opening an email with the page
+  and the language;
+- treating the first customers in each market as reviewers: a friendly request catches more
+  errors than an agency does.
 
-### Como o script vai funcionar (quando começarmos)
+### How the script will work (once we start)
 
-1. Lê o dicionário **inglês** (fonte de verdade) e o glossário.
-2. Traduz em blocos, com o contexto da chave (`webmail.pwHintShort` diz mais do que a frase).
-3. Gera as formas plurais certas para o idioma.
-4. Valida: marcadores iguais, sem chaves em falta, JSON válido, plurais completos.
-5. Escreve o ficheiro do idioma e mostra um `diff` para revisão.
-6. Corre outra vez só o que mudou — não retraduz o que já foi revisto (marca de revisão por chave).
+1. Reads the **English** dictionary (source of truth) and the glossary.
+2. Translates in batches, with the key's context (`webmail.pwHintShort` says more than the
+   sentence alone).
+3. Generates the correct plural forms for the language.
+4. Validates: matching placeholders, no missing keys, valid JSON, complete plurals.
+5. Writes the language file and shows a `diff` for review.
+6. Runs again on only what changed — doesn't retranslate what's already been reviewed (a
+   per-key review mark).
 
 ---
 
-## 7. Fases
+## 7. Phases
 
-| Fase | O quê | Depende de |
+| Phase | What | Depends on |
 |---|---|---|
-| **0** ✅ | Pilha: R2 para jurisdição UE, IA e embeddings pela TensorX (`qwen3-embedding-8b`) | **Feita** a 29/07/2026 — ver §7b |
-| **1** | **Página de estado** (na infraestrutura atual) + as nove páginas legais em inglês e português, com URLs em inglês. Começar pelos subprocessadores e pelo DPA | Fase 0, para a lista já refletir a realidade · `/sub-processors` ✅ |
-| **2** ✅ | Nova mensagem: início, `/sovereignty`, `/security` | **Feita** a 29/07/2026 — ver §7c |
-| **3** | `/migration`, páginas por app · comparações com Proton/openDesk/Infomaniak ✅ | Fase 2 |
-| **4** ✅ | Alemão, francês, polaco — **landing feita**, app por fazer | Conteúdo estável |
-| **5** ✅ | Italiano, neerlandês; `pt-BR` → `pt-PT` na landing | Fase 4 |
-| **6** | `/public-sector` + nível 2 (sueco, dinamarquês, checo, romeno) | Tração |
+| **0** ✅ | Stack: R2 to EU jurisdiction, AI and embeddings via TensorX (`qwen3-embedding-8b`) | **Done** 2026-07-29 — see §7b |
+| **1** | **Status page** (on current infrastructure) + the nine legal pages in English and Portuguese, with English URLs. Start with sub-processors and the DPA | Phase 0, so the list reflects reality · `/sub-processors` ✅ |
+| **2** ✅ | New message: homepage, `/sovereignty`, `/security` | **Done** 2026-07-29 — see §7c |
+| **3** | `/migration`, per-app pages · comparisons with Proton/openDesk/Infomaniak ✅ | Phase 2 |
+| **4** ✅ | German, French, Polish — **landing page done**, app still to do | Stable content |
+| **5** ✅ | Italian, Dutch; `pt-BR` → `pt-PT` on the landing page | Phase 4 |
+| **6** | `/public-sector` + tier 2 (Swedish, Danish, Czech, Romanian) | Traction |
 
-A ordem tem uma razão: traduzir antes de o conteúdo assentar é pagar a tradução duas vezes. Por isso
-os idiomas vêm depois das páginas, e não ao mesmo tempo.
-
----
-
-## 7b. Fase 0 — o que ficou feito (29/07/2026)
-
-**Ficheiros.** A jurisdição não se muda num balde do R2 já criado: passou-se para **`beskos-data`**,
-criado em jurisdição UE (endpoint `<conta>.eu.r2.cloudflarestorage.com`). Os 73 objetos do balde
-antigo foram copiados e **verificados um a um** por tamanho e md5 — a cópia entre jurisdições passa
-obrigatoriamente pelo cliente, não há `CopyObject` de uma para a outra. Segunda passagem depois do
-corte, sem diferenças. O balde antigo **fica intacto**, como rede de segurança; apagar é decisão
-posterior e a quente não se apaga nada.
-
-**IA.** `AI_PROVIDER=tensorx`, mesmo protocolo (compatível com OpenAI), destino `api.tensorx.ai/v1`.
-Modelo `deepseek/deepseek-v4-flash`. O que muda para a mensagem: os modelos são servidos em
-infraestrutura europeia e o conteúdo **não chega a quem os desenvolveu** — que é a frase que a
-página de subprocessadores agora sustenta.
-
-**Embeddings.** `qwen/qwen3-embedding-8b`. Duas surpresas, ambas resolvidas no nosso lado:
-
-1. A TensorX **recusa o parâmetro `dimensions`** com 400 e devolve sempre 4096 dimensões.
-2. A coluna é `vector(1536)` e o índice ivfflat do pgvector **não passa das 2000** — com 4096
-   perdia-se o índice e a busca semântica passava a varrer a tabela inteira.
-
-Cortam-se as primeiras 1536 componentes e renormaliza-se (o Qwen3 é treinado com Matryoshka, tal
-como o `text-embedding-3` da OpenAI: o significado está à cabeça do vetor). A renormalização não é
-detalhe — a busca compara por produto interno, e sem ela os textos longos ficariam sistematicamente
-à frente. Migração `00127` limpa `wiki_chunks`, porque vetores de modelos diferentes não são
-comparáveis; o worker reindexa sozinho.
-
-**Uma lição para registo:** o primeiro commit da Fase 0 descrevia na mensagem um `case "tensorx"`
-que nunca chegou ao `config.go`. Em produção deu silêncio — IA desligada, `/api/ai/briefing` a 503 —
-e só apareceu ao ler os logs de arranque. Mensagem de commit não é prova; log de produção é.
+There's a reason for the order: translating before content settles means paying for the
+translation twice. That's why the languages come after the pages, not at the same time.
 
 ---
 
-## 7c. Fase 2 — o que ficou feito (29/07/2026)
+## 7b. Phase 0 — what got done (2026-07-29)
 
-**A página inicial deixou de vender preço.** O herói passou a *"O trabalho da sua equipa, sob lei
-europeia"* e a calculadora desceu para junto do preço, com o enquadramento invertido — *alojar na
-Europa não é a opção cara* em vez de *poupe dinheiro*. Nova ordem: herói → onde estão os dados →
-quem opera → âmbito → integração → IA → saída → custo → preços → fecho.
+**Files.** Jurisdiction doesn't change inside an already-created R2 bucket: we moved to
+**`beskos-data`**, created in EU jurisdiction (endpoint `<account>.eu.r2.cloudflarestorage.com`).
+The 73 objects in the old bucket were copied and **verified one by one** by size and md5 — a
+cross-jurisdiction copy has to go through the client, there's no `CopyObject` from one to the
+other. A second pass after the cutover showed no differences. The old bucket **stays intact**, as
+a safety net; deleting it is a later decision, and nothing gets deleted mid-flight.
 
-**As provas passaram a estar na primeira dobra.** Duas secções novas: `where` (tabela de oito
-componentes com operador, país e mecanismo de transferência, gerada de `lib/infrastructure.ts`) e
-`who` (entidade, morada e NIP/REGON, lidos de `lib/subprocessors.ts` para não haver duas verdades).
-Os três fornecedores americanos aparecem lá, com as CCT declaradas. As páginas legais já existiam
-desde a Fase 1 e a home não ligava a nenhuma; agora cada cartão liga à que o prova.
+**AI.** `AI_PROVIDER=tensorx`, same protocol (OpenAI-compatible), destination
+`api.tensorx.ai/v1`. Model `deepseek/deepseek-v4-flash`. What this changes for the message: the
+models are served on European infrastructure and the content **never reaches the people who
+built them** — which is the sentence the sub-processors page now backs up.
 
-**`/sovereignty`** leva o argumento completo, com a secção *o que não afirmamos*: sem certificações,
-sem SLA contratual, três fornecedores sujeitos a lei estrangeira e migração acompanhada em vez de
-automática.
+**Embeddings.** `qwen/qwen3-embedding-8b`. Two surprises, both resolved on our end:
 
-**Comparações nos dois eixos.** A tabela ganhou `euJurisdiction` (a que lei responde a empresa) e
-`managed` (serviço gerido ou software para alojar) — sem elas, a comparação decorria toda no
-terreno de quem já lá está. Entraram Proton, Infomaniak kSuite e openDesk: contra estes não se ganha
-por jurisdição, ganha-se por âmbito, e as páginas dizem-no. O openDesk não tem preço de tabela e a
-página omite o custo em vez de inventar um.
+1. TensorX **refuses the `dimensions` parameter** with a 400 and always returns 4096
+   dimensions.
+2. The column is `vector(1536)` and pgvector's ivfflat index **doesn't go past 2000** — at 4096
+   the index would be lost and semantic search would scan the whole table.
 
-**Idiomas.** O inglês passou a fonte de verdade (`Messages = typeof en`) e a idioma por omissão; o
-português passou a europeu e a registo corporativo em toda a landing, não só no legal.
+We cut the first 1536 components and renormalize (Qwen3 is trained with Matryoshka, just like
+OpenAI's `text-embedding-3`: the meaning sits at the head of the vector). The renormalization
+isn't a detail — search compares by dot product, and without it long texts would systematically
+rank ahead. Migration `00127` clears `wiki_chunks`, because vectors from different models aren't
+comparable; the worker reindexes on its own.
 
-**Preços verificados** (julho de 2026): Proton Business Suite 12,99 USD/utilizador/mês no anual;
-Infomaniak kSuite Business CHF 7,33 (~8,03 €), convertido pelo câmbio fixo já declarado.
+**One lesson worth recording:** the first Phase 0 commit described, in its message, a
+`case "tensorx"` that never made it into `config.go`. In production it failed silently — AI off,
+`/api/ai/briefing` returning 503 — and only surfaced by reading the startup logs. A commit
+message isn't proof; a production log is.
 
 ---
 
-## 8. Está tudo decidido
+## 7c. Phase 2 — what got done (2026-07-29)
 
-| # | Decisão |
+**The homepage stopped selling price.** The hero became *"Your team's work, under European
+law"* and the calculator moved down next to the pricing, with the framing flipped — *hosting in
+Europe isn't the expensive option* instead of *save money*. New order: hero → where the data
+sits → who operates it → scope → integration → AI → exit → cost → pricing → close.
+
+**The proofs moved to the first fold.** Two new sections: `where` (a table of eight components
+with operator, country, and transfer mechanism, generated from `lib/infrastructure.ts`) and
+`who` (entity, address, and NIP/REGON, read from `lib/subprocessors.ts` so there's no double
+source of truth). The three American providers appear there, with the SCCs declared. The legal
+pages already existed since Phase 1 and the homepage didn't link to any of them; now each card
+links to the one that proves it.
+
+**`/sovereignty`** carries the full argument, with a *what we don't claim* section: no
+certifications, no contractual SLA, three providers subject to foreign law, and migration
+handled with assistance rather than automated.
+
+**Comparisons on two axes.** The table gained `euJurisdiction` (which law the company answers
+to) and `managed` (a managed service versus software you host) — without them, the comparison
+played entirely on the incumbents' home turf. Proton, Infomaniak kSuite, and openDesk were
+added: against these we don't win on jurisdiction, we win on scope, and the pages say so.
+openDesk has no list price and the page omits the cost instead of inventing one.
+
+**Languages.** English became the source of truth (`Messages = typeof en`) and the default
+language; Portuguese became European and corporate register across the whole landing page, not
+just the legal pages.
+
+**Prices verified** (July 2026): Proton Business Suite USD 12.99/user/month billed annually;
+Infomaniak kSuite Business CHF 7.33 (~€8.03), converted at the fixed exchange rate already
+declared.
+
+---
+
+## 8. Everything is decided
+
+| # | Decision |
 |---|---|
-| Morada | Poznań publicada; CEIDG a atualizar (o Dener trata) |
-| Estado | `status.beskos.com`, mesma infraestrutura, sem aviso de limitação |
-| SLA | Fora; fica a página de compromissos |
-| Tom | Corporativo, formal em todos os idiomas |
-| Tradução | Toda por IA, revisão manual depois |
-| Idiomas | en, de, fr, pl, es, it, pt-PT, nl (nível 1) · sv, da, cs, ro (nível 2) |
-| URLs | Sempre em inglês |
-| Pilha | R2 em jurisdição UE; IA e embeddings pela TensorX (100% UE) |
+| Address | Poznań published; CEIDG update in progress (Dener is handling it) |
+| Status | `status.beskos.com`, same infrastructure, no limitation notice |
+| SLA | Out; a commitments page stands in for it |
+| Tone | Corporate, formal in every language |
+| Translation | All by AI, manual review afterward |
+| Languages | en, de, fr, pl, es, it, pt-PT, nl (tier 1) · sv, da, cs, ro (tier 2) |
+| URLs | Always in English |
+| Stack | R2 in EU jurisdiction; AI and embeddings via TensorX (100% EU) |
 
-**Fase 0 feita e no ar** (§7b), e a página de subprocessadores publicada nos três idiomas atuais.
-A seguir, o resto das páginas legais e a página de estado.
-
----
-
-## 9. Uma nota sobre o tamanho
-
-Você disse "um developer com um sonho". Vale a pena decidir o que fazer com isso, porque a mensagem
-muda conforme:
-
-- **Escondido**, é uma bomba-relógio: quem descobre tarde sente-se enganado, e descobre-se sempre.
-- **Dito**, é um argumento — em soberania, "uma pessoa em Poznań que responde ao telefone" bate uma
-  megaempresa americana para muita PME, agência e profissional liberal. É a mesma razão por que se
-  escolhe o contabilista da esquina.
-
-O que ele **não** ganha é o setor público e a empresa grande: aí pedem sociedade, seguro, SLA e
-certificação — e é por isso que a `/public-sector` deve ficar para o fim do plano, não para o
-princípio. O alvo realista destes primeiros meses são PME europeias com 5 a 50 pessoas que já hoje
-desconfiam do Google e do Microsoft.
+**Phase 0 done and live** (§7b), and the sub-processors page published in the current three
+languages. Next, the rest of the legal pages and the status page.
 
 ---
 
-## 7d. Auditoria da tabela de infraestrutura (29/07/2026)
+## 9. A note on size
 
-A página inicial passou a afirmar, componente a componente, onde corre cada peça. Essas afirmações
-foram verificadas contra a produção, e não contra a documentação:
+You said "a developer with a dream." It's worth deciding what to do with that, because the
+message changes depending on it:
 
-| Afirmação na página | Verificado como |
+- **Hidden**, it's a ticking time bomb: whoever finds out late feels misled, and they always
+  find out.
+- **Stated**, it's an argument — in sovereignty, "one person in Poznań who picks up the phone"
+  beats an American mega-company for a lot of SMBs, agencies, and freelancers. It's the same
+  reason people choose the accountant down the street.
+
+What it **doesn't** win is the public sector and large enterprise: there they ask for a limited
+company, insurance, an SLA, and certification — which is why `/public-sector` should sit at the
+end of the plan, not the start. The realistic target for these first few months is European SMBs
+with 5 to 50 people who already distrust Google and Microsoft.
+
+---
+
+## 7d. Infrastructure table audit (2026-07-29)
+
+The homepage now states, component by component, where each piece runs. These claims were
+verified against production, not against documentation:
+
+| Claim on the page | Verified as |
 |---|---|
-| Aplicação, base de dados e caixas na Alemanha | `mail.beskos.com` → 185.232.71.70 · RIPE: `NETCUP-NETWORK`, `country: DE`, netcup GmbH |
-| Reuniões e documentos em servidores nossos | `meet.beskos.com` → 185.232.69.0 e `docs.beskos.com` → 185.232.71.70, ambos netcup |
-| Ficheiros em jurisdição UE | CapRover (api/worker): `MINIO_ENDPOINT=…**eu**.r2.cloudflarestorage.com`, `MINIO_BUCKET=beskos-data` |
-| Envio por SES na Irlanda | `SES_REGION=eu-west-1` |
-| IA e embeddings na UE | `AI_PROVIDER=tensorx`, `EMBEDDINGS_BASE_URL=https://api.tensorx.ai/v1` |
+| App, database, and mailboxes in Germany | `mail.beskos.com` → 185.232.71.70 · RIPE: `NETCUP-NETWORK`, `country: DE`, netcup GmbH |
+| Meetings and documents on our own servers | `meet.beskos.com` → 185.232.69.0 and `docs.beskos.com` → 185.232.71.70, both netcup |
+| Files in EU jurisdiction | CapRover (api/worker): `MINIO_ENDPOINT=…**eu**.r2.cloudflarestorage.com`, `MINIO_BUCKET=beskos-data` |
+| Sending via SES in Ireland | `SES_REGION=eu-west-1` |
+| AI and embeddings in the EU | `AI_PROVIDER=tensorx`, `EMBEDDINGS_BASE_URL=https://api.tensorx.ai/v1` |
 
-**Um desvio encontrado e corrigido.** O `deploy/secrets.env` ainda tinha os valores de R2 anteriores à
-Fase 0 — balde `beskos` e endpoint sem `.eu.`. A produção estava certa (a Fase 0 alterou o CapRover),
-mas o ficheiro de referência não foi acompanhado: quem repusesse o ambiente a partir dele mandaria os
-ficheiros de volta para o balde fora da jurisdição UE, invalidando em silêncio a afirmação que a
-página inicial agora faz na primeira dobra. Ficheiro alinhado e comentado.
+**One discrepancy found and fixed.** `deploy/secrets.env` still had the pre-Phase-0 R2 values —
+the `beskos` bucket and the endpoint without `.eu.`. Production was correct (Phase 0 changed
+CapRover), but the reference file wasn't kept in sync: anyone restoring the environment from it
+would have sent files back to the bucket outside EU jurisdiction, silently invalidating the
+claim the homepage now makes on the first fold. File aligned and commented.
 
-**Uma precisão por confirmar.** O RIPE dá `country: DE` para o bloco e a netcup GmbH é alemã, mas a
-netcup tem centros de dados em Nuremberga, Viena, Amesterdão e fora da UE — a cidade não se verifica
-de fora. As páginas dizem "Nuremberga"; se as VPS tiverem sido encomendadas noutro local, é aqui que
-se corrige. A afirmação "Alemanha" está verificada; a cidade depende do que consta do painel.
+**One point still to confirm.** RIPE gives `country: DE` for the block and netcup GmbH is
+German, but netcup has data centers in Nuremberg, Vienna, Amsterdam, and outside the EU — the
+city can't be verified from outside. The pages say "Nuremberg"; if the VPS were ordered
+elsewhere, this is where it gets corrected. The "Germany" claim is verified; the city depends on
+what the control panel shows.
 
-**Nota de propriedade:** a netcup GmbH pertence ao grupo Anexia (Áustria) — o bloco de rede aparece
-como *powered by ANX*. Ambos os países são da União Europeia, pelo que a mensagem não muda; fica
-registado por ser o tipo de detalhe que um comprador atento verifica.
+**Ownership note:** netcup GmbH belongs to the Anexia group (Austria) — the network block shows
+up as *powered by ANX*. Both countries are in the European Union, so the message doesn't change;
+it's recorded here because it's the kind of detail an attentive buyer checks.
 
 
 ---
 
-## 7e. Fases 4 e 5 — os oito idiomas da landing (29/07/2026)
+## 7e. Phases 4 and 5 — the landing page's eight languages (2026-07-29)
 
-`en, de, fr, pl, es, it, nl, pt` no ar. O inglês é a fonte de verdade e o idioma por omissão; o
-português é agora de Portugal. **A app não foi traduzida** — continua em `pt-BR` e `en`, e é o
-trabalho grande que fica (2 413 textos, §5).
+`en, de, fr, pl, es, it, nl, pt` are live. English is the source of truth and the default
+language; Portuguese is now European Portuguese. **The app hasn't been translated** — it stays
+in `pt-BR` and `en`, and that's the big job still ahead (2,413 strings, §5).
 
-**Traduzido por script, não à mão** (`landing/scripts/translate.py`), como o §6b previa. São ~1600
-linhas de texto por idioma e a copy ainda vai mudar: à mão, a primeira alteração ao inglês punha o
-sítio a divergir de si próprio. O script é retomável — uma corrida de 35 chamadas interrompida a
-meio é o caso normal.
+**Translated by script, not by hand** (`landing/scripts/translate.py`), as §6b anticipated.
+That's ~1,600 lines of text per language, and the copy is still going to change: done by hand,
+the first change to the English text would start the site diverging from itself. The script is
+resumable — a run of 35 calls interrupted halfway through is the normal case.
 
-**Quatro validações, e a ordem por que apareceram diz alguma coisa:**
+**Four validations, and the order they appeared in says something:**
 
-| # | Valida | Porquê existe |
+| # | Validates | Why it exists |
 |---|---|---|
-| 1 | Forma | `Messages = typeof en` — uma chave em falta em neerlandês não chega a compilar |
-| 2 | Marcadores | um `{price}` traduzido aparece cru ao cliente |
-| 3 | Caminhos | um `href: "/dpa"` que vire `/vertrag` dá 404, e continua a ser uma string válida |
-| 4 | **Idioma** | o `nl/home.ts` saiu inteiro **em alemão** e passou pelas três anteriores |
+| 1 | Shape | `Messages = typeof en` — a missing key in Dutch fails to compile |
+| 2 | Placeholders | a translated `{price}` shows up raw to the customer |
+| 3 | Paths | an `href: "/dpa"` turned into `/vertrag` gives a 404, and is still a valid string |
+| 4 | **Language** | `nl/home.ts` came out entirely **in German** and passed the previous three |
 
-A quarta foi escrita depois de o erro acontecer. O ficheiro tinha estrutura certa, marcadores certos
-e caminhos certos, e só se viu porque o `<title>` de `/nl` apareceu em alemão numa verificação de
-rotina. É a lição que vale registar: **estrutura certa e língua errada passa por tudo o que valida
-estrutura.**
+The fourth was written after the error happened. The file had the right structure, the right
+placeholders, and the right paths, and it was only caught because `/nl`'s `<title>` showed up in
+German during a routine check. The lesson worth keeping: **correct structure and the wrong
+language passes everything that validates structure.**
 
-**Metadados por idioma.** As URLs são em inglês por decisão (§4); o que compensa isso é o `<title>` e
-o conteúdo estarem na língua de quem lê. Vêm do dicionário da rota, reaproveitando o herói e os
-cabeçalhos já traduzidos.
+**Per-language metadata.** URLs are in English by decision (§4); what makes up for that is the
+`<title>` and the content being in the reader's language. They come from the route's dictionary,
+reusing the hero and headers already translated.
 
-**Prevalência do inglês.** Cada página legal traduzida abre com o aviso de que prevalece a versão
-inglesa. Com tradução por máquina deixa de ser cortesia e passa a ser a fronteira contratual: uma
-revisão jurídica em inglês cobre as oito páginas, e as traduções seguem sem risco.
+**English prevails.** Every translated legal page opens with a notice that the English version
+prevails. With machine translation this stops being a courtesy and becomes the contractual
+boundary: one legal review in English covers all eight pages, and the translations follow with
+no added risk.
 
-**Sem revisor nativo:** alemão, francês, italiano e neerlandês. Cada ficheiro gerado diz isso no
-cabeçalho, e não numa nota que ninguém lê.
-
-
----
-
-## 7f. A afirmação pública passa a ser "Europa" (29/07/2026)
-
-Decidido: o sítio deixa de dizer **Alemanha** e passa a dizer **Europa** / **União Europeia**. Muda
-o herói, a tabela de infraestrutura, a página de segurança, a lista de subprocessadores, a FAQ de
-preços e o §7 do DPA, nos oito idiomas.
-
-**O que se perde, dito por inteiro:** "servidores na Alemanha" era a afirmação mais concreta e mais
-verificável do sítio, e é precisamente a que o mercado alemão — o maior alvo do plano — mais
-valoriza. Um comprador que compara fornecedores lê "Alemanha" como um facto e "Europa" como uma
-categoria.
-
-**O que se ganha:** a afirmação deixa de depender do sítio de uma máquina. Uma VPS que mude de
-centro de dados dentro da UE não obriga a reescrever oito idiomas nem cria uma divergência entre o
-que a página diz e o que a infraestrutura faz — que é o risco que a §7d já tinha apanhado uma vez,
-no `secrets.env`. É também a fronteira que o RGPD usa: o que se avalia é UE contra país terceiro.
-
-A verificação da §7d mantém-se válida e não foi apagada: os servidores continuam a ser netcup, com
-`country: DE` no RIPE. O que mudou foi o nível de detalhe que se publica, não o facto.
+**No native reviewer:** German, French, Italian, and Dutch. Every generated file says so in its
+header, not in a note nobody reads.
 
 
 ---
 
-## 7g. A cifra dos ficheiros muda a linha mais fraca (30/07/2026)
+## 7f. The public claim becomes "Europe" (2026-07-29)
 
-A linha do R2 na tabela de infraestrutura era a mais fraca do sítio: conteúdo de clientes numa
-empresa americana, com a chave do lado dela. Deixou de ser — os ficheiros vão cifrados por nós
-(`docs/cifra-ficheiros.md`), e o fornecedor guarda só cifrado.
+Decided: the site stops saying **Germany** and starts saying **Europe** / **European Union**.
+This changes the hero, the infrastructure table, the security page, the sub-processors list,
+the pricing FAQ, and §7 of the DPA, across all eight languages.
 
-Muda a página de segurança, o Anexo II do DPA, a nota da tabela de infraestrutura e o item
-"não dizemos que nenhum fornecedor nosso está sujeito a lei estrangeira" da `/sovereignty`. A
-comparação com a Proton fica **mais** precisa, não mais forte: "os ficheiros são cifrados com chaves
-que nós temos, o que os protege do nosso fornecedor de armazenamento — não de nós".
+**What we lose, stated in full:** "servers in Germany" was the site's most concrete and most
+verifiable claim, and it's exactly what the German market — the plan's biggest target — values
+most. A buyer comparing providers reads "Germany" as a fact and "Europe" as a category.
 
-**O que NÃO se pôde afirmar, e está escrito:**
+**What we gain:** the claim no longer depends on one machine's location. A VPS that moves data
+centers within the EU no longer forces a rewrite across eight languages, nor creates a gap
+between what the page says and what the infrastructure does — which is the risk §7d had already
+caught once, in `secrets.env`. It's also the boundary GDPR itself uses: what's assessed is EU
+versus third country.
 
-- **O correio não está coberto.** O Stalwart escreve o conteúdo das mensagens direto no balde e
-  lê-o de lá; não passa pela nossa camada e não o modificamos (CLAUDE.md §5.4). A página de
-  segurança diz isto por palavras nossas — descobriu-se ao cifrá-lo por engano
-  (`docs/cifra-ficheiros.md` §2f), e uma limitação que já custou uma avaria não se omite.
-- **Não é cifra ponta a ponta.** Temos as chaves, porque o produto gera miniaturas, edita Office no
-  navegador e serve links públicos. Dizer o contrário seria o erro que a `/sovereignty` existe para
-  não cometer.
-- **O armazenamento de objetos não tem segunda cópia nossa.** As cópias de segurança são das bases
-  de dados; os ficheiros do Drive e as gravações dependem da durabilidade do fornecedor. Passa a
-  estar escrito, em vez de a palavra "cópias" cobrir tudo. (A cópia do correio **está** completa —
-  verificado a 30/07 restaurando-a e procurando lá dentro o texto de uma mensagem.)
+The §7d verification still stands and hasn't been deleted: the servers are still netcup, with
+`country: DE` in RIPE. What changed is the level of detail we publish, not the fact itself.
+
+
+---
+
+## 7g. File encryption changes the weakest line (2026-07-30)
+
+The R2 line in the infrastructure table was the site's weakest: customer content on an American
+company's servers, with the key on their side. Not anymore — files are now encrypted by us, and
+the provider only ever holds ciphertext, as detailed in the design doc (filename kept unchanged) `docs/cifra-ficheiros.md` lang:ok
+
+This changes the security page, Annex II of the DPA, the infrastructure table's note, and the
+"we don't claim that none of our providers is subject to foreign law" item on `/sovereignty`.
+The comparison with Proton gets **more** precise, not stronger: "files are encrypted with keys
+we hold, which protects them from our storage provider — not from us."
+
+**What couldn't be claimed, and is written down:**
+
+- **Mail isn't covered.** Stalwart writes message content straight to the bucket and reads it
+  from there directly; it doesn't go through our layer and we don't modify it (CLAUDE.md §5.4).
+  The security page says this in our own words, and a limitation that already caused an outage
+  doesn't get left out — it was discovered by accidentally encrypting it, documented at §2f of the design doc `docs/cifra-ficheiros.md` lang:ok
+- **It isn't end-to-end encryption.** We hold the keys, because the product generates
+  thumbnails, edits Office documents in the browser, and serves public links. Saying otherwise
+  would be exactly the mistake `/sovereignty` exists to avoid.
+- **Object storage has no second copy of ours.** Backups cover the databases; Drive files and
+  recordings depend on the provider's durability. This is now written down, instead of the word
+  "backups" covering everything. (Mail's copy **is** complete — verified on 2026-07-30 by
+  restoring it and finding a message's text inside.)
