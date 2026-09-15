@@ -6,12 +6,12 @@ import (
 	"strings"
 )
 
-// buildXlsx constrói um .xlsx mínimo mas válido.
+// buildXlsx builds a minimal but valid .xlsx.
 //
-// Os valores de texto vão como STRINGS EM LINHA (`t="inlineStr"`) em vez de irem para uma tabela de
-// strings partilhada. A tabela partilhada poupa espaço quando há muita repetição; aqui trocamos
-// essa poupança por menos uma parte no pacote e menos um sítio onde os índices podem ficar
-// dessincronizados — que é o modo típico de um xlsx gerado sair corrompido.
+// Text values go as INLINE STRINGS (`t="inlineStr"`) instead of into a shared string table. The
+// shared table saves space when there's a lot of repetition; here we trade that saving for one
+// less part in the package and one less place where indexes can get out of
+// sync — which is the typical way a generated xlsx comes out corrupt.
 func buildXlsx(p Plan) ([]byte, error) {
 	sheets := p.Sheets
 	if len(sheets) == 0 {
@@ -73,9 +73,9 @@ func sheetXML(sh Sheet) string {
 		`<sheetData>` + rows.String() + `</sheetData></worksheet>`
 }
 
-// cellXML escreve uma célula. Um valor que seja mesmo um número entra como NÚMERO, para poder ser
-// somado na folha; tudo o resto entra como texto. Escrever "1.234,00" como número daria um valor
-// errado em silêncio, portanto só passa o que o Go lê como número sem ambiguidade.
+// cellXML writes a cell. A value that really is a number goes in as a NUMBER, so it can be
+// summed in the sheet; everything else goes in as text. Writing "1.234,00" as a number would give
+// a silently wrong value, so only what Go reads unambiguously as a number gets through.
 func cellXML(ref, val string) string {
 	if val == "" {
 		return ""
@@ -86,7 +86,7 @@ func cellXML(ref, val string) string {
 	return fmt.Sprintf(`<c r="%s" t="inlineStr"><is><t xml:space="preserve">%s</t></is></c>`, ref, esc(val))
 }
 
-// colName traduz um índice de coluna para a notação do Excel (0 → A, 26 → AA).
+// colName translates a column index into Excel notation (0 → A, 26 → AA).
 func colName(i int) string {
 	name := ""
 	for i >= 0 {
@@ -96,8 +96,8 @@ func colName(i int) string {
 	return name
 }
 
-// sheetName limpa o nome da folha. O Excel proíbe alguns caracteres e um limite de 31 — um nome
-// inválido não dá erro ao gravar, dá um ficheiro que não abre.
+// sheetName cleans up the sheet name. Excel bans some characters and enforces a 31-char limit —
+// an invalid name does not error out on save, it produces a file that won't open.
 func sheetName(name string, n int) string {
 	name = strings.Map(func(r rune) rune {
 		if strings.ContainsRune(`:\/?*[]`, r) {

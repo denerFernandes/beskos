@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-// fakeProvider devolve uma resposta canned e captura o último Request (agnóstico de rede).
+// fakeProvider returns a canned reply and captures the last Request (network-agnostic).
 type fakeProvider struct {
 	reply string
 	last  Request
@@ -30,14 +30,14 @@ func TestAssistantSummarize(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "Ponto 1") {
-		t.Errorf("resumo inesperado: %q", out)
+		t.Errorf("unexpected summary: %q", out)
 	}
-	// O corpo/assunto devem chegar ao provider.
+	// The body/subject must reach the provider.
 	if !strings.Contains(fp.last.Messages[1].Content, "Corpo do e-mail") {
-		t.Errorf("prompt não contém o corpo do e-mail")
+		t.Errorf("prompt does not contain the email body")
 	}
 	if fp.last.Messages[0].Role != RoleSystem {
-		t.Errorf("primeira mensagem deve ser system")
+		t.Errorf("first message must be system")
 	}
 }
 
@@ -50,7 +50,7 @@ func TestAssistantExtractTasks(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(tasks) != 1 || tasks[0].Title != "Revisar contrato" || tasks[0].Due != "hoje" {
-		t.Errorf("tarefas inesperadas: %+v", tasks)
+		t.Errorf("unexpected tasks: %+v", tasks)
 	}
 	if tasks[0].Assignee != "ana@acme.com" {
 		t.Errorf("assignee = %q, want the address from the roster", tasks[0].Assignee)
@@ -83,55 +83,55 @@ func TestExtractTasksSendsTheRoster(t *testing.T) {
 }
 
 func TestAssistantExtractTasksBadJSON(t *testing.T) {
-	fp := &fakeProvider{reply: "desculpe, não consegui"}
+	fp := &fakeProvider{reply: "sorry, I couldn't"}
 	a := NewAssistant(fp, "pt-BR")
 	if _, err := a.ExtractTasks(context.Background(), "x", "y", nil); err == nil {
-		t.Errorf("esperava erro para resposta não-JSON")
+		t.Errorf("expected error for non-JSON response")
 	}
 }
 
 func TestNewProviderSelection(t *testing.T) {
 	if _, err := New(Config{Provider: "deepseek", APIKey: "k"}); err != nil {
-		t.Errorf("deepseek deveria construir: %v", err)
+		t.Errorf("deepseek should build: %v", err)
 	}
 	if _, err := New(Config{Provider: "deepseek"}); err == nil {
-		t.Errorf("sem API key deveria falhar")
+		t.Errorf("should fail without an API key")
 	}
 	if _, err := New(Config{Provider: "inexistente", APIKey: "k"}); err == nil {
-		t.Errorf("provider desconhecido deveria falhar")
+		t.Errorf("unknown provider should fail")
 	}
-	// A TensorX é o que mantém o conteúdo dentro da UE. Sem este case, o arranque diz "provider
-	// desconhecido", a IA fica desligada em silêncio e a app responde 503 — foi o que aconteceu.
+	// TensorX is what keeps the content inside the EU. Without this case, startup says "unknown
+	// provider", AI is silently disabled, and the app answers 503 — that is what happened.
 	p, err := New(Config{Provider: "tensorx", APIKey: "k"})
 	if err != nil {
-		t.Fatalf("tensorx deveria construir: %v", err)
+		t.Fatalf("tensorx should build: %v", err)
 	}
 	d, ok := p.(*DeepSeek)
 	if !ok {
-		t.Fatalf("tensorx deveria usar o cliente OpenAI-compatível, veio %T", p)
+		t.Fatalf("tensorx should use the OpenAI-compatible client, got %T", p)
 	}
 	if d.baseURL != "https://api.tensorx.ai/v1" {
 		t.Errorf("baseURL = %q", d.baseURL)
 	}
 	if d.model == "" {
-		t.Error("modelo por omissão em falta")
+		t.Error("default model missing")
 	}
-	// O log de arranque escreve este nome. Dizer "deepseek" a falar com a TensorX faz o operador
-	// acreditar que o conteúdo sai da UE quando não sai — e o contrário, no dia em que sair.
+	// The startup log writes this name. Saying "deepseek" while talking to TensorX makes the
+	// operator believe content leaves the EU when it does not — and the opposite, the day it does.
 	if p.Name() != "tensorx" {
-		t.Errorf("Name() = %q, quero tensorx", p.Name())
+		t.Errorf("Name() = %q, want tensorx", p.Name())
 	}
 	if dd, _ := New(Config{Provider: "deepseek", APIKey: "k"}); dd.Name() != "deepseek" {
 		t.Errorf("deepseek: Name() = %q", dd.Name())
 	}
 }
 
-// Testa o DeepSeek contra um servidor OpenAI-compatível fake: valida payload enviado e parsing.
+// Tests DeepSeek against a fake OpenAI-compatible server: validates the sent payload and parsing.
 func TestDeepSeekComplete(t *testing.T) {
 	var gotAuth, gotModel string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/chat/completions" {
-			t.Errorf("path inesperado: %s", r.URL.Path)
+			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
 		gotAuth = r.Header.Get("Authorization")
 		body, _ := io.ReadAll(r.Body)
@@ -139,17 +139,17 @@ func TestDeepSeekComplete(t *testing.T) {
 		_ = json.Unmarshal(body, &req)
 		gotModel = req.Model
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"model":"deepseek-v4","choices":[{"message":{"role":"assistant","content":"olá"}}],"usage":{"total_tokens":42}}`))
+		_, _ = w.Write([]byte(`{"model":"deepseek-v4","choices":[{"message":{"role":"assistant","content":"hello"}}],"usage":{"total_tokens":42}}`))
 	}))
 	defer srv.Close()
 
 	d := NewDeepSeek("secret-key", srv.URL, "deepseek-v4")
-	resp, err := d.Complete(context.Background(), Request{Messages: []Message{{Role: RoleUser, Content: "oi"}}})
+	resp, err := d.Complete(context.Background(), Request{Messages: []Message{{Role: RoleUser, Content: "hi"}}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.Text != "olá" {
-		t.Errorf("texto: %q", resp.Text)
+	if resp.Text != "hello" {
+		t.Errorf("text: %q", resp.Text)
 	}
 	if resp.Usage.TotalTokens != 42 {
 		t.Errorf("usage: %+v", resp.Usage)
@@ -158,7 +158,7 @@ func TestDeepSeekComplete(t *testing.T) {
 		t.Errorf("auth header: %q", gotAuth)
 	}
 	if gotModel != "deepseek-v4" {
-		t.Errorf("model enviado: %q", gotModel)
+		t.Errorf("model sent: %q", gotModel)
 	}
 }
 
@@ -170,6 +170,6 @@ func TestDeepSeekError(t *testing.T) {
 	defer srv.Close()
 	d := NewDeepSeek("bad", srv.URL, "deepseek-v4")
 	if _, err := d.Complete(context.Background(), Request{}); err == nil || !strings.Contains(err.Error(), "invalid key") {
-		t.Errorf("esperava erro de auth, veio: %v", err)
+		t.Errorf("expected an auth error, got: %v", err)
 	}
 }

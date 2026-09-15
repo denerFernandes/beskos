@@ -11,27 +11,27 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// RAG semântico (docs/wiki-features.md §7.2): as páginas published de espaços com ai_indexed são
-// partidas em trechos e embeddadas por um worker idempotente; a busca é kNN por cosseno SEMPRE
-// filtrada pela permissão de quem pergunta (SearchWikiChunks aplica a mesma superfície vis, §7.4).
+// Semantic RAG (docs/wiki-features.md §7.2): published pages of spaces with ai_indexed are
+// split into chunks and embedded by an idempotent worker; search is cosine kNN ALWAYS
+// filtered by the asker's permission (SearchWikiChunks applies the same visibility surface, §7.4).
 
-// Embedder é o cliente de embeddings (implementado por ai.Embedder). Interface local para o pacote
-// wiki não depender do pacote ai (a ligação faz-se no main/httpapi).
+// Embedder is the embeddings client (implemented by ai.Embedder). Local interface so the wiki
+// package does not depend on the ai package (the wiring happens in main/httpapi).
 type Embedder interface {
 	Embed(ctx context.Context, texts []string) ([][]float32, error)
 }
 
-// chunkSize/chunkOverlap: ~500 tokens por trecho com sobreposição de um parágrafo (§7.2).
+// chunkSize/chunkOverlap: ~500 tokens per chunk with a one-paragraph overlap (§7.2).
 const (
-	chunkSize    = 2000 // caracteres por trecho (aprox. 500 tokens)
-	maxChunks    = 64   // teto por página (páginas gigantes não explodem o índice)
-	embedBatch   = 32   // trechos por chamada ao provedor
-	searchLimit  = 8    // default de resultados da busca
-	minChunkText = 20   // trechos mais curtos que isto não valem embedding
+	chunkSize    = 2000 // characters per chunk (approx. 500 tokens)
+	maxChunks    = 64   // cap per page (giant pages don't blow up the index)
+	embedBatch   = 32   // chunks per call to the provider
+	searchLimit  = 8    // default number of search results
+	minChunkText = 20   // chunks shorter than this aren't worth embedding
 )
 
-// chunkText parte o texto em trechos de ~chunkSize caracteres em fronteiras de parágrafo, repetindo
-// o último parágrafo como sobreposição. Determinístico e puro (testável).
+// chunkText splits the text into ~chunkSize-character chunks at paragraph boundaries, repeating
+// the last paragraph as overlap. Deterministic and pure (testable).
 func chunkText(text string) []string {
 	paras := strings.Split(text, "\n")
 	var chunks []string
@@ -48,7 +48,7 @@ func chunkText(text string) []string {
 		if p == "" {
 			continue
 		}
-		// Parágrafo maior que um trecho: corta duro em fatias de chunkSize.
+		// Paragraph bigger than a chunk: hard-cut it into chunkSize-sized slices.
 		for len(p) > chunkSize {
 			flush()
 			cut := p[:chunkSize]
@@ -57,7 +57,7 @@ func chunkText(text string) []string {
 		}
 		if cur.Len() > 0 && cur.Len()+len(p)+1 > chunkSize {
 			flush()
-			// Sobreposição: o novo trecho começa com o último parágrafo do anterior.
+			// Overlap: the new chunk starts with the previous one's last paragraph.
 			if lastPara != "" && len(lastPara) < chunkSize/2 {
 				cur.WriteString(lastPara)
 				cur.WriteByte('\n')
@@ -77,7 +77,7 @@ func chunkText(text string) []string {
 	return chunks
 }
 
-// vecLiteral formata um embedding como literal pgvector "[0.1,0.2,...]" (o SQL casta ::vector).
+// vecLiteral formats an embedding as a pgvector literal "[0.1,0.2,...]" (the SQL casts ::vector).
 func vecLiteral(v []float32) string {
 	var b strings.Builder
 	b.WriteByte('[')
@@ -91,9 +91,9 @@ func vecLiteral(v []float32) string {
 	return b.String()
 }
 
-// EmbedPending (re)embedda até maxPages páginas desatualizadas e limpa chunks obsoletos. Idempotente:
-// pode correr em qualquer cadência; falha numa página não trava as restantes. Devolve quantas páginas
-// foram processadas.
+// EmbedPending (re)embeds up to maxPages stale pages and clears obsolete chunks. Idempotent:
+// it can run on any cadence; a failure on one page does not block the rest. Returns how many pages
+// were processed.
 func (s *Service) EmbedPending(ctx context.Context, e Embedder, maxPages int32) (int, error) {
 	if _, err := s.q.DeleteStaleWikiChunks(ctx); err != nil {
 		return 0, fmt.Errorf("wiki embed: cleanup stale chunks: %w", err)
@@ -118,15 +118,15 @@ func (s *Service) EmbedPending(ctx context.Context, e Embedder, maxPages int32) 
 
 func (s *Service) embedPage(ctx context.Context, e Embedder, p db.ListWikiPagesNeedingEmbeddingRow) error {
 	chunks := chunkText(p.BodyText)
-	// Página não-vazia mas abaixo do mínimo de um trecho: indexa na mesma como um único chunk —
-	// senão ficaria eternamente na lista de pendentes (sem chunk fresco) e fora do RAG.
+	// Non-empty page but below the minimum chunk size: index it anyway as a single chunk —
+	// otherwise it would stay forever in the pending list (no fresh chunk) and out of RAG.
 	if len(chunks) == 0 {
 		if t := strings.TrimSpace(p.BodyText); t != "" {
 			chunks = []string{t}
 		}
 	}
 	if len(chunks) == 0 {
-		// Nada embeddável: garante que não sobra índice antigo desta página.
+		// Nothing embeddable: make sure no stale index is left for this page.
 		if err := s.q.DeleteWikiChunksFrom(ctx, db.DeleteWikiChunksFromParams{PageID: p.ID, FromIndex: 0}); err != nil {
 			return fmt.Errorf("wiki embed: clear page %s: %w", p.ID, err)
 		}
@@ -135,7 +135,7 @@ func (s *Service) embedPage(ctx context.Context, e Embedder, p db.ListWikiPagesN
 	for start := 0; start < len(chunks); start += embedBatch {
 		end := min(start+embedBatch, len(chunks))
 		batch := chunks[start:end]
-		// O título entra no input do embedding (contexto), mas o chunk_text guardado é o trecho cru.
+		// The title goes into the embedding input (context), but the stored chunk_text is the raw chunk.
 		inputs := make([]string, len(batch))
 		for i, c := range batch {
 			inputs[i] = p.Title + "\n\n" + c
@@ -153,7 +153,7 @@ func (s *Service) embedPage(ctx context.Context, e Embedder, p db.ListWikiPagesN
 			}
 		}
 	}
-	// Apara o que sobrou de uma versão anterior maior.
+	// Trims whatever is left over from a previous, larger version.
 	if err := s.q.DeleteWikiChunksFrom(ctx, db.DeleteWikiChunksFromParams{
 		PageID: p.ID, FromIndex: int32(len(chunks)),
 	}); err != nil {
@@ -162,8 +162,8 @@ func (s *Service) embedPage(ctx context.Context, e Embedder, p db.ListWikiPagesN
 	return nil
 }
 
-// SearchChunks embedda a pergunta e devolve os trechos mais próximos QUE O UTILIZADOR PODE VER
-// (a query aplica tenant + vis + ai_indexed + published). limit<=0 usa o default.
+// SearchChunks embeds the question and returns the closest chunks THE USER IS ALLOWED TO SEE
+// (the query applies tenant + visibility + ai_indexed + published). limit<=0 uses the default.
 func (s *Service) SearchChunks(ctx context.Context, e Embedder, tenantID, userID uuid.UUID, query string, limit int32) ([]db.SearchWikiChunksRow, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -176,8 +176,8 @@ func (s *Service) SearchChunks(ctx context.Context, e Embedder, tenantID, userID
 	if err != nil {
 		return nil, fmt.Errorf("wiki search: embed query: %w", err)
 	}
-	// B9: busca híbrida — 1ª passagem com pré-filtro FTS (barato, GIN); se não devolver nada
-	// (vocabulário diferente do texto, típico de perguntas), repete só com o kNN semântico (recall).
+	// B9: hybrid search — 1st pass with an FTS pre-filter (cheap, GIN); if it returns nothing
+	// (vocabulary different from the text, typical of questions), retry with semantic kNN only (recall).
 	params := db.SearchWikiChunksParams{
 		QueryEmbedding: vecLiteral(vecs[0]), TenantID: tenantID, UserID: userID,
 		MaxResults: limit, UseFts: true, QueryText: query,
@@ -193,9 +193,9 @@ func (s *Service) SearchChunks(ctx context.Context, e Embedder, tenantID, userID
 	return s.q.SearchWikiChunks(ctx, params)
 }
 
-// SearchPagesText é a busca LEXICAL, direta às páginas e sem embeddings. Serve a instalação sem
-// EMBEDDINGS_API_KEY: aí não existem chunks (só nascem no embedPage), por isso a alternativa não
-// pode ser procurar neles. Casa palavras em vez de significado — para termos exatos chega.
+// SearchPagesText is the LEXICAL search, direct against pages and with no embeddings. Serves
+// installs without EMBEDDINGS_API_KEY: there, chunks don't exist (they're only born in embedPage),
+// so the fallback can't search them. Matches words rather than meaning — enough for exact terms.
 func (s *Service) SearchPagesText(ctx context.Context, tenantID, userID uuid.UUID, query string, limit int32) ([]db.SearchWikiPagesTextRow, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {

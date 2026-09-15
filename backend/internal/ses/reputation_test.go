@@ -2,8 +2,8 @@ package ses
 
 import "testing"
 
-// As taxas decidem se um cliente é suspenso. Um erro aqui suspende quem não devia, ou deixa passar
-// quem devia — e nos dois casos o estrago é da conta inteira.
+// The rates decide whether a customer gets suspended. A bug here suspends someone who shouldn't
+// be, or lets through someone who should — and in both cases the damage is to the whole account.
 func TestRates(t *testing.T) {
 	cases := []struct {
 		name          string
@@ -12,11 +12,12 @@ func TestRates(t *testing.T) {
 		complaintRate float64
 	}{
 		{"normal", Reputation{Sent: 1000, Bounced: 20, Complaints: 1}, 0.02, 0.001},
-		{"devoluções altas", Reputation{Sent: 200, Bounced: 30, Complaints: 0}, 0.15, 0},
-		// Sem envios não há taxa. Dividir por zero daria NaN, e NaN comparado com o limite é sempre
-		// falso — um cliente que nunca enviou passaria despercebido ou seria suspenso, conforme o
-		// lado da comparação. Zero é a resposta certa e explícita.
-		{"nunca enviou", Reputation{}, 0, 0},
+		{"high bounces", Reputation{Sent: 200, Bounced: 30, Complaints: 0}, 0.15, 0},
+		// With no sends there is no rate. Dividing by zero would give NaN, and NaN compared against
+		// the threshold is always false — a customer who never sent anything would slip through
+		// unnoticed or get suspended, depending on which side of the comparison it lands on. Zero is
+		// the correct, explicit answer.
+		{"never sent", Reputation{}, 0, 0},
 	}
 	for _, c := range cases {
 		if got := c.r.BounceRate(); got != c.bounceRate {
@@ -28,8 +29,8 @@ func TestRates(t *testing.T) {
 	}
 }
 
-// As devoluções permanentes e temporárias contam ambas: um endereço que devolve por caixa cheia
-// conta para a reputação tal como um que não existe.
+// Permanent and transient bounces both count: an address that bounces for a full mailbox counts
+// toward reputation the same as one that doesn't exist.
 func TestBouncesSumBothTypes(t *testing.T) {
 	r := Reputation{Sent: 100, Bounced: 3 + 2}
 	if got := r.BounceRate(); got != 0.05 {

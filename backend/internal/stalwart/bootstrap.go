@@ -7,29 +7,29 @@ import (
 	"fmt"
 )
 
-// Servidor novo sobe em bootstrap mode: qualquer x:* (exceto x:Bootstrap) retorna forbidden.
-// É preciso completar o bootstrap UMA vez e reiniciar o processo (DIVERGENCES §D3).
-// Modelamos como passo de setup idempotente do control plane (não confundir com provisionar tenant).
+// A fresh server comes up in bootstrap mode: any x:* method (except x:Bootstrap) returns forbidden.
+// Bootstrap has to be completed ONCE and the process restarted (DIVERGENCES §D3).
+// We model this as an idempotent control-plane setup step (not to be confused with provisioning a tenant).
 
 type BootstrapInput struct {
-	ServerHostname string // ex.: mail.beskos.app
-	DefaultDomain  string // ex.: beskos.app
+	ServerHostname string // e.g.: mail.beskos.app
+	DefaultDomain  string // e.g.: beskos.app
 }
 
-// BootstrapResult traz o admin permanente gerado (secret mostrado só uma vez).
+// BootstrapResult carries the generated permanent admin (secret shown only once).
 type BootstrapResult struct {
 	Username string `json:"username"`
 	Secret   string `json:"secret"`
 }
 
-// Bootstrap completa o setup inicial. Após chamar, é OBRIGATÓRIO reiniciar o processo Stalwart.
+// Bootstrap completes the initial setup. After calling it, restarting the Stalwart process is MANDATORY.
 func (c *Client) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapResult, error) {
 	args := map[string]any{
 		"update": map[string]any{
 			"singleton": map[string]any{
 				"serverHostname":        in.ServerHostname,
 				"defaultDomain":         in.DefaultDomain,
-				"requestTlsCertificate": false, // evita ACME no dev; produção liga isto
+				"requestTlsCertificate": false, // avoids ACME in dev; production turns this on
 				"generateDkimKeys":      true,
 			},
 		},
@@ -55,14 +55,15 @@ func (c *Client) Bootstrap(ctx context.Context, in BootstrapInput) (*BootstrapRe
 	return &res, nil
 }
 
-// IsBootstrapped tenta uma leitura administrativa leve; se o servidor ainda está em bootstrap
-// mode a chamada falha com forbidden. Usado pelo control plane para decidir se precisa bootstrapar.
+// IsBootstrapped attempts a lightweight administrative read; if the server is still in bootstrap
+// mode the call fails with forbidden. Used by the control plane to decide whether it needs to bootstrap.
 func (c *Client) IsBootstrapped(ctx context.Context) (bool, error) {
 	_, err := c.call(ctx, "x:Domain/query", map[string]any{})
 	if err == nil {
 		return true, nil
 	}
-	// Bootstrap mode responde forbidden — pode vir como erro de request (APIError) ou de método.
+	// Bootstrap mode responds with forbidden — it can come as a request-level error (APIError) or
+	// a method-level one.
 	var apiErr *APIError
 	if errors.As(err, &apiErr) && apiErr.Type != "" {
 		return false, nil

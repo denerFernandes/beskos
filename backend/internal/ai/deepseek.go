@@ -12,25 +12,26 @@ import (
 	"time"
 )
 
-// A API compatível com OpenAI (DeepSeek incluído) EXIGE que o nome de uma função case
-// ^[a-zA-Z0-9_-]+$ — sem pontos. Os nomes de ferramenta do domínio usam ponto (mail.search),
-// portanto trocam-se por underscore ao enviar e revertem-se ao receber. Nenhum nome de ferramenta
-// usa underscore, por isso a troca é uma bijeção segura — e vive SÓ nesta camada de tradução, para
-// o resto do código continuar a ver mail.search.
+// The OpenAI-compatible API (DeepSeek included) REQUIRES a function name to match
+// ^[a-zA-Z0-9_-]+$ — no dots. Domain tool names use a dot (mail.search), so they get swapped for
+// an underscore when sending and reverted on receipt. No tool name uses an underscore, so the swap
+// is a safe bijection — and it lives ONLY in this translation layer, so the rest of the code keeps
+// seeing mail.search.
 func wireToolName(s string) string   { return strings.ReplaceAll(s, ".", "_") }
 func domainToolName(s string) string { return strings.ReplaceAll(s, "_", ".") }
 
-// DeepSeek implementa Provider via a API de chat compatível com OpenAI
-// (POST {baseURL}/chat/completions). Provider padrão do Beskos.
+// DeepSeek implements Provider via the OpenAI-compatible chat API
+// (POST {baseURL}/chat/completions). Beskos's default provider.
 type DeepSeek struct {
 	apiKey    string
 	baseURL   string
 	model     string
-	reasoning bool // v4 "pensa" antes de responder; desligado por defeito (latência)
+	reasoning bool // v4 "thinks" before answering; off by default (latency)
 	http      *http.Client
-	// name identifica QUEM serve o modelo (não o modelo). O mesmo cliente serve a DeepSeek direta
-	// e a TensorX, que fala o mesmo protocolo — e a diferença entre as duas é a jurisdição onde o
-	// conteúdo do cliente é tratado. O log de arranque tem de dizer a verdade sobre isso.
+	// name identifies WHO serves the model (not the model itself). The same client serves DeepSeek
+	// directly and TensorX, which speaks the same protocol — and the difference between the two is
+	// the jurisdiction where the customer's content is processed. The startup log has to tell the
+	// truth about that.
 	name string
 }
 
@@ -39,25 +40,27 @@ func NewDeepSeek(apiKey, baseURL, model string) *DeepSeek {
 		baseURL = "https://api.deepseek.com"
 	}
 	if model == "" {
-		// A DeepSeek descontinuou "deepseek-chat"; a API só aceita os v4 (deepseek-v4-flash /
-		// deepseek-v4-pro), que são modelos de reasoning. Flash é o default (mais barato/rápido);
-		// troca-se por AI_MODEL. O texto vem em `content` (o `reasoning_content` é ignorado).
+		// DeepSeek discontinued "deepseek-chat"; the API now only accepts the v4 models
+		// (deepseek-v4-flash / deepseek-v4-pro), which are reasoning models. Flash is the default
+		// (cheaper/faster); swap it via AI_MODEL. The text comes in `content` (`reasoning_content`
+		// is ignored).
 		model = "deepseek-v4-flash"
 	}
 	return &DeepSeek{
 		apiKey:  apiKey,
 		baseURL: baseURL,
 		model:   model,
-		// Reasoning OFF por defeito: o v4 gera reasoning_content ANTES do texto e, em streaming, o
-		// utilizador fica segundos a ver o nada (parece lento). Desligado responde imediatamente, como
-		// o antigo deepseek-chat. AI_REASONING=on reativa (respostas mais fortes, mais lentas).
+		// Reasoning OFF by default: v4 generates reasoning_content BEFORE the text, and in
+		// streaming the user stares at nothing for seconds (feels slow). Off, it answers
+		// immediately, like the old deepseek-chat. AI_REASONING=on re-enables it (stronger
+		// answers, slower).
 		reasoning: os.Getenv("AI_REASONING") == "on",
 		http:      &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
-// thinkingParam devolve o controlo de reasoning para o corpo do pedido: {"type":"disabled"} quando
-// off (nil quando on, para o modelo usar o default dele). Só afeta os modelos v4 da DeepSeek.
+// thinkingParam returns the reasoning control for the request body: {"type":"disabled"} when
+// off (nil when on, so the model uses its own default). Only affects DeepSeek's v4 models.
 func (d *DeepSeek) thinkingParam() *thinkingOpt {
 	if d.reasoning {
 		return nil
@@ -72,9 +75,9 @@ func (d *DeepSeek) Name() string {
 	return d.name
 }
 
-// Formato de fio compatível com OpenAI. Os tipos wire* existem para que o domínio (Message, Tool,
-// ToolCall) não fique preso ao formato de um fornecedor: trocar de provider é escrever outra
-// tradução, não mudar os consumidores.
+// OpenAI-compatible wire format. The wire* types exist so the domain (Message, Tool, ToolCall)
+// stays independent of any one provider's format: switching providers means writing another
+// translation, not changing the consumers.
 type chatRequest struct {
 	Model       string       `json:"model"`
 	Messages    []wireMsg    `json:"messages"`
@@ -85,7 +88,7 @@ type chatRequest struct {
 	Thinking    *thinkingOpt `json:"thinking,omitempty"`
 }
 
-// thinkingOpt controla o reasoning dos modelos DeepSeek v4 ({"type":"disabled"} = sem pensar).
+// thinkingOpt controls reasoning for DeepSeek v4 models ({"type":"disabled"} = no thinking).
 type thinkingOpt struct {
 	Type string `json:"type"`
 }
@@ -98,7 +101,7 @@ type wireMsg struct {
 }
 
 type wireTool struct {
-	Type     string   `json:"type"` // sempre "function"
+	Type     string   `json:"type"` // always "function"
 	Function wireFunc `json:"function"`
 }
 
@@ -110,7 +113,7 @@ type wireFunc struct {
 
 type wireCall struct {
 	ID       string      `json:"id"`
-	Type     string      `json:"type"` // sempre "function"
+	Type     string      `json:"type"` // always "function"
 	Function wireCallFun `json:"function"`
 }
 
@@ -132,8 +135,8 @@ type chatResponse struct {
 	} `json:"error"`
 }
 
-// toWire traduz o domínio para o formato OpenAI. O nome da ferramenta viaja em "name" nas
-// mensagens de resultado porque alguns fornecedores compatíveis ainda o exigem.
+// toWire translates the domain into the OpenAI format. The tool name travels in "name" on
+// result messages because some compatible providers still require it.
 func toWire(msgs []Message) []wireMsg {
 	out := make([]wireMsg, 0, len(msgs))
 	for _, m := range msgs {

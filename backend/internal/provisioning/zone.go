@@ -18,8 +18,8 @@ func AugmentZoneForSES(zone, domain, selector, publicKey, brand, mailFromHost, m
 	lines := strings.Split(strings.TrimRight(zone, "\n"), "\n")
 	for i, line := range lines {
 		if strings.Contains(line, "v=spf1") && !strings.Contains(line, spfInclude) {
-			// A SPF do subdomínio de MAIL FROM (bounce) fica intacta — precisa do include:amazonses
-			// e NÃO leva o _spf.<brand> (senão duplicaria no 2º passe / desalinhava).
+			// The MAIL FROM subdomain's SPF (bounce) stays untouched — it needs include:amazonses
+			// and must NOT carry _spf.<brand> (or it would duplicate on the 2nd pass / go misaligned).
 			if mailFromHost != "" && strings.HasPrefix(strings.TrimSpace(line), mailFromHost+".") {
 				continue
 			}
@@ -34,7 +34,7 @@ func AugmentZoneForSES(zone, domain, selector, publicKey, brand, mailFromHost, m
 	if !strings.Contains(out, "_dmarc."+domain) {
 		out += fmt.Sprintf("\n_dmarc.%s. IN TXT \"v=DMARC1; p=quarantine; rua=mailto:dmarc@%s\"", domain, brand)
 	}
-	// Custom MAIL FROM: MX (bounces) + SPF do subdomínio. O SES exige ambos para verificar o domínio.
+	// Custom MAIL FROM: MX (bounces) + subdomain SPF. SES requires both to verify the domain.
 	if mailFromHost != "" && mailFromMX != "" && !strings.Contains(out, mailFromHost+". IN MX") {
 		out += fmt.Sprintf("\n%s. IN MX 10 %s.", mailFromHost, mailFromMX)
 		out += fmt.Sprintf("\n%s. IN TXT \"v=spf1 include:amazonses.com ~all\"", mailFromHost)
@@ -42,9 +42,9 @@ func AugmentZoneForSES(zone, domain, selector, publicKey, brand, mailFromHost, m
 	return out + "\n"
 }
 
-// StripStalwartDKIM remove da zona os registos DKIM gerados pelo Stalwart (TXT `..._domainkey...`
-// com `DKIM1`). No modo relay o Stalwart não assina (DKIM Manual), então esses registos não devem
-// chegar ao cliente — quem assina é o SES com a nossa chave (via AugmentZoneForSES).
+// StripStalwartDKIM removes the DKIM records Stalwart generated from the zone (TXT `..._domainkey...`
+// with `DKIM1`). In relay mode Stalwart doesn't sign (Manual DKIM), so these records must not reach
+// the customer — SES signs with our own key instead (via AugmentZoneForSES).
 // A DKIM record does not fit on one line, and Stalwart writes the long ones in the parenthesised
 // form that BIND allows:
 //
@@ -80,8 +80,8 @@ func StripStalwartDKIM(zone string) string {
 	return strings.Join(kept, "\n")
 }
 
-// spfWithInclude insere um mecanismo `include:...` antes do mecanismo terminal (-all/~all/?all);
-// sem terminal, anexa ao fim do valor.
+// spfWithInclude inserts an `include:...` mechanism before the terminal mechanism (-all/~all/?all);
+// with no terminal, it appends to the end of the value.
 func spfWithInclude(line, include string) string {
 	for _, term := range []string{"-all", "~all", "?all", "+all"} {
 		if i := strings.Index(line, term); i >= 0 {
@@ -91,9 +91,9 @@ func spfWithInclude(line, include string) string {
 	return line + " " + include
 }
 
-// DNSRecord é um registro pronto para o cliente publicar, estruturado para a UI (tela dns_pending).
-// Purpose diz PARA QUE o registro serve (mx | spf | dkim | dkim_ses | dmarc | other) — a UI agrupa
-// por ele e explica que TODOS são obrigatórios para receber/enviar e-mail.
+// DNSRecord is a record ready for the customer to publish, structured for the UI (dns_pending screen).
+// Purpose says WHAT the record is FOR (mx | spf | dkim | dkim_ses | dmarc | other) — the UI groups
+// by it and explains that ALL of them are required to receive/send email.
 type DNSRecord struct {
 	Host    string `json:"host"`
 	Type    string `json:"type"`
@@ -101,11 +101,11 @@ type DNSRecord struct {
 	Purpose string `json:"purpose"`
 }
 
-// classify deduz o propósito do registro pelo tipo/host/valor.
+// classify infers the record's purpose from its type/host/value.
 func classify(r DNSRecord) string {
 	switch {
 	case r.Type == "MX" && strings.Contains(r.Value, "amazonses.com"):
-		return "mailfrom" // MX do custom MAIL FROM (bounces do SES) — faz parte do ENVIO
+		return "mailfrom" // MX for the custom MAIL FROM (SES bounces) — part of SENDING
 	case r.Type == "MX":
 		return "mx"
 	case strings.Contains(r.Value, "v=spf1"):
@@ -117,21 +117,21 @@ func classify(r DNSRecord) string {
 	case strings.Contains(r.Host, "_domainkey"):
 		return "dkim"
 	case r.Type == "SRV":
-		return "srv" // descoberta automática de clientes (IMAP/JMAP/CalDAV/…): conveniência, não requisito
+		return "srv" // automatic client discovery (IMAP/JMAP/CalDAV/…): a convenience, not a requirement
 	case strings.Contains(r.Host, "mta-sts"):
-		return "mta_sts" // política de transporte estrito (reforço)
+		return "mta_sts" // strict transport policy (hardening)
 	case strings.HasPrefix(r.Host, "_smtp._tls"):
-		return "tls_rpt" // relatórios de falhas de TLS (reforço)
-	// O Stalwart emite "ua-auto-config" (com hífen); outros servidores usam autoconfig/autodiscover.
+		return "tls_rpt" // TLS failure reports (hardening)
+	// Stalwart emits "ua-auto-config" (hyphenated); other servers use autoconfig/autodiscover.
 	case strings.Contains(r.Host, "auto-config") || strings.Contains(r.Host, "autoconfig") || strings.Contains(r.Host, "autodiscover"):
-		return "autoconfig" // configuração automática dos clientes
+		return "autoconfig" // automatic client configuration
 	default:
 		return "other"
 	}
 }
 
-// ParseZone converte o trecho de zona BIND devolvido pelo Stalwart (dnsZoneFile) em registros
-// estruturados. Formato de cada linha: "<host>. IN <TYPE> <value...>". Linhas inválidas são ignoradas.
+// ParseZone converts the BIND zone excerpt returned by Stalwart (dnsZoneFile) into structured
+// records. Format of each line: "<host>. IN <TYPE> <value...>". Invalid lines are ignored.
 func ParseZone(zone string) []DNSRecord {
 	var out []DNSRecord
 	for _, raw := range strings.Split(zone, "\n") {
@@ -140,7 +140,7 @@ func ParseZone(zone string) []DNSRecord {
 			continue
 		}
 		fields := strings.Fields(line)
-		// Menor forma válida: host IN TYPE value
+		// Smallest valid form: host IN TYPE value
 		in := indexOf(fields, "IN")
 		if in < 1 || in+2 >= len(fields) {
 			continue

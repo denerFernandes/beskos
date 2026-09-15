@@ -6,33 +6,34 @@ import (
 	"fmt"
 )
 
-// Armazenamento de blocos do Stalwart — onde ele guarda a mensagem crua e os anexos.
+// Stalwart's blob store — where it keeps the raw message and attachments.
 //
-// É um objeto SINGLETON no registo dele (`x:BlobStore`, ver resources/schema/schema.json do
-// Stalwart). Mexer aqui muda onde o correio é escrito, por isso as duas operações estão separadas:
-// ler devolve o que lá está tal e qual, para se poder guardar antes de escrever por cima.
+// It is a SINGLETON object in its registry (`x:BlobStore`, see Stalwart's
+// resources/schema/schema.json). Touching this changes where mail is written, so the two
+// operations are kept separate: reading returns exactly what's there, so it can be saved before
+// being overwritten.
 
-// BlobStore é a configuração como o Stalwart a devolve. Fica em JSON cru de propósito: as variantes
-// são muitas (Default, S3, Azure, FileSystem, PostgreSql…) e este código só precisa de as
-// transportar, não de as compreender. Modelar todas seria inventar trabalho para o dia em que o
-// Stalwart acrescentar mais uma.
+// BlobStore is the configuration as Stalwart returns it. It stays as raw JSON on purpose: there
+// are many variants (Default, S3, Azure, FileSystem, PostgreSql...) and this code only needs to
+// carry them, not understand them. Modeling all of them would be inventing work for the day
+// Stalwart adds one more.
 type BlobStore struct {
 	ID     string
 	Config json.RawMessage
 }
 
-// singletonID é o id dos objetos únicos do registo do Stalwart. Não é convenção nossa: no código
-// dele é o número 20080258862541, que na base32 de alfabeto próprio que ele usa para ids se escreve
-// exatamente assim. Um `get` com `ids: null` devolve lista vazia e o `query` nem existe para estes
-// objetos, por isso o id tem de ir explícito.
+// singletonID is the id of Stalwart's registry singleton objects. It's not our own convention: in
+// its own code it's the number 20080258862541, which in the custom base32 alphabet it uses for
+// ids spells out exactly this. A `get` with `ids: null` returns an empty list, and `query` doesn't
+// even exist for these objects, so the id has to be sent explicitly.
 const singletonID = "singleton"
 
-// GetBlobStoreRaw devolve a resposta do Stalwart tal e qual, para diagnóstico.
+// GetBlobStoreRaw returns Stalwart's response exactly as-is, for diagnostics.
 func (c *Client) GetBlobStoreRaw(ctx context.Context) (json.RawMessage, error) {
 	return c.call(ctx, "x:BlobStore/get", map[string]any{"ids": []string{singletonID}})
 }
 
-// GetBlobStore lê a configuração atual.
+// GetBlobStore reads the current configuration.
 func (c *Client) GetBlobStore(ctx context.Context) (*BlobStore, error) {
 	raw, err := c.GetBlobStoreRaw(ctx)
 	if err != nil {
@@ -50,7 +51,7 @@ func (c *Client) GetBlobStore(ctx context.Context) (*BlobStore, error) {
 	return &BlobStore{ID: singletonID, Config: r.List[0]}, nil
 }
 
-// S3BlobStore é a variante S3, com os nomes de campo do esquema do Stalwart.
+// S3BlobStore is the S3 variant, with Stalwart's schema field names.
 type S3BlobStore struct {
 	Bucket    string
 	Endpoint  string
@@ -60,11 +61,11 @@ type S3BlobStore struct {
 	KeyPrefix string
 }
 
-// SetBlobStoreS3 aponta o armazenamento de blocos para um destino S3.
+// SetBlobStoreS3 points the blob store at an S3 destination.
 //
-// O `verifyAfterWrite` fica LIGADO: o Stalwart faz um HEAD depois de cada escrita para se defender
-// de armazenamentos que confirmam antes de tornar o objeto visível. Desligá-lo pouparia uma ida à
-// rede por mensagem e trocaria isso por perder correio em silêncio.
+// `verifyAfterWrite` stays ON: Stalwart does a HEAD after every write to guard against stores
+// that acknowledge before making the object visible. Turning it off would save one network round
+// trip per message and trade that for losing mail silently.
 func (c *Client) SetBlobStoreS3(ctx context.Context, id string, s S3BlobStore) error {
 	cfg := map[string]any{
 		"@type":  "S3",
@@ -104,14 +105,14 @@ func mustJSON(v any) []byte {
 	return b
 }
 
-// ReloadSettings faz o Stalwart reler a configuração do registo.
+// ReloadSettings makes Stalwart re-read the registry configuration.
 //
-// É NECESSÁRIO depois de mudar o armazenamento de blocos: o `set` grava a definição, mas o processo
-// continua a usar a que tem em memória — e o correio novo continua a ir para o sítio antigo, sem
-// erro nenhum, que é a forma mais silenciosa possível de uma alteração não acontecer.
+// This is REQUIRED after changing the blob store: `set` saves the definition, but the process
+// keeps using the one it holds in memory — and new mail keeps going to the old location, with no
+// error at all, which is the quietest possible way for a change to not happen.
 //
-// No modelo dele isto é um objeto de ação criado no registo, não um método próprio: `x:Action/set`
-// com a variante `ReloadSettings`. A alteração é difundida pelo cluster.
+// In its model this is an action object created in the registry, not a method of its own:
+// `x:Action/set` with the `ReloadSettings` variant. The change is broadcast across the cluster.
 func (c *Client) ReloadSettings(ctx context.Context) error {
 	raw, err := c.call(ctx, "x:Action/set", map[string]any{
 		"create": map[string]any{"a1": map[string]any{"@type": "ReloadSettings"}},

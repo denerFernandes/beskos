@@ -1,40 +1,40 @@
-// Package filecrypt cifra objetos grandes em blocos, de forma a permitir leitura por intervalos.
+// Package filecrypt encrypts large objects in blocks, so as to allow reading by range.
 //
-// PORQUÊ EM BLOCOS e não uma passagem única: o produto serve vídeo com avanço e retrocesso
-// (http.ServeContent honra o cabeçalho Range) e o sync do computador lê ficheiros aos pedaços para
-// comparar hashes. Uma cifra que obrigue a decifrar do princípio para chegar ao meio de um ficheiro
-// de 2 GB tornaria as duas coisas inutilizáveis. Com blocos de tamanho fixo, um intervalo de bytes
-// traduz-se em blocos e decifram-se só esses.
+// WHY IN BLOCKS and not a single pass: the product serves video with seek forward/back
+// (http.ServeContent honors the Range header) and the desktop sync reads files in chunks to
+// compare hashes. An encryption that requires decrypting from the start to reach the middle of a
+// 2 GB file would make both of those unusable. With fixed-size blocks, a byte range
+// translates into blocks, and only those get decrypted.
 //
-// A CHAVE DO OBJETO VIAJA DENTRO DO OBJETO, embrulhada. Isto não é detalhe: é o que torna a escrita
-// ATÓMICA. Se a chave vivesse numa tabela à parte, gravar um ficheiro seriam duas escritas — o
-// objeto e a linha — e qualquer ordem tem uma janela de falha: escrever o objeto primeiro deixa
-// cifrado sem chave (dados perdidos), escrever a linha primeiro deixa linhas órfãs. Com a chave
-// embrulhada no cabeçalho há UMA escrita, e o PUT do armazenamento ou acontece por inteiro ou não
-// acontece. Não há ordem para acertar porque não há duas coisas para ordenar.
+// THE OBJECT'S KEY TRAVELS INSIDE THE OBJECT, wrapped. This is not a detail: it's what makes the
+// write ATOMIC. If the key lived in a separate table, saving a file would be two writes — the
+// object and the row — and either order has a failure window: writing the object first leaves
+// ciphertext with no key (data lost), writing the row first leaves orphan rows. With the key
+// wrapped in the header there is ONE write, and the storage PUT either happens in full or does
+// not happen at all. There is no order to get right because there are no two things to order.
 //
-// Quem guarda o objeto fica com a chave embrulhada — e não a consegue abrir: precisaria da chave do
-// tenant (na nossa base de dados) e da KEK (no nosso ambiente), e não tem nenhuma das duas.
+// Whoever stores the object ends up with the wrapped key — and cannot open it: it would need the
+// tenant's key (in our database) and the KEK (in our environment), and it has neither.
 //
-// FORMATO
+// FORMAT
 //
-//	cabeçalho (32) | chave embrulhada (n) | bloco 0 | bloco 1 | … | bloco n
+//	header (32) | wrapped key (n) | block 0 | block 1 | … | block n
 //
-//	cabeçalho: "BSK1" (4) | versão (1) | opções (1) | reservado (2) | tamanho de bloco (4)
-//	           | tamanho em claro (8) | prefixo do nonce (4) | versão da KEK (2)
-//	           | tamanho da chave embrulhada (2) | reservado (4)
-//	bloco:     AES-256-GCM do pedaço em claro, com selo de 16 bytes no fim
+//	header:  "BSK1" (4) | version (1) | options (1) | reserved (2) | block size (4)
+//	         | plaintext size (8) | nonce prefix (4) | KEK version (2)
+//	         | wrapped key size (2) | reserved (4)
+//	block:   AES-256-GCM of the plaintext chunk, with a 16-byte tag at the end
 //
-// A MAGIA NO CABEÇALHO distingue um objeto cifrado de um objeto anterior à cifra. É o que permite
-// migrar o conteúdo antigo sem paragem: enquanto um objeto não for reescrito, não tem magia e é
-// servido tal como está.
+// THE MAGIC IN THE HEADER distinguishes an encrypted object from an object that predates
+// encryption. It's what allows migrating the old content without downtime: as long as an object
+// hasn't been rewritten, it has no magic and is served as-is.
 //
-// NONCE: prefixo aleatório de 4 bytes ‖ índice do bloco em 8 bytes. Como a chave é única por
-// objeto, o índice já bastaria; o prefixo é cinto e suspensórios.
+// NONCE: 4-byte random prefix ‖ block index in 8 bytes. Since the key is unique per object,
+// the index alone would be enough; the prefix is belt and suspenders.
 //
-// DADOS ASSOCIADOS: índice do bloco e marca de último bloco entram autenticados mas não cifrados.
-// Sem isso, quem controlasse o armazenamento podia reordenar blocos ou cortar o fim do ficheiro sem
-// que a decifra desse erro — o selo de cada bloco continuaria válido isoladamente.
+// ASSOCIATED DATA: the block index and the last-block marker go in authenticated but not
+// encrypted. Without that, whoever controlled the storage could reorder blocks or cut off the end
+// of the file without decryption raising an error — each block's tag would remain valid in isolation.
 package filecrypt
 
 import (
@@ -46,60 +46,60 @@ import (
 )
 
 const (
-	// Magic identifica um objeto cifrado por nós. Muda se o formato mudar de forma incompatível.
+	// Magic identifies an object we encrypted. Changes if the format changes incompatibly.
 	Magic = "BSK1"
 
-	// FixedHeaderSize é a parte de tamanho fixo do cabeçalho. A chave embrulhada vem logo a seguir
-	// e o seu comprimento está aqui declarado — é o que permite saber onde começa o bloco 0 depois
-	// de ler apenas estes 32 bytes.
+	// FixedHeaderSize is the fixed-size part of the header. The wrapped key comes right after
+	// it, and its length is declared here — it's what allows knowing where block 0 starts after
+	// reading just these 32 bytes.
 	FixedHeaderSize = 32
 
-	// TagSize é o selo do AES-GCM.
+	// TagSize is the AES-GCM tag.
 	TagSize = 16
 
-	// DefaultChunkSize — 1 MiB. Compromisso entre sobrecarga (16 bytes por bloco, 0,0015%) e
-	// granularidade do seek: um salto no vídeo decifra no máximo 1 MiB a mais do que o pedido.
+	// DefaultChunkSize — 1 MiB. Trade-off between overhead (16 bytes per block, 0.0015%) and
+	// seek granularity: a jump in the video decrypts at most 1 MiB more than requested.
 	DefaultChunkSize = 1 << 20
 
-	// KeySize é o tamanho da chave AES-256, usado para as DEK e para as chaves de tenant.
+	// KeySize is the AES-256 key size, used for both DEKs and tenant keys.
 	KeySize = 32
 
-	// FlagTenantWrapped diz que a chave do objeto foi embrulhada pela chave do TENANT (o caso
-	// normal). Sem esta opção, foi embrulhada diretamente pela KEK — objetos de sistema, cuja
-	// chave de armazenamento não começa por um tenant.
+	// FlagTenantWrapped means the object's key was wrapped by the TENANT's key (the normal
+	// case). Without this option, it was wrapped directly by the KEK — system objects, whose
+	// storage key does not start with a tenant.
 	FlagTenantWrapped = 1 << 0
 
-	nonceSize  = 12 // 4 de prefixo + 8 de contador
+	nonceSize  = 12 // 4-byte prefix + 8-byte counter
 	prefixSize = 4
 )
 
 var (
-	// ErrNotEncrypted diz que o objeto não tem a nossa magia — é conteúdo legado, em claro.
+	// ErrNotEncrypted means the object has none of our magic — it's legacy, plaintext content.
 	ErrNotEncrypted = errors.New("filecrypt: object has no encrypted header")
-	// ErrCorrupt cobre selo inválido, cabeçalho truncado e bloco fora de sítio.
+	// ErrCorrupt covers an invalid tag, a truncated header, and a block out of place.
 	ErrCorrupt = errors.New("filecrypt: object is corrupt or tampered with")
 )
 
-// Header descreve um objeto cifrado.
+// Header describes an encrypted object.
 type Header struct {
 	ChunkSize     int
 	PlainSize     int64
 	NoncePrefix   [prefixSize]byte
 	TenantWrapped bool
-	// KEKVersion só tem significado quando TenantWrapped é falso.
+	// KEKVersion only has meaning when TenantWrapped is false.
 	KEKVersion int
-	// WrappedKey é a chave do objeto, embrulhada. Preenchida por ParseWrappedKey.
+	// WrappedKey is the object's key, wrapped. Filled in by ParseWrappedKey.
 	WrappedKey []byte
 }
 
-// DataOffset é onde começa o bloco 0.
+// DataOffset is where block 0 starts.
 func (h Header) DataOffset() int64 { return int64(FixedHeaderSize + len(h.WrappedKey)) }
 
-// MarshalHeader serializa o cabeçalho fixo seguido da chave embrulhada.
+// MarshalHeader serializes the fixed header followed by the wrapped key.
 func MarshalHeader(h Header) []byte {
 	buf := make([]byte, FixedHeaderSize, FixedHeaderSize+len(h.WrappedKey))
 	copy(buf[0:4], Magic)
-	buf[4] = 1 // versão do formato
+	buf[4] = 1 // format version
 	if h.TenantWrapped {
 		buf[5] |= FlagTenantWrapped
 	}
@@ -111,11 +111,12 @@ func MarshalHeader(h Header) []byte {
 	return append(buf, h.WrappedKey...)
 }
 
-// ParseHeader lê a parte fixa. Devolve ErrNotEncrypted quando a magia não bate — que é o caso
-// normal para os objetos que já estavam no balde antes desta cifra existir.
+// ParseHeader reads the fixed part. Returns ErrNotEncrypted when the magic does not match — the
+// normal case for objects that were already in the bucket before this encryption existed.
 //
-// A chave embrulhada NÃO vem aqui: quem chama lê os `WrappedKeyLen` bytes seguintes e passa-os a
-// ParseWrappedKey. É essa separação que permite decidir com 32 bytes se vale a pena ler mais.
+// The wrapped key does NOT come here: the caller reads the next `WrappedKeyLen` bytes and passes
+// them to ParseWrappedKey. That separation is what lets deciding, with just 32 bytes, whether it
+// is worth reading more.
 func ParseHeader(buf []byte) (Header, error) {
 	if len(buf) < FixedHeaderSize || string(buf[0:4]) != Magic {
 		return Header{}, ErrNotEncrypted
@@ -137,11 +138,11 @@ func ParseHeader(buf []byte) (Header, error) {
 	return h, nil
 }
 
-// WrappedKeyLen diz quantos bytes de chave embrulhada vêm a seguir ao cabeçalho fixo.
+// WrappedKeyLen says how many bytes of wrapped key follow the fixed header.
 func (h Header) WrappedKeyLen() int { return len(h.WrappedKey) }
 
-// EncryptedSize devolve o tamanho do objeto cifrado. Serve para o upload declarar o comprimento sem
-// ter de construir tudo em memória.
+// EncryptedSize returns the size of the encrypted object. Used by the upload to declare the
+// length without having to build everything in memory.
 func EncryptedSize(plainSize int64, chunkSize, wrappedLen int) int64 {
 	base := int64(FixedHeaderSize + wrappedLen)
 	if plainSize == 0 {
@@ -151,12 +152,12 @@ func EncryptedSize(plainSize int64, chunkSize, wrappedLen int) int64 {
 	return base + plainSize + blocks*TagSize
 }
 
-// chunkOffset devolve onde começa, no objeto cifrado, o bloco de índice i.
+// chunkOffset returns where, in the encrypted object, the block of index i starts.
 func chunkOffset(h Header, i int64) int64 {
 	return h.DataOffset() + i*int64(h.ChunkSize+TagSize)
 }
 
-// nonce compõe o nonce do bloco: prefixo ‖ índice.
+// nonce assembles the block's nonce: prefix ‖ index.
 func nonce(prefix [prefixSize]byte, index int64) []byte {
 	n := make([]byte, nonceSize)
 	copy(n[:prefixSize], prefix[:])
@@ -164,8 +165,8 @@ func nonce(prefix [prefixSize]byte, index int64) []byte {
 	return n
 }
 
-// aad são os dados associados do bloco: índice e marca de último. Autenticados, não cifrados —
-// é isto que impede reordenar blocos e cortar o fim do ficheiro.
+// aad is the block's associated data: index and last-block marker. Authenticated, not
+// encrypted — this is what prevents reordering blocks and cutting off the end of the file.
 func aad(index int64, last bool) []byte {
 	b := make([]byte, 9)
 	binary.BigEndian.PutUint64(b[:8], uint64(index))

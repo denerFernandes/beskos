@@ -6,32 +6,36 @@ import (
 	"fmt"
 )
 
-// Script de sistema na fase DATA — usado para acrescentar o cabeçalho que identifica o cliente ao
-// relay de saída (X-SES-TENANT).
+// System script in the DATA stage — used to add the header that identifies the customer to the
+// outbound relay (X-SES-TENANT).
 //
-// PORQUÊ AQUI E NÃO NO NOSSO CÓDIGO: o correio dos clientes vai do cliente para o Stalwart e do
-// Stalwart para o relay. Não passa pela nossa API em momento nenhum, por isso o cabeçalho tem de
-// ser posto por quem está no caminho — e o Stalwart deixa fazê-lo com um Sieve na fase DATA.
+// WHY HERE AND NOT IN OUR OWN CODE: customer mail goes from the customer to Stalwart and from
+// Stalwart to the relay. It never passes through our API at any point, so the header has to be
+// added by whoever is in the path — and Stalwart lets us do that with a Sieve script in the DATA
+// stage.
 //
-// PORQUE É SEGURO: se o script não corresponder a nada, não acrescenta cabeçalho e a mensagem segue
-// na mesma. Perde-se o isolamento daquela mensagem, não a mensagem. Um relé nosso no meio, se
-// falhasse, pararia o correio — foi por isso que se preferiu esta via.
+// WHY IT'S SAFE: if the script doesn't match anything, it adds no header and the message goes
+// through anyway. What's lost is that message's isolation, not the message itself. A relay of
+// ours in the middle, if it failed, would stop mail entirely — which is why this approach was
+// preferred instead.
 
-// ScriptTenantSES devolve o Sieve que acrescenta o cabeçalho do tenant.
+// ScriptTenantSES returns the Sieve script that adds the tenant header.
 //
-// O nome do tenant é o domínio com hífens no lugar dos pontos (ver ses.TenantName), porque o SES não
-// aceita pontos. O Sieve não tem substituição de texto, mas tem CAPTURAS: cada `*` do padrão guarda
-// um pedaço, e voltam a juntar-se com hífens. Os padrões são tentados do mais específico para o
-// menos, porque o `*` é ganancioso — com `a.b.c`, o padrão de dois pedaços daria `a.b` e `c`.
+// The tenant name is the domain with hyphens instead of dots (see ses.TenantName), because SES
+// doesn't accept dots. Sieve has no text substitution, but it has CAPTURES: each `*` in the
+// pattern holds a chunk, and they're joined back together with hyphens. The patterns are tried
+// from most specific to least, because `*` is greedy — with `a.b.c`, the two-chunk pattern would
+// give `a.b` and `c`.
 //
-// Vai até cinco níveis. Um domínio com mais do que isso ficaria com o nome errado, e é por isso que
-// o último ramo não existe em vez de adivinhar: sem correspondência, não há cabeçalho, e a mensagem
-// sai à mesma — a falha é visível nas métricas em vez de silenciosa no nome.
+// It goes up to five levels. A domain with more than that would end up with the wrong name, and
+// that's why the last branch doesn't exist instead of guessing: with no match, there's no header,
+// and the message still goes out — the failure is visible in metrics instead of silently baked
+// into the name.
 func ScriptTenantSES() string {
 	return `require ["editheader", "envelope", "variables"];
 
-# Identifica o cliente ao relay de saída. O nome é o domínio do remetente com hífens no lugar dos
-# pontos — ver internal/ses.TenantName, que tem de continuar a produzir exatamente o mesmo.
+# Identifies the customer to the outbound relay. The name is the sender's domain with hyphens
+# instead of dots — see internal/ses.TenantName, which must keep producing exactly the same thing.
 if envelope :domain :matches "from" "*.*.*.*.*" {
     addheader :last "X-SES-TENANT" "${1}-${2}-${3}-${4}-${5}";
 } elsif envelope :domain :matches "from" "*.*.*.*" {
@@ -44,10 +48,10 @@ if envelope :domain :matches "from" "*.*.*.*.*" {
 `
 }
 
-// UpsertSieveScript cria ou atualiza um script de sistema e devolve o id.
+// UpsertSieveScript creates or updates a system script and returns its id.
 func (c *Client) UpsertSieveScript(ctx context.Context, name, content string) (string, error) {
-	// Procura primeiro: o `set` do registo não tem "cria ou atualiza", e provisionar duas vezes não
-	// pode deixar dois scripts com o mesmo nome.
+	// Look up first: the registry's `set` has no "create or update", and provisioning twice must
+	// not leave two scripts with the same name.
 	id, err := c.sieveScriptID(ctx, name)
 	if err != nil {
 		return "", err
@@ -79,7 +83,7 @@ func (c *Client) UpsertSieveScript(ctx context.Context, name, content string) (s
 	return firstCreatedID(&r)
 }
 
-// sieveScriptID procura um script de sistema pelo nome. Devolve "" se não existir.
+// sieveScriptID looks up a system script by name. Returns "" if it doesn't exist.
 func (c *Client) sieveScriptID(ctx context.Context, name string) (string, error) {
 	raw, err := c.call(ctx, "x:SieveSystemScript/query", map[string]any{})
 	if err != nil {
@@ -115,8 +119,8 @@ func (c *Client) sieveScriptID(ctx context.Context, name string) (string, error)
 	return "", nil
 }
 
-// GetDataStageScript devolve a expressão que hoje escolhe o script da fase DATA, tal e qual — para
-// se poder repor se algo correr mal.
+// GetDataStageScript returns the expression that currently selects the DATA stage script, exactly
+// as-is — so it can be restored if something goes wrong.
 func (c *Client) GetDataStageScript(ctx context.Context) (json.RawMessage, error) {
 	raw, err := c.call(ctx, "x:MtaStageData/get", map[string]any{"ids": []string{singletonID}})
 	if err != nil {
@@ -131,16 +135,17 @@ func (c *Client) GetDataStageScript(ctx context.Context) (json.RawMessage, error
 	return r.List[0], nil
 }
 
-// SetDataStageScript faz a fase DATA correr o script indicado.
+// SetDataStageScript makes the DATA stage run the given script.
 func (c *Client) SetDataStageScript(ctx context.Context, scriptName string) error {
-	// CAMINHOS DE PATCH, não um objeto aninhado. O JMAP do Stalwart atualiza por ponteiro
-	// (`script/match/0/if`); mandar `script` como objeto com um `match` lá dentro é recusado com
-	// `invalidPatch` a apontar precisamente `script/match`.
+	// PATCH PATHS, not a nested object. Stalwart's JMAP updates by pointer (`script/match/0/if`);
+	// sending `script` as an object with a `match` inside it is rejected with `invalidPatch`
+	// pointing precisely at `script/match`.
 	//
-	// SÓ NAS PORTAS DE SUBMISSÃO. A fase DATA corre em TODAS as sessões, incluindo o correio que
-	// ENTRA na porta 25 — e aí `env_from.domain` é o domínio de quem nos escreveu. Sem esta
-	// condição, uma mensagem do Gmail chegaria com `X-SES-TENANT: gmail-com` colado: lixo no
-	// correio dos clientes e um número errado nas métricas do relay.
+	// SUBMISSION PORTS ONLY. The DATA stage runs on ALL sessions, including mail that COMES IN on
+	// port 25 — and there `env_from.domain` is the domain of whoever wrote to us. Without this
+	// condition, a message from Gmail would arrive with an `X-SES-TENANT` header built from
+	// Gmail's own domain tacked on: garbage in customer mail and a wrong number in the relay's
+	// metrics.
 	raw, err := c.call(ctx, "x:MtaStageData/set", map[string]any{
 		"update": map[string]any{
 			singletonID: map[string]any{
@@ -158,7 +163,7 @@ func (c *Client) SetDataStageScript(ctx context.Context, scriptName string) erro
 		return fmt.Errorf("decode MtaStageData/set: %w", err)
 	}
 	if len(r.NotUpdated) > 0 {
-		return fmt.Errorf("stalwart recusou a fase DATA: %s", mustJSON(r.NotUpdated))
+		return fmt.Errorf("stalwart rejected the DATA stage: %s", mustJSON(r.NotUpdated))
 	}
 	return nil
 }

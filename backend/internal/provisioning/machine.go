@@ -19,7 +19,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
-// Estados persistidos em domains.provision_state.
+// States persisted in domains.provision_state.
 const (
 	StatePending       = "pending"
 	StateDomainCreated = "domain_created"
@@ -30,46 +30,46 @@ const (
 	StateError         = "error"
 )
 
-// ActiveStates são os estados não-terminais que o worker precisa processar.
+// ActiveStates are the non-terminal states the worker needs to process.
 var ActiveStates = []string{StatePending, StateDomainCreated, StateDKIMCreated, StateDNSPending, StateDNSVerified}
 
-// Mailserver é o subconjunto do client Stalwart que a máquina usa (mockável nos testes).
+// Mailserver is the subset of the Stalwart client the machine uses (mockable in tests).
 type Mailserver interface {
-	// autoDKIM=false (modo relay) cria o domínio com DKIM Manual — o Stalwart não assina.
+	// autoDKIM=false (relay mode) creates the domain with Manual DKIM — Stalwart doesn't sign.
 	CreateDomain(ctx context.Context, name, description string, autoDKIM bool) (string, error)
 	GetDomainDNSZone(ctx context.Context, domainID string) (string, error)
 	CreateAccount(ctx context.Context, in stalwart.AccountInput) (string, error)
 }
 
-// DNSVerifier confirma se os registros do domínio já foram publicados pelo cliente.
+// DNSVerifier confirms whether the domain's records have already been published by the customer.
 type DNSVerifier interface {
 	Verify(ctx context.Context, domain, zone string) (bool, error)
 }
 
-// EmailRelay é o relay de saída (Amazon SES) em modo WHITE-LABEL (BYODKIM): regista o domínio como
-// identidade com uma chave DKIM NOSSA e devolve o seletor + a chave pública para o cliente publicar
-// — o DNS do cliente nunca revela o Amazon. nil = sem relay (dev/self-hosted puro).
+// EmailRelay is the outbound relay (Amazon SES) in WHITE-LABEL mode (BYODKIM): it registers the
+// domain as an identity with OUR OWN DKIM key and returns the selector + public key for the
+// customer to publish — the customer's DNS never reveals Amazon. nil = no relay (pure dev/self-hosted).
 type EmailRelay interface {
 	CreateIdentity(ctx context.Context, domain string) (selector, publicKey string, err error)
 	IdentityVerified(ctx context.Context, domain string) (bool, error)
-	// SetMailFrom define o custom MAIL FROM (Return-Path bounce.<domínio>) para o "enviado por"
-	// mostrar o domínio do cliente, não o amazonses.
+	// SetMailFrom sets the custom MAIL FROM (Return-Path bounce.<domain>) so "sent by" shows the
+	// customer's domain, not amazonses.
 	SetMailFrom(ctx context.Context, domain string) error
-	// MailFromSubdomain/MailFromMX descrevem o registo que o cliente publica para o MAIL FROM.
+	// MailFromSubdomain/MailFromMX describe the record the customer publishes for MAIL FROM.
 	MailFromSubdomain(domain string) string
 	MailFromMX() string
-	// CreateTenant/AssociateIdentity isolam a reputação deste domínio da dos outros clientes. Sem
-	// isto, devoluções de um cliente degradam a reputação da CONTA e a AWS pode suspender o correio
-	// de toda a gente; com isto, pausa só o tenant afetado.
+	// CreateTenant/AssociateIdentity isolate this domain's reputation from other customers'. Without
+	// this, one customer's bounces degrade the ACCOUNT'S reputation and AWS can suspend mail for
+	// everyone; with it, only the affected tenant gets paused.
 	CreateTenant(ctx context.Context, name string) error
 	AssociateIdentity(ctx context.Context, tenant, domain string) error
-	// O conjunto de configuração é o que funciona HOJE: colado à identidade, a AWS aplica-o a todas
-	// as mensagens do domínio sem que nada no caminho do correio mude.
+	// The configuration set is what actually works TODAY: attached to the identity, AWS applies it
+	// to every message from the domain without anything in the mail path changing.
 	CreateConfigurationSet(ctx context.Context, name string) error
 	SetIdentityConfigurationSet(ctx context.Context, domain, name string) error
 }
 
-// Store é o subconjunto do db.Queries usado pela máquina.
+// Store is the subset of db.Queries used by the machine.
 type Store interface {
 	UpdateDomainProvision(ctx context.Context, arg db.UpdateDomainProvisionParams) (db.Domain, error)
 	CreateMailUser(ctx context.Context, arg db.CreateMailUserParams) (db.MailUser, error)
@@ -80,8 +80,8 @@ type Machine struct {
 	sw    Mailserver
 	dns   DNSVerifier
 	store Store
-	relay EmailRelay // nil = sem SES
-	brand string     // domínio da marca (ex.: beskos.com) para _spf.<brand> e rua do DMARC
+	relay EmailRelay // nil = no SES
+	brand string     // brand domain (e.g. beskos.com) for _spf.<brand> and the DMARC rua
 	// Public names the customer will publish. Stalwart writes its own container hostname into every
 	// host-valued record, which resolves nowhere outside the swarm -- see PublicHosts.
 	mailHost   string
@@ -99,17 +99,17 @@ func NewMachine(sw Mailserver, dns DNSVerifier, store Store) *Machine {
 	return &Machine{sw: sw, dns: dns, store: store}
 }
 
-// WithRelay liga o relay de saída (SES white-label) ao provisionar domínios. brand é o domínio da
-// plataforma usado nos registos que escondem o SES (`_spf.<brand>`, rua do DMARC).
+// WithRelay attaches the outbound relay (SES white-label) when provisioning domains. brand is the
+// platform's domain used in the records that hide SES (`_spf.<brand>`, the DMARC rua).
 func (m *Machine) WithRelay(r EmailRelay, brand string) *Machine {
 	m.relay = r
 	m.brand = brand
 	return m
 }
 
-// AdvanceOnce executa NO MÁXIMO uma transição para o domínio e persiste o resultado.
-// Retorna changed=true se o estado mudou. Um estado que ainda "espera" (ex.: DKIM não
-// gerado, DNS não publicado) retorna changed=false sem erro — o worker tenta de novo depois.
+// AdvanceOnce executes AT MOST one transition for the domain and persists the result.
+// Returns changed=true if the state changed. A state that's still "waiting" (e.g. DKIM not
+// generated, DNS not published) returns changed=false without error — the worker retries later.
 func (m *Machine) AdvanceOnce(ctx context.Context, d db.Domain) (changed bool, err error) {
 	switch d.ProvisionState {
 	case StatePending:
@@ -123,18 +123,18 @@ func (m *Machine) AdvanceOnce(ctx context.Context, d db.Domain) (changed bool, e
 	case StateDNSVerified:
 		return m.stepActivate(ctx, d)
 	case StateActive, StateError:
-		return false, nil // terminais
+		return false, nil // terminal states
 	default:
 		return false, fmt.Errorf("unknown state: %q", d.ProvisionState)
 	}
 }
 
-// pending → domain_created: cria o domínio no Stalwart. Idempotente: se já há stalwart_id
-// (retomada após crash entre a chamada e o commit), pula a criação.
+// pending → domain_created: creates the domain in Stalwart. Idempotent: if there's already a
+// stalwart_id (resumed after a crash between the call and the commit), skip creation.
 func (m *Machine) stepCreateDomain(ctx context.Context, d db.Domain) (bool, error) {
 	stalwartID := strval(d.StalwartID)
 	if stalwartID == "" {
-		// Com relay (SES), o Stalwart não gere DKIM (autoDKIM=false): quem assina é o SES via BYODKIM.
+		// With relay (SES), Stalwart doesn't manage DKIM (autoDKIM=false): SES signs via BYODKIM.
 		autoDKIM := m.relay == nil
 		id, err := m.sw.CreateDomain(ctx, d.Domain, "tenant_id="+d.TenantID.String(), autoDKIM)
 		if err != nil {
@@ -156,38 +156,38 @@ func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error
 		return false, fmt.Errorf("read zone: %w", err)
 	}
 	if m.relay != nil {
-		// White-label: o SES assina via BYODKIM (chave nossa). Registamos a identidade e trocamos o
-		// DKIM do Stalwart pelo nosso — o cliente publica só a nossa chave pública, sem ver o Amazon.
+		// White-label: SES signs via BYODKIM (our own key). We register the identity and swap
+		// Stalwart's DKIM for ours — the customer publishes only our public key, never seeing Amazon.
 		selector, publicKey, err := m.relay.CreateIdentity(ctx, d.Domain)
 		if err != nil {
-			return false, fmt.Errorf("register identity with the relay: %w", err) // retry no próximo tick
+			return false, fmt.Errorf("register identity with the relay: %w", err) // retry next tick
 		}
-		// Isolamento de reputação: um tenant SES por domínio, com a identidade associada. Falhar
-		// aqui NÃO bloqueia o provisionamento — o correio sai à mesma, apenas sem o isolamento —,
-		// mas fica registado, porque um cliente sem tenant é um cliente que pode derrubar os
-		// outros.
+		// Reputation isolation: one SES tenant per domain, with the identity associated. Failing
+		// here does NOT block provisioning — mail still goes out, just without the isolation — but
+		// it gets logged, because a customer without a tenant is a customer who can take down
+		// everyone else.
 		name := ses.TenantName(d.Domain)
 
-		// O conjunto de configuração é o que produz efeito já: colado à identidade, dá métricas de
-		// reputação por cliente e permite suspender só este domínio.
+		// The configuration set is what has an effect right away: attached to the identity, it gives
+		// per-customer reputation metrics and lets us suspend just this domain.
 		if err := m.relay.CreateConfigurationSet(ctx, name); err != nil {
 			log.Printf("provisioning: configuration set for %s not created (metrics stay aggregated): %v", d.Domain, err)
 		} else if err := m.relay.SetIdentityConfigurationSet(ctx, d.Domain, name); err != nil {
 			log.Printf("provisioning: configuration set %s did not become the default on %s: %v", name, d.Domain, err)
 		}
 
-		// O tenant fica criado à espera do dia em que as mensagens levem o cabeçalho X-SES-TENANT —
-		// é o que traz a pausa automática da AWS por reputação.
+		// The tenant is created ahead of the day messages carry the X-SES-TENANT header — that's
+		// what brings AWS's automatic pause by reputation.
 		if err := m.relay.CreateTenant(ctx, name); err != nil {
 			log.Printf("provisioning: SES tenant for %s not created: %v", d.Domain, err)
 		} else if err := m.relay.AssociateIdentity(ctx, name, d.Domain); err != nil {
 			log.Printf("provisioning: identity for %s not associated with tenant %s: %v", d.Domain, name, err)
 		}
 
-		// Custom MAIL FROM (bounce.<domínio>): sem ele o "enviado por" do destinatário mostra o
-		// amazonses. Fallback USE_DEFAULT_VALUE — não bloqueia o envio enquanto o MX não propaga.
+		// Custom MAIL FROM (bounce.<domain>): without it the recipient's "sent by" shows amazonses.
+		// Fallback USE_DEFAULT_VALUE — doesn't block sending while the MX hasn't propagated yet.
 		if err := m.relay.SetMailFrom(ctx, d.Domain); err != nil {
-			return false, fmt.Errorf("configurar MAIL FROM no relay: %w", err) // retry no próximo tick
+			return false, fmt.Errorf("configure MAIL FROM on the relay: %w", err) // retry next tick
 		}
 		zone = StripStalwartDKIM(zone)
 		zone = AugmentZoneForSES(zone, d.Domain, selector, publicKey, m.brand,
@@ -195,29 +195,29 @@ func (m *Machine) stepConfirmDKIM(ctx context.Context, d db.Domain) (bool, error
 		zone = PublicHosts(zone, m.mailHost, m.mtaStsHost)
 		return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "ses", d.DnsStatus, &zone)
 	}
-	// Sem relay: espera o DKIM do Stalwart (não aparece na hora — DIVERGENCES §D4).
+	// Without relay: wait for Stalwart's DKIM (doesn't appear right away — DIVERGENCES §D4).
 	if !hasDKIM(zone) {
-		return false, nil // ainda não gerado; tenta de novo depois
+		return false, nil // not generated yet; try again later
 	}
 	zone = PublicHosts(zone, m.mailHost, m.mtaStsHost)
 	return m.persist(ctx, d, StateDKIMCreated, d.StalwartID, "generated", d.DnsStatus, &zone)
 }
 
-// dkim_created → dns_pending: registros prontos; devolvidos ao cliente publicar (trava aqui).
+// dkim_created → dns_pending: records ready; handed off for the customer to publish (parks here).
 func (m *Machine) stepOfferDNS(ctx context.Context, d db.Domain) (bool, error) {
 	return m.persist(ctx, d, StateDNSPending, d.StalwartID, d.DkimStatus, "awaiting", d.DnsZone)
 }
 
-// dns_pending → dns_verified: worker faz polling até os registros baterem. Com relay, exige
-// também que o SES confirme o DKIM da identidade (senão o SES recusaria o MAIL FROM depois).
+// dns_pending → dns_verified: the worker polls until the records match. With relay, it also
+// requires SES to confirm the identity's DKIM (otherwise SES would later refuse the MAIL FROM).
 func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) {
 	ok, err := m.dns.Verify(ctx, d.Domain, strval(d.DnsZone))
 	if err != nil {
-		return false, fmt.Errorf("verificar DNS: %w", err)
+		return false, fmt.Errorf("verify DNS: %w", err)
 	}
 	if !ok {
 		waiting(d.Domain, "dns", "MX and "+dkimHost(strval(d.DnsZone), d.Domain))
-		return false, nil // cliente ainda não publicou
+		return false, nil // customer hasn't published yet
 	}
 	if m.relay != nil {
 		verified, rerr := m.relay.IdentityVerified(ctx, d.Domain)
@@ -226,7 +226,7 @@ func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) 
 		}
 		if !verified {
 			waiting(d.Domain, "relay", "identity verification")
-			return false, nil // SES ainda a validar os CNAMEs DKIM; tenta de novo depois
+			return false, nil // SES still validating the DKIM CNAMEs; try again later
 		}
 	}
 	waitingDone(d.Domain)
@@ -237,11 +237,11 @@ func (m *Machine) stepVerifyDNS(ctx context.Context, d db.Domain) (bool, error) 
 	return m.persist(ctx, d, StateDNSVerified, d.StalwartID, d.DkimStatus, "verified", d.DnsZone)
 }
 
-// dns_verified → active: cria a mailbox inicial (postmaster) e marca ativo.
-// Idempotente: CreateAccount falhando por já existir não bloqueia a ativação.
+// dns_verified → active: creates the initial mailbox (postmaster) and marks it active.
+// Idempotent: CreateAccount failing because it already exists doesn't block activation.
 func (m *Machine) stepActivate(ctx context.Context, d db.Domain) (bool, error) {
 	email := "postmaster@" + d.Domain
-	// Idempotência: se a mailbox já foi persistida (retomada), pula a criação e só ativa.
+	// Idempotency: if the mailbox has already been persisted (resumed), skip creation and just activate.
 	if _, err := m.store.GetMailUserByEmail(ctx, email); err != nil {
 		acctID, err := m.sw.CreateAccount(ctx, stalwart.AccountInput{
 			Login:       "postmaster",

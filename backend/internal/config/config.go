@@ -1,4 +1,4 @@
-// Package config carrega configuração via ambiente. Segredos NUNCA no código (brief §10).
+// Package config loads configuration via the environment. Secrets NEVER in code (brief §10).
 package config
 
 import (
@@ -11,24 +11,24 @@ import (
 type Config struct {
 	HTTPAddr    string
 	DatabaseURL string
-	RedisURL    string // pub/sub do chat em tempo real (opcional; sem ele o chat fica só REST)
+	RedisURL    string // real-time chat pub/sub (optional; without it chat falls back to REST only)
 
-	// Admin GLOBAL do Stalwart — só o backend usa. Nunca exposto ao frontend (brief §2).
+	// GLOBAL Stalwart admin — used only by the backend. Never exposed to the frontend (brief §2).
 	StalwartURL      string
 	StalwartAdminID  string
 	StalwartAdminPwd string
 
-	// Hostname/domínio default usados no bootstrap do Stalwart (DIVERGENCES §D3).
+	// Default hostname/domain used in the Stalwart bootstrap (DIVERGENCES §D3).
 	StalwartHostname      string
 	StalwartDefaultDomain string
 
-	// OnlyOffice Document Server (edição de office). OnlyOfficeURL = URL que o BROWSER usa
-	// (api.js + editor); FilesHostURL = URL da NOSSA API como o Document Server a alcança
-	// (download/callback). OnlyOfficeJWTSecret é compartilhado com o DS (assina o config);
-	// DocTokenSecret assina, internamente, as URLs de download/callback. Segredos via env.
-	// OnlyOfficeSourceURL = endereço público do fonte modificado do Document Server. Corremos a
-	// imagem oficial com um patch de branding (deploy/onlyoffice/), e a AGPL v3 §13 obriga a
-	// oferecer esse fonte a quem usa o editor pela rede. Aparece no "Sobre".
+	// OnlyOffice Document Server (office editing). OnlyOfficeURL = URL the BROWSER uses
+	// (api.js + editor); FilesHostURL = URL of OUR API as the Document Server reaches it
+	// (download/callback). OnlyOfficeJWTSecret is shared with the DS (signs the config);
+	// DocTokenSecret internally signs the download/callback URLs. Secrets via env.
+	// OnlyOfficeSourceURL = public address of the modified Document Server source. We run the
+	// official image with a branding patch (deploy/onlyoffice/), and AGPL v3 §13 requires
+	// offering that source to anyone who uses the editor over the network. Shown in "About".
 	OnlyOfficeURL         string
 	OnlyOfficeInternalURL string
 	FilesHostURL          string
@@ -36,14 +36,14 @@ type Config struct {
 	OnlyOfficeSourceURL   string
 	DocTokenSecret        string
 
-	// Meet (LiveKit). LiveKitURL = WebSocket do browser; chave/segredo assinam os tokens de sala.
-	// LiveKitHTTPURL = API Twirp (nosso Go → LiveKit) para gravação via Egress.
+	// Meet (LiveKit). LiveKitURL = browser WebSocket; key/secret sign the room tokens.
+	// LiveKitHTTPURL = Twirp API (our Go → LiveKit) for recording via Egress.
 	LiveKitURL       string
 	LiveKitHTTPURL   string
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
 
-	// Notificações por e-mail (opcional). Sem NOTIFY_FROM/HOST, o envio fica desligado.
+	// E-mail notifications (optional). Without NOTIFY_FROM/HOST, sending stays disabled.
 	NotifySMTPHost     string
 	NotifySMTPPort     string
 	NotifyFrom         string
@@ -51,15 +51,15 @@ type Config struct {
 	NotifySMTPPassword string
 	NotifySMTPInsecure bool
 
-	// Web Push (notificações desktop com o Beskos fechado). Sem VAPID_PRIVATE_KEY o push fica
-	// desligado (as notificações com aba aberta continuam a funcionar no cliente). O par de chaves
-	// VAPID gera-se uma vez; o subject é um mailto: de contacto exigido pelo protocolo.
+	// Web Push (desktop notifications with Beskos closed). Without VAPID_PRIVATE_KEY, push stays
+	// disabled (notifications with an open tab keep working client-side). The VAPID key pair
+	// is generated once; the subject is a contact mailto: required by the protocol.
 	VAPIDPublicKey  string
 	VAPIDPrivateKey string
 	VAPIDSubject    string
 
-	// Tamanho máximo por ficheiro no upload para o Files. Configurável (FILES_MAX_UPLOAD_BYTES, em
-	// bytes); default 100 GiB. A cota total do plano continua a valer por cima disto.
+	// Maximum size per file when uploading to Files. Configurable (FILES_MAX_UPLOAD_BYTES, in
+	// bytes); default 100 GiB. The plan's total quota still applies on top of this.
 	FilesMaxUploadBytes int64
 
 	// Native app (Tauri): allowed CORS origins (APP_ORIGINS, comma-separated), and whether the
@@ -67,9 +67,9 @@ type Config struct {
 	AppOrigins   []string
 	CookieSecure bool
 
-	// URL pública da app (PUBLIC_URL, ex.: https://app.beskos.com), usada para montar links
-	// absolutos que saem para fora — como o link de uma sala de reunião num e-mail. Vazio → os
-	// links ficam relativos (útil em dev; num e-mail seriam inúteis).
+	// The app's public URL (PUBLIC_URL, e.g.: https://app.beskos.com), used to build absolute
+	// links that go outward — such as a meeting room link in an e-mail. Empty → the
+	// links stay relative (useful in dev; in an e-mail they would be useless).
 	PublicURL string
 
 	// Branding (BRAND_NAME/BRAND_URL/SALES_EMAIL): the identity used wherever the product faces
@@ -78,22 +78,22 @@ type Config struct {
 	BrandName  string
 	BrandURL   string
 	SalesEmail string
-	// SignupsOpen: registo self-service aberto. Fechado, /signup mostra "em breve" e a API
-	// recusa — para abrir ao público quando se quiser, sem novo deploy.
+	// SignupsOpen: open self-service registration. When closed, /signup shows "coming soon" and
+	// the API refuses — so it can be opened to the public whenever wanted, with no new deploy.
 	SignupsOpen bool
 
-	// Environment: "development" (default) ou "production". Em produção a config falha fechado —
-	// recusa segredos vazios, fracos ou defaults de dev conhecidos (auditoria H8/H10).
+	// Environment: "development" (default) or "production". In production the config fails closed —
+	// it refuses empty or weak secrets, or known dev defaults (audit H8/H10).
 	Environment string
 
-	// MFAEncKey cifra o segredo TOTP em repouso (AES-GCM). Vazio = guarda em claro (dev).
+	// MFAEncKey encrypts the TOTP secret at rest (AES-GCM). Empty = stored in cleartext (dev).
 	MFAEncKey string
 }
 
-// IsProduction indica se estamos em produção (APP_ENV=production).
+// IsProduction reports whether we are in production (APP_ENV=production).
 func (c *Config) IsProduction() bool { return c.Environment == "production" }
 
-// knownDevSecrets são valores default de desenvolvimento que NUNCA podem ir para produção.
+// knownDevSecrets are development default values that must NEVER go to production.
 var knownDevSecrets = map[string]bool{
 	"dev-oo-jwt-secret-change-me":            true,
 	"dev-doc-token-secret-change-me":         true,
@@ -105,11 +105,12 @@ var knownDevSecrets = map[string]bool{
 	"changeme":                               true,
 }
 
-// defaultOfficeSourceURL é onde publicamos o fonte do Document Server modificado que servimos —
-// a oferta que a AGPL v3 §13 exige. Não é segredo nem varia por ambiente, e esquecê-lo derrubava o
-// arranque em produção, por isso vem por omissão em vez de ser um passo manual no painel.
-// ATENÇÃO: quem alterar o patch de branding TEM de apontar isto (ou a env) para o seu próprio
-// repositório — senão o editor promete aos utilizadores um fonte que não corresponde ao que corre.
+// defaultOfficeSourceURL is where we publish the modified Document Server source we serve —
+// the offer AGPL v3 §13 requires. It is not a secret and does not vary by environment, and
+// forgetting it used to bring down the boot in production, so it ships as a default instead of
+// a manual step in the panel.
+// WARNING: whoever changes the branding patch MUST point this (or the env var) at their own
+// repository — otherwise the editor promises users a source that does not match what is running.
 const defaultOfficeSourceURL = "https://github.com/denerFernandes/beskos-docs-server"
 
 func Load() (*Config, error) {
@@ -134,8 +135,8 @@ func Load() (*Config, error) {
 		LiveKitAPISecret:      os.Getenv("LIVEKIT_API_SECRET"),
 		NotifySMTPHost:        getenv("NOTIFY_SMTP_HOST", ""),
 		NotifySMTPPort:        getenv("NOTIFY_SMTP_PORT", "587"),
-		// Remetente dos avisos ao cliente. O endereço tem de existir como caixa no Stalwart (ou ser
-		// aceite pelo SMTP configurado) — senão o servidor recusa o envio.
+		// Sender for customer notices. The address has to exist as a mailbox in Stalwart (or be
+		// accepted by the configured SMTP) — otherwise the server refuses to send.
 		NotifyFrom:          getenv("NOTIFY_FROM", "Beskos <noreply@beskos.com>"),
 		BrandName:           getenv("BRAND_NAME", "Beskos"),
 		BrandURL:            getenv("BRAND_URL", "https://beskos.com"),
@@ -165,11 +166,11 @@ func Load() (*Config, error) {
 	return c, nil
 }
 
-// validateProduction recusa o boot quando um segredo obrigatório de uma feature ligada está vazio,
-// fraco ou é um default de dev conhecido — em vez de subir num estado inseguro (auditoria H8/H10).
+// validateProduction refuses to boot when a required secret for an enabled feature is empty,
+// weak, or a known dev default — instead of coming up in an insecure state (audit H8/H10).
 func (c *Config) validateProduction() error {
 	var errs []string
-	// checkSecret exige segredo forte (≥16 chars) e não-default quando `enabled`.
+	// checkSecret requires a strong secret (≥16 chars) and a non-default one when `enabled`.
 	checkSecret := func(name, val string, enabled bool) {
 		if !enabled {
 			return
@@ -184,7 +185,7 @@ func (c *Config) validateProduction() error {
 		}
 	}
 	checkSecret("STALWART_ADMIN_SECRET", c.StalwartAdminPwd, true)
-	// Cifra a credencial JMAP e o segredo TOTP em repouso — obrigatória em produção (brokering H11).
+	// Encrypts the JMAP credential and the TOTP secret at rest — mandatory in production (brokering H11).
 	checkSecret("MFA_ENC_KEY", c.MFAEncKey, true)
 	checkSecret("ONLYOFFICE_JWT_SECRET", c.OnlyOfficeJWTSecret, c.OnlyOfficeURL != "")
 	checkSecret("DOC_TOKEN_SECRET", c.DocTokenSecret, c.OnlyOfficeURL != "")
@@ -204,7 +205,7 @@ func (c *Config) validateProduction() error {
 	if c.VAPIDPrivateKey != "" && knownDevSecrets[c.VAPIDPrivateKey] {
 		errs = append(errs, "VAPID_PRIVATE_KEY uses a known dev default")
 	}
-	// Higiene de transporte em produção.
+	// Transport hygiene in production.
 	if !c.CookieSecure {
 		errs = append(errs, "COOKIE_SECURE must be true in production (session cookie over HTTPS)")
 	}
@@ -224,7 +225,7 @@ func getenv(k, def string) string {
 	return def
 }
 
-// splitList divide "a, b ,c" numa lista limpa (vazio → nil).
+// splitList splits "a, b ,c" into a clean list (empty → nil).
 func splitList(s string) []string {
 	if s == "" {
 		return nil

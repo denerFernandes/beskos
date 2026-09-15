@@ -1,9 +1,9 @@
 package wiki
 
-// MarkdownToBlocks converte Markdown (o que os modelos produzem naturalmente) em blocos BlockNote —
-// títulos, listas, checklists, citações, blocos de código e marcas inline (negrito/itálico/código/
-// links). É assim que a IA escreve páginas com os MESMOS componentes do editor, em vez de parágrafos
-// planos. Conversor próprio e pequeno (lei 2.5): linha a linha, sem dependências.
+// MarkdownToBlocks converts Markdown (what models naturally produce) into BlockNote blocks —
+// headings, lists, checklists, quotes, code blocks and inline marks (bold/italic/code/
+// links). This is how the AI writes pages with the SAME components as the editor, instead of flat
+// paragraphs. Small, homegrown converter (law 2.5): line by line, no dependencies.
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ func bnBlockOf(typ string, props map[string]any, content []bnOut) bnOut {
 	return bnOut{"type": typ, "props": props, "content": content, "children": []any{}}
 }
 
-// MarkdownToBlocks devolve o array de blocos como JSON pronto para body_json.
+// MarkdownToBlocks returns the block array as JSON ready for body_json.
 func MarkdownToBlocks(md string) json.RawMessage {
 	lines := strings.Split(md, "\n")
 	var blocks []bnOut
@@ -42,7 +42,7 @@ func MarkdownToBlocks(md string) json.RawMessage {
 		case trimmed == "":
 			flushPara()
 		case strings.HasPrefix(trimmed, "```"):
-			// Bloco de código: acumula até à fence de fecho (ou fim).
+			// Code block: accumulates until the closing fence (or the end).
 			flushPara()
 			var code []string
 			for i++; i < len(lines) && !strings.HasPrefix(strings.TrimSpace(lines[i]), "```"); i++ {
@@ -73,7 +73,7 @@ func MarkdownToBlocks(md string) json.RawMessage {
 			flushPara()
 			blocks = append(blocks, bnBlockOf("quote", nil, inlineMD(trimmed[2:])))
 		case trimmed == "---" || trimmed == "***":
-			flushPara() // BlockNote não tem divisória nativa: engole o marcador (não vira texto)
+			flushPara() // BlockNote has no native divider: swallow the marker (it doesn't become text)
 		default:
 			para = append(para, trimmed)
 		}
@@ -88,12 +88,12 @@ func MarkdownToBlocks(md string) json.RawMessage {
 
 var (
 	reOrdered = regexp.MustCompile(`^\d+[.)] `)
-	// Um token inline de cada vez, o mais à esquerda: código, negrito, itálico, link.
+	// One inline token at a time, the leftmost one: code, bold, italic, link.
 	reInline = regexp.MustCompile("(`[^`]+`)|(\\*\\*[^*]+\\*\\*)|(\\*[^*]+\\*)|(_[^_]+_)|(\\[[^\\]]+\\]\\([^)]+\\))")
 	reLink   = regexp.MustCompile(`^\[([^\]]+)\]\(([^)]+)\)$`)
 )
 
-// inlineMD parte o texto em runs BlockNote com styles (bold/italic/code) e links.
+// inlineMD splits the text into BlockNote runs with styles (bold/italic/code) and links.
 func inlineMD(s string) []bnOut {
 	var out []bnOut
 	plain := func(t string) {

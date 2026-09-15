@@ -1,5 +1,5 @@
-// Package sms abstrai o envio de SMS (códigos de MFA). Interface genérica para trocar de
-// provedor (Twilio, etc.) só por config — como internal/ai. Chaves só no backend (lei §10).
+// Package sms abstracts SMS sending (MFA codes). Generic interface to swap providers
+// (Twilio, etc.) via config only — like internal/ai. Keys only on the backend (law §10).
 package sms
 
 import (
@@ -9,13 +9,14 @@ import (
 	"os"
 )
 
-// Sender envia uma mensagem curta para um telefone (E.164). Implementado por cada provedor.
+// Sender sends a short message to a phone (E.164). Implemented by each provider.
 type Sender interface {
 	Send(ctx context.Context, phone, message string) error
 }
 
-// LogSender apenas registra o envio no log (dev/testes). NUNCA usar em produção. Não loga o corpo
-// (contém o código MFA) nem o telefone completo — só confirma o envio, com o telefone mascarado.
+// LogSender only records the send in the log (dev/tests). NEVER use in production. Does not log
+// the body (it contains the MFA code) nor the full phone number — it only confirms the send, with
+// the phone masked.
 type LogSender struct{}
 
 func (LogSender) Send(_ context.Context, phone, _ string) error {
@@ -23,7 +24,7 @@ func (LogSender) Send(_ context.Context, phone, _ string) error {
 	return nil
 }
 
-// maskPhone mostra só os 2 últimos dígitos: "+5511999998888" → "***8888"? mantemos 4 finais.
+// maskPhone shows only the last few digits: "+5511999998888" -> keeps the last 4.
 func maskPhone(p string) string {
 	if len(p) <= 4 {
 		return "****"
@@ -31,17 +32,17 @@ func maskPhone(p string) string {
 	return "***" + p[len(p)-4:]
 }
 
-// Config seleciona o provedor por ambiente.
+// Config selects the provider per environment.
 type Config struct {
 	Provider string // "log" (default) | "sns" (Amazon SNS)
 }
 
 func FromEnv() Config { return Config{Provider: getenv("SMS_PROVIDER", "log")} }
 
-// New constrói o Sender. Único ponto que conhece provedores concretos (adicionar = novo case).
-// "sns": Amazon SNS (Publish direto ao número). Envs: SNS_REGION (fallback SES_REGION) +
-// AWS_ACCESS_KEY_ID/SECRET (as mesmas do SES) + SMS_SENDER_ID opcional. Falha fechado no boot
-// se faltar credencial — melhor não arrancar do que MFA por SMS silenciosamente morto.
+// New builds the Sender. The only place that knows about concrete providers (adding one = new
+// case). "sns": Amazon SNS (direct Publish to the number). Envs: SNS_REGION (fallback SES_REGION)
+// + AWS_ACCESS_KEY_ID/SECRET (same as SES) + optional SMS_SENDER_ID. Fails closed at boot if a
+// credential is missing — better not to start than to have MFA by SMS silently dead.
 func New(cfg Config) (Sender, error) {
 	switch cfg.Provider {
 	case "log", "":

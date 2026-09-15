@@ -16,8 +16,8 @@ import (
 	"time"
 )
 
-// StripeProvider fala com a API da Stripe via HTTP (sem SDK). Checkout Session (assinatura) +
-// verificação de assinatura do webhook (HMAC-SHA256, esquema oficial da Stripe).
+// StripeProvider talks to the Stripe API over HTTP (no SDK). Checkout Session (subscription) +
+// webhook signature verification (HMAC-SHA256, Stripe's official scheme).
 type StripeProvider struct {
 	cfg  Config
 	http *http.Client
@@ -31,9 +31,9 @@ func (p *StripeProvider) Name() string { return "stripe" }
 
 func unknownProvider(name string) error { return fmt.Errorf("billing: unknown provider %q", name) }
 
-// Checkout cria uma Checkout Session em modo assinatura usando price_data inline (não exige
-// pré-cadastrar preços na Stripe). client_reference_id = tenant; metadata[plan] = plano.
-// planCurrency: moeda efetiva da operação (a do tenant, resolvida pelo chamador) ou a global.
+// Checkout creates a Checkout Session in subscription mode using inline price_data (does not
+// require pre-registering prices at Stripe). client_reference_id = tenant; metadata[plan] = plan.
+// planCurrency: the operation's effective currency (the tenant's, resolved by the caller) or the global one.
 func (p *StripeProvider) planCurrency(plan Plan) string {
 	if plan.Currency != "" {
 		return strings.ToLower(plan.Currency)
@@ -56,25 +56,27 @@ func (p *StripeProvider) Checkout(ctx context.Context, tenantID string, plan Pla
 	form.Set("metadata[cycle]", string(cycle))
 	form.Set("subscription_data[metadata][plan]", plan.ID)
 	form.Set("subscription_data[metadata][tenant_id]", tenantID)
-	form.Set("line_items[0][quantity]", strconv.Itoa(seats)) // preço por usuário × seats
+	form.Set("line_items[0][quantity]", strconv.Itoa(seats)) // price per user × seats
 	if opts.TrialDays > 0 {
-		// Cartão pedido à partida, cobrança só no fim do teste. `cancel` no fim do período sem
-		// método de pagamento: sem isto, um teste abandonado ficaria a tentar cobrar para sempre.
+		// Card requested upfront, charge only at the end of the trial. `cancel` at period end
+		// with no payment method: without this, an abandoned trial would keep trying to charge forever.
 		form.Set("subscription_data[trial_period_days]", strconv.Itoa(opts.TrialDays))
 		form.Set("subscription_data[trial_settings][end_behavior][missing_payment_method]", "cancel")
 	}
-	// Cliente já criado por nós (razão social, morada, NIF, e-mail do financeiro): o checkout só
-	// pede o cartão e a fatura sai completa. Sem ele, ao menos o e-mail vai pré-preenchido.
+	// Customer already created by us (legal name, address, tax ID, financial contact's email):
+	// checkout only asks for the card and the invoice comes out complete. Without it, at least
+	// the email comes pre-filled.
 	if opts.CustomerID != "" {
 		form.Set("customer", opts.CustomerID)
-		// A morada pode mudar no checkout (o cartão manda); guardá-la no cliente mantém a fatura certa.
+		// The address can change at checkout (the card decides); saving it on the customer keeps
+		// the invoice correct.
 		form.Set("customer_update[address]", "auto")
 		form.Set("customer_update[name]", "auto")
 	} else if opts.InvoiceEmail != "" {
 		form.Set("customer_email", opts.InvoiceEmail)
 	}
-	// O Price espelhado é MENSAL; o anual é montado aqui (price_data com interval=year), senão
-	// escolher "anual" cobrava na mesma todos os meses.
+	// The mirrored Price is MONTHLY; the annual one is built here (price_data with interval=year),
+	// otherwise picking "annual" would charge every month all the same.
 	if plan.StripePriceID != "" && cycle == CycleMonth {
 		// Mirrored catalog: use the real Price so invoices and reports group by product.
 		// currency selects the price's currency_option (per-country pricing).
@@ -108,10 +110,10 @@ func (p *StripeProvider) Checkout(ctx context.Context, tenantID string, plan Pla
 	return CheckoutResult{URL: out.URL}, nil
 }
 
-// ParseWebhook verifica a assinatura (Stripe-Signature: t=...,v1=...) e normaliza o evento.
+// ParseWebhook verifies the signature (Stripe-Signature: t=...,v1=...) and normalizes the event.
 func (p *StripeProvider) ParseWebhook(payload []byte, sigHeader string) (*WebhookEvent, error) {
-	// Falha fechado se o segredo não está configurado: com secret vazio o HMAC é reproduzível por
-	// qualquer um, e um webhook forjado concederia plano pago a qualquer tenant (auditoria M).
+	// Fails closed when the secret is not configured: with an empty secret the HMAC is
+	// reproducible by anyone, and a forged webhook would grant a paid plan to any tenant (audit M).
 	if p.cfg.WebhookSecret == "" {
 		return nil, fmt.Errorf("stripe webhook secret not configured")
 	}
@@ -153,13 +155,13 @@ func (p *StripeProvider) ParseWebhook(payload []byte, sigHeader string) (*Webhoo
 		return &WebhookEvent{EventID: ev.ID, Type: "activated", TenantID: tenant, Plan: o.Metadata["plan"],
 			Status: "active", SubscriptionID: o.Subscription, Cycle: o.Metadata["cycle"]}, nil
 	case "invoice.paid":
-		// Dinheiro cobrado de facto (fim do teste ou renovação). O tenant vem da linha da fatura,
-		// que herda os metadados da assinatura — a fatura em si não tem client_reference_id.
+		// Money actually charged (end of trial or renewal). The tenant comes from the invoice
+		// line, which inherits the subscription's metadata — the invoice itself has no client_reference_id.
 		if tenant == "" && len(o.Lines.Data) > 0 {
 			tenant = o.Lines.Data[0].Metadata["tenant_id"]
 		}
 		if o.AmountPaid <= 0 {
-			return nil, nil // fatura de 0 (início do teste): não é cobrança, não se avisa
+			return nil, nil // $0 invoice (trial start): not a charge, no notice
 		}
 		plan := o.Metadata["plan"]
 		if plan == "" && len(o.Lines.Data) > 0 {
@@ -172,15 +174,15 @@ func (p *StripeProvider) ParseWebhook(payload []byte, sigHeader string) (*Webhoo
 		return &WebhookEvent{EventID: ev.ID, Type: "canceled", TenantID: tenant, Plan: DefaultPlanID, Status: "canceled",
 			SubscriptionID: o.ID, PeriodEnd: o.CurrentPeriodEnd}, nil
 	case "customer.subscription.updated":
-		// Só sincroniza o STATUS (past_due, active…): Plan vazio = o handler não mexe no plano.
+		// Only syncs the STATUS (past_due, active…): empty Plan = the handler does not touch the plan.
 		return &WebhookEvent{EventID: ev.ID, Type: "status", TenantID: tenant, Plan: "", Status: o.Status,
 			SubscriptionID: o.ID, PeriodEnd: o.CurrentPeriodEnd}, nil
 	default:
-		return nil, nil // evento sem efeito
+		return nil, nil // event with no effect
 	}
 }
 
-// verifyStripeSignature valida o cabeçalho Stripe-Signature. Exportado indiretamente para teste.
+// verifyStripeSignature validates the Stripe-Signature header. Exported indirectly for testing.
 func verifyStripeSignature(payload []byte, header, secret string, tolerance time.Duration) error {
 	var ts string
 	var sigs []string
@@ -224,7 +226,7 @@ func absDuration(d time.Duration) time.Duration {
 	return d
 }
 
-// doForm executa uma chamada form-encoded à API da Stripe e devolve o corpo (erro em não-2xx).
+// doForm performs a form-encoded call to the Stripe API and returns the body (error on non-2xx).
 func (p *StripeProvider) doForm(ctx context.Context, method, url string, form url.Values) ([]byte, error) {
 	var body io.Reader
 	if form != nil {
@@ -250,7 +252,7 @@ func (p *StripeProvider) doForm(ctx context.Context, method, url string, form ur
 	return raw, nil
 }
 
-// Subscription lê a assinatura (status, cliente, item e fim do período).
+// Subscription reads the subscription (status, customer, item, and period end).
 func (p *StripeProvider) Subscription(ctx context.Context, subID string) (SubscriptionInfo, error) {
 	raw, err := p.doForm(ctx, http.MethodGet, "https://api.stripe.com/v1/subscriptions/"+url.PathEscape(subID), nil)
 	if err != nil {
@@ -277,8 +279,8 @@ func (p *StripeProvider) Subscription(ctx context.Context, subID string) (Subscr
 	return info, nil
 }
 
-// UpdatePlan troca o preço (price_data inline, como no checkout) e a quantidade da assinatura
-// ativa, com rateio — upgrade/downgrade sem novo checkout.
+// UpdatePlan swaps the price (inline price_data, as at checkout) and the quantity of the active
+// subscription, with proration — upgrade/downgrade without a new checkout.
 func (p *StripeProvider) UpdatePlan(ctx context.Context, subID string, plan Plan, seats int, cycle Cycle) error {
 	info, err := p.Subscription(ctx, subID)
 	if err != nil {
@@ -304,7 +306,7 @@ func (p *StripeProvider) UpdatePlan(ctx context.Context, subID string, plan Plan
 	}
 	form.Set("metadata[plan]", plan.ID)
 	form.Set("proration_behavior", "create_prorations")
-	form.Set("cancel_at_period_end", "false") // trocar de plano retoma uma assinatura a caminho do cancelamento
+	form.Set("cancel_at_period_end", "false") // switching plans resumes a subscription headed toward cancellation
 	_, err = p.doForm(ctx, http.MethodPost, "https://api.stripe.com/v1/subscriptions/"+url.PathEscape(subID), form)
 	return err
 }
@@ -336,8 +338,9 @@ func (p *StripeProvider) PortalURL(ctx context.Context, customerID, returnURL st
 	return out.URL, nil
 }
 
-// SyncPlan espelha o plano na Stripe: garante o Product (cria/renomeia) e o Price recorrente.
-// Prices são imutáveis — mudou o valor, cria um novo, marca-o default e desativa o antigo.
+// SyncPlan mirrors the plan at Stripe: ensures the Product (creates/renames) and the recurring
+// Price. Prices are immutable — if the amount changed, create a new one, mark it default, and
+// deactivate the old one.
 func (p *StripeProvider) SyncPlan(ctx context.Context, plan Plan, productID, priceID string, priceChanged bool) (string, string, error) {
 	// 1) Product
 	if productID == "" {
@@ -362,7 +365,7 @@ func (p *StripeProvider) SyncPlan(ctx context.Context, plan Plan, productID, pri
 			return "", "", err
 		}
 	}
-	// 2) Price — só cria quando não existe ou o valor mudou.
+	// 2) Price — only created when it does not exist or the amount changed.
 	if priceID == "" || priceChanged {
 		base := strings.ToLower(p.cfg.Settings().Currency)
 		form := url.Values{}
@@ -371,7 +374,7 @@ func (p *StripeProvider) SyncPlan(ctx context.Context, plan Plan, productID, pri
 		form.Set("unit_amount", strconv.Itoa(plan.PriceCentsPerUser))
 		form.Set("recurring[interval]", "month")
 		form.Set("metadata[plan]", plan.ID)
-		// Moeda por país: as demais moedas entram como currency_options do MESMO price.
+		// Per-country currency: the other currencies go in as currency_options of the SAME price.
 		for cur, cents := range plan.Prices {
 			lc := strings.ToLower(cur)
 			if lc == base {
@@ -389,7 +392,7 @@ func (p *StripeProvider) SyncPlan(ctx context.Context, plan Plan, productID, pri
 		if err := json.Unmarshal(raw, &out); err != nil {
 			return productID, priceID, err
 		}
-		if priceID != "" { // desativa o preço antigo (não afeta assinaturas existentes)
+		if priceID != "" { // deactivates the old price (does not affect existing subscriptions)
 			off := url.Values{}
 			off.Set("active", "false")
 			_, _ = p.doForm(ctx, http.MethodPost, "https://api.stripe.com/v1/prices/"+url.PathEscape(priceID), off)
@@ -399,8 +402,9 @@ func (p *StripeProvider) SyncPlan(ctx context.Context, plan Plan, productID, pri
 	return productID, priceID, nil
 }
 
-// UpdateQuantity ajusta os seats da assinatura com rateio (create_prorations): quem entra a meio
-// do período paga só a fração restante; quem sai gera crédito na fatura seguinte.
+// UpdateQuantity adjusts the subscription's seats with proration (create_prorations): whoever
+// joins mid-period pays only the remaining fraction; whoever leaves generates a credit on the
+// next invoice.
 func (p *StripeProvider) UpdateQuantity(ctx context.Context, subID string, seats int) error {
 	info, err := p.Subscription(ctx, subID)
 	if err != nil {
@@ -420,17 +424,18 @@ func (p *StripeProvider) UpdateQuantity(ctx context.Context, subID string, seats
 	return err
 }
 
-// EnsureCustomer cria (ou atualiza) o cliente na Stripe com os dados de faturação. É o que faz a
-// fatura sair com razão social, morada e NIF em vez de só um e-mail — o que uma empresa precisa
-// para deduzir o IVA. O NIF vai como tax_id à parte (a Stripe guarda-o numa lista própria).
+// EnsureCustomer creates (or updates) the customer at Stripe with the billing data. It is what
+// makes the invoice come out with legal name, address, and tax ID instead of just an email —
+// what a company needs to deduct VAT. The tax ID goes as a separate tax_id (Stripe keeps it in
+// its own list).
 func (p *StripeProvider) EnsureCustomer(ctx context.Context, customerID string, c Customer) (string, error) {
 	form := url.Values{}
 	if c.Name != "" {
 		form.Set("name", c.Name)
 	}
 	if c.Email != "" {
-		// É o e-mail do RESPONSÁVEL FINANCEIRO — é para aqui que a Stripe manda faturas e recibos,
-		// e não para quem calhou de estar a assinar.
+		// This is the FINANCIAL CONTACT's email — this is where Stripe sends invoices and
+		// receipts, not whoever happened to be signing up.
 		form.Set("email", c.Email)
 	}
 	if c.Phone != "" {
@@ -463,7 +468,7 @@ func (p *StripeProvider) EnsureCustomer(ctx context.Context, customerID string, 
 	}
 	raw, err := p.doForm(ctx, http.MethodPost, endpoint, form)
 	if err != nil {
-		// Cliente apagado na Stripe (ou id de outra conta): recomeça em vez de ficar preso.
+		// Customer deleted at Stripe (or id from another account): start over instead of getting stuck.
 		if customerID != "" {
 			return p.EnsureCustomer(ctx, "", c)
 		}
@@ -481,15 +486,15 @@ func (p *StripeProvider) EnsureCustomer(ctx context.Context, customerID string, 
 	return out.ID, nil
 }
 
-// syncTaxID põe o NIF do cliente na Stripe (eu_vat para a UE). Best-effort: um número recusado não
-// pode travar a assinatura — o valor a pagar é decidido por nós, não pela Stripe.
+// syncTaxID sets the customer's tax ID at Stripe (eu_vat for the EU). Best-effort: a rejected
+// number cannot block the subscription — the amount to charge is decided by us, not by Stripe.
 func (p *StripeProvider) syncTaxID(ctx context.Context, customerID string, c Customer) {
 	kind := "eu_vat"
 	if !IsEU(c.Country) {
-		return // fora da UE cada país tem o seu tipo; não arriscamos adivinhar
+		return // outside the EU each country has its own type; we do not risk guessing
 	}
 	base := "https://api.stripe.com/v1/customers/" + url.PathEscape(customerID) + "/tax_ids"
-	// Já lá está o mesmo número? Não repete (a Stripe recusa duplicados).
+	// Is the same number already there? Do not repeat it (Stripe rejects duplicates).
 	if raw, err := p.doForm(ctx, http.MethodGet, base, nil); err == nil {
 		var list struct {
 			Data []struct {
@@ -503,7 +508,7 @@ func (p *StripeProvider) syncTaxID(ctx context.Context, customerID string, c Cus
 				if strings.EqualFold(it.Value, c.TaxID) {
 					return
 				}
-				if it.Type == kind { // número mudou: fora o antigo
+				if it.Type == kind { // number changed: remove the old one
 					_, _ = p.doForm(ctx, http.MethodDelete, base+"/"+url.PathEscape(it.ID), nil)
 				}
 			}
@@ -513,6 +518,6 @@ func (p *StripeProvider) syncTaxID(ctx context.Context, customerID string, c Cus
 	form.Set("type", kind)
 	form.Set("value", c.TaxID)
 	if _, err := p.doForm(ctx, http.MethodPost, base, form); err != nil {
-		log.Printf("stripe: tax_id %q recusado para %s: %v", c.TaxID, customerID, err)
+		log.Printf("stripe: tax_id %q rejected for %s: %v", c.TaxID, customerID, err)
 	}
 }

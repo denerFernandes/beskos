@@ -9,8 +9,8 @@ import (
 	"testing"
 )
 
-// wrapExemplo simula uma chave embrulhada: os testes deste pacote não precisam de a saber abrir,
-// só de a ver viajar no cabeçalho com o tamanho certo.
+// wrapExample simulates a wrapped key: this package's tests don't need to know how to open it,
+// only to see it travel in the header with the right size.
 var wrapExample = bytes.Repeat([]byte{0xAB}, 60)
 
 func hdr(block int) Header {
@@ -19,7 +19,7 @@ func hdr(block int) Header {
 
 func hdrLen() int64 { return int64(FixedHeaderSize + len(wrapExample)) }
 
-// leHeader lê a parte fixa e a chave embrulhada de um objeto cifrado em memória.
+// parseHeader reads the fixed part and the wrapped key of an encrypted object in memory.
 func parseHeader(t *testing.T, b []byte) (Header, error) {
 	t.Helper()
 	h, err := ParseHeader(b[:FixedHeaderSize])
@@ -39,8 +39,8 @@ func key(t *testing.T) []byte {
 	return k
 }
 
-// idaEVolta é o teste que mais importa: o que sai tem de ser byte a byte o que entrou, em vários
-// tamanhos à volta da fronteira do bloco — é aí que os erros de índice se escondem.
+// This is the test that matters most: what comes out has to be byte for byte what went in, at
+// several sizes around the block boundary — that's where index errors hide.
 func TestRoundTrip(t *testing.T) {
 	k := key(t)
 	const block = 1024
@@ -80,17 +80,17 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-// Um objeto antigo, em claro, tem de ser reconhecido como tal — é o que mantém a migração segura
-// quando falha a meio (docs/cifra-ficheiros.md §2d).
+// An old plaintext object has to be recognized as such — that's what keeps the migration safe
+// when it fails halfway through (see the file-encryption design doc, §2d).
 func TestPlaintextObjectIsNotMistaken(t *testing.T) {
-	_, err := ParseHeader([]byte("PK\x03\x04 isto é um zip, não nosso......."))
+	_, err := ParseHeader([]byte("PK\x03\x04 this is a zip, not ours......."))
 	if !errors.Is(err, ErrNotEncrypted) {
 		t.Fatalf("want ErrNotEncrypted, got %v", err)
 	}
 }
 
-// Seek: o ponto de todo o formato em blocos. Cada leitura a partir de uma posição arbitrária tem de
-// devolver exatamente a cauda do conteúdo.
+// Seek: the whole point of the block format. Each read from an arbitrary position has to
+// return exactly the tail of the content.
 func TestSeekReadsFromAnyPosition(t *testing.T) {
 	k := key(t)
 	const block = 256
@@ -114,7 +114,7 @@ func TestSeekReadsFromAnyPosition(t *testing.T) {
 		t.Fatalf("Size() = %d, want %d", sr.Size(), len(plain))
 	}
 
-	// Posições escolhidas nas fronteiras e no meio dos blocos, que é onde se erra.
+	// Positions chosen at the boundaries and in the middle of blocks, which is where mistakes happen.
 	for _, off := range []int64{0, 1, block - 1, block, block + 1, 3 * block, int64(len(plain)) - 1} {
 		if _, err := sr.Seek(off, io.SeekStart); err != nil {
 			t.Fatalf("off %d: seek: %v", off, err)
@@ -128,13 +128,13 @@ func TestSeekReadsFromAnyPosition(t *testing.T) {
 		}
 	}
 
-	// SeekEnd é o que o http.ServeContent usa para descobrir o tamanho.
+	// SeekEnd is what http.ServeContent uses to discover the size.
 	if p, err := sr.Seek(0, io.SeekEnd); err != nil || p != int64(len(plain)) {
 		t.Fatalf("SeekEnd = %d, %v", p, err)
 	}
 }
 
-// Adulterar um byte tem de dar erro, não conteúdo silenciosamente errado.
+// Tampering with a byte has to raise an error, not silently wrong content.
 func TestTamperingIsDetected(t *testing.T) {
 	k := key(t)
 	plain := bytes.Repeat([]byte("a"), 3000)
@@ -155,8 +155,8 @@ func TestTamperingIsDetected(t *testing.T) {
 	}
 }
 
-// Truncar o fim tem de dar erro. Sem a marca de último bloco nos dados associados, um ficheiro
-// cortado passaria como válido — cada bloco restante continua individualmente bem selado.
+// Truncating the end has to raise an error. Without the last-block marker in the associated data, a
+// cut-off file would pass as valid — each remaining block is still individually well-sealed.
 func TestTruncationIsDetected(t *testing.T) {
 	k := key(t)
 	plain := bytes.Repeat([]byte("b"), 3000)
@@ -165,7 +165,7 @@ func TestTruncationIsDetected(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := cifrado.Bytes()
-	truncated := b[:len(b)-(1024+TagSize)] // menos um bloco
+	truncated := b[:len(b)-(1024+TagSize)] // one block short
 
 	h, _ := parseHeader(t, truncated)
 	r, err := DecryptReader(bytes.NewReader(truncated[h.DataOffset():]), h, k)
@@ -177,7 +177,7 @@ func TestTruncationIsDetected(t *testing.T) {
 	}
 }
 
-// Chave errada não pode devolver conteúdo.
+// A wrong key must not return content.
 func TestWrongKey(t *testing.T) {
 	k1, k2 := key(t), key(t)
 	var cifrado bytes.Buffer
@@ -218,8 +218,8 @@ func TestKEKWrapsAndUnwraps(t *testing.T) {
 		t.Fatalf("did not come back the same: %v", err)
 	}
 
-	// Material antigo continua a abrir-se enquanto a KEK antiga estiver configurada — é o que
-	// permite rodar em fundo sem parar o serviço.
+	// Old material keeps opening as long as the old KEK stays configured — that's what
+	// lets the rotation run in the background without stopping the service.
 	old, err := kek.WrapWithVersion(material, 1)
 	if err != nil {
 		t.Fatal(err)
@@ -231,16 +231,16 @@ func TestKEKWrapsAndUnwraps(t *testing.T) {
 
 func TestKEKRejectsInvalidConfig(t *testing.T) {
 	cases := map[string]string{
-		"hex curto":       "1:abcd",
-		"não hex":         "1:" + strings.Repeat("zz", KeySize),
-		"versão inválida": "x:" + strings.Repeat("11", KeySize),
+		"short hex":       "1:abcd",
+		"not hex":         "1:" + strings.Repeat("zz", KeySize),
+		"invalid version": "x:" + strings.Repeat("11", KeySize),
 	}
 	for name, value := range cases {
 		if _, err := ParseKEK(value); err == nil {
 			t.Errorf("%s: should reject", name)
 		}
 	}
-	// Vazio é legítimo: significa cifra desligada.
+	// Empty is legitimate: it means encryption is disabled.
 	if k, err := ParseKEK(""); err != nil || k != nil {
 		t.Errorf("empty should give (nil, nil), gave (%v, %v)", k, err)
 	}
@@ -256,7 +256,7 @@ func TestDEKIsWrappedByTenantKey(t *testing.T) {
 	if err != nil || !bytes.Equal(opened, dek) {
 		t.Fatalf("DEK did not come back: %v", err)
 	}
-	// A chave de outro tenant não abre — é isto que sustenta a promessa de eliminação por tenant.
+	// Another tenant's key does not open it — this is what backs the per-tenant deletion promise.
 	if _, err := UnwrapDEK(key(t), wrapped); !errors.Is(err, ErrCorrupt) {
 		t.Fatal("another tenant's key unwrapped the DEK")
 	}
@@ -280,11 +280,11 @@ func TestHeaderRoundTrip(t *testing.T) {
 		back.NoncePrefix != h.NoncePrefix || !back.TenantWrapped {
 		t.Fatalf("header changed: %+v vs %+v", back, h)
 	}
-	// A chave embrulhada tem de voltar byte a byte: é ela que abre o objeto.
+	// The wrapped key has to come back byte for byte: it's what opens the object.
 	if !bytes.Equal(back.WrappedKey, h.WrappedKey) {
 		t.Fatal("the wrapped key did not survive the round trip")
 	}
-	// Objeto de sistema: sem tenant, a versão da KEK é que conta.
+	// System object: with no tenant, the KEK version is what counts.
 	hdr := MarshalHeader(Header{ChunkSize: 4096, KEKVersion: 7, WrappedKey: wrapExample})
 	v2, err := ParseHeader(hdr[:FixedHeaderSize])
 	if err != nil {

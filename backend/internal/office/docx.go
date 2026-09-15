@@ -2,10 +2,10 @@ package office
 
 import "strings"
 
-// buildDocx constrói um .docx mínimo mas VÁLIDO: o pacote de conteúdos, a relação da raiz e o
-// documento. Sem styles.xml — os estilos usados são os que o Word resolve por omissão a partir dos
-// nomes ("Title", "Heading1", "ListParagraph"), portanto não é preciso declará-los para o ficheiro
-// abrir. Um ficheiro que abre em todo o lado vale mais do que um com estilos nossos que não abre.
+// buildDocx builds a minimal but VALID .docx: the content types package, the root relationship, and
+// the document. No styles.xml — the styles used are the ones Word resolves by default from the
+// names ("Title", "Heading1", "ListParagraph"), so there is no need to declare them for the file
+// to open. A file that opens everywhere is worth more than one with our own styles that doesn't open.
 func buildDocx(p Plan) ([]byte, error) {
 	var body strings.Builder
 	if p.Title != "" {
@@ -48,8 +48,8 @@ func buildDocx(p Plan) ([]byte, error) {
 	})
 }
 
-// docxPara escreve um parágrafo com um estilo. Texto vazio produz um parágrafo vazio, que é uma
-// linha em branco — e uma linha em branco pedida é conteúdo, não um erro.
+// docxPara writes a paragraph with a style. Empty text produces an empty paragraph, which is a
+// blank line — and a requested blank line is content, not an error.
 func docxPara(style, text string) string {
 	var b strings.Builder
 	b.WriteString(`<w:p>`)
@@ -67,8 +67,8 @@ func docxBullet(text string) string {
 		docxRuns(text) + `</w:p>`
 }
 
-// docxRuns parte o texto nas quebras de linha. Um \n dentro de um <w:t> é ignorado pelo Word: sem
-// isto, um parágrafo de três linhas apareceria numa só, colado.
+// docxRuns splits the text on line breaks. A \n inside a <w:t> is ignored by Word: without
+// this, a three-line paragraph would appear as one, run together.
 func docxRuns(text string) string {
 	lines := strings.Split(sanitize(text), "\n")
 	var b strings.Builder
@@ -77,8 +77,8 @@ func docxRuns(text string) string {
 		if i > 0 {
 			b.WriteString(`<w:br/>`)
 		}
-		// xml:space="preserve" mantém os espaços do início e do fim, que de outra forma o leitor
-		// come — e a indentação de uma citação desapareceria.
+		// xml:space="preserve" keeps the leading/trailing spaces, which the reader would
+		// otherwise eat — and a quote's indentation would disappear.
 		b.WriteString(`<w:t xml:space="preserve">` + esc(line) + `</w:t>`)
 		b.WriteString(`</w:r>`)
 	}

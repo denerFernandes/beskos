@@ -7,24 +7,24 @@ import (
 	"strings"
 )
 
-// CheckoutResult: Manual aplica o plano na hora (Applied=true, sem redirect); Stripe devolve URL.
+// CheckoutResult: Manual applies the plan immediately (Applied=true, no redirect); Stripe returns a URL.
 type CheckoutResult struct {
 	URL     string `json:"url,omitempty"`
 	Applied bool   `json:"applied"`
 }
 
-// Cycle é a periodicidade da assinatura. Mensal é o padrão; anual cobra AnnualMonthsCharged meses
-// de uma vez (os restantes são o desconto de quem paga adiantado).
+// Cycle is the subscription's billing period. Monthly is the default; annual bills
+// AnnualMonthsCharged months at once (the rest is the discount for paying upfront).
 type Cycle string
 
 const (
 	CycleMonth Cycle = "month"
 	CycleYear  Cycle = "year"
-	// AnnualMonthsCharged: 10 meses pelo ano = 2 meses grátis (~17% de desconto).
+	// AnnualMonthsCharged: 10 months for the year = 2 months free (~17% discount).
 	AnnualMonthsCharged = 10
 )
 
-// Normalize devolve um ciclo válido (qualquer coisa que não seja "year" é mensal).
+// Normalize returns a valid cycle (anything other than "year" is monthly).
 func (c Cycle) Normalize() Cycle {
 	if c == CycleYear {
 		return CycleYear
@@ -32,37 +32,38 @@ func (c Cycle) Normalize() Cycle {
 	return CycleMonth
 }
 
-// CheckoutOpts são os extras do checkout: periodicidade e o cliente já criado no provedor (com
-// morada/NIF/e-mail de faturação), para a fatura sair completa.
+// CheckoutOpts are the checkout extras: billing period and the customer already created at the
+// provider (with billing address/tax ID/email), so the invoice comes out complete.
 type CheckoutOpts struct {
 	Cycle        Cycle
-	CustomerID   string // cus_… (Stripe). Vazio = o provedor cria um no checkout.
-	InvoiceEmail string // usado só quando não há CustomerID
-	// TrialDays > 0 pede o cartão mas só cobra no fim do período de teste (registo self-service).
+	CustomerID   string // cus_… (Stripe). Empty = the provider creates one at checkout.
+	InvoiceEmail string // used only when there is no CustomerID
+	// TrialDays > 0 asks for the card but only charges at the end of the trial (self-service signup).
 	TrialDays int
 }
 
-// WebhookEvent é o evento normalizado (independente de provedor) que o control plane aplica.
+// WebhookEvent is the normalized event (provider-independent) that the control plane applies.
 type WebhookEvent struct {
-	EventID        string // id do provedor — usado para idempotência (brief §10)
+	EventID        string // provider id — used for idempotency (brief §10)
 	Type           string // "activated" | "canceled" | "status" | "charged"
 	TenantID       string
-	Plan           string // plano a aplicar ("" = não mexer no plano)
+	Plan           string // plan to apply ("" = do not touch the plan)
 	Status         string
 	SubscriptionID string
-	// Cobrança (Type="charged"): o que a fatura levou, para o aviso ao cliente.
+	// Charge (Type="charged"): what the invoice took, for the customer notice.
 	Cycle       string
 	AmountCents int
 	Currency    string
 	InvoiceURL  string
-	PlanKey     string // plano da fatura, só para o texto do aviso
+	PlanKey     string // plan on the invoice, only for the notice text
 	// PeriodEnd is what the subscription is paid up to (unix, 0 = unknown). It decides when a
 	// lapsed account stops being able to send, so it is stored rather than asked for later: putting
 	// Stripe's availability in front of our customers' mail is not a trade we want to make.
 	PeriodEnd int64
 }
 
-// SubscriptionInfo é o retrato da assinatura no provedor — o painel gere sem sair da app.
+// SubscriptionInfo is the snapshot of the subscription at the provider — the panel manages it
+// without leaving the app.
 type SubscriptionInfo struct {
 	Customer          string
 	ItemID            string
@@ -71,43 +72,44 @@ type SubscriptionInfo struct {
 	CurrentPeriodEnd  int64 // unix
 }
 
-// Provider abstrai o pagamento. Trocar Stripe↔Manual↔outro = só config (como ai/sms).
+// Provider abstracts payment. Swapping Stripe/Manual/other is config-only (like ai/sms).
 type Provider interface {
 	Name() string
 	// Checkout starts or updates the tenant's subscription. seats is the number of billed users.
 	// The caller resolves Plan against the database catalog before calling — the provider never
 	// reads the in-code catalog, or its price could drift from what is edited in the operator panel.
 	Checkout(ctx context.Context, tenantID string, plan Plan, seats int, opts CheckoutOpts) (CheckoutResult, error)
-	// ParseWebhook valida a assinatura e normaliza o evento. (nil, nil) = ignorar/sem efeito.
+	// ParseWebhook validates the signature and normalizes the event. (nil, nil) = ignore/no effect.
 	ParseWebhook(payload []byte, sigHeader string) (*WebhookEvent, error)
-	// Subscription lê a assinatura no provedor (status, fim do período, item para trocar preço).
+	// Subscription reads the subscription at the provider (status, period end, item to swap the price).
 	Subscription(ctx context.Context, subID string) (SubscriptionInfo, error)
-	// UpdatePlan troca o preço/quantidade da assinatura ATIVA (upgrade/downgrade com rateio).
+	// UpdatePlan swaps the price/quantity of the ACTIVE subscription (upgrade/downgrade with proration).
 	UpdatePlan(ctx context.Context, subID string, plan Plan, seats int, cycle Cycle) error
-	// SetCancelAtPeriodEnd cancela no fim do período (true) ou retoma (false).
+	// SetCancelAtPeriodEnd cancels at the end of the period (true) or resumes it (false).
 	SetCancelAtPeriodEnd(ctx context.Context, subID string, cancel bool) error
-	// PortalURL abre o portal do cliente (trocar forma de pagamento, faturas). "" = não suportado.
+	// PortalURL opens the customer portal (change payment method, invoices). "" = unsupported.
 	PortalURL(ctx context.Context, customerID, returnURL string) (string, error)
-	// UpdateQuantity ajusta o nº de seats da assinatura ativa, com rateio — utilizador novo a
-	// meio do período entra proporcional na fatura.
+	// UpdateQuantity adjusts the active subscription's seat count, with proration — a new user
+	// mid-period is billed the proportional amount.
 	UpdateQuantity(ctx context.Context, subID string, seats int) error
-	// SyncPlan espelha o plano no provedor (Product + Price). Preço mudou → Price novo (imutáveis)
-	// e o antigo é desativado. Devolve os ids atuais ("" no provedor manual).
+	// SyncPlan mirrors the plan at the provider (Product + Price). Price changed -> new Price
+	// (immutable) and the old one is deactivated. Returns the current ids ("" on the manual provider).
 	SyncPlan(ctx context.Context, plan Plan, productID, priceID string, priceChanged bool) (newProductID, newPriceID string, err error)
-	// EnsureCustomer cria/atualiza o cliente no provedor com os dados de faturação (razão social,
-	// morada, NIF, e-mail do responsável financeiro). Devolve o id do cliente ("" = não suportado),
-	// que o checkout reutiliza — assim a fatura sai completa e não se pede tudo outra vez no cartão.
+	// EnsureCustomer creates/updates the customer at the provider with the billing data (legal
+	// name, address, tax ID, financial contact's email). Returns the customer id ("" = unsupported),
+	// which checkout reuses — so the invoice comes out complete and the card step doesn't ask for
+	// everything again.
 	EnsureCustomer(ctx context.Context, customerID string, c Customer) (string, error)
 }
 
-// Customer são os dados de faturação enviados ao provedor. Espelha o que a fatura tem de mostrar.
+// Customer is the billing data sent to the provider. Mirrors what the invoice has to show.
 type Customer struct {
 	TenantID     string
 	Kind         string // company | individual
-	Name         string // razão social ou nome
-	Email        string // responsável financeiro (para onde vai a fatura)
-	TaxID        string // NIF/VAT já normalizado ("" = sem número)
-	Country      string // ISO alfa-2
+	Name         string // legal name or personal name
+	Email        string // financial contact (where the invoice goes)
+	TaxID        string // already-normalized tax ID/VAT ("" = no number)
+	Country      string // ISO alpha-2
 	City         string
 	PostalCode   string
 	AddressLine1 string
@@ -115,8 +117,8 @@ type Customer struct {
 	Phone        string
 }
 
-// ManualProvider: sem gateway externo. O plano é aplicado direto (dev, self-serve interno,
-// e é o caminho exercitado nos testes). Não há webhooks.
+// ManualProvider: no external gateway. The plan is applied directly (dev, internal self-serve,
+// and the path exercised by the tests). There are no webhooks.
 type ManualProvider struct{}
 
 func (ManualProvider) Name() string { return "manual" }
@@ -141,7 +143,7 @@ func (ManualProvider) SyncPlan(_ context.Context, _ Plan, productID, priceID str
 	return productID, priceID, nil
 }
 
-// Config seleciona o provedor por ambiente.
+// Config selects the provider via the environment.
 type Config struct {
 	Provider      string // "manual" (default) | "stripe"
 	SecretKey     string
@@ -164,7 +166,7 @@ func FromEnv() Config {
 	}
 }
 
-// Settings expõe as configurações globais (moeda + mínimo de usuários) para os handlers/UI.
+// Settings exposes the global settings (currency + minimum users) for the handlers/UI.
 func (c Config) Settings() Settings {
 	cur := c.Currency
 	if cur != "BRL" && cur != "EUR" && cur != "USD" && cur != "PLN" && cur != "GBP" {
@@ -184,7 +186,7 @@ func atoiDefault(s string, def int) int {
 	return def
 }
 
-// New constrói o Provider. Único ponto que conhece provedores concretos.
+// New builds the Provider. The only place that knows concrete providers.
 func New(cfg Config) (Provider, error) {
 	switch cfg.Provider {
 	case "manual", "":

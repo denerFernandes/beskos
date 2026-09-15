@@ -1,9 +1,9 @@
 package wiki
 
-// Renderer do formato BlockNote (B2): body_json passa a ser o ARRAY de blocos do BlockNote
-// (https://www.blocknotejs.org). derive() despacha: array JSON → aqui; objeto {type:"doc"} →
-// renderer ProseMirror legado (render.go). A mesma regra de segurança: HTML por construção,
-// todo o texto escapado, URLs por whitelist — nunca markup do utilizador passado em cru.
+// Renderer for the BlockNote format (B2): body_json becomes the BlockNote block ARRAY
+// (https://www.blocknotejs.org). derive() dispatches: JSON array → here; {type:"doc"} object →
+// legacy ProseMirror renderer (render.go). Same security rule: HTML by construction,
+// all text escaped, URLs via whitelist — user markup is never passed through raw.
 
 import (
 	"encoding/json"
@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-// bnBlock é um bloco BlockNote. Content é cru porque varia: array de inline OU objeto tableContent.
+// bnBlock is a BlockNote block. Content is raw because it varies: an inline array OR a tableContent object.
 type bnBlock struct {
 	Type     string          `json:"type"`
 	Props    map[string]any  `json:"props"`
@@ -19,14 +19,14 @@ type bnBlock struct {
 	Children []bnBlock       `json:"children"`
 }
 
-// bnInline é conteúdo inline: texto com estilos, ou link com filhos.
+// bnInline is inline content: text with styles, or a link with children.
 type bnInline struct {
 	Type    string         `json:"type"`
 	Text    string         `json:"text"`
 	Styles  map[string]any `json:"styles"`
 	Href    string         `json:"href"`
 	Content []bnInline     `json:"content"`
-	Props   map[string]any `json:"props"` // inline content custom (mention/pageLink): {id,label}
+	Props   map[string]any `json:"props"` // custom inline content (mention/pageLink): {id,label}
 }
 
 type bnTableContent struct {
@@ -35,7 +35,7 @@ type bnTableContent struct {
 	} `json:"rows"`
 }
 
-// deriveBlockNote devolve (body_text, body_html) de um documento BlockNote.
+// deriveBlockNote returns (body_text, body_html) for a BlockNote document.
 func deriveBlockNote(raw []byte) (string, string) {
 	var blocks []bnBlock
 	if err := json.Unmarshal(raw, &blocks); err != nil {
@@ -47,7 +47,7 @@ func deriveBlockNote(raw []byte) (string, string) {
 	return strings.TrimSpace(text.String()), html.String()
 }
 
-// ---- texto (pesquisa/RAG) ----
+// ---- text (search/RAG) ----
 
 func bnRenderText(blocks []bnBlock, b *strings.Builder) {
 	for i := range blocks {
@@ -87,9 +87,9 @@ func bnInlineText(inlines []bnInline, b *strings.Builder) {
 	}
 }
 
-// ---- HTML (leitura) ----
+// ---- HTML (reading) ----
 
-// bnRenderBlocks agrupa itens de lista consecutivos (<ul>/<ol>/checklist) e emite os restantes.
+// bnRenderBlocks groups consecutive list items (<ul>/<ol>/checklist) and emits the rest.
 func bnRenderBlocks(blocks []bnBlock, b *strings.Builder) {
 	for i := 0; i < len(blocks); {
 		t := blocks[i].Type
@@ -185,7 +185,7 @@ func bnRenderInlines(inlines []bnInline, b *strings.Builder) {
 	for _, in := range inlines {
 		switch in.Type {
 		case "mention":
-			// Menção custom do BlockNote: props {id,label}. Texto escapado, nunca markup do utilizador.
+			// Custom BlockNote mention: props {id,label}. Text escaped, never user markup.
 			b.WriteString(`<span class="wiki-mention">@` + escapeText(attrStr(in.Props, "label")) + `</span>`)
 		case "pageLink":
 			b.WriteString(`<span class="wiki-pagelink" data-page-id="` + escapeAttr(attrStr(in.Props, "id")) + `">` +
@@ -199,13 +199,13 @@ func bnRenderInlines(inlines []bnInline, b *strings.Builder) {
 			b.WriteString(`<a href="` + escapeAttr(href) + `" rel="noopener nofollow">`)
 			bnRenderInlines(in.Content, b)
 			b.WriteString("</a>")
-		default: // "text" e afins
+		default: // "text" and similar
 			bnRenderStyledText(in, b)
 		}
 	}
 }
 
-// bnRenderStyledText embrulha o texto escapado nas marcas whitelisted dos styles.
+// bnRenderStyledText wraps the escaped text in the whitelisted style marks.
 func bnRenderStyledText(in bnInline, b *strings.Builder) {
 	type mark struct{ open, close string }
 	var marks []mark
@@ -234,9 +234,9 @@ func bnRenderStyledText(in bnInline, b *strings.Builder) {
 	}
 }
 
-// ---- helpers de parsing ----
+// ---- parsing helpers ----
 
-// bnInlines lê Content como array de inline (o caso normal); conteúdo ausente/tableContent → nil.
+// bnInlines reads Content as an inline array (the normal case); missing content/tableContent → nil.
 func bnInlines(raw json.RawMessage) []bnInline {
 	if len(raw) == 0 || raw[0] != '[' {
 		return nil
@@ -248,7 +248,7 @@ func bnInlines(raw json.RawMessage) []bnInline {
 	return out
 }
 
-// bnCellInlines lê uma célula de tabela: objeto {type:tableCell,content:[...]} ou array de inline.
+// bnCellInlines reads a table cell: object {type:tableCell,content:[...]} or an inline array.
 func bnCellInlines(raw json.RawMessage) []bnInline {
 	if len(raw) > 0 && raw[0] == '{' {
 		var cell struct {
