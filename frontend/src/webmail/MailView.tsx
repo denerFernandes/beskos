@@ -14,13 +14,17 @@ import { EventModal } from "./EventModal";
 import { ExtractTasksModal } from "./ExtractTasksModal";
 import { toast } from "./toast";
 import { backend, contactsApi, labelKeyword } from "./backend";
-import { displayName, shortTime } from "./util";
-import { Avatar } from "./Avatar";
-import { IcPencil, IcFolderPlus, IcSparkle, IcStar, IcRefresh, IcTrash, IcFolder, IcMail, IcChevron, IcX, IcClock, IcPaperclip, IcCheck } from "../panel/icons";
+import { displayName } from "./util";
+import { IcFolder, IcChevron } from "../panel/icons";
 import { MailAdvancedSearch } from "./MailAdvancedSearch";
-import { LabelChips } from "./MailLabels";
-
-const ROLE_ORDER = ["inbox", "sent", "drafts", "archive", "junk", "trash"];
+import { sortFolders, folderLabel } from "./mailFolders";
+import { useResizableListWidth } from "./useResizableListWidth";
+import { useMailKeyboardNav } from "./useMailKeyboardNav";
+import { MailSidebar } from "./MailSidebar";
+import { MailListToolbar } from "./MailListToolbar";
+import { MailSelectionBanners } from "./MailSelectionBanners";
+import { MailListRow } from "./MailListRow";
+import { MailEmptyFolderModal } from "./MailEmptyFolderModal";
 
 type ComposeInit = { to?: string; cc?: string; subject?: string; body?: string; bodyHtml?: string; draftId?: string; attachFiles?: File[]; attachments?: UploadedBlob[] };
 
@@ -57,30 +61,7 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
 
   // Largura da coluna da lista: redimensionável pelo utilizador (pega na borda), com MÍNIMO
   // garantido e persistida por dispositivo (localStorage — depende do ecrã, não da conta).
-  const LIST_W_KEY = "mailin.wm.listWidth";
-  const LIST_W_MIN = 340, LIST_W_MAX = 680;
-  const [listW, setListW] = useState<number>(() => {
-    const v = Number(localStorage.getItem(LIST_W_KEY));
-    return v >= LIST_W_MIN && v <= LIST_W_MAX ? v : 420;
-  });
-  const [resizing, setResizing] = useState(false);
-  const startResize = (e: React.PointerEvent) => {
-    e.preventDefault();
-    const startX = e.clientX, startW = listW;
-    setResizing(true);
-    const move = (ev: PointerEvent) => {
-      setListW(Math.min(LIST_W_MAX, Math.max(LIST_W_MIN, startW + (ev.clientX - startX))));
-    };
-    const up = (ev: PointerEvent) => {
-      const w = Math.min(LIST_W_MAX, Math.max(LIST_W_MIN, startW + (ev.clientX - startX)));
-      localStorage.setItem(LIST_W_KEY, String(w));
-      setResizing(false);
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
-  };
+  const { listW, resizing, startResize } = useResizableListWidth();
   const nav = useNavigate();
   // As automações vivem DENTRO do e-mail: é onde as regras actuam. Na URL, como todo o resto.
   const rules = sub === "rules";
@@ -222,11 +203,6 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
     const visible = emails.filter((m) => !m.keywords?.$seen).length;
     return Math.max(0, folderUnread - visible);
   }, [addrFilter, page, search, starred, labelId, folders, activeFolder, emails, realUnread]);
-
-  // Endereço a mostrar no seletor: a parte local em destaque e o domínio em surdina — é o que
-  // distingue caixas do MESMO domínio sem cortar o texto a meio.
-  const addrLabel = (a: string) => (a.includes("@") ? a.slice(0, a.indexOf("@")) : a);
-  const addrDomain = (a: string) => (a.includes("@") ? a.slice(a.indexOf("@")) : "");
 
   // Trocar de pasta/página/busca zera a seleção: um lote marcado numa lista já não visível
   // aplicaria ações a mensagens fora da vista.
@@ -373,25 +349,10 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
   }
   async function archiveOne(id: string) { await moveOne(id, archiveId ?? (await svc.ensureArchiveMailbox()), t("webmail.archived")); }
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
-      if (e.metaKey || e.ctrlKey || e.altKey || composers.length || !emails.length) return;
-      switch (e.key) {
-        case "j": case "ArrowDown": e.preventDefault(); setFocusIdx((i) => Math.min(emails.length - 1, i + 1)); break;
-        case "k": case "ArrowUp": e.preventDefault(); setFocusIdx((i) => Math.max(0, (i < 0 ? 0 : i) - 1)); break;
-        case "o": case "Enter": { if (focusedId) { const m = emails[focusIdx]; openRow(focusedId, m?.keywords ? !m.keywords.$seen : false); } break; }
-        case "e": if (focusedId && canArchive) void archiveOne(focusedId); break;
-        case "#": if (focusedId && trashId) void moveOne(focusedId, trashId, t("webmail.movedTrash")); break;
-        case "r": if (focusedId) openEmail(focusedId); break;
-        case "x": if (focusedId) toggleOne(focusedId); break;
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [emails, focusIdx, focusedId, composers.length, canArchive, trashId, archiveId, selected]);
+  useMailKeyboardNav({
+    emails, focusIdx, setFocusIdx, focusedId, composersCount: composers.length, canArchive, trashId,
+    archiveId, selected, openRow: (id, unread) => openRow(id, unread), archiveOne, moveOne, openEmail, toggleOne, t,
+  });
   async function moveSelected(mailboxId: string) { if (selected) { await svc.moveTo(selected, mailboxId); await afterMutate(); toast(t("webmail.moved")); } }
   async function trashSelected() { if (selected && trashId) { await svc.moveTo(selected, trashId); await afterMutate(); toast(t("webmail.movedTrash")); } }
   async function markUnread() { if (selected) { await svc.markRead(selected, false); await afterMutate(); } }
@@ -466,126 +427,29 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
     }
   }
 
+  const listTitle = search ? t("webmail.searchResults") : starred ? t("webmail.starred") : folderLabel(t, folders.find((f) => f.id === activeFolder));
+
   return (
     <div className={"mailgrid" + (rules ? " rules-mode" : "") + (selected ? " reading" : "")}
       style={{ "--listw": listW + "px" } as React.CSSProperties}>
-      {folderMenu && <div className="mgrid-backdrop" onClick={() => setFolderMenu(false)} />}
-      <aside className={"mrail" + (folderMenu ? " open" : "")} onClick={() => setFolderMenu(false)}>
-        <button className="compose" onClick={() => { if (rules) nav("/mail/mail"); openComposer({}); }}><IcPencil size={16} /> <span>{t("webmail.compose.new")}</span></button>
-        {aliases.length > 0 && (
-          // Só aparece quando há aliases: sem eles, um seletor de caixas com uma entrada só seria ruído.
-          // Um BOTÃO que abre a lista, e não a lista sempre aberta: numa barra estreita, endereços
-          // completos empilhados cortam-se todos ao meio ("dfernandes@beskos.c…") e não se lê nenhum.
-          <div className="mail-accounts">
-            <button className={"ma-cur" + (addrOpen ? " open" : "")} onClick={() => setAddrOpen((v) => !v)}>
-              {/* "Todas" tem o mesmo símbolo do menu; um avatar de conta aqui dizia que estava
-                  escolhida UMA caixa quando não está. */}
-              {addrFilter
-                ? <Avatar name={addrLabel(addrFilter)} email={addrFilter} size={26} className="ma-av" />
-                : <span className="ma-all">@</span>}
-              <span className="ma-txt">
-                <b>{addrFilter ? addrLabel(addrFilter) : t("webmail.accountsAll")}</b>
-                <i>{addrFilter ? addrDomain(addrFilter) : t("webmail.accountsAllHint", { n: aliases.length + 1 })}</i>
-              </span>
-              <IcChevron size={15} className={"ma-chev" + (addrOpen ? " up" : "")} />
-            </button>
-            {addrOpen && (
-              <>
-                <div className="menu-backdrop" onClick={() => setAddrOpen(false)} />
-                <div className="ma-menu">
-                  <button className={addrFilter === "" ? "on" : ""} onClick={() => { setAddrFilter(""); setAddrOpen(false); }}>
-                    <span className="ma-all">@</span>
-                    <span className="ma-txt"><b>{t("webmail.accountsAll")}</b><i>{t("webmail.accountsAllHint", { n: aliases.length + 1 })}</i></span>
-                    {addrFilter === "" && <IcCheck size={15} />}
-                  </button>
-                  {[addrQ.data?.primary ?? "", ...aliases].filter(Boolean).map((a) => (
-                    <button key={a} className={addrFilter === a ? "on" : ""} onClick={() => { setAddrFilter(a); setAddrOpen(false); }}>
-                      <Avatar name={addrLabel(a)} email={a} size={26} className="ma-av" />
-                      <span className="ma-txt"><b>{addrLabel(a)}</b><i>{addrDomain(a)}</i></span>
-                      {addrFilter === a && <IcCheck size={15} />}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-        <div className="nav">
-          {layoutFolders(boxesQ.data ?? []).map(({ f, depth }) => (
-            <div key={f.id} className="folder-row" style={{ marginLeft: depth * 12 }}>
-              {renameFolderId === f.id ? (
-                <input className="newfolder" autoFocus value={folderInput} onChange={(e) => setFolderInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") void renameFolder(f.id); if (e.key === "Escape") { setRenameFolderId(null); setFolderInput(""); } }}
-                  onBlur={() => void renameFolder(f.id)} />
-              ) : (
-                <button className={"fbtn " + (f.id === activeFolder && !search && !starred ? "on" : "") + (dropOn === f.id ? " drop" : "")}
-                  // Clicar numa pasta SAI das Automações: elas são uma página do e-mail, não uma camada.
-                  onClick={() => openFolder(f)}
-                  onDragOver={(e) => { if (dragId) { e.preventDefault(); setDropOn(f.id); } }}
-                  onDragLeave={() => setDropOn((v) => (v === f.id ? null : v))}
-                  onDrop={(e) => { e.preventDefault(); void dropInto(f.id); }}>
-                  <span>{folderLabel(t, f)}</span>
-                  {unreadOf(f) > 0 && (
-                    // Clicar no número mostra as não lidas — é a pergunta que o número levanta.
-                    <span className={"c" + (unreadOnly && f.id === activeFolder ? " on" : "")} title={t("webmail.showUnread")}
-                      onClick={(e) => { e.stopPropagation(); openFolder(f); setUnreadOnly((v) => !(v && f.id === activeFolder)); }}>
-                      {unreadOf(f)}
-                    </span>
-                  )}
-                </button>
-              )}
-              {/* Só pastas do utilizador (sem role de sistema) podem ser renomeadas/apagadas/aninhadas. */}
-              {!f.role && renameFolderId !== f.id && (
-                <div className="folder-menuwrap">
-                  <button className="folder-kebab" title={t("webmail.folderActions")} onClick={() => setKebabFolder((v) => (v === f.id ? null : f.id))}>⋯</button>
-                  {kebabFolder === f.id && (
-                    <div className="move-menu" onMouseLeave={() => setKebabFolder(null)}>
-                      <button onClick={() => { setRenameFolderId(f.id); setFolderInput(f.name); setKebabFolder(null); }}>{t("webmail.renameFolder")}</button>
-                      <button onClick={() => { setSubfolderOf(f.id); setFolderInput(""); setKebabFolder(null); }}>{t("webmail.newSubfolder")}</button>
-                      <button className="danger-item" onClick={() => void deleteFolder(f.id)}>{t("webmail.deleteFolder")}</button>
-                    </div>
-                  )}
-                </div>
-              )}
-              {subfolderOf === f.id && (
-                <input className="newfolder subfolder" autoFocus value={folderInput} placeholder={t("webmail.folderName")} onChange={(e) => setFolderInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") void createSubfolder(f.id); if (e.key === "Escape") { setSubfolderOf(null); setFolderInput(""); } }}
-                  onBlur={() => void createSubfolder(f.id)} />
-              )}
-            </div>
-          ))}
-          {/* Importantes fica JUNTO das pastas: é para onde se navega, não uma ação. A marca de
-              $flagged é que decide o conteúdo, mas para quem usa é mais um lugar. */}
-          <button className={"star-row" + (starred ? " on" : "")}
-            onClick={() => nav(starred ? "/mail/mail" : "/mail/mail/starred")}>
-            <IcStar size={15} filled={starred} />
-            <span>{t("webmail.starred")}</span>
-          </button>
-
-          {/* Marcadores (labels): cada um é uma vista por keyword. O catálogo gere-se no reader. */}
-          {(labelsQ.data ?? []).map((l) => (
-            <button key={l.id} className={"label-row" + (labelId === l.id ? " on" : "")}
-              onClick={() => nav(labelId === l.id ? "/mail/mail" : `/mail/mail/label:${l.id}`)}>
-              <span className="label-dot" style={{ background: l.color }} />
-              <span>{l.name}</span>
-            </button>
-          ))}
-
-          {newFolder !== null
-            ? <input className="newfolder" autoFocus value={newFolder} placeholder={t("webmail.folderName")}
-                onChange={(e) => setNewFolder(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void createFolder(); if (e.key === "Escape") setNewFolder(null); }}
-                onBlur={() => void createFolder()} />
-            : <button className="addfolder" onClick={() => setNewFolder("")}><IcFolderPlus size={15} /> <span>{t("webmail.newFolder")}</span></button>}
-        </div>
-        <button className="addfolder rules-entry" onClick={() => setScheduledOpen(true)}>
-          <IcClock size={15} /> <span>{t("webmail.scheduled.title")}</span>
-        </button>
-        <button className={"addfolder rules-entry" + (rules ? " on" : "")}
-          onClick={() => nav(rules ? "/mail/mail" : "/mail/mail/rules")}>
-          <IcSparkle size={15} /> <span>{t("rules.title")}</span>
-        </button>
-      </aside>
+      <MailSidebar
+        folderMenu={folderMenu} setFolderMenu={setFolderMenu}
+        onCompose={() => { if (rules) nav("/mail/mail"); openComposer({}); }}
+        aliases={aliases} primary={addrQ.data?.primary ?? ""} addrFilter={addrFilter} setAddrFilter={setAddrFilter}
+        addrOpen={addrOpen} setAddrOpen={setAddrOpen}
+        boxes={boxesQ.data ?? []} activeFolder={activeFolder} search={search} starred={starred}
+        dragId={dragId} dropOn={dropOn} setDropOn={setDropOn}
+        onOpenFolder={openFolder} onDropInto={dropInto}
+        unreadOf={unreadOf} unreadOnly={unreadOnly} setUnreadOnly={setUnreadOnly}
+        renameFolderId={renameFolderId} setRenameFolderId={setRenameFolderId}
+        folderInput={folderInput} setFolderInput={setFolderInput} onRenameFolder={renameFolder}
+        kebabFolder={kebabFolder} setKebabFolder={setKebabFolder}
+        subfolderOf={subfolderOf} setSubfolderOf={setSubfolderOf} onCreateSubfolder={createSubfolder}
+        onDeleteFolder={deleteFolder}
+        newFolder={newFolder} setNewFolder={setNewFolder} onCreateFolder={createFolder}
+        labels={labelsQ.data ?? []} labelId={labelId}
+        nav={nav} onOpenScheduled={() => setScheduledOpen(true)} rules={rules} t={t}
+      />
 
       {rules ? <RulesView session={session} /> : (<>
       <section className="list">
@@ -593,84 +457,21 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
           role="separator" aria-orientation="vertical" aria-label="resize" />
         <div className="mobtop">
           <button className="ib" onClick={() => setFolderMenu(true)} aria-label="menu"><IcFolder size={18} /></button>
-          <b>{search ? t("webmail.searchResults") : starred ? t("webmail.starred") : folderLabel(t, folders.find((f) => f.id === activeFolder))}</b>
+          <b>{listTitle}</b>
         </div>
         {/* Barra de ações: seleciona-tudo, ações em lote, esvaziar (Lixo/Spam) e paginação — como
             o Gmail. Só mostra o que faz sentido no contexto. */}
-        <div className="ltoolbar">
-          {!search && !starred && (
-            <label className="selall" title={t("webmail.selectAll")}>
-              <input type="checkbox" checked={allOnPage} ref={(el) => { if (el) el.indeterminate = sel.size > 0 && !allOnPage; }} onChange={toggleAll} />
-            </label>
-          )}
-          <button className="ib" title={t("webmail.refresh")} onClick={() => void listQ.refetch()}><IcRefresh size={16} /></button>
-          {advFilter && <button className="chipbtn" onClick={() => { setAdvFilter(null); goPage(1); }}><IcX size={13} /> {t("adv.clear")}</button>}
-          {sel.size === 0 && emails.length > 0 && (
-            <div className="filter-chip lsort">
-              <select value={`${sortBy}:${sortDir}`} title={t("webmail.sortBy")}
-                onChange={(e) => { const [b, d] = e.target.value.split(":"); setSortBy(b as "date" | "from" | "subject"); setSortDir(d as "asc" | "desc"); }}>
-                <option value="date:desc">{t("webmail.sortNewest")}</option>
-                <option value="date:asc">{t("webmail.sortOldest")}</option>
-                <option value="from:asc">{t("webmail.sortSender")}</option>
-                <option value="subject:asc">{t("webmail.sortSubject")}</option>
-              </select>
-            </div>
-          )}
+        <MailListToolbar
+          svc={svc} search={search} starred={starred} advFilter={advFilter} setAdvFilter={setAdvFilter}
+          onRefresh={() => void listQ.refetch()} sel={sel} selIds={selIds} allOnPage={allOnPage} toggleAll={toggleAll}
+          emails={emails} sortBy={sortBy} sortDir={sortDir} setSortBy={setSortBy} setSortDir={setSortDir}
+          bulk={bulk} activeRole={activeRole} trashId={trashId} bulkMove={bulkMove} setBulkMove={setBulkMove}
+          moveTargets={moveTargets} title={listTitle} total={total} onRequestEmpty={() => setConfirmEmpty(true)}
+          page={page} position={position} goPage={goPage} t={t}
+        />
 
-          {sel.size > 0 ? (
-            <div className="bulkbar">
-              <span className="n">{t("webmail.nSelected", { n: sel.size })}</span>
-              <button className="ib" title={t("webmail.markRead")} onClick={() => void bulk(() => svc.markReadMany(selIds(), true))}><IcMail size={15} /></button>
-              <button className="ib" title={t("webmail.star")} onClick={() => void bulk(() => svc.setStarredMany(selIds(), true))}><IcStar size={15} /></button>
-              {activeRole === "trash" || activeRole === "junk"
-                ? <button className="ib" title={t("webmail.deleteForever")} onClick={() => void bulk(() => svc.deleteMany(selIds()), t("webmail.deleted"))}><IcTrash size={15} /></button>
-                : trashId && <button className="ib" title={t("webmail.moveTrash")} onClick={() => void bulk(() => svc.moveMany(selIds(), trashId), t("webmail.movedTrash"))}><IcTrash size={15} /></button>}
-              <div className="movewrap">
-                <button className={"ib" + (bulkMove ? " on" : "")} title={t("webmail.moveTo")} onClick={() => setBulkMove((v) => !v)}><IcFolder size={15} /></button>
-                {bulkMove && (
-                  <div className="movemenu" onMouseLeave={() => setBulkMove(false)}>
-                    {moveTargets.map((tg) => (
-                      <button key={tg.id} onClick={() => { setBulkMove(false); void bulk(() => svc.moveMany(selIds(), tg.id), t("webmail.moved")); }}>{tg.label}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <>
-              <h2 className="ltitle">{search ? t("webmail.searchResults") : starred ? t("webmail.starred") : folderLabel(t, folders.find((f) => f.id === activeFolder))}</h2>
-              {/* Esvaziar: só no Lixo e no Spam, e só se houver algo. Apaga DE VEZ. */}
-              {(activeRole === "trash" || activeRole === "junk") && total > 0 && (
-                <button className="chipbtn danger" onClick={() => setConfirmEmpty(true)}>
-                  <IcTrash size={14} /> {t("webmail.emptyFolder2")}
-                </button>
-              )}
-            </>
-          )}
-
-          <div className="grow" />
-          {sel.size === 0 && !starred && total > 50 && (
-            <div className="pager">
-              <span className="rng">{t("webmail.pageRange", { from: position + 1, to: Math.min(position + emails.length, total), total })}</span>
-              <button className="ib" title={t("webmail.prevPage")} disabled={page <= 1} onClick={() => goPage(page - 1)}><IcChevron size={16} className="left" /></button>
-              <button className="ib" title={t("webmail.nextPage")} disabled={position + 50 >= total} onClick={() => goPage(page + 1)}><IcChevron size={16} className="right" /></button>
-            </div>
-          )}
-        </div>
-
-        {/* Gmail-style: a página toda está marcada, mas há mais — oferece marcar TODAS. */}
-        {allOnPage && !search && !starred && total > emails.length && sel.size <= emails.length && (
-          <div className="selall-banner">
-            {t("webmail.pageAllSelected", { n: emails.length })}{" "}
-            <button onClick={() => void selectWholeFolder()}>{t("webmail.selectWhole", { total })}</button>
-          </div>
-        )}
-        {sel.size > emails.length && (
-          <div className="selall-banner on">
-            {t("webmail.wholeSelected", { n: sel.size })}{" "}
-            <button onClick={() => setSel(new Set())}>{t("webmail.clearSelection")}</button>
-          </div>
-        )}
+        <MailSelectionBanners allOnPage={allOnPage} search={search} starred={starred} total={total} emails={emails}
+          sel={sel} onSelectWholeFolder={() => void selectWholeFolder()} onClearSelection={() => setSel(new Set())} t={t} />
 
         {/* O contador da pasta é da CAIXA inteira; com um endereço escolhido, uma não-lida dirigida a
             outro endereço fica de fora da lista e o número parecia mentir. Diz-se o que se passa. */}
@@ -689,47 +490,12 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
 
         {listQ.isLoading ? <div className="loading">…</div>
           : emails.length === 0 ? <div className="empty">{t("webmail.emptyFolder")}</div>
-          : emails.map((m) => {
-            // Em Enviados/Rascunhos a "cara" da linha é o destinatário; no resto, o remetente.
-            const rcpts = m.to ?? [];
-            const primary = outgoing ? rcpts[0] : m.from?.[0];
-            const name = outgoing
-              ? (rcpts.length === 0 ? t("webmail.list.toNobody")
-                : rcpts.length === 1 ? t("webmail.list.to", { who: primary?.name || primary?.email })
-                : t("webmail.list.toMany", { who: primary?.name || primary?.email, n: rcpts.length - 1 }))
-              : displayName(m.from);
-            // A linha é de uma CONVERSA: fica em destaque se a representante ou qualquer irmã
-            // estiver por ler — senão uma resposta antiga por ler passava despercebida.
-            const unread = m.threadUnread || (m.keywords ? !m.keywords.$seen : false);
-            const picked = sel.has(m.id);
-            return (
-              <article key={m.id} draggable
-                className={`row ${unread ? "unread" : ""} ${m.id === selected ? "on" : ""} ${m.id === focusedId ? "kbfocus" : ""} ${dragId === m.id ? "dragging" : ""} ${picked ? "picked" : ""}`}
-                data-mrow={m.id}
-                onClick={() => openRow(m.id, unread)}
-                onDragStart={() => setDragId(m.id)}
-                onDragEnd={() => { setDragId(null); setDropOn(null); }}>
-                <label className="rowsel" onClick={(e) => e.stopPropagation()}>
-                  <input type="checkbox" checked={picked} onChange={() => toggleOne(m.id)} />
-                </label>
-                <Avatar name={outgoing ? (primary?.name || primary?.email) : name} email={primary?.email} size={34} />
-                <div className="rowmid">
-                  <div className="topl">{unread && <span className="udot" />}<span className="w">{name}</span>
-                    {m.threadCount && <span className="row-thread">{m.threadCount}</span>}</div>
-                  <div className="s">{m.subject || t("webmail.noSubject")}</div>
-                  <div className="sn">{folderChip(m)}{m.preview}<LabelChips keywords={m.keywords} /></div>
-                </div>
-                <div className="rowr">
-                  <div className="tm">{m.hasAttachment && <span className="row-clip"><IcPaperclip size={12} /></span>}{shortTime(m.receivedAt, i18n.language)}</div>
-                  <button className={"star" + (m.keywords?.$flagged ? " on" : "")}
-                    title={t(m.keywords?.$flagged ? "webmail.unstar" : "webmail.star")}
-                    onClick={(e) => { e.stopPropagation(); void toggleStar(m.id, !m.keywords?.$flagged); }}>
-                    <IcStar size={14} filled={!!m.keywords?.$flagged} />
-                  </button>
-                </div>
-              </article>
-            );
-          })}
+          : emails.map((m) => (
+            <MailListRow key={m.id} m={m} outgoing={outgoing} selected={selected} focusedId={focusedId}
+              dragId={dragId} picked={sel.has(m.id)} locale={i18n.language} folderChip={folderChip}
+              onOpen={openRow} onDragStart={setDragId} onDragEnd={() => { setDragId(null); setDropOn(null); }}
+              onToggleOne={toggleOne} onToggleStar={toggleStar} t={t} />
+          ))}
       </section>
 
       <section className="reader">
@@ -767,17 +533,7 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
       )}
       {extract && <ExtractTasksModal subject={extract.subject} body={extract.body} sourceEmailId={extract.emailId} onClose={() => setExtract(null)} />}
       {confirmEmpty && (
-        <div className="tk-bg open" onMouseDown={() => setConfirmEmpty(false)}>
-          <div className="tk" onMouseDown={(e) => e.stopPropagation()} style={{ width: 380 }}>
-            <header><span>{t("webmail.emptyFolder2")}</span><button className="ib" title={t("common.close")} onClick={() => setConfirmEmpty(false)}><IcX size={15} /></button></header>
-            <div className="body"><p className="desc">{t("webmail.emptyConfirm", { n: total })}</p>
-              <div className="drawer-actions">
-                <button className="chipbtn" onClick={() => setConfirmEmpty(false)}>{t("common.cancel")}</button>
-                <button className="add danger" onClick={() => void emptyNow()}>{t("webmail.emptyFolder2")}</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <MailEmptyFolderModal total={total} onCancel={() => setConfirmEmpty(false)} onConfirm={() => void emptyNow()} t={t} />
       )}
 
       {advOpen && (
@@ -792,41 +548,4 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
       )}
     </div>
   );
-}
-
-function sortFolders(boxes: Mailbox[]): Mailbox[] {
-  return [...boxes].sort((a, b) => {
-    const ia = ROLE_ORDER.indexOf(a.role ?? ""), ib = ROLE_ORDER.indexOf(b.role ?? "");
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.name.localeCompare(b.name);
-  });
-}
-
-// layoutFolders devolve a ordem de exibição com a profundidade de aninhamento: pastas de sistema
-// (role) primeiro na ordem canónica; depois as do utilizador em árvore por parentId (DFS por nome).
-function layoutFolders(boxes: Mailbox[]): { f: Mailbox; depth: number }[] {
-  const custom = boxes.filter((b) => !b.role);
-  const customIds = new Set(custom.map((c) => c.id));
-  const sys = boxes.filter((b) => b.role).sort((a, b) => {
-    const ia = ROLE_ORDER.indexOf(a.role ?? ""), ib = ROLE_ORDER.indexOf(b.role ?? "");
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-  });
-  const byParent = new Map<string | null, Mailbox[]>();
-  for (const b of custom) {
-    const p = b.parentId && customIds.has(b.parentId) ? b.parentId : null; // pai não-custom → raiz
-    const arr = byParent.get(p) ?? [];
-    arr.push(b);
-    byParent.set(p, arr);
-  }
-  for (const arr of byParent.values()) arr.sort((a, b) => a.name.localeCompare(b.name));
-  const out: { f: Mailbox; depth: number }[] = sys.map((f) => ({ f, depth: 0 }));
-  const walk = (parent: string | null, depth: number) => {
-    for (const c of byParent.get(parent) ?? []) { out.push({ f: c, depth }); walk(c.id, depth + 1); }
-  };
-  walk(null, 0);
-  return out;
-}
-
-function folderLabel(t: (k: string, o?: Record<string, unknown>) => string, f?: Mailbox): string {
-  if (!f) return "";
-  return f.role ? t(`webmail.folders.${f.role}`, { defaultValue: f.name }) : f.name;
 }
