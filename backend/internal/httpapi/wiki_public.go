@@ -78,7 +78,7 @@ func (s *Server) handleSetWikiPublic(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	// Links públicos por plano (manager M3): ligar exige o knob; desligar é sempre permitido.
+	// Public links are gated by plan: enabling requires the knob; disabling is always allowed.
 	if req.Enabled && !s.tenantPlanByID(r.Context(), mu.TenantID).WikiPublicLinks {
 		writeErr(w, http.StatusForbidden, "wiki.public_not_in_plan")
 		return
