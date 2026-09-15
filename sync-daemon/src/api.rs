@@ -6,8 +6,8 @@ use std::io::Read;
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
 
-// folder_id/size/updated_at fazem parte do contrato do feed mas ainda não são lidos no M1
-// (folder_id serve o espelho de árvore do M2; os outros, telemetria/UX futura).
+// folder_id/size/updated_at are part of the feed contract but are not read yet
+// (folder_id will drive the tree mirror; the others are for future telemetry/UX).
 #[derive(Deserialize, Debug, Clone)]
 #[allow(dead_code)]
 pub struct FileChange {

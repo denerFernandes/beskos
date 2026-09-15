@@ -286,8 +286,8 @@ INSERT INTO device_tokens (tenant_id, mail_user_id, name, token_hash, token_pref
 VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, token_prefix, scope, expires_at, created_at;
 
 -- name: GetDeviceTokenUser :one
--- Autentica o daemon: casa o hash do token, ignora revogados/expirados, e devolve a mail_user
--- (para injetar no contexto, tal como a sessão do webmail) + o id do token (para o touch).
+-- Authenticates the daemon: matches the token hash, skips revoked/expired tokens, and returns
+-- the mail_user (to inject into the request context, the same way the webmail session does) plus the token id (to update its last-used time).
 SELECT sqlc.embed(mail_users), device_tokens.id AS token_id
 FROM device_tokens
 JOIN mail_users ON mail_users.id = device_tokens.mail_user_id
@@ -623,9 +623,9 @@ WHERE c.owner_user_id = $1;
 -- ===== Billing e cotas =====
 
 -- name: CountMailboxesByTenant :one
--- Conta caixas E aliases: um alias e cobrado como uma caixa (regra de negocio, 27/07/2026). Esta
--- e a contagem que alimenta o plano, os lugares faturados e o teto de mailboxes — por isso o alias
--- tem de entrar aqui e nao so no relatorio de uso.
+-- Counts mailboxes AND aliases: an alias is billed as a mailbox. This is the count that feeds
+-- the plan limit, the billed seats, and the mailbox cap, so aliases must be included here and
+-- not only in the usage report.
 SELECT (SELECT count(*) FROM mail_users u WHERE u.tenant_id = $1)
      + (SELECT count(*) FROM email_aliases a WHERE a.tenant_id = $1);
 
@@ -1238,7 +1238,7 @@ INSERT INTO event_invites (event_id, tenant_id, user_id) VALUES ($1, $2, $3) ON 
 DELETE FROM event_invites WHERE event_id = $1;
 
 -- name: ListEventInviteesForEvents :many
--- Convidados de VÁRIOS eventos numa ida só (avatares nos cards do calendário — 23/07/2026).
+-- Guests for multiple events in a single round trip, used to render avatars on calendar event cards.
 SELECT i.event_id, i.status, u.name, u.email, u.avatar
 FROM event_invites i JOIN mail_users u ON u.id = i.user_id
 WHERE i.event_id = ANY(@event_ids::uuid[]) ORDER BY u.name;
@@ -1422,8 +1422,8 @@ DELETE FROM mail_templates WHERE id = @id AND owner_user_id = @owner_user_id AND
 -- ===== Co-hosts de reunião =====
 
 -- name: RecordAssistantToolCall :exec
--- Auditoria de uma chamada de ferramenta (§6.4). Escrita em todos os casos: sucesso e erro.
--- conversation_id é anulável: a A0 registava execuções sem conversa nenhuma.
+-- Audit record for a tool call, written for both success and error cases.
+-- conversation_id is nullable because earlier data recorded runs with no conversation at all.
 INSERT INTO assistant_tool_calls
     (tenant_id, mail_user_id, run_id, conversation_id, agent, tool, args, result, error, duration_ms)
 VALUES (@tenant_id, @mail_user_id, @run_id, @conversation_id, @agent, @tool, @args, @result, @error, @duration_ms);
@@ -1435,7 +1435,7 @@ WHERE run_id = @run_id AND tenant_id = @tenant_id
 ORDER BY created_at;
 
 -- name: CreateAssistantConversation :one
--- Abre uma conversa. O par (tenant, utilizador) vem da sessão, nunca do pedido (lei 5.1).
+-- Opens a conversation. The (tenant, user) pair comes from the session, not the request, so one tenant cannot address another tenant's conversation.
 INSERT INTO assistant_conversations (tenant_id, mail_user_id, agent, title)
 VALUES (@tenant_id, @mail_user_id, @agent, @title)
 RETURNING *;
@@ -1519,7 +1519,7 @@ VALUES (@tenant_id, @agent_key, @enabled)
 ON CONFLICT (tenant_id, agent_key) DO UPDATE SET enabled = EXCLUDED.enabled;
 
 -- name: CreateAssistantTask :one
--- Enfileira uma tarefa em fundo. O par (tenant, utilizador) vem da sessão (lei 5.1).
+-- Queues a background task. The (tenant, user) pair comes from the session, not the request, so one tenant cannot queue work against another tenant's data.
 INSERT INTO assistant_tasks (tenant_id, mail_user_id, conversation_id, agent, message)
 VALUES (@tenant_id, @mail_user_id, @conversation_id, @agent, @message)
 RETURNING *;

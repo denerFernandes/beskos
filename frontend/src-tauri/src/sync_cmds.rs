@@ -12,10 +12,10 @@ use tauri::State;
 /// Guardado no estado do Tauri para os comandos alcançarem o mesmo motor.
 pub struct SyncEngine(pub Arc<Engine>);
 
-/// Estado do sync PARA A CONTA ATUAL. Recebe a identidade da sessão (server_url + account) e, se a
-/// config gravada pertencer a OUTRA conta (troca de utilizador na mesma máquina), esconde os pares
-/// dela — a UI mostra "ligar esta máquina" em vez das pastas de outrem. Compara também o server_url
-/// para cobrir configs antigas (sem `account`).
+/// Sync status for the CURRENT account. Takes the session identity (server_url + account) and,
+/// if the saved config belongs to ANOTHER account (a user switch on the same machine), hides its
+/// pairs — the UI shows "connect this machine" instead of someone else's folders. Also compares
+/// server_url to cover old configs saved without `account`.
 #[tauri::command]
 pub fn sync_status(engine: State<'_, SyncEngine>, account: String, server_url: String) -> Status {
     let mut s = engine.0.status();
@@ -29,10 +29,11 @@ pub fn sync_status(engine: State<'_, SyncEngine>, account: String, server_url: S
     s
 }
 
-/// Liga esta máquina à conta (servidor + token). O token vem da UI, que o criou via
-/// `POST /api/devices` com a sessão do utilizador — ninguém copia nada à mão. `account` isola a
-/// config por utilizador: trocar de conta na mesma máquina não herda as pastas da anterior. Ainda
-/// não sincroniza: é preciso adicionar pelo menos uma pasta.
+/// Connects this machine to the account (server + token). The token comes from the UI, which
+/// created it via `POST /api/devices` using the user's session — no one copies anything by hand.
+/// `account` isolates the config per user: switching accounts on the same machine does not
+/// inherit the previous one's folders. It does not sync yet: at least one folder still needs to
+/// be added.
 #[tauri::command]
 pub fn sync_connect(
     engine: State<'_, SyncEngine>,

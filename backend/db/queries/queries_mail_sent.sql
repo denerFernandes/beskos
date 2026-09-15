@@ -1,4 +1,4 @@
--- Medição + limite diário de envio (ver migração 00105 e docs/manager.md §4).
+-- Send metering and the daily sending limit.
 
 -- name: IncrementMailSent :exec
 INSERT INTO tenant_mail_sent (tenant_id, day, sent)
