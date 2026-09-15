@@ -4,9 +4,9 @@ import { QRCodeSVG } from "qrcode.react";
 import { api } from "../api";
 import { Drawer } from "./ui";
 
-// Drawers de enrollment do 2FA (TOTP/SMS), reusados pela página de perfil e pelo MFAGate.
-// (O antigo componente SecuritySection foi substituído por OrgSecuritySection no admin e pela
-// secção de segurança do perfil — 23/07/2026.)
+// 2FA (TOTP/SMS) enrollment drawers, reused by the profile page and by MFAGate. (The old
+// SecuritySection component was replaced by OrgSecuritySection in admin and by the profile's own
+// security section.)
 export function TotpDrawer({ onClose, onDone }: { onClose: () => void; onDone: (codes: string[]) => void }) {
   const { t } = useTranslation();
   const [data, setData] = useState<{ secret: string; otpauth_uri: string } | null>(null);

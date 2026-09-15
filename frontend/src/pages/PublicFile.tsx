@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { apiUrl } from "../apiBase";
 
-// Página pública: reusa os estilos do webmail (variáveis de tema, editor em tela cheia) embrulhando
-// em .wm — mas SEM sessão nem shell, porque quem abre um link público não tem conta.
+// Public page: reuses the webmail's styles (theme variables, full-screen editor) by wrapping in
+// .wm -- but WITHOUT a session or shell, since whoever opens a public link has no account.
 export function PublicFilePage() {
   return <div className="wm"><PublicFileView /></div>;
 }
@@ -39,9 +39,9 @@ interface Session {
   config?: any;
 }
 
-// PublicBar é a barra de topo do visualizador público: marca da organização (logo + nome) e o modo
-// (ver/editar), a dizer a quem abre — anónimo, de fora — de quem é o ficheiro. É o "cabeçalho" que
-// falta a uma sessão sem conta.
+// PublicBar is the public viewer's top bar: the organisation's brand (logo + name) and the mode
+// (view/edit), telling whoever opens it -- anonymous, from outside -- whose file this is. It is
+// the "header" that a sessionless, account-less visit is otherwise missing.
 function PublicBar({ brand, name, canWrite }: { brand?: Brand; name: string; canWrite?: boolean }) {
   const { t } = useTranslation();
   return (
@@ -56,9 +56,10 @@ function PublicBar({ brand, name, canWrite }: { brand?: Brand; name: string; can
   );
 }
 
-// PublicFilePage abre um ficheiro partilhado por link PÚBLICO (sem login). Para office, monta o
-// OnlyOffice em sessão anónima; para outros tipos, mostra descarga (se permitida). Pede senha quando
-// o link a exige. Vive fora do webmail: quem abre não tem conta.
+// PublicFileView opens a file shared via a PUBLIC link (no login). For office documents, it
+// mounts OnlyOffice in an anonymous session; for other types, it offers a download (if allowed).
+// It asks for a password when the link requires one. It lives outside the webmail: whoever opens
+// it has no account.
 function PublicFileView() {
   const { t, i18n } = useTranslation();
   const { token } = useParams<{ token: string }>();
@@ -73,7 +74,7 @@ function PublicFileView() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Nome de convidado aleatório e traduzido, estável durante a sessão (uma pessoa, um nome).
+  // Random, translated guest name, stable for the session (one person, one name).
   const guest = useMemo(() => `${t("public.guest")} ${1000 + Math.floor(Math.random() * 9000)}`, [t]);
 
   const theme = () => (document.documentElement.getAttribute("data-theme")

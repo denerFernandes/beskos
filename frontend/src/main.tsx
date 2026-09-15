@@ -24,8 +24,9 @@ const qc = new QueryClient();
 // síncrona). Na web é no-op.
 if (isTauri()) void initTauriNotify();
 
-// Destranca o áudio ao primeiro gesto na app. O browser mantém o AudioContext suspenso até haver
-// interação — sem isto, o primeiro aviso da sessão seria engolido em silêncio.
+// Unlocks audio on the app's first gesture. The browser keeps the AudioContext suspended until
+// there is interaction -- without this, the session's first notification sound would be
+// swallowed in silence.
 unlockSounds();
 
 // Janela dedicada da sala (Tauri): abre-se em index.html?wpath=/room/:room (o asset server não faz

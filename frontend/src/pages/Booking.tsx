@@ -7,9 +7,10 @@ import { apiUrl } from "../apiBase";
 import { hueFor, initials } from "../webmail/util";
 import { applyBrandColor } from "../webmail/branding";
 
-// Página PÚBLICA de agendamento (/b/:org/:user — estilo Calendly, 24/07/2026): quem tem o link
-// escolhe dia + horário livre e preenche os dados; o backend cria evento + sala Meet, envia e-mail
-// de confirmação e notifica o colaborador. Reusa os tokens do tema via .wm, sem sessão nem shell.
+// PUBLIC scheduling page (/b/:org/:user -- Calendly-style): whoever has the link picks a free day
+// and time slot and fills in their details; the backend creates the event and the Meet room,
+// sends a confirmation email and notifies the team member. Reuses the theme tokens via .wm, with
+// no session and no shell.
 interface Info { org: string; name: string; avatar?: string; title: string; duration_min: number; phone_field: string; company_field: string; weekdays: number[]; brand?: { color?: string; logo?: string; logo_white_dark?: boolean } }
 
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

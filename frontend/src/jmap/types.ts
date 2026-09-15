@@ -1,5 +1,5 @@
-// Tipos JMAP usados pelo webmail (subconjunto de RFC 8620/8621 + o que o Stalwart 0.16 devolve).
-// Ver deploy/DIVERGENCES.md §D7 para os fluxos testados.
+// JMAP types used by the webmail (a subset of RFC 8620/8621 plus what Stalwart actually returns
+// in practice).
 
 export interface JmapSession {
   accountId: string; // primaryAccounts["urn:ietf:params:jmap:mail"]

@@ -106,8 +106,8 @@ function AddUserModal({ domains, actorRole, onClose, onDone }: { domains: { id: 
     onSuccess: onDone, onError: (e) => setErr((e as Error).message),
   });
   const dom = domains.find((d) => d.id === domainId)?.domain ?? "";
-  // Aviso de cobrança (24/07/2026): com assinatura Stripe ativa e plano pago, um utilizador novo
-  // entra na assinatura com valor PROPORCIONAL aos dias restantes do período.
+  // Billing notice: with an active Stripe subscription and a paid plan, a new user joins the
+  // subscription at a PRORATED amount for the days left in the period.
   const billing = useQuery({ queryKey: ["billing"], queryFn: api.billing, retry: false });
   const b = billing.data;
   const paid = !!b?.subscription?.manageable && (b?.current_plan.price_cents_per_user ?? 0) > 0;
