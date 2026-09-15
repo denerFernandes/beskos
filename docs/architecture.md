@@ -75,7 +75,7 @@ there is no separate key-management round trip per file. See `internal/filecrypt
 
 Enterprise-only features live in `backend/ee` (Go, gated by the `pro` build tag) and
 `frontend/src/ee` (React, gated at render time by what `GET /api/edition` reports). See
-[docs/OPEN-SOURCE.md](OPEN-SOURCE.md) for which features that is and why, and
+[docs/editions.md](editions.md) for which features that is and why, and
 [backend/ee/README.md](../backend/ee/README.md) for the mechanism.
 
 ## Further reading

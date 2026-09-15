@@ -1,9 +1,9 @@
 <!--
-  DRAFT. This file mirrors the parameters agreed in docs/OPEN-SOURCE.md §1.2 and the standard
-  Business Source License 1.1 text as published by MariaDB Corporation Ab (the license steward,
-  https://mariadb.com/bsl11/). It has not had a lawyer's review yet -- do that before this file
-  is relied on for a real publication (docs/OPEN-SOURCE.md F9). Update Change Date on every
-  release: each version gets its own four-year clock from its first public distribution.
+  DRAFT. This file uses the standard Business Source License 1.1 text as published by MariaDB
+  Corporation Ab (the license steward, https://mariadb.com/bsl11/), with this project's own
+  parameters filled in below. It has not had a lawyer's review yet -- do that before relying on
+  it for a real publication. Update Change Date on every release: each version gets its own
+  four-year clock from its first public distribution.
 -->
 
 Business Source License 1.1
@@ -118,7 +118,7 @@ aid, not a substitute for it.
 | Run it for a client as an integrator, and get paid for the setup and support | Yes |
 | Modify the code and keep your changes private | Yes |
 | Publish a fork under the same license | Yes |
-| Offer Beskos as a hosted service to the public, paid or free | No -- see the [Commercial License](docs/OPEN-SOURCE.md#121-licenciamento-dual-o-servico-concorrente-compra-a-licenca-comercial) |
+| Offer Beskos as a hosted service to the public, paid or free | No -- see [docs/editions.md](docs/editions.md) for the commercial license |
 | Embed Beskos in a product you sell (OEM) | No -- see the Commercial License |
 | Use the code from a version four years or older | Yes, under Apache License 2.0 -- see the Change Date above |
 | Use the Beskos name or logo for your own offering | No -- see [TRADEMARK.md](TRADEMARK.md) |

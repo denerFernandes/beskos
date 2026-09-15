@@ -1,5 +1,5 @@
 // Package ee holds the Beskos Enterprise features: the capabilities a Pro license key unlocks
-// (see internal/edition and docs/OPEN-SOURCE.md §3.2). It only compiles into the binary when
+// (see internal/edition and docs/editions.md). It only compiles into the binary when
 // built with `-tags pro`; the default build links build_community.go instead, which registers
 // nothing. Its license is ../../ee/LICENSE, separate from the repository's.
 package ee

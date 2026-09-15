@@ -9,5 +9,5 @@ import (
 )
 
 // Register wires the Enterprise routes for whatever caps grants. No feature has been moved
-// behind this seam yet -- see the F2 status in docs/OPEN-SOURCE.md for what is still pending.
+// behind this seam yet -- see docs/editions.md for what Pro is meant to include.
 func Register(r chi.Router, caps edition.Capabilities, deps Deps) {}

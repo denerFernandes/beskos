@@ -337,13 +337,18 @@ defaults `beskos.com`. "Powered by" passa a capability (`Branding` desliga-o). T
 **Pronto quando:** `git grep beskos.com -- backend frontend/src` só devolve testes e o ficheiro de
 defaults do Cloud.
 
-### F4 — Qualidade do código (3 semanas)
+### F4 — Qualidade do código (3 semanas) — ferramentas prontas, limpeza por fazer
 
-- **Comentários:** aplicar a política da §5 a todo o repositório. Script `scripts/comment_audit.py`
-  que lista comentários com datas, referências a documentos internos, ou português, para ir a zero.
-- **Ficheiros e pacotes:** partir os 7 ficheiros acima de 600 linhas. Dividir `internal/httpapi` por
-  domínio (`httpapi/mail`, `httpapi/files`, `httpapi/chat`, `httpapi/wiki`, `httpapi/meet`,
-  `httpapi/admin`), mantendo `httpapi` só com servidor, middleware e router.
+- **Comentários:** `scripts/comment_audit.py` (feito, `make check` corre-o em modo relatório)
+  conta comentários datados, com referência a documento interno, ou a número de fase. Contagem
+  em 2026-09-15: **301** (77 datados, 33 com referência a `docs/manager.md`/`project.md`, 70 com
+  `M2`/`A3b`/`§x`, 121 em tom de diário). Aplicar a política da §5 a todo o repositório até o
+  script sair limpo — trabalho real de leitura, não mecanizável.
+- **`internal/httpapi/server.go` já foi dividido** (F2, `2687f76`): `Server`/`NewServer` saíram
+  para `server_types.go`, `server.go` ficou só com `Router()`. Os outros 6 ficheiros acima de 600
+  linhas continuam por dividir. Dividir `internal/httpapi` por domínio (`httpapi/mail`,
+  `httpapi/files`, `httpapi/chat`, `httpapi/wiki`, `httpapi/meet`, `httpapi/admin`), mantendo
+  `httpapi` só com servidor, middleware e router.
 - **Testes:** `auth`, `chat`, `config`, `mailbox` ganham `_test.go`; cobertura mínima no CI (70 % nos
   pacotes de regra de negócio, medida com `go test -cover`).
 - **Nomes:** módulo `github.com/beskosorg/beskos/backend`; crate `beskos-sync`; `package.json`
