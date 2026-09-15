@@ -1,174 +1,174 @@
-Brief de projeto — Plataforma de email + armazenamento (alternativa ao Google Workspace)
+Project brief — Email + storage platform (Google Workspace alternative)
 
 
-Cole este documento inteiro como prompt inicial num agente de código (Claude Code, Cursor, etc.).
-Ele descreve o produto, as restrições inegociáveis, a arquitetura e o plano de fases.
-Leia a seção "Como você deve trabalhar" antes de escrever qualquer código.
-
-
-
-
-1. O que estamos construindo
-
-Uma plataforma multi-tenant de email e armazenamento para vender como produto (SaaS), self-hosted em VPS próprio. Cada cliente (tenant) é uma organização com seu próprio domínio, seus usuários e suas caixas de email.
-
-O motor de email é o Stalwart — um servidor all-in-one (SMTP/IMAP/JMAP/DKIM/spam/storage) que usamos sem modificar, apenas pela API. Nós construímos por cima dele um control plane (backend Go) e uma interface própria (frontend React). Toda a diferenciação, a experiência do usuário e a lógica de negócio são nossas.
-
-Escopo da primeira versão: email (enviar/receber/ler) + armazenamento de arquivos + o painel de gestão multi-tenant que provisiona e cobra os clientes. Calendário, contatos e colaboração ficam para depois.
-
-
-2. Restrições inegociáveis (não viole nenhuma)
-
-
-NUNCA modifique o Stalwart. Não faça fork, não aplique patch no código-fonte, não recompile com alterações, não linke/embuta código dele no nosso binário. Nós rodamos o binário/imagem oficial e só falamos com ele pela rede (JMAP + REST Management API). Editar arquivos de configuração e rodar via Docker é permitido; alterar o código-fonte não é. Isso é uma exigência de licença (AGPL-3.0): tratar o Stalwart como serviço externo mantém todo o nosso código proprietário e fechado.
-Multi-tenancy é nossa, no Go. A tenancy formal com admin-por-cliente e branding é recurso Enterprise pago do Stalwart. Nós NÃO usamos isso. Implementamos o conceito de tenant, o admin-por-cliente e o isolamento entre organizações na nossa camada Go, usando o suporte a multi-domínio do Stalwart Community (cada cliente = um ou mais domínios).
-A Admin API do Stalwart é admin GLOBAL e nunca pode vazar para o cliente. Toda operação administrativa (criar domínio, mailbox, mudar quota) passa obrigatoriamente pelo nosso backend Go, que primeiro verifica se o cliente autenticado é dono do recurso e só então traduz para a chamada na API. Nenhuma credencial de admin do Stalwart chega ao frontend, nem por proxy.
-Isolamento de usuário final é nativo do Stalwart — não reimplemente. Cada mailbox é um principal com autenticação própria; o JMAP só entrega o que a credencial pode ver. Não construa uma camada de autorização por cima disso para leitura de email.
-Fixe a versão do Stalwart e gere o cliente da API a partir do OpenAPI daquela versão. O Stalwart é pré-1.0; endpoints e payloads mudam entre versões. Não codifique payloads de memória — gere tipos a partir do openapi.yml da versão exata que rodamos.
-Entregabilidade é um problema separado do código e é o maior risco do negócio. rDNS/PTR, warm-up de IP, SPF/DKIM/DMARC, feedback loops e monitoramento de blocklists não se resolvem com código bonito. O sistema deve ter ganchos para isso (limites de envio por tenant, pools de IP de saída), mas não assuma que provisionar bem = entregar bem.
+Paste this entire document as the initial prompt to a coding agent (Claude Code, Cursor, etc.).
+It describes the product, the non-negotiable constraints, the architecture, and the phase plan.
+Read the "How you should work" section before writing any code.
 
 
 
-3. Stack técnica
+
+1. What we are building
+
+A multi-tenant email and storage platform to sell as a product (SaaS), self-hosted on our own VPS. Each customer (tenant) is an organization with its own domain, its own users, and its own mailboxes.
+
+The email engine is Stalwart — an all-in-one server (SMTP/IMAP/JMAP/DKIM/spam/storage) that we use without modification, only through its API. On top of it we build a control plane (Go backend) and our own interface (React frontend). All the differentiation, the user experience, and the business logic are ours.
+
+Scope of the first version: email (send/receive/read) + file storage + the multi-tenant management panel that provisions and bills customers. Calendar, contacts, and collaboration come later.
 
 
-Frontend: React (TypeScript). Webmail + painel do cliente + painel de admin interno + UI de billing e de armazenamento.
-Backend (control plane): Go. API REST/JSON, workers, integração com Stalwart e Stripe.
-Banco: PostgreSQL (nosso control plane + backend de dados do Stalwart podem compartilhar o Postgres, mas em schemas/instâncias separados).
-Armazenamento de blobs: MinIO (S3-compatível, self-hosted) para o nosso serviço de arquivos.
-Motor de email: Stalwart (oficial, sem modificação), via Docker.
-Pagamentos: Stripe (ou equivalente) para assinaturas por faixa de caixas.
-Infra: Docker Compose no início; deixar caminho para múltiplas instâncias Stalwart depois.
+2. Non-negotiable constraints (violate none)
+
+
+NEVER modify Stalwart. Do not fork it, do not patch its source code, do not recompile it with changes, do not link/embed its code into our binary. We run the official binary/image and only talk to it over the network (JMAP + REST Management API). Editing configuration files and running it via Docker is allowed; changing the source code is not. This is a license requirement (AGPL-3.0): treating Stalwart as an external service keeps all of our code proprietary and closed.
+Multi-tenancy is ours, in Go. Formal tenancy with per-customer admin and branding is a paid Stalwart Enterprise feature. We do NOT use it. We implement the tenant concept, per-customer admin, and isolation between organizations in our own Go layer, using Stalwart Community's multi-domain support (each customer = one or more domains).
+Stalwart's Admin API is GLOBAL admin and must never leak to the customer. Every administrative operation (create domain, mailbox, change quota) mandatorily goes through our Go backend, which first checks whether the authenticated customer owns the resource and only then translates it into the API call. No Stalwart admin credential reaches the frontend, not even through a proxy.
+End-user isolation is native to Stalwart — do not reimplement it. Each mailbox is a principal with its own authentication; JMAP only ever hands back what the credential can see. Do not build an authorization layer on top of that for reading email.
+Pin the Stalwart version and generate the API client from that version's OpenAPI spec. Stalwart is pre-1.0; endpoints and payloads change between versions. Do not hardcode payloads from memory — generate types from the openapi.yml of the exact version we run.
+Deliverability is a separate problem from code and is the biggest business risk. rDNS/PTR, IP warm-up, SPF/DKIM/DMARC, feedback loops, and blocklist monitoring are not solved with pretty code. The system must have hooks for this (per-tenant sending limits, outbound IP pools), but do not assume that provisioning well equals delivering well.
 
 
 
-4. Arquitetura
+3. Technical stack
+
+
+Frontend: React (TypeScript). Webmail + customer panel + internal admin panel + billing and storage UI.
+Backend (control plane): Go. REST/JSON API, workers, integration with Stalwart and Stripe.
+Database: PostgreSQL (our control plane and Stalwart's data backend can share the same Postgres, but in separate schemas/instances).
+Blob storage: MinIO (S3-compatible, self-hosted) for our file service.
+Email engine: Stalwart (official, unmodified), via Docker.
+Payments: Stripe (or equivalent) for subscriptions tiered by mailbox count.
+Infrastructure: Docker Compose to start; leave a path open to multiple Stalwart instances later.
+
+
+
+4. Architecture
 
 React (TypeScript)
- ├─ Webmail            → fala JMAP DIRETO com o Stalwart (token do usuário final)
- ├─ Painel do cliente  → fala com a nossa API Go
- ├─ Painel admin       → fala com a nossa API Go
- └─ UI storage         → fala com a nossa API Go
+ ├─ Webmail            → talks JMAP DIRECTLY to Stalwart (end user's token)
+ ├─ Customer panel     → talks to our Go API
+ ├─ Admin panel        → talks to our Go API
+ └─ Storage UI         → talks to our Go API
 
-Go (control plane — o que construímos e vendemos)
- ├─ Auth / contas / tenants / orgs
- ├─ Provisioning: cria domínios, DKIM, mailboxes chamando a Admin API do Stalwart
- ├─ Billing (Stripe): assinaturas, faturamento por uso
- ├─ Storage service: upload/download/share sobre MinIO
- ├─ Quotas de envio por tenant + detecção de abuso
- └─ Roteamento tenant → instância Stalwart (para crescer depois)
+Go (control plane — what we build and sell)
+ ├─ Auth / accounts / tenants / orgs
+ ├─ Provisioning: creates domains, DKIM, mailboxes by calling Stalwart's Admin API
+ ├─ Billing (Stripe): subscriptions, usage-based invoicing
+ ├─ Storage service: upload/download/share on top of MinIO
+ ├─ Per-tenant sending quotas + abuse detection
+ └─ Tenant → Stalwart instance routing (to scale later)
 
-Stalwart (engine, NÃO modificado)  → SMTP/IMAP/JMAP/DKIM/spam
-MinIO                               → blobs dos arquivos
-PostgreSQL                          → control plane + backend do Stalwart
+Stalwart (engine, NOT modified)  → SMTP/IMAP/JMAP/DKIM/spam
+MinIO                               → file blobs
+PostgreSQL                          → control plane + Stalwart backend
 
-Princípio central: o usuário final lê email falando JMAP direto com o Stalwart; o nosso Go só entra em operações administrativas, de billing e de armazenamento. Isso tira o Go do caminho crítico de leitura (menos latência, menos superfície de risco).
+Core principle: the end user reads email by talking JMAP directly to Stalwart; our Go code only steps in for administrative, billing, and storage operations. This keeps Go out of the critical read path (less latency, less attack surface).
 
 
-5. Modelo de dados (Postgres — control plane)
+5. Data model (Postgres — control plane)
 
-Ponto de partida; ajuste conforme necessário. Toda query de dados de cliente DEVE filtrar por tenant_id (padrão multi-tenant em banco compartilhado).
+Starting point; adjust as needed. Every query on customer data MUST filter by tenant_id (the standard multi-tenant pattern in a shared database).
 
-tenants        (id, nome, plano, status, stalwart_instance, outbound_ip_pool, created_at)
-domains        (id, tenant_id, dominio, stalwart_id, dkim_status, dns_status, provision_state)
+tenants        (id, name, plan, status, stalwart_instance, outbound_ip_pool, created_at)
+domains        (id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state)
 mail_users     (id, tenant_id, email, name, role, stalwart_account_id, quota_bytes)
-storage_files  (id, tenant_id, owner_user_id, nome, blob_key, hash, tamanho, versao, created_at)
-storage_shares (id, file_id, tenant_id, principal, nivel)   -- owner/editor/leitor/link
-usage          (tenant_id, storage_bytes, sent_today, periodo)
-subscriptions  (tenant_id, stripe_id, faixa_de_caixas, status)
-audit_log      (id, tenant_id, actor, acao, alvo, timestamp)
+storage_files  (id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at)
+storage_shares (id, file_id, tenant_id, principal, level)   -- owner/editor/reader/link
+usage          (tenant_id, storage_bytes, sent_today, period)
+subscriptions  (tenant_id, stripe_id, mailbox_tier, status)
+audit_log      (id, tenant_id, actor, action, target, timestamp)
 
-stalwart_id / stalwart_account_id são o elo entre o nosso mundo e o do Stalwart.
-
-
-6. Integração com o Stalwart (endpoints reais)
-
-Autenticação: nosso Go usa credencial de admin global (Bearer token ou basic auth). No Stalwart, domínio, usuário e grupo são todos "principals", diferenciados pelo campo type. A maior parte da gestão é via JMAP (POST /jmap/ com a capability urn:stalwart:jmap); os endpoints REST abaixo são helpers convenientes para provisionamento.
+stalwart_id / stalwart_account_id are the link between our world and Stalwart's.
 
 
-Criar domínio: POST /api/principal com {"type":"domain","name":"cliente.com.br","description":"tenant_id=42","quota":0} → guardar o id retornado. (Exige permissão sysDomainCreate no token admin.)
-Gerar DKIM: POST /api/dkim com domínio, algoritmo (ex.: ed25519), selector. Confirmar os campos exatos no OpenAPI da versão.
-Criar mailbox: POST /api/principal com {"type":"individual","name":"joao","secrets":["senha"],"emails":["joao@cliente.com.br"],"quota":5368709120,"roles":["user"]} → guardar o id. Atenção: name é o login e é único no SERVIDOR inteiro, não por domínio — qualifique quando houver colisão. emails são os endereços.
-Ler/editar/remover principal: GET|PATCH|DELETE /api/principal/{id} (PATCH usa ações set/addItem/removeItem).
-Login / token (webmail): POST /api/auth autentica e devolve código de autorização; trocar por token (OAuth 2.0 / OIDC suportados).
-Contas OIDC pré-criadas: POST /api/principal/deploy (mesmo payload do principal) quando usarmos diretório externo OIDC.
-Fila / diagnóstico: GET /api/queue/messages e as ferramentas troubleshoot (simular entrega, checar SPF/DKIM/DMARC).
+6. Integration with Stalwart (real endpoints)
+
+Authentication: our Go code uses a global admin credential (Bearer token or basic auth). In Stalwart, domain, user, and group are all "principals", distinguished by the type field. Most management is via JMAP (POST /jmap/ with the urn:stalwart:jmap capability); the REST endpoints below are convenience helpers for provisioning.
 
 
-Regra: gere um client Go tipado a partir do openapi.yml da versão fixada. Não escreva os payloads à mão.
+Create domain: POST /api/principal with {"type":"domain","name":"customer.com.br","description":"tenant_id=42","quota":0} → store the returned id. (Requires the sysDomainCreate permission on the admin token.)
+Generate DKIM: POST /api/dkim with domain, algorithm (e.g. ed25519), selector. Confirm the exact fields in the OpenAPI spec of the version we run.
+Create mailbox: POST /api/principal with {"type":"individual","name":"joao","secrets":["password"],"emails":["joao@customer.com.br"],"quota":5368709120,"roles":["user"]} → store the returned id. Careful: name is the login and is unique across the WHOLE server, not per domain — qualify it when there is a collision. emails are the actual addresses.
+Read/edit/remove principal: GET|PATCH|DELETE /api/principal/{id} (PATCH uses set/addItem/removeItem actions).
+Login / token (webmail): POST /api/auth authenticates and returns an authorization code; exchange it for a token (OAuth 2.0 / OIDC supported).
+Pre-created OIDC accounts: POST /api/principal/deploy (same payload as principal) when we use an external OIDC directory.
+Queue / diagnostics: GET /api/queue/messages and the troubleshoot tools (simulate delivery, check SPF/DKIM/DMARC).
 
 
-7. Máquina de estados de provisionamento (implementar assim)
+Rule: generate a typed Go client from the openapi.yml of the pinned version. Do not write payloads by hand.
 
-Provisionar cliente novo envolve chamadas que podem falhar no meio e um passo (DNS) que depende do cliente e demora. Modele como máquina de estados persistida, não como script linear. Cada transição idempotente e recuperável por um worker.
+
+7. Provisioning state machine (implement it this way)
+
+Provisioning a new customer involves calls that can fail partway through and a step (DNS) that depends on the customer and takes time. Model it as a persisted state machine, not a linear script. Every transition is idempotent and recoverable by a worker.
 
 pending → domain_created → dkim_created → dns_pending → dns_verified → active
-                                                     ↘ (falha) → error
+                                                     ↘ (failure) → error
 
 
-pending: signup cria tenant + customer Stripe; enfileira provisionamento; responde ao React na hora.
-domain_created: POST /api/principal (domínio); salva stalwart_id.
+pending: signup creates the tenant + Stripe customer; enqueues provisioning; responds to React immediately.
+domain_created: POST /api/principal (domain); saves stalwart_id.
 dkim_created: POST /api/dkim.
-dns_pending: devolve ao cliente os registros DNS (MX, SPF, TXT do DKIM, DMARC, opcional TLSA/MTA-STS); trava até o cliente publicar.
-dns_verified: worker faz polling (resolução DNS própria e/ou troubleshoot) até os registros baterem.
-active: cria as mailboxes (individual), salva stalwart_account_id; cliente pronto.
+dns_pending: returns the DNS records to the customer (MX, SPF, DKIM TXT, DMARC, optional TLSA/MTA-STS); waits until the customer publishes them.
+dns_verified: worker polls (its own DNS resolution and/or troubleshoot) until the records match.
+active: creates the mailboxes (individual), saves stalwart_account_id; customer ready.
 
 
-O worker sempre retoma a partir do último estado salvo, nunca do zero.
+The worker always resumes from the last saved state, never from scratch.
 
 
-8. Autenticação e handoff do webmail
+8. Authentication and webmail handoff
 
 
-Operações administrativas e de billing: React → nossa API Go (o Go carrega a credencial de admin do Stalwart, nunca o cliente).
-Leitura/escrita de email: React → JMAP direto no Stalwart com token do usuário final. Fluxo: React manda credenciais para POST /api/auth → recebe código → troca por token → usa como Bearer em POST /jmap/.
-Login unificado (opcional, fase posterior): rodar nosso próprio provedor OIDC e configurar o Stalwart com diretório externo OIDC; pré-criar contas via POST /api/principal/deploy.
-
-
-
-9. Fases de entrega (trabalhe nesta ordem, uma por vez)
-
-Fase 0 — Fundação. Docker Compose com Stalwart oficial + Postgres + MinIO subindo localmente. Cliente Go tipado gerado do OpenAPI da versão fixada. Esqueleto do projeto Go (API + workers) e do React. Autenticação básica do nosso painel.
-
-Fase 1 — Provisionamento. Máquina de estados da seção 7 completa: signup, criação de domínio, DKIM, tela de DNS, verificação, criação de mailbox. Idempotente e testada. Entregável: consigo criar um cliente novo de ponta a ponta pelo painel.
-
-Fase 2 — Webmail. React consumindo JMAP direto (listar/ler/enviar/buscar email, pastas, anexos). Handoff de auth da seção 8.
-
-Fase 3 — Armazenamento. Serviço Go sobre MinIO: upload multipart/resumável, dedup por hash, versionamento, compartilhamento (owner/editor/leitor/link). UI React.
-
-Fase 4 — Billing e quotas. Stripe (assinaturas por faixa de caixas), quotas de disco e de envio por tenant, faturamento por uso, painel de uso.
-
-Fase 5 — Operação e conformidade. Limites de envio + detecção de abuso por tenant, ganchos de reputação/pool de IP, abuse@, audit_log, LGPD (política de privacidade, DPA, exportação/exclusão de dados), roteamento tenant → instância para escalar.
-
-Não pule fases. Não comece a Fase N+1 antes da Fase N estar testada e funcionando.
-
-
-10. Requisitos não-funcionais
-
-
-Idempotência em todo provisionamento e webhook (Stripe, retries).
-Testes em cada fase (unit + integração contra um Stalwart de teste em container).
-Segurança: credenciais do Stalwart só no backend; segredos fora do código; checagem de posse do tenant antes de toda operação admin; rate limiting.
-LGPD (produto brasileiro): somos operadores de dados; precisamos de base legal, DPA com clientes, tratamento de abuse@, e exportação/exclusão de dados por tenant.
-Observabilidade: logs estruturados, métricas de fila e de entrega, alertas de blocklist.
-Reputação compartilhada: um tenant que faz spam derruba todos no mesmo IP — limites de envio e detecção de abuso são requisito, não enfeite.
+Administrative and billing operations: React → our Go API (Go holds the Stalwart admin credential, never the customer).
+Reading/writing email: React → JMAP directly to Stalwart with the end user's token. Flow: React sends credentials to POST /api/auth → receives a code → exchanges it for a token → uses it as Bearer in POST /jmap/.
+Unified login (optional, later phase): run our own OIDC provider and configure Stalwart with an external OIDC directory; pre-create accounts via POST /api/principal/deploy.
 
 
 
-11. Como você deve trabalhar (IA, leia isto)
+9. Delivery phases (work in this order, one at a time)
+
+Phase 0 — Foundation. Docker Compose with official Stalwart + Postgres + MinIO running locally. Typed Go client generated from the pinned version's OpenAPI spec. Go project skeleton (API + workers) and React skeleton. Basic authentication for our panel.
+
+Phase 1 — Provisioning. The full state machine from section 7: signup, domain creation, DKIM, DNS screen, verification, mailbox creation. Idempotent and tested. Deliverable: I can create a new customer end to end through the panel.
+
+Phase 2 — Webmail. React consuming JMAP directly (list/read/send/search email, folders, attachments). Auth handoff from section 8.
+
+Phase 3 — Storage. Go service on top of MinIO: multipart/resumable upload, hash-based dedup, versioning, sharing (owner/editor/reader/link). React UI.
+
+Phase 4 — Billing and quotas. Stripe (subscriptions tiered by mailbox count), disk and sending quotas per tenant, usage-based invoicing, usage panel.
+
+Phase 5 — Operations and compliance. Sending limits + per-tenant abuse detection, reputation/IP-pool hooks, abuse@, audit_log, LGPD (privacy policy, DPA, data export/deletion), tenant → instance routing to scale.
+
+Do not skip phases. Do not start Phase N+1 before Phase N is tested and working.
 
 
-Comece pela Fase 0 e vá uma fase por vez. Ao terminar cada fase, pare, mostre o que foi feito e como testar, e espere confirmação antes de seguir.
-Antes de decisões estruturais (escolha de libs, formato de auth, schema final), proponha as opções com trade-offs e pergunte — não decida sozinho e siga.
-Nunca modifique o Stalwart. Se algo parecer exigir alterar o Stalwart, pare e reporte — provavelmente há um caminho pela API, ou é sinal de que precisamos da edição Enterprise.
-Fixe a versão do Stalwart logo no início e gere o client a partir do OpenAPI dela. Não invente payloads.
-Escreva testes junto com o código de cada fase, não depois.
-Provisionamento e webhooks são idempotentes por padrão. Assuma que qualquer chamada de rede pode falhar e ser repetida.
-Documente as decisões e o setup num README conforme avança.
-Se algo neste brief conflitar com a realidade da versão do Stalwart que você encontrar, confie na versão real e me avise da divergência.
+10. Non-functional requirements
+
+
+Idempotency in every provisioning step and webhook (Stripe, retries).
+Tests at every phase (unit + integration against a test Stalwart in a container).
+Security: Stalwart credentials only in the backend; secrets outside the code; tenant-ownership check before every admin operation; rate limiting.
+LGPD (Brazilian product): we are data processors; we need a legal basis, a DPA with customers, handling of abuse@, and data export/deletion per tenant.
+Observability: structured logs, queue and delivery metrics, blocklist alerts.
+Shared reputation: one tenant sending spam brings down everyone on the same IP — sending limits and abuse detection are a requirement, not a nice-to-have.
 
 
 
-Primeiro passo
+11. How you should work (AI, read this)
 
-Confirme que entendeu o escopo e as restrições, proponha as escolhas concretas da Fase 0 (versão do Stalwart a fixar, libs Go e React, layout de repositório) com trade-offs, e espere minha confirmação antes de gerar código.
+
+Start with Phase 0 and go one phase at a time. When each phase is done, stop, show what was done and how to test it, and wait for confirmation before moving on.
+Before structural decisions (library choices, auth format, final schema), propose the options with trade-offs and ask — do not decide alone and proceed.
+Never modify Stalwart. If something seems to require changing Stalwart, stop and report it — there is probably a path through the API, or it is a sign that we need the Enterprise edition.
+Pin the Stalwart version early on and generate the client from its OpenAPI spec. Do not invent payloads.
+Write tests alongside each phase's code, not afterward.
+Provisioning and webhooks are idempotent by default. Assume any network call can fail and be retried.
+Document decisions and setup in a README as you go.
+If anything in this brief conflicts with the reality of the Stalwart version you find, trust the real version and let me know about the divergence.
+
+
+
+First step
+
+Confirm you understand the scope and the constraints, propose the concrete choices for Phase 0 (Stalwart version to pin, Go and React libraries, repository layout) with trade-offs, and wait for my confirmation before generating code.
