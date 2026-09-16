@@ -55,7 +55,7 @@ func (s *Server) putBlobWithQuota(r *http.Request, mu db.MailUser, hash string, 
 	}
 	if !exists {
 		plan := s.tenantPlan(r, mu.TenantID)
-		if used, _ := s.q.SumStorageBytes(r.Context(), mu.TenantID); used+size > plan.MaxStorageBytes {
+		if used, _ := s.q.SumStorageBytes(r.Context(), mu.TenantID); plan.StorageExceeded(used, size) {
 			return "", http.StatusPaymentRequired, "quota.storage"
 		}
 		if err := s.storage.Put(r.Context(), blobKey, body, size, "application/octet-stream"); err != nil {

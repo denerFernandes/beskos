@@ -13,7 +13,7 @@ import { GuestPage } from "./pages/Guest";
 import { RoomPage } from "./pages/Room";
 import { AcceptInvitePage } from "./pages/AcceptInvite";
 import { BookingPage } from "./pages/Booking";
-import { SignupPage } from "./pages/Signup";
+import { hostedPages } from "./edition";
 import { isTauri, initTauriNotify } from "./webmail/tauriNotify";
 import { unlockSounds } from "./webmail/sounds";
 import { GlobalTooltip } from "./webmail/GlobalTooltip";
@@ -61,7 +61,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/w/:slug" element={<PublicWikiPage />} />
           <Route path="/w/:slug/:pageSlug" element={<PublicWikiPage />} />
           {/* Self-service signup (this is where the site's "Get started" points to). */}
-          <Route path="/signup" element={<SignupPage />} />
+          {hostedPages.signup && <Route path="/signup" element={<hostedPages.signup />} />}
           <Route path="/invite/:token" element={<AcceptInvitePage />} />
           {/* Public booking (Calendly-style): outsiders schedule a meeting with a team member. */}
           <Route path="/b/:org/:user" element={<BookingPage />} />

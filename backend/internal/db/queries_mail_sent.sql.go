@@ -9,7 +9,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const incrementMailSent = `-- name: IncrementMailSent :exec
@@ -30,32 +29,6 @@ func (q *Queries) IncrementMailSent(ctx context.Context, arg IncrementMailSentPa
 	return err
 }
 
-const insertMailEvent = `-- name: InsertMailEvent :exec
-
-INSERT INTO mail_events (tenant_id, type, subtype, recipient, source)
-VALUES ($1, $2, $3, $4, $5)
-`
-
-type InsertMailEventParams struct {
-	TenantID  pgtype.UUID `json:"tenant_id"`
-	Type      string      `json:"type"`
-	Subtype   string      `json:"subtype"`
-	Recipient string      `json:"recipient"`
-	Source    string      `json:"source"`
-}
-
-// ---------- Eventos de entrega (SNS → webhook; ver migração 00107) ----------
-func (q *Queries) InsertMailEvent(ctx context.Context, arg InsertMailEventParams) error {
-	_, err := q.db.Exec(ctx, insertMailEvent,
-		arg.TenantID,
-		arg.Type,
-		arg.Subtype,
-		arg.Recipient,
-		arg.Source,
-	)
-	return err
-}
-
 const mailSentToday = `-- name: MailSentToday :one
 SELECT COALESCE((SELECT sent FROM tenant_mail_sent
     WHERE tenant_id = $1 AND day = current_date), 0)::int
@@ -66,66 +39,6 @@ func (q *Queries) MailSentToday(ctx context.Context, tenantID uuid.UUID) (int32,
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
-}
-
-const managerDeliverability = `-- name: ManagerDeliverability :many
-SELECT t.id, t.name,
-    (SELECT COALESCE(sum(m.sent), 0) FROM tenant_mail_sent m
-      WHERE m.tenant_id = t.id AND m.day >= current_date - 30)::bigint AS sent_30d,
-    (SELECT count(*) FROM mail_events e WHERE e.tenant_id = t.id
-      AND e.type = 'bounce' AND e.created_at > now() - interval '30 days')::bigint AS bounces_30d,
-    (SELECT count(*) FROM mail_events e WHERE e.tenant_id = t.id
-      AND e.type = 'complaint' AND e.created_at > now() - interval '30 days')::bigint AS complaints_30d
-FROM tenants t
-WHERE t.status = 'active'
-ORDER BY t.name
-`
-
-type ManagerDeliverabilityRow struct {
-	ID            uuid.UUID `json:"id"`
-	Name          string    `json:"name"`
-	Sent30d       int64     `json:"sent_30d"`
-	Bounces30d    int64     `json:"bounces_30d"`
-	Complaints30d int64     `json:"complaints_30d"`
-}
-
-// Deliverability 30d por tenant: enviados (contador) vs bounces/complaints (eventos SES).
-func (q *Queries) ManagerDeliverability(ctx context.Context) ([]ManagerDeliverabilityRow, error) {
-	rows, err := q.db.Query(ctx, managerDeliverability)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ManagerDeliverabilityRow
-	for rows.Next() {
-		var i ManagerDeliverabilityRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Sent30d,
-			&i.Bounces30d,
-			&i.Complaints30d,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const tenantByEmailDomain = `-- name: TenantByEmailDomain :one
-SELECT tenant_id FROM domains WHERE domain = $1 LIMIT 1
-`
-
-// Resolve o tenant dono do domínio do remetente (mail.source do evento SES).
-func (q *Queries) TenantByEmailDomain(ctx context.Context, domain string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, tenantByEmailDomain, domain)
-	var tenant_id uuid.UUID
-	err := row.Scan(&tenant_id)
-	return tenant_id, err
 }
 
 const tenantDailySendLimit = `-- name: TenantDailySendLimit :one

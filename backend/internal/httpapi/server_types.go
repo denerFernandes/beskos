@@ -18,7 +18,6 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/edition"
 	"github.com/beskosorg/beskos/backend/internal/notify"
 	"github.com/beskosorg/beskos/backend/internal/secretbox"
-	"github.com/beskosorg/beskos/backend/internal/ses"
 	"github.com/beskosorg/beskos/backend/internal/sms"
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 	"github.com/beskosorg/beskos/backend/internal/storage"
@@ -84,11 +83,7 @@ type Server struct {
 
 	totpBox *secretbox.Box // encrypts the TOTP secret at rest (nil = stored in plaintext)
 
-	// sesRelay removes SES identities when a domain is deleted (nil = SES off). Identity
-	// REGISTRATION lives in the worker (provisioning.EmailRelay); this is cleanup only.
-	sesRelay *ses.Client
-	// snsVerifier validates the signature of the SES event webhook (bounces/complaints).
-	snsVerifier *ses.SNSVerifier
+	hostedServices
 
 	readiness func(context.Context) error // tests critical dependencies (e.g. ping to Postgres) in /readyz; nil = liveness only
 }
@@ -96,14 +91,14 @@ type Server struct {
 func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSender sms.Sender, st *storage.Service, bp billing.Provider, bset billing.Settings, ed edition.Capabilities) *Server {
 	srv := &Server{
 		q: q, sw: sw, ai: aiProvider, sms: smsSender, storage: st, billing: bp, billingCfg: bset, edition: ed,
-		signupsOpen: true, // open by default; main applies the actual configuration
-		snsVerifier: ses.NewSNSVerifier(),
-		loginIP:     newRateLimiter(30, 5*time.Minute),
-		loginUser:   newRateLimiter(8, 5*time.Minute),
-		mfaIP:       newRateLimiter(20, 5*time.Minute),
-		aiLimiter:   newRateLimiter(30, time.Minute),
-		pubLimiter:  newRateLimiter(60, time.Minute),
-		presLimiter: newRateLimiter(600, time.Minute),
+		signupsOpen:    true, // open by default; main applies the actual configuration
+		hostedServices: newHostedServices(),
+		loginIP:        newRateLimiter(30, 5*time.Minute),
+		loginUser:      newRateLimiter(8, 5*time.Minute),
+		mfaIP:          newRateLimiter(20, 5*time.Minute),
+		aiLimiter:      newRateLimiter(30, time.Minute),
+		pubLimiter:     newRateLimiter(60, time.Minute),
+		presLimiter:    newRateLimiter(600, time.Minute),
 		// 10 runs per 5 minutes: each can spend up to DefaultMaxSteps calls to the model.
 		agentLimiter: newRateLimiter(10, 5*time.Minute),
 		confirms:     newAssistantConfirms(),

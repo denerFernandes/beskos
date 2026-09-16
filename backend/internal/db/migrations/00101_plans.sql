@@ -1,9 +1,6 @@
 -- +goose Up
--- Catálogo de planos em BD (manager M2, docs/manager.md §3.1). Substitui o catálogo hard-coded de
--- internal/billing/plans.go como fonte de verdade: o produto passa a ler daqui (com cache e
--- fallback para o catálogo em código se a tabela estiver vazia). O vínculo tenant→plano continua
--- sendo tenants.plano (chave do plano) — já usado pelo billing/webhook; NÃO criamos tenant_plans
--- (divergência registada no doc: seats/overrides ficam para quando o billing precisar).
+-- Plan catalog used by billing, with a cached fallback when empty.
+-- Tenants reference plans through tenants.plan.
 CREATE TABLE plans (
     key                      TEXT PRIMARY KEY,
     name                     TEXT NOT NULL,

@@ -7,8 +7,6 @@ package db
 
 import (
 	"context"
-
-	"github.com/google/uuid"
 )
 
 const getPlan = `-- name: GetPlan :one
@@ -51,8 +49,7 @@ const listPlans = `-- name: ListPlans :many
 SELECT key, name, description, price_cents_per_user, min_users, max_users, apps_enabled, max_storage_gb, ai_tokens_per_window, meet_max_participants, meet_max_minutes, recording, recording_retention_days, max_daily_send, onlyoffice_edit, wiki_public_links, active, sort, created_at, updated_at, stripe_product_id, stripe_price_id, prices FROM plans ORDER BY sort, key
 `
 
-// Plan catalog. The database is the source of truth; the product only reads it (with caching)
-// and the manager-api is the only writer.
+// Plan catalog read by the product, with caching.
 func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 	rows, err := q.db.Query(ctx, listPlans)
 	if err != nil {
@@ -95,126 +92,4 @@ func (q *Queries) ListPlans(ctx context.Context) ([]Plan, error) {
 		return nil, err
 	}
 	return items, nil
-}
-
-const managerSetTenantPlan = `-- name: ManagerSetTenantPlan :exec
-UPDATE tenants SET plan = $1 WHERE id = $2
-`
-
-type ManagerSetTenantPlanParams struct {
-	Plan string    `json:"plan"`
-	ID   uuid.UUID `json:"id"`
-}
-
-func (q *Queries) ManagerSetTenantPlan(ctx context.Context, arg ManagerSetTenantPlanParams) error {
-	_, err := q.db.Exec(ctx, managerSetTenantPlan, arg.Plan, arg.ID)
-	return err
-}
-
-const setPlanActive = `-- name: SetPlanActive :exec
-UPDATE plans SET active = $1, updated_at = now() WHERE key = $2
-`
-
-type SetPlanActiveParams struct {
-	Active bool   `json:"active"`
-	Key    string `json:"key"`
-}
-
-func (q *Queries) SetPlanActive(ctx context.Context, arg SetPlanActiveParams) error {
-	_, err := q.db.Exec(ctx, setPlanActive, arg.Active, arg.Key)
-	return err
-}
-
-const upsertPlan = `-- name: UpsertPlan :one
-INSERT INTO plans (key, name, description, price_cents_per_user, min_users, max_users,
-    apps_enabled, max_storage_gb, ai_tokens_per_window, meet_max_participants, meet_max_minutes,
-    recording, recording_retention_days, max_daily_send, onlyoffice_edit, wiki_public_links, sort, prices)
-VALUES ($1, $2, $3, $4, $5, $6,
-    $7, $8, $9, $10, $11,
-    $12, $13, $14, $15, $16, $17, $18)
-ON CONFLICT (key) DO UPDATE SET
-    name = EXCLUDED.name, description = EXCLUDED.description,
-    price_cents_per_user = EXCLUDED.price_cents_per_user,
-    min_users = EXCLUDED.min_users, max_users = EXCLUDED.max_users,
-    apps_enabled = EXCLUDED.apps_enabled, max_storage_gb = EXCLUDED.max_storage_gb,
-    ai_tokens_per_window = EXCLUDED.ai_tokens_per_window,
-    meet_max_participants = EXCLUDED.meet_max_participants,
-    meet_max_minutes = EXCLUDED.meet_max_minutes,
-    recording = EXCLUDED.recording,
-    recording_retention_days = EXCLUDED.recording_retention_days,
-    max_daily_send = EXCLUDED.max_daily_send,
-    onlyoffice_edit = EXCLUDED.onlyoffice_edit, wiki_public_links = EXCLUDED.wiki_public_links,
-    sort = EXCLUDED.sort, prices = EXCLUDED.prices, updated_at = now()
-RETURNING key, name, description, price_cents_per_user, min_users, max_users, apps_enabled, max_storage_gb, ai_tokens_per_window, meet_max_participants, meet_max_minutes, recording, recording_retention_days, max_daily_send, onlyoffice_edit, wiki_public_links, active, sort, created_at, updated_at, stripe_product_id, stripe_price_id, prices
-`
-
-type UpsertPlanParams struct {
-	Key                    string   `json:"key"`
-	Name                   string   `json:"name"`
-	Description            string   `json:"description"`
-	PriceCentsPerUser      int32    `json:"price_cents_per_user"`
-	MinUsers               int32    `json:"min_users"`
-	MaxUsers               int32    `json:"max_users"`
-	AppsEnabled            []string `json:"apps_enabled"`
-	MaxStorageGb           int32    `json:"max_storage_gb"`
-	AiTokensPerWindow      int32    `json:"ai_tokens_per_window"`
-	MeetMaxParticipants    int32    `json:"meet_max_participants"`
-	MeetMaxMinutes         int32    `json:"meet_max_minutes"`
-	Recording              string   `json:"recording"`
-	RecordingRetentionDays int32    `json:"recording_retention_days"`
-	MaxDailySend           int32    `json:"max_daily_send"`
-	OnlyofficeEdit         bool     `json:"onlyoffice_edit"`
-	WikiPublicLinks        bool     `json:"wiki_public_links"`
-	Sort                   int32    `json:"sort"`
-	Prices                 []byte   `json:"prices"`
-}
-
-func (q *Queries) UpsertPlan(ctx context.Context, arg UpsertPlanParams) (Plan, error) {
-	row := q.db.QueryRow(ctx, upsertPlan,
-		arg.Key,
-		arg.Name,
-		arg.Description,
-		arg.PriceCentsPerUser,
-		arg.MinUsers,
-		arg.MaxUsers,
-		arg.AppsEnabled,
-		arg.MaxStorageGb,
-		arg.AiTokensPerWindow,
-		arg.MeetMaxParticipants,
-		arg.MeetMaxMinutes,
-		arg.Recording,
-		arg.RecordingRetentionDays,
-		arg.MaxDailySend,
-		arg.OnlyofficeEdit,
-		arg.WikiPublicLinks,
-		arg.Sort,
-		arg.Prices,
-	)
-	var i Plan
-	err := row.Scan(
-		&i.Key,
-		&i.Name,
-		&i.Description,
-		&i.PriceCentsPerUser,
-		&i.MinUsers,
-		&i.MaxUsers,
-		&i.AppsEnabled,
-		&i.MaxStorageGb,
-		&i.AiTokensPerWindow,
-		&i.MeetMaxParticipants,
-		&i.MeetMaxMinutes,
-		&i.Recording,
-		&i.RecordingRetentionDays,
-		&i.MaxDailySend,
-		&i.OnlyofficeEdit,
-		&i.WikiPublicLinks,
-		&i.Active,
-		&i.Sort,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.StripeProductID,
-		&i.StripePriceID,
-		&i.Prices,
-	)
-	return i, err
 }

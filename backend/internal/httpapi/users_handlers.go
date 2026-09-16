@@ -61,7 +61,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// Mailbox quota.
 	plan := s.tenantPlan(r, d.TenantID)
-	if count, _ := s.q.CountMailboxesByTenant(r.Context(), d.TenantID); int(count) >= plan.MaxMailboxes {
+	if count, _ := s.q.CountMailboxesByTenant(r.Context(), d.TenantID); plan.MailboxesExceeded(int(count)) {
 		writeErr(w, http.StatusPaymentRequired, "quota.mailboxes")
 		return
 	}

@@ -331,10 +331,10 @@ func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 	// moderate); it only counts for everyone else. A LiveKit error (-1) doesn't block (the room matters more).
 	if !isHost && s.meet != nil {
 		if t, terr := s.q.GetTenant(r.Context(), mu.TenantID); terr == nil {
-			limit := s.planByKey(r.Context(), t.Plan).MaxMeetParticipants
-			if n := s.meet.participantCount(r.Context(), room); n >= 0 && n >= limit {
+			plan := s.planByKey(r.Context(), t.Plan)
+			if n := s.meet.participantCount(r.Context(), room); n >= 0 && plan.MeetParticipantsExceeded(n) {
 				writeJSON(w, http.StatusOK, map[string]any{
-					"full": true, "room": room, "title": m.Title, "meeting_id": m.ID, "limit": limit,
+					"full": true, "room": room, "title": m.Title, "meeting_id": m.ID, "limit": plan.MaxMeetParticipants,
 				})
 				return
 			}

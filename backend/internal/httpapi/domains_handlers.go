@@ -167,13 +167,7 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// SES identity: best-effort (no SES configured, or a transient failure, doesn't block — the
-	// orphaned identity can be removed by hand in AWS; it gets logged).
-	if s.sesRelay != nil {
-		if err := s.sesRelay.DeleteIdentity(r.Context(), d.Domain); err != nil {
-			log.Printf("domains: ses delete identity %s: %v", d.Domain, err)
-		}
-	}
+	s.removeRelayIdentity(r.Context(), d.Domain)
 	if err := s.q.DeleteDomainRow(r.Context(), db.DeleteDomainRowParams{ID: d.ID, TenantID: d.TenantID}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "domains.delete_failed")
 		return

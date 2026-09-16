@@ -48,6 +48,24 @@ func (p Plan) PriceFor(currency, baseCurrency string) (int, string) {
 	return p.PriceCentsPerUser, baseCurrency
 }
 
+// MailboxesExceeded reports whether creating one more mailbox would exceed the plan. A
+// MaxMailboxes of 0 or less means no cap (e.g. the self-hosted plan).
+func (p Plan) MailboxesExceeded(current int) bool {
+	return p.MaxMailboxes > 0 && current >= p.MaxMailboxes
+}
+
+// StorageExceeded reports whether adding addBytes to usedBytes would exceed the plan. A
+// MaxStorageBytes of 0 or less means no cap (e.g. the self-hosted plan).
+func (p Plan) StorageExceeded(usedBytes, addBytes int64) bool {
+	return p.MaxStorageBytes > 0 && usedBytes+addBytes > p.MaxStorageBytes
+}
+
+// MeetParticipantsExceeded reports whether one more participant would exceed the plan. A
+// MaxMeetParticipants of 0 or less means no cap (e.g. the self-hosted plan).
+func (p Plan) MeetParticipantsExceeded(current int) bool {
+	return p.MaxMeetParticipants > 0 && current >= p.MaxMeetParticipants
+}
+
 // RangeLabel builds the range label from min/max ("up to 3", "1–10", "51+").
 func RangeLabel(min, max int) string {
 	switch {
@@ -64,30 +82,11 @@ func RangeLabel(min, max int) string {
 
 const GB = 1 << 30
 
-// plans is the FALLBACK catalog (the source of truth is the `plans` table; see planFromRow).
-// Feature tiers: base currency is USD, and price goes up with the feature set. The Enterprise
-// tier ("contact us") is not listed here — it is landing-page marketing only, no self-serve checkout.
-var plans = []Plan{
-	{ID: "trial", Name: "Trial", MailboxRange: "up to 3", MaxMailboxes: 3, MaxStorageBytes: 5 * GB, MaxDailySend: 200, MaxMeetParticipants: 5, PriceCentsPerUser: 0,
-		Recording: "none", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
-	{ID: "base", Name: "Base", MailboxRange: "1–10", MaxMailboxes: 10, MaxStorageBytes: 30 * GB, MaxDailySend: 1000, MaxMeetParticipants: 25, PriceCentsPerUser: 700,
-		Prices:   map[string]int{"EUR": 699, "GBP": 599, "BRL": 3900, "PLN": 2900},
-		MinUsers: 1, Recording: "offline", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
-	{ID: "business", Name: "Business", MailboxRange: "1–50", MaxMailboxes: 50, MaxStorageBytes: 200 * GB, MaxDailySend: 5000, MaxMeetParticipants: 100, PriceCentsPerUser: 1200,
-		Prices:   map[string]int{"EUR": 1199, "GBP": 999, "BRL": 6900, "PLN": 4900},
-		MinUsers: 1, Recording: "offline", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
-	{ID: "pro", Name: "Pro", MailboxRange: "1–200", MaxMailboxes: 200, MaxStorageBytes: 1024 * GB, MaxDailySend: 20000, MaxMeetParticipants: 200, PriceCentsPerUser: 2000,
-		Prices:   map[string]int{"EUR": 1899, "GBP": 1699, "BRL": 10900, "PLN": 7900},
-		MinUsers: 1, Recording: "offline_priority", RecordingDays: 30, OnlyOfficeEdit: true, WikiPublicLinks: true, IsActive: true},
-}
-
 // Global billing settings (per deploy, via .env).
 type Settings struct {
 	Currency     string `json:"currency"`       // BRL | EUR | USD (Intl on the frontend)
 	MinPaidUsers int    `json:"min_paid_users"` // minimum billed users on paid plans
 }
-
-const DefaultPlanID = "trial"
 
 // Plans returns the catalog (for the billing screen).
 func Plans() []Plan { return append([]Plan(nil), plans...) }
