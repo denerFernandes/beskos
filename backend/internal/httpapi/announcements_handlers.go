@@ -11,12 +11,12 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
-// Mural de avisos da organização. Admins/owner publicam (RBAC org.settings) e podem despublicar;
-// todos os membros leem os publicados. Busca e paginação no servidor.
+// Organization announcements board. Admins/owner publish (RBAC org.settings) and can unpublish;
+// all members read the published ones. Search and pagination happen server-side.
 
 const announcePageSize = 10
 
-// isOrgAdmin diz se o utilizador pode gerir avisos (ver rascunhos, publicar/despublicar).
+// isOrgAdmin reports whether the user can manage announcements (see drafts, publish/unpublish).
 func (s *Server) isOrgAdmin(mu db.MailUser) bool {
 	return rbac.Has(rbac.Role(mu.Role), rbac.PermAnnouncements)
 }
@@ -28,7 +28,7 @@ func (s *Server) handleListAnnouncements(w http.ResponseWriter, r *http.Request)
 	if p, _ := strconv.Atoi(r.URL.Query().Get("page")); p > 1 {
 		page = p
 	}
-	admin := s.isOrgAdmin(mu) // admin vê também os não publicados
+	admin := s.isOrgAdmin(mu) // admin also sees the unpublished ones
 	items, err := s.q.ListAnnouncements(r.Context(), db.ListAnnouncementsParams{
 		TenantID: mu.TenantID, Column2: q, Limit: announcePageSize, Offset: int32((page - 1) * announcePageSize), Column5: admin,
 	})

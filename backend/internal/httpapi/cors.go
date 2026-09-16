@@ -2,9 +2,9 @@ package httpapi
 
 import "net/http"
 
-// cors permite o app nativo (Tauri, origem tauri://localhost / https://tauri.localhost) e outras
-// origens configuradas a chamar a API. Sem origens configuradas, é no-op (web same-origin não
-// precisa). Ecoa a origem exata (nunca "*") porque enviamos credenciais/permitimos o cookie.
+// cors allows the native app (Tauri, origin tauri://localhost / https://tauri.localhost) and other
+// configured origins to call the API. With no origins configured, it's a no-op (same-origin web
+// doesn't need it). Echoes the exact origin (never "*") because we send credentials/allow the cookie.
 func (s *Server) cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
@@ -15,15 +15,15 @@ func (s *Server) cors(next http.Handler) http.Handler {
 			h.Add("Vary", "Origin")
 			if r.Method == http.MethodOptions {
 				h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-				// `Range` é preciso para o app nativo (Tauri, cross-origin): o pdf.js pede intervalos
-				// em PDFs grandes e o browser faz preflight — sem `Range` aqui, a apresentação de PDF
-				// não carregava no desktop (os pequenos, que não usam Range, funcionavam).
+				// `Range` is needed for the native app (Tauri, cross-origin): pdf.js requests ranges
+				// on large PDFs and the browser does a preflight — without `Range` here, PDF
+				// presentation didn't load on desktop (small ones, which don't use Range, worked fine).
 				h.Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Locale, Range")
 				h.Set("Access-Control-Max-Age", "600")
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
-			// Deixa o cliente ler os headers de range/tamanho numa resposta cross-origin (pdf.js).
+			// Lets the client read the range/size headers on a cross-origin response (pdf.js).
 			h.Set("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges")
 		}
 		next.ServeHTTP(w, r)

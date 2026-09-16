@@ -14,7 +14,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// assistantTaskListLimit é quantas tarefas o separador mostra.
+// assistantTaskListLimit is how many tasks the tab shows.
 const assistantTaskListLimit = 50
 
 type assistantTaskJSON struct {
@@ -43,8 +43,8 @@ func taskJSON(t db.AssistantTask) assistantTaskJSON {
 	}
 }
 
-// handleAssistantTasks lista as tarefas do PRÓPRIO utilizador, com o progresso. É o que alimenta o
-// separador de Tarefas e o indicador da bolha (§3.6).
+// handleAssistantTasks lists the tasks belonging to the user THEMSELVES, with progress. It's what
+// feeds the Tasks tab and the bubble indicator (§3.6).
 func (s *Server) handleAssistantTasks(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListAssistantTasks(r.Context(), db.ListAssistantTasksParams{
@@ -60,8 +60,8 @@ func (s *Server) handleAssistantTasks(w http.ResponseWriter, r *http.Request) {
 		items = append(items, taskJSON(t))
 	}
 
-	// As ações à espera de aprovação vão junto: uma tarefa parada tem de dizer o que está à espera,
-	// senão fica só "a aguardar" sem se saber de quê (§6.3).
+	// Actions waiting for approval go along with it: a stopped task has to say what it's waiting
+	// for, otherwise it's just "waiting" without saying for what (§6.3).
 	pending, err := s.q.ListAssistantPendingActions(r.Context(), db.ListAssistantPendingActionsParams{
 		TenantID: mu.TenantID, MailUserID: mu.ID,
 	})
@@ -81,9 +81,9 @@ func (s *Server) handleAssistantTasks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "pending": waiting})
 }
 
-// handleAssistantTaskCancel pede o cancelamento. É um PEDIDO, não um efeito imediato: a tarefa pode
-// estar a meio de uma chamada, e o worker vê a bandeira no passo seguinte. O que já fez fica
-// registado (§7.5) — uma tarefa cancelada não é uma tarefa sem história.
+// handleAssistantTaskCancel requests the cancellation. It's a REQUEST, not an immediate effect:
+// the task may be mid-call, and the worker sees the flag on the next step. What it has already
+// done stays recorded (§7.5) — a cancelled task isn't a task without history.
 func (s *Server) handleAssistantTaskCancel(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -101,8 +101,8 @@ func (s *Server) handleAssistantTaskCancel(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, map[string]string{"status": "cancelling"})
 }
 
-// startAssistantTask enfileira o pedido em vez de o correr no pedido HTTP. A conversa devolve logo
-// um cartão de tarefa; o trabalho continua no worker (§3.6).
+// startAssistantTask enqueues the request instead of running it inside the HTTP request. The
+// conversation immediately returns a task card; the work continues in the worker (§3.6).
 func (s *Server) startAssistantTask(w http.ResponseWriter, r *http.Request, turn assistantTurnState, msg string) {
 	mu := mailUserFrom(r.Context())
 	row, err := s.q.CreateAssistantTask(r.Context(), db.CreateAssistantTaskParams{
@@ -121,16 +121,16 @@ func (s *Server) startAssistantTask(w http.ResponseWriter, r *http.Request, turn
 	})
 }
 
-// decideDurablePendingAction entrega a decisão a uma ação de TAREFA (a que sobrevive a reinícios).
-// Devolve false quando não há nenhuma ação à espera com este id para este utilizador.
+// decideDurablePendingAction delivers the decision to a TASK action (the kind that survives
+// restarts). Returns false when there's no pending action with this id for this user.
 func (s *Server) decideDurablePendingAction(r *http.Request, id uuid.UUID, approve bool) bool {
 	mu := mailUserFrom(r.Context())
 	decision := "rejected"
 	if approve {
 		decision = "approved"
 	}
-	// A consulta filtra por utilizador E exige `decision = ''`: a aprovação é de quem tem a ação, e
-	// é de uso único — aprovar duas vezes não envia duas vezes.
+	// The query filters by user AND requires `decision = ''`: the approval belongs to whoever owns
+	// the action, and it's single-use — approving twice doesn't send it twice.
 	if _, err := s.q.DecideAssistantPendingAction(r.Context(), db.DecideAssistantPendingActionParams{
 		ID: id, TenantID: mu.TenantID, MailUserID: mu.ID, Decision: decision,
 	}); err != nil {
@@ -139,8 +139,8 @@ func (s *Server) decideDurablePendingAction(r *http.Request, id uuid.UUID, appro
 	return true
 }
 
-// taskStatusLabel valida um estado vindo de fora. Existe para o teste poder afirmar que os estados
-// do backend e os que a interface conhece são os mesmos conjunto.
+// taskStatusLabel validates a status coming from outside. It exists so the test can assert that
+// the backend's states and the ones the UI knows about are the same set.
 func taskStatusValid(status string) bool {
 	switch strings.TrimSpace(status) {
 	case assistant.TaskQueued, assistant.TaskRunning, assistant.TaskWaiting,

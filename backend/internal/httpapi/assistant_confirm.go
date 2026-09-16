@@ -12,9 +12,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
-// assistantConfirmWait é quanto tempo uma ação espera por decisão. Passado o prazo, é RECUSADA —
-// nunca aprovada por omissão. Um envio que saísse porque ninguém respondeu seria exatamente o modo
-// de falhar que a confirmação existe para impedir.
+// assistantConfirmWait is how long an action waits for a decision. Once the deadline passes, it is
+// REJECTED — never approved by default. A send that went out because no one answered would be
+// exactly the failure mode the confirmation exists to prevent.
 const assistantConfirmWait = 5 * time.Minute
 
 // assistantConfirms holds actions waiting for a decision.
@@ -30,7 +30,7 @@ type assistantConfirms struct {
 type pendingConfirm struct {
 	tenant uuid.UUID
 	user   uuid.UUID
-	// reply tem buffer 1: quem decide nunca fica bloqueado, mesmo que o pedido já tenha desistido.
+	// reply has buffer 1: whoever decides never blocks, even if the request has already given up.
 	reply chan bool
 }
 
@@ -38,10 +38,10 @@ func newAssistantConfirms() *assistantConfirms {
 	return &assistantConfirms{pending: make(map[uuid.UUID]pendingConfirm)}
 }
 
-// Ask regista a ação e espera pela decisão. Implementa assistant.Confirmer.
+// Ask registers the action and waits for the decision. Implements assistant.Confirmer.
 //
-// Três formas de acabar, e duas delas são "não": decisão explícita, o utilizador fechou o separador
-// (contexto cancelado), ou o prazo esgotou-se. Só a primeira pode aprovar.
+// Three ways to end, and two of them are "no": an explicit decision, the user closed the tab
+// (context cancelled), or the deadline ran out. Only the first can approve.
 func (c *assistantConfirms) Ask(ctx context.Context, id assistant.Identity, req assistant.ConfirmRequest) (bool, error) {
 	reply := make(chan bool, 1)
 	c.mu.Lock()
@@ -65,9 +65,9 @@ func (c *assistantConfirms) Ask(ctx context.Context, id assistant.Identity, req 
 	}
 }
 
-// decide entrega a decisão. Devolve false quando a ação não existe (já decidida, expirada, ou de
-// outra pessoa) — e não distingue esses casos entre si: dizer "existe mas não é tua" a quem
-// adivinhasse um id já seria informação a mais.
+// decide delivers the decision. Returns false when the action doesn't exist (already decided,
+// expired, or belongs to someone else) — and doesn't distinguish between those cases: telling
+// someone who guessed an id "it exists but it's not yours" would already be too much information.
 func (c *assistantConfirms) decide(id uuid.UUID, tenant, user uuid.UUID, approve bool) bool {
 	c.mu.Lock()
 	p, ok := c.pending[id]
@@ -79,7 +79,7 @@ func (c *assistantConfirms) decide(id uuid.UUID, tenant, user uuid.UUID, approve
 	case p.reply <- approve:
 		return true
 	default:
-		// Já havia uma decisão a caminho. Aprovar duas vezes não envia duas vezes.
+		// A decision was already on its way. Approving twice doesn't send twice.
 		return false
 	}
 }
@@ -88,8 +88,8 @@ type assistantConfirmReq struct {
 	Approve bool `json:"approve"`
 }
 
-// handleAssistantConfirm aprova ou rejeita UMA ação (§6.3). Uma por pedido: não existe aprovação
-// em bloco, e é deliberado — cada coisa que sai é vista e aprovada por si.
+// handleAssistantConfirm approves or rejects ONE action (§6.3). One per request: there's no bulk
+// approval, and it's deliberate — every outgoing thing is seen and approved on its own.
 func (s *Server) handleAssistantConfirm(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -101,9 +101,9 @@ func (s *Server) handleAssistantConfirm(w http.ResponseWriter, r *http.Request) 
 	if !decode(w, r, &req) {
 		return
 	}
-	// Duas esperas possíveis, e a ordem importa pouco porque um id só existe numa delas: a da
-	// execução SÍNCRONA (em memória, neste processo) e a de uma TAREFA em fundo (na base, e o
-	// worker está do outro lado a sondar).
+	// Two possible waits, and the order barely matters since an id only exists in one of them: the
+	// SYNCHRONOUS execution (in-memory, in this process) and a background TASK (in the database,
+	// polled from the other side by the worker).
 	if !s.confirms.decide(id, mu.TenantID, mu.ID, req.Approve) &&
 		!s.decideDurablePendingAction(r, id, req.Approve) {
 		writeErr(w, http.StatusNotFound, "assistant.confirm_unknown")

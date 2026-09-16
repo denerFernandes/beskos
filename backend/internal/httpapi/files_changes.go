@@ -28,14 +28,14 @@ const fileChangesMaxLimit = 500
 
 type fileChange struct {
 	ID        uuid.UUID  `json:"id"`
-	FolderID  *uuid.UUID `json:"folder_id"` // null = raiz
+	FolderID  *uuid.UUID `json:"folder_id"` // null = root
 	Name      string     `json:"name"`
-	Hash      string     `json:"hash"` // ETag do conteúdo
+	Hash      string     `json:"hash"` // content ETag
 	Size      int64      `json:"size"`
 	Version   int32      `json:"version"`
-	Deleted   bool       `json:"deleted"` // tombstone (na lixeira)
+	Deleted   bool       `json:"deleted"` // tombstone (in trash)
 	UpdatedAt time.Time  `json:"updated_at"`
-	// false = partilhado comigo (não sou dono): o cliente trata-o como SÓ-LEITURA.
+	// false = shared with me (I'm not the owner): the client treats it as READ-ONLY.
 	Owned bool `json:"owned"`
 }
 
@@ -56,7 +56,7 @@ func (s *Server) handleListFileChanges(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.q.ListFileChanges(r.Context(), db.ListFileChangesParams{
 		TenantID:    mu.TenantID,
 		OwnerUserID: ownerPg(mu),
-		Principal:   mu.Email, // partilhas são por e-mail: traz também o que partilharam comigo
+		Principal:   mu.Email, // shares are by email: also brings in what was shared with me
 		UpdatedAt:   sinceTS,
 		ID:          sinceID,
 		Limit:       int32(limit),
@@ -77,7 +77,7 @@ func (s *Server) handleListFileChanges(w http.ResponseWriter, r *http.Request) {
 		changes = append(changes, c)
 	}
 
-	// Cursor = o da última linha; sem novidades, ecoa o cursor recebido para o cliente não recuar.
+	// Cursor = that of the last row; with no news, echoes the received cursor so the client doesn't rewind.
 	cursor := r.URL.Query().Get("since")
 	if n := len(changes); n > 0 {
 		cursor = encodeChangeCursor(changes[n-1].UpdatedAt, changes[n-1].ID)
@@ -89,8 +89,8 @@ func (s *Server) handleListFileChanges(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// O cursor é opaco para o cliente: "<updated_at RFC3339Nano>|<id>". Vazio = início (época + id nulo),
-// o que faz a primeira página trazer tudo por (updated_at > época).
+// The cursor is opaque to the client: "<updated_at RFC3339Nano>|<id>". Empty = start (epoch + null id),
+// which makes the first page bring everything via (updated_at > epoch).
 func parseChangeCursor(s string) (time.Time, uuid.UUID, error) {
 	if s == "" {
 		return time.Time{}, uuid.Nil, nil

@@ -10,14 +10,14 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
-// ask corre o Ask numa goroutine e devolve um canal com o resultado.
+// ask runs Ask in a goroutine and returns a channel with the result.
 func ask(c *assistantConfirms, ctx context.Context, id assistant.Identity, req assistant.ConfirmRequest) <-chan bool {
 	out := make(chan bool, 1)
 	go func() {
 		ok, _ := c.Ask(ctx, id, req)
 		out <- ok
 	}()
-	// Dá tempo ao Ask de se registar antes de alguém decidir.
+	// Gives Ask time to register itself before someone decides.
 	for i := 0; i < 100; i++ {
 		c.mu.Lock()
 		_, registered := c.pending[req.ID]
@@ -41,15 +41,15 @@ func TestConfirmApprovalReachesTheWaitingRun(t *testing.T) {
 	done := ask(c, context.Background(), id, req)
 
 	if !c.decide(req.ID, id.TenantID, id.UserID, true) {
-		t.Fatal("decide não encontrou a ação à espera")
+		t.Fatal("decide did not find the waiting action")
 	}
 	if !<-done {
-		t.Error("a aprovação não chegou à execução")
+		t.Error("the approval did not reach execution")
 	}
 }
 
-// INVARIANTE (§6.2/lei 5.1): a aprovação é de quem tem a ação. Outro utilizador — mesmo do mesmo
-// tenant — não aprova o envio de ninguém.
+// INVARIANT (§6.2/law 5.1): the approval belongs to whoever owns the action. Another user — even
+// from the same tenant — does not approve someone else's send.
 func TestConfirmRejectsAnotherUser(t *testing.T) {
 	c := newAssistantConfirms()
 	id := testIdent()
@@ -57,21 +57,21 @@ func TestConfirmRejectsAnotherUser(t *testing.T) {
 	done := ask(c, context.Background(), id, req)
 
 	if c.decide(req.ID, id.TenantID, uuid.New(), true) {
-		t.Error("um colega aprovou o envio de outra pessoa")
+		t.Error("a colleague approved someone else's send")
 	}
 	if c.decide(req.ID, uuid.New(), id.UserID, true) {
-		t.Error("outro tenant aprovou uma ação que não é dele")
+		t.Error("another tenant approved an action that isn't theirs")
 	}
-	// A ação continua à espera: as tentativas alheias não a decidiram nem a consumiram.
+	// The action is still waiting: the unrelated attempts neither decided nor consumed it.
 	if !c.decide(req.ID, id.TenantID, id.UserID, true) {
-		t.Fatal("a ação foi consumida por uma tentativa alheia")
+		t.Fatal("the action was consumed by an unrelated attempt")
 	}
 	if !<-done {
-		t.Error("a aprovação legítima não passou")
+		t.Error("the legitimate approval did not go through")
 	}
 }
 
-// Aprovar duas vezes não envia duas vezes: a segunda decisão não encontra nada.
+// Approving twice doesn't send twice: the second decision finds nothing.
 func TestConfirmIsSingleUse(t *testing.T) {
 	c := newAssistantConfirms()
 	id := testIdent()
@@ -79,15 +79,15 @@ func TestConfirmIsSingleUse(t *testing.T) {
 	done := ask(c, context.Background(), id, req)
 
 	if !c.decide(req.ID, id.TenantID, id.UserID, true) {
-		t.Fatal("a primeira decisão devia passar")
+		t.Fatal("the first decision should have gone through")
 	}
 	<-done
 	if c.decide(req.ID, id.TenantID, id.UserID, true) {
-		t.Error("a segunda aprovação passou — isso enviaria o mesmo e-mail duas vezes")
+		t.Error("the second approval went through — that would send the same email twice")
 	}
 }
 
-// O utilizador fechou o separador: a espera acaba em RECUSA, nunca em aprovação por omissão.
+// The user closed the tab: the wait ends in REJECTION, never in approval by default.
 func TestConfirmCancelledContextIsNotApproval(t *testing.T) {
 	c := newAssistantConfirms()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -98,14 +98,14 @@ func TestConfirmCancelledContextIsNotApproval(t *testing.T) {
 	select {
 	case ok := <-done:
 		if ok {
-			t.Error("um contexto cancelado foi tratado como aprovação")
+			t.Error("a cancelled context was treated as an approval")
 		}
 	case <-time.After(2 * time.Second):
-		t.Fatal("Ask não reagiu ao cancelamento")
+		t.Fatal("Ask did not react to the cancellation")
 	}
 }
 
-// Uma ação decidida deixa de ocupar memória — senão um painel deixado aberto acumularia esperas.
+// A decided action stops occupying memory — otherwise a panel left open would accumulate waits.
 func TestConfirmCleansUpAfterDecision(t *testing.T) {
 	c := newAssistantConfirms()
 	id := testIdent()
@@ -123,5 +123,5 @@ func TestConfirmCleansUpAfterDecision(t *testing.T) {
 		}
 		time.Sleep(time.Millisecond)
 	}
-	t.Error("a ação decidida ficou registada")
+	t.Error("the decided action stayed registered")
 }

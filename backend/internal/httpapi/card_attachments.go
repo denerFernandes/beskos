@@ -12,8 +12,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Anexos no card: liga ficheiros do Files a um card. O download é tenant-scoped (qualquer membro do
-// quadro abre), ao contrário do Files pessoal. Anexar exige ser dono do ficheiro.
+// Card attachments: links Files files to a card. Download is tenant-scoped (any board member can
+// open it), unlike personal Files. Attaching requires owning the file.
 
 func (s *Server) handleListCardAttachments(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -42,7 +42,7 @@ func (s *Server) handleAttachFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "storage.invalid_id")
 		return
 	}
-	// Só anexa ficheiro que o utilizador possui (evita anexar por id às cegas).
+	// Only attaches a file the user owns (avoids attaching blindly by id).
 	if _, err := s.q.GetStorageFile(r.Context(), db.GetStorageFileParams{ID: fid, OwnerUserID: ownerPg(mu)}); err != nil {
 		writeErr(w, http.StatusNotFound, "storage.not_found")
 		return
@@ -75,8 +75,8 @@ func (s *Server) handleDetachFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "detached"})
 }
 
-// handleDownloadCardAttachment serve o blob do anexo, tenant-scoped (não owner-scoped): qualquer
-// membro do quadro pode abrir. O anexo autoriza — o ficheiro tem de estar ligado a um card do tenant.
+// handleDownloadCardAttachment serves the attachment blob, tenant-scoped (not owner-scoped): any
+// board member can open it. The attachment authorizes — the file must be linked to a tenant card.
 func (s *Server) handleDownloadCardAttachment(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return

@@ -6,21 +6,21 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// toggleableApps são as apps do rail que o admin pode desligar para a organização. As Definições e a
-// Administração não são apps do rail (não se desligam). Manter esta lista alinhada com o rail do
-// frontend e com assistant.AppTools.
+// toggleableApps are the rail apps that the admin can disable for the organization. Settings and
+// Administration aren't rail apps (they can't be disabled). Keep this list aligned with the
+// frontend rail and with assistant.AppTools.
 var toggleableApps = []string{"today", "mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet", "notes", "wiki"}
 
-// handleGetApps devolve as apps alternáveis e as que estão desligadas na organização. Qualquer
-// utilizador lê (o rail filtra por isto).
+// handleGetApps returns the toggleable apps and the ones disabled for the organization. Any
+// user can read this (the rail filters based on it).
 func (s *Server) handleGetApps(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
-	disabled := s.disabledAppsEffective(r.Context(), u.TenantID) // admin da org + exclusões do plano
+	disabled := s.disabledAppsEffective(r.Context(), u.TenantID) // org admin + plan exclusions
 	writeJSON(w, http.StatusOK, map[string]any{"apps": toggleableApps, "disabled": orEmpty(disabled)})
 }
 
-// handleSetApps grava as apps DESLIGADAS da organização (só admin/owner, gated na rota). Ignora ids
-// que não sejam alternáveis — o Correio, por exemplo, nunca se desliga.
+// handleSetApps saves the organization's DISABLED apps (admin/owner only, gated at the route).
+// Ignores ids that aren't toggleable — Mail, for instance, can never be disabled.
 func (s *Server) handleSetApps(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Disabled []string `json:"disabled"`

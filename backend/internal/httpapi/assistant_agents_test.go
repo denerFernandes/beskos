@@ -7,64 +7,64 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
-// INVARIANTE (§3.2): um agente criado pelo cliente nunca pode ter mais ferramentas do que o teto —
-// validado NO SERVIDOR, não na interface. E a recusa é explícita: filtrar em silêncio daria à
-// pessoa um agente diferente do que ela julga ter criado.
+// INVARIANT (§3.2): an agent created by the client can never have more tools than the ceiling —
+// validated ON THE SERVER, not in the UI. And the refusal is explicit: silently filtering would
+// give the person an agent different from the one they think they created.
 func TestClientAgentCannotExceedTheToolCeiling(t *testing.T) {
-	req := agentWriteReq{Name: "Vendas", Tools: []string{"mail.search", "drive.delete_everything"}}
+	req := agentWriteReq{Name: "Sales", Tools: []string{"mail.search", "drive.delete_everything"}}
 	if code := req.validate(); code != "assistant.agent_tool_not_allowed" {
-		t.Errorf("validate = %q, quero a recusa da ferramenta fora do teto", code)
+		t.Errorf("validate = %q, want the refusal for the tool outside the ceiling", code)
 	}
 }
 
-// O que está no teto passa — senão a validação seria só um "não" a tudo.
+// Whatever is within the ceiling passes — otherwise the validation would just be a blanket "no".
 func TestClientAgentAcceptsToolsWithinTheCeiling(t *testing.T) {
-	req := agentWriteReq{Name: "Vendas", Tools: assistant.MaxTools()}
+	req := agentWriteReq{Name: "Sales", Tools: assistant.MaxTools()}
 	if code := req.validate(); code != "" {
-		t.Errorf("validate = %q, quero aceitar o teto completo", code)
+		t.Errorf("validate = %q, want to accept the full ceiling", code)
 	}
 }
 
-// capTools é a segunda barreira, na LEITURA: se uma versão nossa remover uma ferramenta do
-// catálogo, um perfil gravado há meses não pode continuar a concedê-la.
+// capTools is the second barrier, on READ: if one of our releases removes a tool from the
+// catalog, a profile saved months ago can't keep granting it.
 func TestCapToolsDropsWhatIsNoLongerAllowed(t *testing.T) {
-	got := capTools([]string{"mail.search", "ferramenta.que.ja.nao.existe", "drive.search"})
+	got := capTools([]string{"mail.search", "tool.that.no.longer.exists", "drive.search"})
 	if len(got) != 2 || got[0] != "mail.search" || got[1] != "drive.search" {
-		t.Errorf("capTools = %v, quero só as que continuam no teto", got)
+		t.Errorf("capTools = %v, want only the ones still within the ceiling", got)
 	}
-	// Um perfil só com ferramentas que já não existem fica sem nenhuma — não com todas.
-	if got := capTools([]string{"nada.disto.existe"}); len(got) != 0 {
-		t.Errorf("capTools = %v, quero vazio", got)
+	// A profile with only tools that no longer exist ends up with none — not with all of them.
+	if got := capTools([]string{"none.of.this.exists"}); len(got) != 0 {
+		t.Errorf("capTools = %v, want empty", got)
 	}
 }
 
 func TestClientAgentNameIsRequiredAndBounded(t *testing.T) {
 	cases := map[string]agentWriteReq{
-		"nome vazio":   {Name: "   "},
-		"nome gigante": {Name: strings.Repeat("a", agentNameMax+1)},
+		"empty name":     {Name: "   "},
+		"oversized name": {Name: strings.Repeat("a", agentNameMax+1)},
 	}
 	for name, req := range cases {
 		if code := req.validate(); code != "assistant.agent_name_invalid" {
 			t.Errorf("%s: validate = %q", name, code)
 		}
 	}
-	// Instruções gigantes pagam-se a cada turno — daí o teto.
+	// Huge instructions get paid for on every turn — hence the ceiling.
 	long := agentWriteReq{Name: "ok", Instructions: strings.Repeat("x", agentInstructionsMax+1)}
 	if code := long.validate(); code != "assistant.agent_too_long" {
-		t.Errorf("instruções longas: validate = %q", code)
+		t.Errorf("long instructions: validate = %q", code)
 	}
 }
 
-// O teto é o do agente geral: nenhum perfil do cliente pode ir além do que o produto já permite.
+// The ceiling is the general agent's: no client profile can go beyond what the product already allows.
 func TestToolCeilingIsTheGeneralAgent(t *testing.T) {
 	general, _ := assistant.Builtin(assistant.AgentGeneral)
 	max := assistant.MaxTools()
 	if len(max) != len(general.Tools) {
-		t.Fatalf("teto = %v, agente geral = %v", max, general.Tools)
+		t.Fatalf("ceiling = %v, general agent = %v", max, general.Tools)
 	}
-	// E é uma CÓPIA: mexer no que MaxTools devolve não pode mexer no catálogo.
-	max[0] = "adulterado"
-	if again := assistant.MaxTools(); again[0] == "adulterado" {
-		t.Error("MaxTools devolve o slice interno — o catálogo ficou adulterável")
+	// And it's a COPY: mutating what MaxTools returns can't mutate the catalog.
+	max[0] = "tampered"
+	if again := assistant.MaxTools(); again[0] == "tampered" {
+		t.Error("MaxTools returns the internal slice — the catalog became mutable from outside")
 	}
 }

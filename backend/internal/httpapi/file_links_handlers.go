@@ -17,15 +17,15 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// linkExpiry converte os dias pedidos em prazo: ausente (nil) = padrão 30d; 0 = sem expiração (NULL);
-// N = N dias. Teto de 365 para não virar "eterno" por engano.
+// linkExpiry converts the requested days into a deadline: absent (nil) = default 30d; 0 = no
+// expiration (NULL); N = N days. Capped at 365 so it doesn't become "forever" by mistake.
 func linkExpiry(days *int) pgtype.Timestamptz {
 	d := 30
 	if days != nil {
 		d = *days
 	}
 	if d <= 0 {
-		return pgtype.Timestamptz{} // NULL: sem expiração
+		return pgtype.Timestamptz{} // NULL: no expiration
 	}
 	if d > 365 {
 		d = 365
@@ -33,15 +33,16 @@ func linkExpiry(days *int) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: time.Now().Add(time.Duration(d) * 24 * time.Hour), Valid: true}
 }
 
-// fileLinkTTL é a validade de um link público de download (anexos grandes). Passado o prazo, o token
-// deixa de resolver e um novo é gerado no próximo envio.
+// fileLinkTTL is how long a public download link (for large attachments) stays valid. Once it
+// passes, the token stops resolving and a new one is generated on the next send.
 const fileLinkTTL = 30 * 24 * time.Hour
 
-// Links públicos de download para anexos grandes (>10MB) enviados por e-mail. O compositor sobe o
-// ficheiro para o Files, pede um link e insere-o no corpo — como o Gmail. O link carrega um token
-// secreto: quem o tem baixa, sem login. Same-org também ganha partilha no Files (handleShareFile).
+// Public download links for large attachments (>10MB) sent by email. The composer uploads the
+// file to Files, requests a link, and inserts it into the body — like Gmail. The link carries a
+// secret token: whoever has it can download, without logging in. Same-org recipients also get a
+// share in Files (handleShareFile).
 
-// newLinkToken gera um token imprevisível (32 bytes → base64url), a autorização do link.
+// newLinkToken generates an unpredictable token (32 bytes → base64url), the link's authorization.
 func newLinkToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -50,20 +51,20 @@ func newLinkToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// handleCreateFileLink devolve o token de download público de um ficheiro (do dono). Idempotente:
-// reutiliza o link existente em vez de criar um novo a cada envio.
+// handleCreateFileLink returns the public download token for a file (owned by the caller).
+// Idempotent: reuses the existing link instead of creating a new one on every send.
 func (s *Server) handleCreateFileLink(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
 		return
 	}
 	var req struct {
-		ExpiresDays   *int   `json:"expires_days"`   // nil=30d · 0=sem expiração · N=N dias
-		Password      string `json:"password"`       // ""=sem senha
+		ExpiresDays   *int   `json:"expires_days"`   // nil=30d · 0=no expiration · N=N days
+		Password      string `json:"password"`       // ""=no password
 		Permission    string `json:"permission"`     // "view" (default) | "edit"
-		AllowDownload *bool  `json:"allow_download"` // nil=true (default) · o toggle de descarga
+		AllowDownload *bool  `json:"allow_download"` // nil=true (default) · the download toggle
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req) // corpo opcional: sem corpo mantém os padrões
+	_ = json.NewDecoder(r.Body).Decode(&req) // optional body: no body keeps the defaults
 	expires := linkExpiry(req.ExpiresDays)
 	pwHash := ""
 	if req.Password != "" {
@@ -82,7 +83,8 @@ func (s *Server) handleCreateFileLink(w http.ResponseWriter, r *http.Request) {
 	if req.AllowDownload != nil {
 		allowDl = *req.AllowDownload
 	}
-	// Já existe? Reconfigura (validade/senha/permissão/descarga) mantendo o mesmo token.
+	// Already exists? Reconfigure it (expiration/password/permission/download) while keeping the
+	// same token.
 	if existing, err := s.q.GetFileLinkByFile(r.Context(), f.ID); err == nil {
 		if _, uerr := s.q.UpdateFileLink(r.Context(), db.UpdateFileLinkParams{
 			FileID: f.ID, ExpiresAt: expires, PasswordHash: pwHash, TenantID: f.TenantID,
@@ -111,7 +113,7 @@ func (s *Server) handleCreateFileLink(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, linkDTO(link.Token, expires, pwHash != "", perm, allowDl))
 }
 
-// linkDTO monta a resposta do link (token + validade + senha + permissão + descarga).
+// linkDTO builds the link response (token + expiration + password + permission + download).
 func linkDTO(token string, expires pgtype.Timestamptz, hasPassword bool, permission string, allowDownload bool) map[string]any {
 	out := map[string]any{"token": token, "has_password": hasPassword, "permission": permission, "allow_download": allowDownload}
 	if expires.Valid {
@@ -120,8 +122,9 @@ func linkDTO(token string, expires pgtype.Timestamptz, hasPassword bool, permiss
 	return out
 }
 
-// handleGetFileLink devolve o token do link público ATIVO de um ficheiro (ou token vazio se não há),
-// para a UI mostrar/copiar/revogar. Só o dono. Sempre 200 (token "" = sem link) para simplificar o cliente.
+// handleGetFileLink returns the ACTIVE public link token for a file (or an empty token if there
+// isn't one), for the UI to show/copy/revoke. Owner only. Always 200 (token "" = no link) to keep
+// the client simple.
 func (s *Server) handleGetFileLink(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
@@ -135,7 +138,7 @@ func (s *Server) handleGetFileLink(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, linkDTO(link.Token, link.ExpiresAt, link.PasswordHash != "", link.Permission, link.AllowDownload))
 }
 
-// handleRevokeFileLink revoga (apaga) o link público de um ficheiro — só o dono.
+// handleRevokeFileLink revokes (deletes) a file's public link — owner only.
 func (s *Server) handleRevokeFileLink(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
@@ -148,7 +151,7 @@ func (s *Server) handleRevokeFileLink(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 
-// handleListSharedWithMe lista os ficheiros que outras pessoas do tenant partilharam comigo.
+// handleListSharedWithMe lists the files other people in the tenant have shared with me.
 func (s *Server) handleListSharedWithMe(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	files, err := s.q.ListFilesSharedWithMe(r.Context(), db.ListFilesSharedWithMeParams{
@@ -161,9 +164,10 @@ func (s *Server) handleListSharedWithMe(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]any{"files": orEmpty(files)})
 }
 
-// handleShareWithRecipients partilha um ficheiro com os destinatários de um e-mail que sejam da
-// MESMA organização — assim o anexo grande aparece em "Partilhado comigo" no Files deles e dispara
-// a notificação. Externos são ignorados (não têm conta): para eles vale só o link público.
+// handleShareWithRecipients shares a file with an email's recipients who are from the SAME
+// organisation — that way the large attachment shows up in "Shared with me" in their Files and
+// triggers the notification. Externals are skipped (they have no account): for them, only the
+// public link applies.
 func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
@@ -183,7 +187,8 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 		}
 		target, terr := s.q.GetMailUserByEmail(r.Context(), email)
 		if terr != nil || target.TenantID != f.TenantID {
-			// De fora da organização: não tem app onde receber notificação — vai o link por e-mail.
+			// From outside the organisation: no app to receive a notification in — the link goes by
+			// email instead.
 			if link, sent := s.shareWithOutsider(r, f, mu, email); link != "" {
 				shared++
 				external++
@@ -203,14 +208,15 @@ func (s *Server) handleShareWithRecipients(w http.ResponseWriter, r *http.Reques
 			map[string]string{"actor": mu.Email, "file": f.Name})
 		shared++
 	}
-	// `external`/`not_emailed`: a UI tem de poder dizer "o link foi criado mas o e-mail não saiu"
-	// em vez de dar a partilha por concluída.
+	// `external`/`not_emailed`: the UI has to be able to say "the link was created but the email
+	// didn't go out" instead of reporting the share as fully done.
 	writeJSON(w, http.StatusOK, map[string]int{"shared": shared, "external": external, "not_emailed": notEmailed})
 }
 
-// handleShareWithGroup partilha o ficheiro com TODOS os membros de um grupo/equipa da organização —
-// expande em partilhas por e-mail (o modelo de shares é por principal). Dedup: membro já partilhado
-// não vira linha duplicada. O grupo tem de ser do mesmo tenant (nunca confiar no id do request).
+// handleShareWithGroup shares the file with ALL members of an organisation group/team — it expands
+// into per-email shares (the shares model is per-principal). Dedup: a member already shared with
+// doesn't become a duplicate row. The group has to be in the same tenant (never trust the
+// request's id).
 func (s *Server) handleShareWithGroup(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
@@ -237,7 +243,8 @@ func (s *Server) handleShareWithGroup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "groups.not_found")
 		return
 	}
-	// Dedup: e-mails já partilhados não repetem (não há unique em storage_shares).
+	// Dedup: emails already shared with don't repeat (there's no unique constraint on
+	// storage_shares).
 	existing := map[string]bool{}
 	if shares, err := s.q.ListSharesByFile(r.Context(), db.ListSharesByFileParams{FileID: f.ID, TenantID: f.TenantID}); err == nil {
 		for _, sh := range shares {
@@ -264,8 +271,8 @@ func (s *Server) handleShareWithGroup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"shared": shared})
 }
 
-// handleMyGroups lista os grupos/equipas a que o utilizador atual pertence (para partilhar ficheiros
-// com a equipa). Sem RBAC especial: é a própria filiação do utilizador.
+// handleMyGroups lists the groups/teams the current user belongs to (for sharing files with the
+// team). No special RBAC: it's just the user's own membership.
 func (s *Server) handleMyGroups(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	groups, _ := s.q.ListGroupsForUser(r.Context(), mu.ID)
@@ -289,7 +296,8 @@ func (s *Server) handlePublicFileDownload(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusNotFound, "storage.not_found")
 		return
 	}
-	// Link protegido por senha: exige ?pw= correto (a página de download a coleta e reenvia).
+	// Password-protected link: requires the correct ?pw= (the download page collects it and resends
+	// it).
 	if f.PasswordHash != "" {
 		pw := r.URL.Query().Get("pw")
 		if pw == "" || !auth.CheckPassword(f.PasswordHash, pw) {
@@ -297,7 +305,8 @@ func (s *Server) handlePublicFileDownload(w http.ResponseWriter, r *http.Request
 			return
 		}
 	}
-	// Descarga desligada no link (só ver): a rota crua também recusa, não só o botão do visualizador.
+	// Download disabled on the link (view-only): the raw route also refuses it, not just the
+	// viewer's button.
 	if !f.AllowDownload {
 		writeErr(w, http.StatusForbidden, "storage.download_disabled")
 		return

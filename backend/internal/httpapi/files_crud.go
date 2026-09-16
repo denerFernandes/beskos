@@ -15,9 +15,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const defaultMaxUploadBytes = 100 << 30 // 100 GiB (default se FILES_MAX_UPLOAD_BYTES não estiver setado)
+const defaultMaxUploadBytes = 100 << 30 // 100 GiB (default if FILES_MAX_UPLOAD_BYTES isn't set)
 
-// maxUploadLimit é o teto por ficheiro (configurável via env; a cota total do plano vale por cima).
+// maxUploadLimit is the per-file ceiling (configurable via env; the plan's total quota still applies on top).
 func (s *Server) maxUploadLimit() int64 {
 	if s.maxUpload > 0 {
 		return s.maxUpload
@@ -25,7 +25,7 @@ func (s *Server) maxUploadLimit() int64 {
 	return defaultMaxUploadBytes
 }
 
-// handleFileLimits expõe o teto por ficheiro ao frontend (para o aviso antes de um upload inviável).
+// handleFileLimits exposes the per-file ceiling to the frontend (for the warning before an unfeasible upload).
 func (s *Server) handleFileLimits(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int64{"max_upload_bytes": s.maxUploadLimit()})
 }
@@ -38,8 +38,8 @@ func (s *Server) storageReady(w http.ResponseWriter) bool {
 	return true
 }
 
-// handleUploadFile recebe um arquivo (multipart), dedup por hash (não reenvia conteúdo idêntico),
-// versiona por nome e grava o registro lógico. Isolamento por tenant via prefixo da chave.
+// handleUploadFile receives a file (multipart), dedups by hash (doesn't resend identical content),
+// versions by name, and saves the logical record. Tenant isolation via the key prefix.
 func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -57,7 +57,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Hash do conteúdo (dedup) — depois rebobina para o upload.
+	// Content hash (dedup) — then rewinds for the upload.
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.hash_failed")
@@ -68,15 +68,15 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	blobKey := mu.TenantID.String() + "/" + hash // prefixo por tenant (isolamento)
+	blobKey := mu.TenantID.String() + "/" + hash // per-tenant prefix (isolation)
 
-	// Dedup: só envia ao MinIO se o blob ainda não existe.
+	// Dedup: only sends to MinIO if the blob doesn't already exist.
 	exists, err := s.storage.Exists(r.Context(), blobKey)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "storage.backend")
 		return
 	}
-	// Cota de disco: só conta se o blob for novo (dedup não consome espaço adicional).
+	// Disk quota: only counted if the blob is new (dedup doesn't consume extra space).
 	if !exists {
 		plan := s.tenantPlan(r, mu.TenantID)
 		if used, _ := s.q.SumStorageBytes(r.Context(), mu.TenantID); used+header.Size > plan.MaxStorageBytes {
@@ -95,14 +95,14 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Pasta destino (opcional): campo folder_id do form.
+	// Destination folder (optional): folder_id field from the form.
 	var folderID pgtype.UUID
 	if fid := r.FormValue("folder_id"); fid != "" {
 		if id, err := uuid.Parse(fid); err == nil {
 			folderID = pgtype.UUID{Bytes: id, Valid: true}
 		}
 	}
-	// Versionamento por nome (mesmo nome → nova versão).
+	// Versioning by name (same name → new version).
 	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Name: header.Filename})
 	rec, err := s.q.CreateStorageFile(r.Context(), db.CreateStorageFileParams{
 		TenantID: mu.TenantID, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
@@ -118,7 +118,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 
 func ownerPg(mu db.MailUser) pgtype.UUID { return pgtype.UUID{Bytes: mu.ID, Valid: true} }
 
-// handleListFiles lista a pasta atual (?folder=<id>, ausente = raiz): subpastas + arquivos + trilha.
+// handleListFiles lists the current folder (?folder=<id>, absent = root): subfolders + files + breadcrumb.
 func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var folderID pgtype.UUID
@@ -137,13 +137,13 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "storage.list_failed")
 		return
 	}
-	if folders == nil { // nunca null no JSON (o frontend faz .length)
+	if folders == nil { // never null in the JSON (the frontend does .length)
 		folders = []db.StorageFolder{}
 	}
 	if files == nil {
 		files = []db.StorageFile{}
 	}
-	// Trilha (breadcrumb): sobe até a raiz.
+	// Breadcrumb: walks up to the root.
 	type crumb struct {
 		ID   uuid.UUID `json:"id"`
 		Name string    `json:"name"`
@@ -159,12 +159,12 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 		cur = f.ParentID
 	}
 
-	// IDs de arquivos com compartilhamento (para o selo "compartilhado" na UI).
+	// IDs of files with sharing enabled (for the "shared" badge in the UI).
 	shared := []uuid.UUID{}
 	if ids, err := s.q.SharedFileIDs(r.Context(), mu.TenantID); err == nil {
 		shared = ids
 	}
-	// Uso de armazenamento vs. cota do plano (indicador estilo Drive).
+	// Storage usage vs. plan quota (Drive-style indicator).
 	plan := s.tenantPlan(r, mu.TenantID)
 	used, _ := s.q.SumStorageBytes(r.Context(), mu.TenantID)
 
@@ -178,17 +178,17 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// likePattern transforma o texto do utilizador num padrão LIKE, escapando os curingas para que '%'
-// e '_' sejam tratados como texto literal. Partilhado pela pesquisa da interface e pela ferramenta
-// drive.search do assistente — duas cópias divergiriam e uma delas passaria a dar resultados
-// errados em silêncio.
+// likePattern turns the user's text into a LIKE pattern, escaping the wildcards so that '%' and
+// '_' are treated as literal text. Shared by the UI search and by the assistant's drive.search
+// tool — two copies would drift apart and one of them would silently start returning wrong results.
 func likePattern(q string) string {
 	esc := strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(q)
 	return "%" + esc + "%"
 }
 
-// handleSearchFiles: busca global (recursiva) por nome, em todas as pastas do dono. Substitui o
-// filtro client-side que só via a pasta aberta. Casa ficheiros e pastas; devolve a lista plana.
+// handleSearchFiles: global (recursive) search by name, across all of the owner's folders.
+// Replaces the client-side filter that only saw the open folder. Matches files and folders;
+// returns the flat list.
 func (s *Server) handleSearchFiles(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -240,8 +240,8 @@ func (s *Server) fileOwned(w http.ResponseWriter, r *http.Request) (db.StorageFi
 	return f, true
 }
 
-// fileForDownload resolve o ficheiro para leitura: aceita o dono OU quem recebeu a partilha
-// (principal = o meu e-mail). Escreve 404 e devolve false se nenhum dos dois.
+// fileForDownload resolves the file for reading: accepts the owner OR whoever received the share
+// (principal = my email). Writes 404 and returns false if neither.
 func (s *Server) fileForDownload(w http.ResponseWriter, r *http.Request) (db.StorageFile, bool) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -252,7 +252,7 @@ func (s *Server) fileForDownload(w http.ResponseWriter, r *http.Request) (db.Sto
 	if f, err := s.q.GetStorageFile(r.Context(), db.GetStorageFileParams{ID: id, OwnerUserID: ownerPg(mu)}); err == nil {
 		return f, true
 	}
-	// Não é o dono: aceita se lhe foi partilhado diretamente OU à organização inteira.
+	// Not the owner: accepts if it was shared directly with them OR with the whole organization.
 	f, err := s.q.GetStorageFileInTenant(r.Context(), db.GetStorageFileInTenantParams{ID: id, TenantID: mu.TenantID})
 	if err == nil {
 		shares, _ := s.q.ListSharesByFile(r.Context(), db.ListSharesByFileParams{FileID: id, TenantID: mu.TenantID})
@@ -278,10 +278,10 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer obj.Close()
-	// nosniff sempre: impede o browser de reinterpretar o octet-stream como HTML/JS.
+	// nosniff always: stops the browser from reinterpreting the octet-stream as HTML/JS.
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	// inline=1 só é honrado para tipos seguros de visualizar (imagem/pdf/áudio/vídeo). Um .html/.svg
-	// servido inline executaria JS no nosso origin (stored XSS) — para esses, força download.
+	// inline=1 is only honored for types safe to preview (image/pdf/audio/video). An .html/.svg
+	// served inline would execute JS on our origin (stored XSS) — for those, force a download.
 	ct := mime.TypeByExtension("." + extOf(f.Name))
 	if r.URL.Query().Get("inline") == "1" && safeInlineType(ct) {
 		w.Header().Set("Content-Type", ct)
@@ -293,11 +293,11 @@ func (s *Server) handleDownloadFile(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, obj)
 }
 
-// safeInlineType diz se um Content-Type pode ser exibido inline sem risco de execução de script.
+// safeInlineType reports whether a Content-Type can be shown inline without risk of script execution.
 func safeInlineType(ct string) bool {
 	ct = strings.ToLower(ct)
 	if strings.HasPrefix(ct, "image/") && !strings.Contains(ct, "svg") {
-		return true // SVG é HTML-capaz: nunca inline
+		return true // SVG is HTML-capable: never inline
 	}
 	return strings.HasPrefix(ct, "audio/") || strings.HasPrefix(ct, "video/") ||
 		strings.HasPrefix(ct, "application/pdf") || strings.HasPrefix(ct, "text/plain")
@@ -312,8 +312,9 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Soft delete: vai para a lixeira, não some. O blob fica até a purga (esvaziar lixeira). Sem isto,
-	// um clique errado apagava o dado de vez — o maior risco de perda de arquivo (auditoria Files).
+	// Soft delete: goes to the trash, doesn't disappear. The blob stays until purged (emptying the
+	// trash). Without this, a misclick would delete the data for good — the biggest file-loss risk
+	// (Files audit finding).
 	if _, err := s.q.TrashFile(r.Context(), db.TrashFileParams{ID: f.ID, OwnerUserID: ownerPg(mu)}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.delete_failed")
 		return
@@ -321,11 +322,11 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "trashed"})
 }
 
-// --- Mover / renomear arquivo ---
+// --- Move / rename file ---
 
 type patchFileReq struct {
-	FolderID *string `json:"folder_id"` // move (null = raiz)
-	Name     *string `json:"name"`      // renomear
+	FolderID *string `json:"folder_id"` // move (null = root)
+	Name     *string `json:"name"`      // rename
 }
 
 func (s *Server) handlePatchFile(w http.ResponseWriter, r *http.Request) {

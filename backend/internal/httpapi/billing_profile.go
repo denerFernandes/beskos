@@ -10,9 +10,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Dados de faturação do cliente + simulação com IVA. A fatura é obrigação nossa, por isso os dados
-// vivem cá; a Stripe recebe uma CÓPIA (cliente com morada/NIF/e-mail do financeiro) para o checkout
-// só ter de pedir o cartão.
+// Customer billing data + VAT simulation. Issuing the invoice is our obligation, so the data
+// lives here; Stripe receives a COPY (customer with address/tax ID/finance email) so checkout
+// only has to ask for the card.
 
 type billingProfileReq struct {
 	Kind         string `json:"kind"` // company | individual
@@ -32,7 +32,7 @@ func (s *Server) handleGetBillingProfile(w http.ResponseWriter, r *http.Request)
 	u := mailUserFrom(r.Context())
 	p, err := s.q.GetBillingProfile(r.Context(), u.TenantID)
 	if err != nil {
-		// Ainda não preenchido: devolve o esqueleto (o formulário abre vazio, não em erro).
+		// Not filled in yet: return the skeleton (the form opens empty, not in an error state).
 		writeJSON(w, http.StatusOK, map[string]any{"kind": "company", "filled": false})
 		return
 	}
@@ -44,7 +44,7 @@ func (s *Server) handleGetBillingProfile(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// validateProfile devolve o código de erro do primeiro campo em falta ("" = tudo bem).
+// validateProfile returns the error code for the first missing field ("" = all good).
 func validateProfile(req *billingProfileReq) string {
 	req.Kind = strings.ToLower(strings.TrimSpace(req.Kind))
 	if req.Kind != "individual" {
@@ -64,7 +64,7 @@ func validateProfile(req *billingProfileReq) string {
 		return "billing.address_required"
 	case !strings.Contains(req.InvoiceEmail, "@"):
 		return "billing.invoice_email_required"
-	// Empresa polaca sem NIF não consegue deduzir o IVA — e a fatura polaca exige-o.
+	// A Polish company without a tax ID can't deduct VAT — and the Polish invoice requires it.
 	case req.Kind == "company" && req.Country == billing.SellerCountry && req.TaxID == "":
 		return "billing.tax_id_required"
 	case req.Kind == "company" && req.TaxID != "" && billing.IsEU(req.Country) && !billing.ValidVATID(req.TaxID, req.Country):
@@ -104,9 +104,9 @@ type quoteReq struct {
 	TaxID   string `json:"tax_id"`
 }
 
-// handleBillingQuote simula o valor a pagar: preço × utilizadores + IVA (ou autoliquidação). É o
-// mesmo cálculo que vai para a fatura — a página de subscrição não repete a regra em JavaScript,
-// senão o total mostrado e o cobrado divergiam ao primeiro ajuste.
+// handleBillingQuote simulates the amount due: price × users + VAT (or reverse charge). It's the
+// same calculation that goes on the invoice — the subscription page doesn't repeat the rule in
+// JavaScript, otherwise the displayed total and the charged amount would diverge on the first adjustment.
 func (s *Server) handleBillingQuote(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	var req quoteReq
@@ -135,8 +135,8 @@ func (s *Server) handleBillingQuote(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// checkoutSeats é o nº de utilizadores cobrados: os atuais, nunca abaixo do mínimo global nem do
-// piso do plano.
+// checkoutSeats is the number of users charged: the current ones, never below the global minimum
+// nor the plan's floor.
 func (s *Server) checkoutSeats(r *http.Request, tid uuid.UUID, plan billing.Plan) int {
 	seats := s.billableSeats(r, tid)
 	if seats < plan.MinUsers {
@@ -145,7 +145,7 @@ func (s *Server) checkoutSeats(r *http.Request, tid uuid.UUID, plan billing.Plan
 	return seats
 }
 
-// billingCustomer monta os dados do cliente para o provedor a partir do perfil guardado.
+// billingCustomer builds the customer data for the provider from the saved profile.
 func billingCustomer(tenantID string, p db.BillingProfile) billing.Customer {
 	return billing.Customer{
 		TenantID: tenantID, Kind: p.Kind, Name: p.LegalName, Email: p.InvoiceEmail,

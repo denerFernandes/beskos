@@ -11,9 +11,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Permissões dos quadros do Kanban (padrão dos grants da wiki): pessoa/equipa/org com papéis
-// viewer|editor|manager. Quadros LEGADOS (sem dono nem grants) continuam abertos à organização
-// (compatibilidade); quem tem card atribuído no quadro é editor automaticamente (regra em SQL).
+// Kanban board permissions (same pattern as wiki grants): person/team/org with roles
+// viewer|editor|manager. LEGACY boards (no owner and no grants) stay open to the organization
+// (compatibility); whoever has a card assigned on the board is automatically an editor (rule in SQL).
 
 const (
 	boardRoleViewer  = 1
@@ -21,9 +21,9 @@ const (
 	boardRoleManager = 4
 )
 
-// boardRole devolve o papel efetivo do utilizador no quadro (0 = sem acesso). Admins da org são
-// managers de todos os quadros do tenant — é o que dá gestão aos quadros legados (sem dono) e
-// espelha a regra de apagar wikis.
+// boardRole returns the user's effective role on the board (0 = no access). Org admins are
+// managers of every board in the tenant — that's what gives management access to legacy boards
+// (without an owner) and mirrors the wiki-deletion rule.
 func (s *Server) boardRole(ctx context.Context, mu db.MailUser, boardID uuid.UUID) int {
 	role := 0
 	if r, err := s.q.BoardRole(ctx, db.BoardRoleParams{
@@ -32,7 +32,7 @@ func (s *Server) boardRole(ctx context.Context, mu db.MailUser, boardID uuid.UUI
 		role = int(r)
 	}
 	if mu.Role == "owner" || mu.Role == "admin" || mu.Role == "internal_admin" {
-		// Só eleva se o quadro existir no tenant (o rank>0 já o prova; senão confirma).
+		// Only elevate if the board exists in the tenant (rank>0 already proves it; otherwise confirm).
 		if role > 0 {
 			return boardRoleManager
 		}
@@ -43,7 +43,7 @@ func (s *Server) boardRole(ctx context.Context, mu db.MailUser, boardID uuid.UUI
 	return role
 }
 
-// requireBoardRole escreve 404 (sem acesso — não revela existência) ou 403 (papel insuficiente).
+// requireBoardRole writes 404 (no access — doesn't reveal existence) or 403 (insufficient role).
 func (s *Server) requireBoardRole(w http.ResponseWriter, r *http.Request, boardID uuid.UUID, need int) bool {
 	mu := mailUserFrom(r.Context())
 	role := s.boardRole(r.Context(), mu, boardID)
@@ -96,7 +96,7 @@ func (s *Server) handleSetBoardGrant(w http.ResponseWriter, r *http.Request) {
 	if !s.requireBoardRole(w, r, id, boardRoleManager) {
 		return
 	}
-	var req wikiGrantReq // mesmo shape: subject_type/subject_id/role
+	var req wikiGrantReq // same shape: subject_type/subject_id/role
 	if !decode(w, r, &req) {
 		return
 	}
@@ -114,7 +114,7 @@ func (s *Server) handleSetBoardGrant(w http.ResponseWriter, r *http.Request) {
 		}
 		sid = pgtype.UUID{Bytes: parsed, Valid: true}
 	}
-	// Upsert idempotente: um papel por sujeito.
+	// Idempotent upsert: one role per subject.
 	_ = s.q.DeleteBoardGrantSubject(r.Context(), db.DeleteBoardGrantSubjectParams{
 		TenantID: mu.TenantID, BoardID: id, SubjectType: req.SubjectType, SubjectID: sid,
 	})
@@ -157,7 +157,7 @@ func deref(p *string) string {
 	return *p
 }
 
-// requireCardEditor resolve o quadro do card e exige papel editor nele (mutações de cards).
+// requireCardEditor resolves the card's board and requires an editor role on it (card mutations).
 func (s *Server) requireCardEditor(w http.ResponseWriter, r *http.Request, cardID uuid.UUID) bool {
 	mu := mailUserFrom(r.Context())
 	boardID, err := s.q.CardBoard(r.Context(), db.CardBoardParams{ID: cardID, TenantID: mu.TenantID})
