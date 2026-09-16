@@ -1,8 +1,8 @@
-// Ponte da UI para o motor de sincronização que corre DENTRO da app desktop (Tauri).
+// UI bridge to the sync engine that runs INSIDE the desktop app (Tauri).
 //
-// Modelo: pares de pastas. O utilizador escolhe uma pasta LOCAL; ela é criada no Drive e só o que
-// está lá dentro sincroniza, nos dois sentidos. Podem existir várias. Nada de espelhar o drive todo.
-// Na web estes comandos não existem — a UI mostra uma nota em vez dos controlos.
+// Model: folder pairs. The user picks a LOCAL folder; it is created in Drive and only what is
+// inside it syncs, in both directions. Several can exist. There is no mirroring the whole drive.
+// On the web these commands do not exist — the UI shows a note instead of the controls.
 
 import { isTauri } from "./tauriNotify";
 import { devicesApi } from "./backend";
@@ -10,7 +10,7 @@ import { API_BASE } from "../apiBase";
 
 export type SyncPhase = "idle" | "syncing" | "error" | "paused";
 
-/** Uma pasta local espelhada com uma pasta do Drive. */
+/** A local folder mirrored with a Drive folder. */
 export interface SyncPair {
   local_path: string;
   folder_id: string;
@@ -21,9 +21,9 @@ export interface SyncStatus {
   phase: SyncPhase;
   message: string;
   paused: boolean;
-  /** false = esta máquina ainda não está ligada A ESTA CONTA (pode estar ligada a outra). */
+  /** false = this machine is not yet linked TO THIS ACCOUNT (it may be linked to another one). */
   configured: boolean;
-  /** Servidor/conta a que a config gravada pertence (para isolar por conta na mesma máquina). */
+  /** Server/account the saved config belongs to (to isolate by account on the same machine). */
   server_url: string;
   account: string;
   pairs: SyncPair[];
@@ -34,15 +34,15 @@ const serverUrl = (): string => API_BASE || window.location.origin;
 
 export const syncSupported = (): boolean => isTauri();
 
-// O invoke só existe no app nativo; import dinâmico para a web não carregar o módulo.
+// invoke only exists in the native app; dynamic import so the web build does not load the module.
 async function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const { invoke } = await import("@tauri-apps/api/core");
   return invoke<T>(cmd, args);
 }
 
 export const syncApi = {
-  /** `account` = identidade da conta atual (e-mail do utilizador). O daemon esconde os pares se a
-   *  config gravada for de outra conta (troca de utilizador na mesma máquina). */
+  /** `account` = identity of the current account (the user's e-mail). The daemon hides the pairs
+   *  if the saved config belongs to another account (user switch on the same machine). */
   status: (account: string) => invoke<SyncStatus>("sync_status", { account, serverUrl: serverUrl() }),
   now: () => invoke<void>("sync_now"),
   setPaused: (paused: boolean) => invoke<void>("sync_set_paused", { paused }),
@@ -50,7 +50,7 @@ export const syncApi = {
   setBandwidth: (bandwidthKbps: number) => invoke<void>("sync_set_bandwidth", { bandwidthKbps }),
   removeFolder: (localPath: string) => invoke<void>("sync_remove_folder", { localPath }),
 
-  /** Abre o seletor NATIVO de pasta; devolve o caminho escolhido (ou null se cancelar). */
+  /** Opens the NATIVE folder picker; returns the chosen path (or null if cancelled). */
   async pickFolder(): Promise<string | null> {
     const { open } = await import("@tauri-apps/plugin-dialog");
     const picked = await open({ directory: true, multiple: false });
@@ -63,15 +63,15 @@ export const syncApi = {
    */
   async ensureConnected(account: string): Promise<void> {
     const st = await syncApi.status(account);
-    if (st.configured) return; // já ligada A ESTA conta (status esconde a config de outra conta)
-    const name = `Beskos Desktop (${navigator.platform || "computador"})`;
+    if (st.configured) return; // already linked TO THIS account (status hides another account's config)
+    const name = `Beskos Desktop (${navigator.platform || "computer"})`;
     const created = await devicesApi.create(name);
     await invoke<void>("sync_connect", { serverUrl: serverUrl(), token: created.token, account });
   },
 
   /**
-   * Escolhe uma pasta local e passa a sincronizá-la: é criada a pasta correspondente no Drive.
-   * Devolve o par criado, ou null se o utilizador cancelou o seletor.
+   * Picks a local folder and starts syncing it: the corresponding folder is created in Drive.
+   * Returns the created pair, or null if the user cancelled the picker.
    */
   async addFolder(account: string): Promise<SyncPair | null> {
     const dir = await syncApi.pickFolder();

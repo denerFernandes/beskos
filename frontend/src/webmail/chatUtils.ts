@@ -4,10 +4,10 @@ import { SHORTCODES } from "./emoji";
 
 export const KB = (n: number) => `${Math.max(1, Math.round(n / 1024))} KB`;
 
-// Reações rápidas: as poucas que se usam em 90% dos casos. O resto vem do seletor completo.
+// Quick reactions: the few that cover 90% of cases. The rest comes from the full picker.
 export const QUICK = ["👍", "❤️", "😄", "🎉", "👀", "🙏", "🔥", "✅"];
 
-// Convenção de "chamada": mensagem-sistema que o frontend renderiza como cartão de entrada.
+// "Call" convention: a system message that the frontend renders as a joining card.
 export const CALL_RE = /^📞 __call__ (video|audio) (\S+)$/;
 
 export const callBody = (mode: "video" | "audio", room: string) => `📞 __call__ ${mode} ${room}`;
@@ -17,7 +17,7 @@ export function parseCall(body: string): { mode: "video" | "audio"; room: string
   return m ? { mode: m[1] as "video" | "audio", room: m[2] } : null;
 }
 
-// applyShortcodes troca ":atalho: " ou ":) " pelo emoji, só depois do espaço final.
+// applyShortcodes swaps ":shortcut: " or ":) " for the emoji, only after the trailing space.
 export function applyShortcodes(v: string): string {
   if (!v.endsWith(" ")) return v;
   const body = v.slice(0, -1);
@@ -49,14 +49,14 @@ export function applySlash(body: string): string {
   }
 }
 
-// Slash-commands client-side (estilo Slack): transformam o texto antes do envio. Comandos
-// desconhecidos seguem como texto normal. `/me` e `/shrug` são os úteis; os flips são brincadeira.
-// Comandos disponíveis no composer. `menu` é o que a lista do "/" mostra; os de texto são aplicados
-// no envio (applySlash), o /task abre o seletor de tarefas.
-// Barra de formatação visível (por aparelho, como no Slack).
+// Client-side slash-commands (Slack-style): transform the text before sending. Unknown commands
+// pass through as plain text. `/me` and `/shrug` are the useful ones; the flips are just for fun.
+// Commands available in the composer. `menu` is what the "/" list shows; the text ones are applied
+// on send (applySlash), and /task opens the task picker.
+// Formatting bar visibility (per device, like Slack).
 export const LS_FMT = "mailin.chat.fmtbar";
 
-// Opções rápidas de horário (agendar envio / lembrar-me), estilo Slack.
+// Quick time options (schedule send / remind me), Slack-style.
 export function quickTimes(t: (k: string) => string): { label: string; date: Date }[] {
   const now = Date.now();
   const tomorrow9 = new Date(); tomorrow9.setDate(tomorrow9.getDate() + 1); tomorrow9.setHours(9, 0, 0, 0);
@@ -68,14 +68,15 @@ export function quickTimes(t: (k: string) => string): { label: string; date: Dat
   ];
 }
 
-// Aplica um evento de reação (WS) a uma mensagem, incrementalmente — sem refazer o fetch do canal.
-// Idempotente por membership em `users`: o eco da própria ação (ou reentrega) não conta em dobro.
-// `mine` é recalculado com o id do usuário atual, então serve para qualquer membro que receba o evento.
+// Applies a reaction event (WS) to a message, incrementally — without refetching the channel.
+// Idempotent via membership in `users`: the echo of the action itself (or a redelivery) doesn't
+// count twice. `mine` is recomputed with the current user's id, so it works for whichever member
+// receives the event.
 export function applyReaction(m: ChatMessage, emoji: string, userId: string, remove: boolean, myId: string): ChatMessage {
   const reactions = [...(m.reactions ?? [])];
   const idx = reactions.findIndex((r) => r.emoji === emoji);
   if (remove) {
-    if (idx < 0 || !reactions[idx].users.includes(userId)) return m; // já removido → no-op
+    if (idx < 0 || !reactions[idx].users.includes(userId)) return m; // already removed → no-op
     const users = reactions[idx].users.filter((u) => u !== userId);
     if (users.length === 0) reactions.splice(idx, 1);
     else reactions[idx] = { ...reactions[idx], users, count: users.length, mine: users.includes(myId) };
@@ -83,7 +84,7 @@ export function applyReaction(m: ChatMessage, emoji: string, userId: string, rem
     if (idx < 0) {
       reactions.push({ emoji, users: [userId], count: 1, mine: userId === myId });
     } else {
-      if (reactions[idx].users.includes(userId)) return m; // dedup do próprio eco
+      if (reactions[idx].users.includes(userId)) return m; // dedup of the echo of our own action
       const users = [...reactions[idx].users, userId];
       reactions[idx] = { ...reactions[idx], users, count: users.length, mine: users.includes(myId) };
     }

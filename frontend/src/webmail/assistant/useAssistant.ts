@@ -2,10 +2,10 @@ import { useCallback, useRef, useState } from "react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { assistantApi, type ChatEvent, type ConfirmRequest, type ToolStep } from "./api";
 
-// Quando o assistente escreve no correio (envia, rascunha), as listas do webmail já em cache ficam
-// desatualizadas — o e-mail enviado continuaria a aparecer em Rascunhos até um refetch. Invalidamos
-// as queries afetadas assim que o passo corre, para a UI refletir a ação na hora.
-// Cada ferramenta de escrita mapeia para as chaves de query que ficam obsoletas quando ela corre.
+// When the assistant writes to mail (sends, drafts), the webmail lists already in cache go
+// stale — the sent email would keep showing up in Drafts until a refetch. We invalidate the
+// affected queries as soon as the step runs, so the UI reflects the action right away.
+// Each write tool maps to the query keys that become stale when it runs.
 const INVALIDATE_ON: Record<string, string[]> = {
   "mail.send": ["emails", "mailboxes", "thread", "today-emails", "contacts"],
   "mail.draft": ["emails", "mailboxes", "thread", "today-emails"],
@@ -14,47 +14,47 @@ const INVALIDATE_ON: Record<string, string[]> = {
 };
 
 function invalidateForStep(qc: QueryClient, step: ToolStep) {
-  if (step.error_code) return; // ação falhou: nada mudou, nada a refrescar
+  if (step.error_code) return; // action failed: nothing changed, nothing to refresh
   for (const key of INVALIDATE_ON[step.tool] ?? []) {
     void qc.invalidateQueries({ queryKey: [key] });
   }
 }
 
-// Uma mensagem tal como o painel a mostra. É o mesmo formato para o que veio do servidor e para o
-// que está a chegar ao vivo — assim reabrir uma conversa mostra exatamente o que se viu ao vivo.
+// A message as the panel shows it. Same format for what came from the server and for what's
+// arriving live — that way reopening a conversation shows exactly what was seen live.
 export interface ChatMessage {
   role: "user" | "assistant";
-  // agent é quem respondeu — a escolha do encaminhamento é sempre visível (§3.2).
+  // agent is who answered — the routing choice is always visible (§3.2).
   agent?: string;
   content: string;
-  // Factos guardados/recusados neste turno (§6.5). Mostrados na conversa: memória que cresce sem
-  // se ver é memória que ninguém corrige (§8.2).
+  // Facts saved/refused in this turn (§6.5). Shown in the conversation: memory that grows
+  // unseen is memory no one can correct (§8.2).
   savedFacts?: { fact: string }[];
   refusedFacts?: { fact: string; reason: string }[];
   steps: ToolStep[];
   stopped?: string;
-  // errorCode é uma falha do pedido, não do modelo. Chave de i18n (lei 4.6).
+  // errorCode is a request failure, not a model one. i18n key (law 4.6).
   errorCode?: string;
 }
 
-// useAssistant guarda o estado da conversa aberta e trata do fio SSE.
+// useAssistant holds the state of the open conversation and handles the SSE thread.
 //
-// Vive no componente montado uma vez no App (fora do <main>), portanto sobrevive à navegação: mudar
-// de área não perde o que se estava a perguntar.
+// Lives in the component mounted once in App (outside <main>), so it survives navigation:
+// switching pages doesn't lose what was being asked.
 export function useAssistant() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // A ação à espera de decisão. Uma de cada vez, por construção: a execução PÁRA no servidor até
-  // haver resposta, portanto nunca chega uma segunda antes de esta ser decidida (§6.3).
+  // The action awaiting a decision. One at a time, by construction: execution PAUSES on the
+  // server until there's a response, so a second one never arrives before this one is decided (§6.3).
   const [pending, setPending] = useState<ConfirmRequest | null>(null);
-  // pinned vazio = o encaminhamento decide a cada turno. Fixar vale para o resto do fio, e é
-  // reversível: o utilizador manda sempre mais do que o modelo.
+  // pinned empty = routing decides on every turn. Pinning holds for the rest of the thread, and
+  // is reversible: the user always outranks the model.
   const [pinned, setPinned] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const qc = useQueryClient();
 
-  // patchLast altera a última mensagem (a do assistente, que está a ser escrita ao vivo).
+  // patchLast changes the last message (the assistant's, which is being written live).
   const patchLast = useCallback((fn: (m: ChatMessage) => ChatMessage) => {
     setMessages((prev) => (prev.length === 0 ? prev : [...prev.slice(0, -1), fn(prev[prev.length - 1])]));
   }, []);
@@ -78,17 +78,17 @@ export function useAssistant() {
           switch (ev.kind) {
             case "conversation":
               setConversationId(ev.conversation_id);
-              // Quem vai responder, à vista, antes de qualquer ferramenta correr.
+              // Who's going to answer, visible before any tool runs.
               patchLast((m) => ({ ...m, agent: ev.agent }));
               break;
             case "delta":
               patchLast((m) => ({ ...m, content: m.content + ev.text }));
               break;
             case "step":
-              // O cartão de ação a chegar significa que a ação já foi decidida e corrida.
+              // The action card arriving means the action has already been decided and run.
               setPending(null);
               patchLast((m) => ({ ...m, steps: [...m.steps, ev.step] }));
-              // A ação já mudou os dados no servidor: refresca as listas do webmail afetadas.
+              // The action already changed data on the server: refresh the affected webmail lists.
               invalidateForStep(qc, ev.step);
               break;
             case "confirm":
@@ -99,7 +99,7 @@ export function useAssistant() {
               break;
             case "done":
               setPending(null);
-              // O run final manda: os deltas podem ter-se perdido a meio, o servidor tem a verdade.
+              // The final run wins: deltas may have been lost along the way, the server has the truth.
               patchLast((m) => ({ ...m, content: ev.run.answer || m.content, steps: ev.run.steps ?? m.steps, stopped: ev.run.stopped }));
               break;
             case "error":
@@ -110,7 +110,7 @@ export function useAssistant() {
         ctrl.signal,
       );
     } catch {
-      // Cancelar não é falhar: quem fechou o painel não precisa de ver um erro.
+      // Cancelling isn't failing: whoever closed the panel doesn't need to see an error.
       if (!ctrl.signal.aborted) patchLast((m) => ({ ...m, errorCode: "assistant.failed" }));
     } finally {
       abortRef.current = null;
@@ -119,8 +119,8 @@ export function useAssistant() {
     }
   }, [busy, conversationId, patchLast, pinned, qc]);
 
-  // sendBackground enfileira o pedido no servidor. Não devolve texto: devolve uma tarefa, e o
-  // progresso passa a ver-se no separador de Tarefas (§3.6).
+  // sendBackground queues the request on the server. It doesn't return text: it returns a task,
+  // and progress shows up in the Tasks tab from then on (§3.6).
   const sendBackground = useCallback(async (text: string) => {
     const message = text.trim();
     if (!message) return;
@@ -148,7 +148,7 @@ export function useAssistant() {
     setPinned("");
   }, [stop]);
 
-  // open carrega uma conversa do histórico com os seus cartões de ação.
+  // open loads a conversation from history along with its action cards.
   const open = useCallback(async (id: string) => {
     stop();
     const conv = await assistantApi.conversation(id);

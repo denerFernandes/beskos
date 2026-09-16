@@ -5,8 +5,8 @@ import { toast } from "./toast";
 import { triggerDownload } from "../apiBase";
 import { IcDownload, IcRefresh } from "../panel/icons";
 
-// Histórico de versões de um ficheiro (acumulado a cada save no editor). Listar, baixar uma versão
-// antiga para inspecionar, e restaurar (que cria uma nova versão — reversível).
+// Version history of a file (accumulated on every save in the editor). List, download an older
+// version to inspect, and restore (which creates a new version — reversible).
 export function VersionsModal({ file, onClose }: { file: StorageFile; onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();

@@ -6,11 +6,11 @@ import * as awarenessProtocol from "@y/protocols/awareness";
 
 import { API_BASE, getSessionToken } from "../apiBase";
 
-// Provider Yjs da wiki (B10): fala com o RELAY em Go (/api/wiki/pages/:id/collab/ws) usando o
-// protocolo y-websocket clássico — varuint de tipo (0=sync, 1=awareness) + payload. O servidor só
-// retransmite; são os clientes que respondem aos sync steps uns dos outros. O 1º frame do servidor é
-// texto {"type":"hello","peers":N}: peers===0 → quem entrou semeia o doc do body_json; peers>0 →
-// começa vazio e sincroniza dos pares (semear duas vezes duplicaria o conteúdo).
+// Wiki's Yjs provider (B10): talks to the Go RELAY (/api/wiki/pages/:id/collab/ws) using the
+// classic y-websocket protocol — a type varuint (0=sync, 1=awareness) + payload. The server only
+// relays; it is the clients that respond to each other's sync steps. The server's 1st frame is
+// text {"type":"hello","peers":N}: peers===0 → whoever joined seeds the doc from body_json; peers>0 →
+// starts empty and syncs from the peers (seeding twice would duplicate the content).
 
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
@@ -18,12 +18,12 @@ const MSG_AWARENESS = 1;
 export class WikiCollabProvider {
   readonly doc: Y.Doc;
   readonly awareness: awarenessProtocol.Awareness;
-  // O hello pode chegar ANTES de o editor registar o callback (o WS liga no construtor): guarda-se
-  // o valor e dispara-se ao registar — sem isto o seed do template perdia a corrida e a página
-  // abria vazia no editor.
+  // The hello can arrive BEFORE the editor registers the callback (the WS connects in the constructor):
+  // the value is stored and fired on registration — without this, the template seed would lose the
+  // race and the page would open empty in the editor.
   private helloPeers: number | null = null;
   private helloCb?: (peers: number) => void;
-  /** Regista o callback do hello; se o hello já chegou, dispara imediatamente. */
+  /** Registers the hello callback; if the hello has already arrived, fires immediately. */
   set onHello(cb: ((peers: number) => void) | undefined) {
     this.helloCb = cb;
     if (cb && this.helloPeers !== null) cb(this.helloPeers);
@@ -47,14 +47,14 @@ export class WikiCollabProvider {
 
     this.doc.on("update", this.handleDocUpdate);
     this.awareness.on("update", this.handleAwarenessUpdate);
-    // NÃO conecta aqui: em dev o StrictMode invoca o initializer do estado DUAS vezes e o provider
-    // órfão ocuparia a sala (o real receberia peers=1 e nunca semearia). Liga-se no useEffect
-    // via ensureConnected() — só a instância adotada pelo React abre o WS.
+    // Does NOT connect here: in dev, StrictMode invokes the state initializer TWICE and the orphan
+    // provider would occupy the room (the real one would receive peers=1 and never seed). It connects
+    // in the useEffect via ensureConnected() — only the instance React adopts opens the WS.
   }
 
   private started = false;
   private destroyTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Abre (ou reabre) a ligação. Chamado no mount do editor; idempotente e cancela um destroy adiado. */
+  /** Opens (or reopens) the connection. Called on editor mount; idempotent and cancels a deferred destroy. */
   ensureConnected() {
     if (this.destroyTimer) { clearTimeout(this.destroyTimer); this.destroyTimer = null; }
     if (this.started && !this.closed) return;
@@ -64,8 +64,8 @@ export class WikiCollabProvider {
     if (!this.ws) this.connect();
   }
 
-  /** Destroy ADIADO (150ms): o StrictMode monta→desmonta→monta em dev; fechar o WS no cleanup do
-   *  mount falso abria-e-fechava um socket por cada edição (EPIPE no proxy). O remount cancela. */
+  /** DEFERRED destroy (150ms): StrictMode mounts→unmounts→mounts in dev; closing the WS in the
+   *  fake mount's cleanup would open-and-close a socket for every edit (EPIPE on the proxy). The remount cancels it. */
   scheduleDestroy() {
     if (this.destroyTimer) clearTimeout(this.destroyTimer);
     this.destroyTimer = setTimeout(() => this.destroy(), 150);
@@ -93,12 +93,12 @@ export class WikiCollabProvider {
     this.ws = sock;
     sock.onopen = () => {
       this.retry = 1000;
-      // SyncStep1: pede o estado aos pares (via relay).
+      // SyncStep1: requests state from the peers (via the relay).
       const enc = encoding.createEncoder();
       encoding.writeVarUint(enc, MSG_SYNC);
       syncProtocol.writeSyncStep1(enc, this.doc);
       sock.send(encoding.toUint8Array(enc));
-      // Anuncia o próprio estado de awareness (cursor/utilizador).
+      // Announces its own awareness state (cursor/user).
       const aw = encoding.createEncoder();
       encoding.writeVarUint(aw, MSG_AWARENESS);
       encoding.writeVarUint8Array(aw, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID]));
@@ -112,7 +112,7 @@ export class WikiCollabProvider {
             this.helloPeers = hello.peers ?? 0;
             this.helloCb?.(this.helloPeers);
           }
-        } catch { /* frame de controlo inválido: ignora */ }
+        } catch { /* invalid control frame: ignore */ }
         return;
       }
       const dec = decoding.createDecoder(new Uint8Array(e.data as ArrayBuffer));
@@ -143,7 +143,7 @@ export class WikiCollabProvider {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(data);
   }
 
-  // Update local do doc → retransmite aos pares (origin === this → veio da rede, não re-emite).
+  // Local doc update → relays to the peers (origin === this → came from the network, don't re-emit).
   private handleDocUpdate = (update: Uint8Array, origin: unknown) => {
     if (origin === this) return;
     const enc = encoding.createEncoder();

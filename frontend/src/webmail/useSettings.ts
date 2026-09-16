@@ -2,9 +2,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { settingsApi, type UserSettings } from "./backend";
 import { toast } from "./toast";
 
-// Preferências do utilizador, partilhadas entre a página de Definições (escreve) e as apps (leem).
-// Tudo passa pela mesma query ["settings"], então uma mudança nas Definições reflete-se logo nas
-// apps abertas (cache partilhado). O servidor faz merge por secção; aqui espelhamos isso otimista.
+// User preferences, shared between the Settings page (writes) and the apps (read).
+// Everything goes through the same ["settings"] query, so a change in Settings is reflected right
+// away in open apps (shared cache). The server merges by section; here we mirror that optimistically.
 
 const KEY = ["settings"] as const;
 
@@ -13,8 +13,8 @@ export function useUserSettings(): UserSettings {
   return q.data ?? {};
 }
 
-// useSection dá a uma secção de Definições o seu valor + um `save` que grava só essa secção (merge
-// otimista na cache; persiste no servidor; reverte com toast em erro).
+// useSection gives a Settings section its value plus a `save` that persists only that section
+// (optimistic merge into the cache; persists to the server; reverts with a toast on error).
 export function useSection<K extends keyof UserSettings>(app: K) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: KEY, queryFn: () => settingsApi.get(), staleTime: 60_000, retry: false });
@@ -25,7 +25,7 @@ export function useSection<K extends keyof UserSettings>(app: K) {
     const nextSection = { ...(prev?.[app] ?? {}), ...patch };
     qc.setQueryData<UserSettings>(KEY, { ...(prev ?? {}), [app]: nextSection });
     settingsApi.patch({ [app]: nextSection } as Partial<UserSettings>).catch((e) => {
-      qc.setQueryData<UserSettings>(KEY, prev); // reverte
+      qc.setQueryData<UserSettings>(KEY, prev); // revert
       toast((e as Error).message);
     });
   };

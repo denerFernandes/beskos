@@ -3,32 +3,32 @@ import { FilesetResolver, ImageSegmenter } from "@mediapipe/tasks-vision";
 import { Track } from "livekit-client";
 import type { TrackProcessor, ProcessorOptions } from "livekit-client";
 
-// Processador de fundo com motor HÍBRIDO (padrão Jitsi/Meet), 100% empacotado (sem rede em runtime):
-//  - MODNet (matting, qualidade máxima) via WebGPU — Chrome/Edge na web.
-//  - MediaPipe Selfie Segmentation (WebGL, leve e rápido) — WebKit/WKWebView (desktop Tauri e
-//    Safari), onde o ONNX Runtime é inviável: JSEP tem bug grave no WebKit 26 (CPU 400%+, memória
-//    até 14GB — onnxruntime#26827) e o WASM fica single-thread sem SharedArrayBuffer (11-40× lento).
-// A inferência corre desacoplada do render → vídeo fluido mesmo que a máscara corra a menos fps.
+// Background processor with a HYBRID engine (Jitsi/Meet pattern), 100% bundled (no network at runtime):
+//  - MODNet (matting, top quality) via WebGPU — Chrome/Edge on the web.
+//  - MediaPipe Selfie Segmentation (WebGL, light and fast) — WebKit/WKWebView (desktop Tauri and
+//    Safari), where the ONNX Runtime is unviable: JSEP has a serious bug in WebKit 26 (CPU 400%+, memory
+//    up to 14GB — onnxruntime#26827) and WASM falls back to single-thread without SharedArrayBuffer (11-40x slower).
+// Inference runs decoupled from render → smooth video even if the mask runs at a lower fps.
 export type BgMode =
   | { kind: "none" }
   | { kind: "blur"; radius: number }
   | { kind: "image"; url: string };
 
 const MODEL = "Xenova/modnet";
-const INFER_GAP_MS = 40; // pausa entre inferências (~≤12fps de máscara) — não sufocar o resto
-const ALPHA_FLOOR = 34; // (MODNet) alfa abaixo disso vira 0 → corta a franja/aura clara
-const RAMP_LO = 0.25, RAMP_HI = 0.7; // (MediaPipe) rampa de confiança → alfa
-const MASK_BLUR = 2; // (MediaPipe) box blur do alfa em baixa resolução → borda macia
+const INFER_GAP_MS = 40; // gap between inferences (~≤12fps of mask) — don't choke the rest
+const ALPHA_FLOOR = 34; // (MODNet) alpha below this becomes 0 → cuts the light fringe/halo
+const RAMP_LO = 0.25, RAMP_HI = 0.7; // (MediaPipe) confidence ramp → alpha
+const MASK_BLUR = 2; // (MediaPipe) box blur of the alpha at low resolution → soft edge
 
-// MODELO LOCAL (transformers.js): servido pela própria app. allowLocalModels é FALSE por omissão
-// no browser — sem ligá-lo, com o remoto bloqueado, nenhuma fonte fica permitida.
+// LOCAL MODEL (transformers.js): served by the app itself. allowLocalModels defaults to FALSE
+// in the browser — without enabling it, with remote blocked, no source would be allowed at all.
 env.allowLocalModels = true;
 env.allowRemoteModels = false;
 env.localModelPath = "/models/";
-// Runtime ONNX (wasm/jsep) também LOCAL — por omissão iria ao CDN jsdelivr.
+// ONNX runtime (wasm/jsep) is also LOCAL — by default it would go to the jsdelivr CDN.
 if (env.backends.onnx?.wasm) env.backends.onnx.wasm.wasmPaths = "/ort/";
 
-// WebKit "puro" (Safari e o WKWebView do Tauri; o UA do Chrome também contém AppleWebKit).
+// "Pure" WebKit (Safari and Tauri's WKWebView; Chrome's UA also contains AppleWebKit).
 const isWebKitOnly = typeof navigator !== "undefined" &&
   /AppleWebKit/i.test(navigator.userAgent) && !/Chrome|Chromium|Edg\//i.test(navigator.userAgent);
 
@@ -37,8 +37,8 @@ type Matter =
   | { kind: "mediapipe"; seg: ImageSegmenter };
 
 let matterPromise: Promise<Matter> | null = null;
-let inferSize = 256; // tamanho da entrada, decidido pelo motor carregado
-let engineName = ""; // mostrado na UI dos efeitos (diagnóstico)
+let inferSize = 256; // input size, decided by the loaded engine
+let engineName = ""; // shown in the effects UI (diagnostic)
 export function bgEngine(): string { return engineName; }
 
 function withIdleTimeout<T>(run: (bump: () => void) => Promise<T>, idleMs: number): Promise<T> {
@@ -53,7 +53,7 @@ function withIdleTimeout<T>(run: (bump: () => void) => Promise<T>, idleMs: numbe
 async function getMatter(): Promise<Matter> {
   if (!matterPromise) {
     matterPromise = (async () => {
-      // 1) MODNet via WebGPU — só fora do WebKit (ver nota no topo).
+      // 1) MODNet via WebGPU — only outside WebKit (see note at the top).
       if ("gpu" in navigator && !isWebKitOnly) {
         try {
           const run = await withIdleTimeout<BackgroundRemovalPipeline>(
@@ -63,16 +63,16 @@ async function getMatter(): Promise<Matter> {
             } as any) as Promise<BackgroundRemovalPipeline>,
             15000,
           );
-          // Reduz a resolução interna do modelo (default 512) → mais rápido, menos atraso.
+          // Reduces the model's internal resolution (default 512) → faster, less latency.
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const ip: any = (run.processor as any)?.image_processor ?? (run.processor as any)?.feature_extractor ?? run.processor;
           if (ip?.size) ip.size = { shortest_edge: 256 };
           inferSize = 256; engineName = "GPU · MODNet";
           console.info("[meet] matting: MODNet WebGPU/fp16 (local)");
           return { kind: "modnet", run } as Matter;
-        } catch (e) { console.warn("[meet] MODNet WebGPU indisponível, usando MediaPipe:", e); }
+        } catch (e) { console.warn("[meet] MODNet WebGPU unavailable, using MediaPipe:", e); }
       }
-      // 2) MediaPipe (WebGL) — rápido no WKWebView/Safari; CPU como último recurso.
+      // 2) MediaPipe (WebGL) — fast on WKWebView/Safari; CPU as a last resort.
       const vision = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
       const opts = {
         baseOptions: { modelAssetPath: "/mediapipe/models/selfie_segmenter.tflite", delegate: "GPU" as const },
@@ -84,7 +84,7 @@ async function getMatter(): Promise<Matter> {
       try {
         seg = await ImageSegmenter.createFromOptions(vision, opts);
       } catch (e) {
-        console.warn("[meet] MediaPipe GPU indisponível, usando CPU:", e);
+        console.warn("[meet] MediaPipe GPU unavailable, using CPU:", e);
         seg = await ImageSegmenter.createFromOptions(vision, { ...opts, baseOptions: { ...opts.baseOptions, delegate: "CPU" } });
         dev = "CPU";
       }
@@ -96,15 +96,15 @@ async function getMatter(): Promise<Matter> {
   return matterPromise;
 }
 
-// preloadBgModel aquece o motor (chamado ao abrir o menu de efeitos) — é local, carrega rápido.
+// preloadBgModel warms up the engine (called when the effects menu opens) — it's local, loads fast.
 export function preloadBgModel(): Promise<void> { return getMatter().then(() => undefined); }
 
 export function supportsBg(): boolean {
   return !!document.createElement("canvas").captureStream;
 }
 
-// Box blur separável do alfa em baixa resolução (MediaPipe: a confiança é quase binária; sem isto a
-// borda vira degraus ao ampliar).
+// Separable box blur of the alpha at low resolution (MediaPipe: confidence is nearly binary; without
+// this the edge turns into steps when scaled up).
 function blurAlpha(src: Float32Array, tmp: Float32Array, out: Float32Array, w: number, h: number, r: number) {
   const n = 2 * r + 1;
   for (let y = 0; y < h; y++) {
@@ -138,13 +138,13 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
   private personCtx = this.person.getContext("2d")!;
   private mask = document.createElement("canvas");
   private maskCtx = this.mask.getContext("2d")!;
-  private frame = document.createElement("canvas"); // snapshot do vídeo que casa com a máscara atual
+  private frame = document.createElement("canvas"); // video snapshot matching the current mask
   private frameCtx = this.frame.getContext("2d")!;
-  private pending = document.createElement("canvas"); // snapshot full-res em processamento
+  private pending = document.createElement("canvas"); // full-res snapshot being processed
   private pendingCtx = this.pending.getContext("2d")!;
-  private smallIn = document.createElement("canvas"); // entrada REDUZIDA para o modelo
+  private smallIn = document.createElement("canvas"); // DOWNSCALED input for the model
   private smallInCtx = this.smallIn.getContext("2d", { willReadFrequently: true })!;
-  private blurA = document.createElement("canvas"); // scratch do desfoque por downscale
+  private blurA = document.createElement("canvas"); // downscale-blur scratch
   private blurB = document.createElement("canvas");
   private bgImg?: HTMLImageElement;
   private mode: BgMode;
@@ -152,9 +152,9 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
   private running = false;
   private inferring = false;
   private haveMask = false;
-  private lastAttach = 0; // backoff do attach do motor
-  private reqFrame: (() => void) | null = null; // captura manual por frame (WebKit)
-  private aBuf?: Float32Array; // buffers reutilizados (MediaPipe)
+  private lastAttach = 0; // engine attach backoff
+  private reqFrame: (() => void) | null = null; // manual per-frame capture (WebKit)
+  private aBuf?: Float32Array; // reused buffers (MediaPipe)
   private aTmp?: Float32Array;
   private aOut?: Float32Array;
 
@@ -172,12 +172,12 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
     if (this.mode.kind === "image") await this.loadImage(this.mode.url);
     const stream = this.out.captureStream(30);
     this.processedTrack = stream.getVideoTracks()[0];
-    // Dica ao encoder: priorizar fluidez (fps) sobre resolução ao alocar bitrate.
-    try { (this.processedTrack as MediaStreamTrack & { contentHint?: string }).contentHint = "motion"; } catch { /* opcional */ }
-    // WebKit: um canvas FORA do DOM quase não é compositado → a captura automática entrega ~0-1fps
-    // ao encoder WebRTC (o remoto via o vídeo "muito lento"; o preview local engana porque o <video>
-    // local puxa frames por outro caminho). Remédio: (a) canvas minúsculo no DOM para haver
-    // compositing, (b) requestFrame() explícito a cada render — cadência garantida de 30fps.
+    // Hint to the encoder: prioritize smoothness (fps) over resolution when allocating bitrate.
+    try { (this.processedTrack as MediaStreamTrack & { contentHint?: string }).contentHint = "motion"; } catch { /* optional */ }
+    // WebKit: a canvas OUTSIDE the DOM is barely composited → automatic capture delivers ~0-1fps
+    // to the WebRTC encoder (the remote side sees "very slow" video; the local preview is misleading
+    // because the local <video> pulls frames through a different path). Fix: (a) a tiny canvas in the
+    // DOM so compositing happens, (b) an explicit requestFrame() on every render — guaranteed 30fps cadence.
     const t = this.processedTrack as unknown as { requestFrame?: () => void };
     const s = stream as unknown as { requestFrame?: () => void };
     this.reqFrame = t.requestFrame ? t.requestFrame.bind(this.processedTrack)
@@ -190,7 +190,7 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
       document.body.appendChild(this.out);
     }
     this.running = true;
-    getMatter().then((m) => { this.matter = m; }).catch((e) => console.warn("[meet] matting falhou:", e));
+    getMatter().then((m) => { this.matter = m; }).catch((e) => console.warn("[meet] matting failed:", e));
     this.renderLoop();
     this.inferLoop();
   }
@@ -204,12 +204,12 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
     this.renderLoop(); this.inferLoop();
   }
 
-  // NÃO paramos a track de origem (ela é da câmera do LiveKit, não nossa) — só limpamos o nosso.
+  // We do NOT stop the source track (it belongs to LiveKit's camera, not ours) — we only clean up our own.
   async destroy(): Promise<void> {
     this.stopLoops();
     this.haveMask = false;
     this.video.srcObject = null;
-    if (this.out.parentNode) this.out.remove(); // o canvas de compositing do WebKit sai do DOM
+    if (this.out.parentNode) this.out.remove(); // the WebKit compositing canvas leaves the DOM
   }
 
   async setMode(mode: BgMode): Promise<void> {
@@ -228,8 +228,8 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
     });
   }
 
-  // Prepara a entrada reduzida do modelo. O resize acontece na GPU (drawImage) e o readback fica
-  // minúsculo — alimentar o frame full-res custava dezenas de ms de readback por inferência.
+  // Prepares the model's downscaled input. The resize happens on the GPU (drawImage) and the
+  // readback stays tiny — feeding the full-res frame cost dozens of ms of readback per inference.
   private drawSmall(): void {
     const vw = this.video.videoWidth || 640, vh = this.video.videoHeight || 480;
     const scale = inferSize / Math.min(vw, vh);
@@ -242,17 +242,17 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
     if (!this.running) return;
     if (!this.matter && this.mode.kind !== "none" && Date.now() - this.lastAttach > 4000) {
       this.lastAttach = Date.now();
-      getMatter().then((m) => { this.matter = m; }).catch(() => { /* tenta no próximo ciclo */ });
+      getMatter().then((m) => { this.matter = m; }).catch(() => { /* retries next cycle */ });
     }
     if (this.matter && !this.inferring && this.video.readyState >= 2 && this.mode.kind !== "none") {
       this.inferring = true;
       try {
-        // Snapshot full-res só para COMPOR (drawImage, sem readback) + entrada reduzida do modelo.
+        // Full-res snapshot only for COMPOSITING (drawImage, no readback) + the model's downscaled input.
         this.pendingCtx.drawImage(this.video, 0, 0, this.pending.width, this.pending.height);
         this.drawSmall();
         if (this.matter.kind === "modnet") await this.inferModnet(this.matter.run);
         else await this.inferMediapipe(this.matter.seg);
-      } catch { /* frame perdido */ }
+      } catch { /* dropped frame */ }
       this.inferring = false;
     }
     setTimeout(this.inferLoop, INFER_GAP_MS);
@@ -267,12 +267,12 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
     if (this.mask.width !== mw) { this.mask.width = mw; this.mask.height = mh; }
     const id = this.maskCtx.createImageData(mw, mh);
     for (let i = 0; i < mw * mh; i++) {
-      let a = out.data[i * ch + (ch - 1)]; // canal alfa (matte — já é suave, com cabelo)
+      let a = out.data[i * ch + (ch - 1)]; // alpha channel (matte — already smooth, handles hair)
       if (a < ALPHA_FLOOR) a = 0;
       id.data[i * 4] = 255; id.data[i * 4 + 1] = 255; id.data[i * 4 + 2] = 255; id.data[i * 4 + 3] = a;
     }
     this.maskCtx.putImageData(id, 0, 0);
-    this.frameCtx.drawImage(this.pending, 0, 0); // commit atômico frame↔máscara
+    this.frameCtx.drawImage(this.pending, 0, 0); // atomic frame<->mask commit
     this.haveMask = true;
   }
 
@@ -281,7 +281,7 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
       seg.segmentForVideo(this.smallIn, performance.now(), (res) => {
         try {
           const masks = res.confidenceMasks;
-          const m = masks && masks[masks.length - 1]; // última = confiança de "pessoa"
+          const m = masks && masks[masks.length - 1]; // last = "person" confidence
           if (m) {
             const data = m.getAsFloat32Array();
             const mw = m.width, mh = m.height, count = mw * mh;
@@ -290,11 +290,11 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
             }
             const span = RAMP_HI - RAMP_LO;
             for (let i = 0; i < count; i++) {
-              let c = (data[i] - RAMP_LO) / span; // rampa: mata a auréola sem roer o rosto
+              let c = (data[i] - RAMP_LO) / span; // ramp: kills the halo without eating into the face
               c = c < 0 ? 0 : c > 1 ? 1 : c;
               this.aBuf[i] = c * c * (3 - 2 * c); // smoothstep
             }
-            blurAlpha(this.aBuf, this.aTmp!, this.aOut!, mw, mh, MASK_BLUR); // borda macia
+            blurAlpha(this.aBuf, this.aTmp!, this.aOut!, mw, mh, MASK_BLUR); // soft edge
             if (this.mask.width !== mw) { this.mask.width = mw; this.mask.height = mh; }
             const id = this.maskCtx.createImageData(mw, mh);
             for (let i = 0; i < count; i++) {
@@ -302,7 +302,7 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
               id.data[i * 4 + 3] = (this.aOut![i] * 255) | 0;
             }
             this.maskCtx.putImageData(id, 0, 0);
-            this.frameCtx.drawImage(this.pending, 0, 0); // commit atômico frame↔máscara
+            this.frameCtx.drawImage(this.pending, 0, 0); // atomic frame<->mask commit
             this.haveMask = true;
             m.close();
           }
@@ -311,8 +311,8 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
     });
   }
 
-  // Render: compõe o vídeo recortado pela máscara mais recente sobre o fundo. Limitado a ~30fps —
-  // a captura é 30fps; render a 60 só queimava CPU/GPU que faz falta ao resto.
+  // Render: composites the video cut out by the latest mask over the background. Capped at ~30fps —
+  // capture is 30fps; rendering at 60 would just burn CPU/GPU needed elsewhere.
   private lastRender = 0;
   private renderLoop = () => {
     if (!this.running) return;
@@ -321,7 +321,7 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
       this.lastRender = now;
       try {
         this.render();
-        this.reqFrame?.(); // WebKit: força a captura deste frame para o encoder (ver init)
+        this.reqFrame?.(); // WebKit: forces capture of this frame for the encoder (see init)
       } catch { /* noop */ }
     }
     this.raf = requestAnimationFrame(this.renderLoop);
@@ -330,21 +330,21 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
   private render() {
     const w = this.out.width, h = this.out.height;
     if (this.video.readyState < 2) return;
-    // Sem efeito ou antes da 1ª máscara: vídeo ao vivo (nítido, tempo real).
+    // No effect or before the 1st mask: live video (sharp, real time).
     if (this.mode.kind === "none" || !this.haveMask) { this.outCtx.drawImage(this.video, 0, 0, w, h); return; }
 
-    // IMPORTANTE: usa o SNAPSHOT que casa com a máscara (não o vídeo ao vivo) → sem fantasma.
+    // IMPORTANT: uses the SNAPSHOT that matches the mask (not the live video) → no ghosting.
     const src = this.frame;
 
-    // pessoa = frame recortado pela máscara (borda macia por rampa/matte + upscale bilinear —
-    // NADA de ctx.filter, que o WKWebView ignora em silêncio).
+    // person = frame cut out by the mask (soft edge via ramp/matte + bilinear upscale —
+    // NO ctx.filter, which WKWebView silently ignores).
     this.personCtx.clearRect(0, 0, w, h);
     this.personCtx.drawImage(src, 0, 0, w, h);
     this.personCtx.globalCompositeOperation = "destination-in";
     this.personCtx.drawImage(this.mask, 0, 0, w, h);
     this.personCtx.globalCompositeOperation = "source-over";
 
-    // fundo + pessoa por cima (fundo derivado do MESMO frame → coerente)
+    // background + person on top (background derived from the SAME frame → coherent)
     this.outCtx.clearRect(0, 0, w, h);
     if (this.mode.kind === "blur") {
       this.drawBlurred(src, w, h, this.mode.radius);
@@ -354,8 +354,8 @@ export class BackgroundProcessor implements TrackProcessor<Track.Kind.Video> {
     this.outCtx.drawImage(this.person, 0, 0, w, h);
   }
 
-  // Desfoque por DOWNSCALE progressivo (½ por passo) + upscale bilinear — aproximação de gaussiano
-  // que funciona em todos os webviews (ctx.filter blur não existe no WKWebView).
+  // Blur via progressive DOWNSCALE (½ per step) + bilinear upscale — a gaussian approximation
+  // that works in every webview (ctx.filter blur doesn't exist in WKWebView).
   private drawBlurred(src: CanvasImageSource, w: number, h: number, radius: number) {
     const steps = radius >= 10 ? 4 : 3;
     let cur: CanvasImageSource = src;

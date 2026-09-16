@@ -1,6 +1,6 @@
-// 10 modelos de assinatura em HTML (estilos inline — é o que sobrevive nos clientes de e-mail).
-// São pontos de partida: o utilizador escolhe um e edita no editor rico. Os textos são
-// placeholders (Seu Nome, Cargo…) que se substituem diretamente.
+// 10 HTML signature templates (inline styles — that's what survives in email clients). These are
+// starting points: the user picks one and edits it in the rich text editor. The texts are
+// placeholders (Your Name, Job Title...) that get replaced directly.
 
 export interface SignatureTemplate { id: string; name: string; html: string }
 
@@ -10,7 +10,7 @@ const E = "Empresa";
 const M = "email@empresa.com";
 const P = "+55 (11) 90000-0000";
 const W = "www.empresa.com";
-const AC = "#B4785F"; // acento
+const AC = "#B4785F"; // accent
 
 export const SIGNATURE_TEMPLATES: SignatureTemplate[] = [
   {

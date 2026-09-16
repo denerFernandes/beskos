@@ -2,8 +2,8 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { assistantApi, type ChatEvent } from "./api";
 import i18n from "../../i18n";
 
-// Devolve uma Response falsa cujo corpo entrega os pedaços tal como foram dados — incluindo
-// pedaços que cortam um evento a meio, que é o que a rede faz de verdade.
+// Returns a fake Response whose body delivers the chunks exactly as given — including chunks
+// that cut an event in half, which is what the network actually does.
 function fakeStream(chunks: string[]): Response {
   const enc = new TextEncoder();
   let i = 0;
@@ -25,8 +25,8 @@ beforeEach(async () => { await i18n.changeLanguage("pt-BR"); });
 afterEach(() => { vi.unstubAllGlobals(); });
 
 describe("assistantApi.chat", () => {
-  // Um evento partido entre dois pedaços TEM de esperar pelo resto. Processar meio evento daria um
-  // JSON truncado a cada leitura e a resposta apareceria com buracos.
+  // An event split across two chunks HAS to wait for the rest. Processing half an event would
+  // produce truncated JSON on every read, and the response would show up with gaps.
   it("junta eventos partidos entre pedaços da rede", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => fakeStream([
       'data: {"kind":"conversa',
@@ -43,7 +43,7 @@ describe("assistantApi.chat", () => {
       .toBe("Oi tudo bem");
   });
 
-  // Um evento estragado não pode deitar fora o fio: perder tudo por causa de uma linha seria pior.
+  // A broken event can't throw out the whole thread: losing everything over one bad line would be worse.
   it("ignora um evento ilegível e continua", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => fakeStream([
       "data: {isto não é json}\n\n",
@@ -55,8 +55,8 @@ describe("assistantApi.chat", () => {
     expect(got).toEqual([{ kind: "delta", text: "ok" }]);
   });
 
-  // Uma ação que espera aprovação chega como evento próprio, com os argumentos EXATOS que vão
-  // correr — é o que o painel mostra a quem decide (§6.3).
+  // An action waiting for approval arrives as its own event, with the EXACT arguments that will
+  // run — that's what the panel shows to whoever decides (§6.3).
   it("entrega o pedido de confirmação com os argumentos exatos", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => fakeStream([
       'data: {"kind":"confirm","confirm":{"id":"a1","tool":"mail.send","args":{"to":["ana@exemplo.pt"],"text":"Segue a fatura."}}}\n\n',
@@ -72,8 +72,8 @@ describe("assistantApi.chat", () => {
     expect(ev.confirm.args).toEqual({ to: ["ana@exemplo.pt"], text: "Segue a fatura." });
   });
 
-  // Antes de o fio abrir os erros são HTTP normais, e o error_code é o que o frontend traduz
-  // (lei 4.4/4.6) — nunca se mostra texto cru do servidor.
+  // Before the thread opens, errors are plain HTTP, and error_code is what the frontend
+  // translates (law 4.4/4.6) — raw server text is never shown.
   it("erro antes do fio abrir rejeita com a mensagem traduzida", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
       JSON.stringify({ error_code: "assistant.rate_limited" }),
@@ -85,8 +85,8 @@ describe("assistantApi.chat", () => {
 });
 
 describe("escolha de agente", () => {
-  // O agente fixado pelo utilizador viaja no pedido: a escolha manual manda mais do que o
-  // encaminhamento automático (§3.2). Sem agente no corpo, o servidor decide.
+  // The agent pinned by the user travels in the request: a manual choice outranks automatic
+  // routing (§3.2). With no agent in the body, the server decides.
   it("envia o agente fixado, e omite-o quando é automático", async () => {
     const bodies: unknown[] = [];
     vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
@@ -101,8 +101,8 @@ describe("escolha de agente", () => {
     expect(bodies[1]).not.toHaveProperty("agent");
   });
 
-  // Quem respondeu chega no primeiro evento, antes de qualquer ferramenta correr — a escolha é
-  // sempre visível, nunca silenciosa.
+  // Who answered arrives in the first event, before any tool runs — the choice is always
+  // visible, never silent.
   it("anuncia o agente escolhido antes de tudo o resto", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => fakeStream([
       'data: {"kind":"conversation","conversation_id":"c1","title":"t","agent":"inbox","pinned_agent":""}\n\n',
@@ -118,8 +118,8 @@ describe("escolha de agente", () => {
 });
 
 describe("assistantApi.confirm", () => {
-  // Uma decisão por pedido, com o id da ação no caminho: não existe endpoint que aprove um lote
-  // (§6.3). O corpo leva a decisão explícita — nunca se assume aprovação.
+  // One decision per request, with the action id in the path: there's no endpoint that approves
+  // a batch (§6.3). The body carries the explicit decision — approval is never assumed.
   it("envia uma decisão de cada vez, com a decisão explícita", async () => {
     const calls: Array<[string, RequestInit]> = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init: RequestInit) => {

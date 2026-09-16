@@ -5,14 +5,14 @@ import { backend, type CardHit } from "./backend";
 import { Spinner } from "./Spinner";
 import { IcSearch, IcX } from "../panel/icons";
 
-// Seletor de tarefa do chat (comando /task): procura por chave (QUA-12), número solto ou título e
-// devolve a tarefa escolhida a quem chamou. A busca é do servidor porque só ele sabe que quadros a
-// pessoa pode ver — filtrar no cliente mostraria títulos de quadros fechados.
+// Task picker for the chat (/task command): searches by key (QUA-12), bare number, or title, and
+// returns the chosen task to the caller. The search runs server-side because only the server knows
+// which boards the person can see — filtering client-side would leak titles from closed boards.
 export function TaskPickerModal({ onPick, onClose }: { onPick: (c: CardHit) => void; onClose: () => void }) {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
   const [term, setTerm] = useState("");
-  // Espera a pessoa parar de escrever: sem isto era um pedido por tecla.
+  // Waits for the person to stop typing: without this it would be one request per keystroke.
   useEffect(() => { const id = setTimeout(() => setTerm(q.trim()), 220); return () => clearTimeout(id); }, [q]);
 
   const hits = useQuery({
@@ -22,8 +22,8 @@ export function TaskPickerModal({ onPick, onClose }: { onPick: (c: CardHit) => v
     retry: false,
   });
   const cards = hits.data?.cards ?? [];
-  // Navegação por teclado (mesma lógica do menu de comandos): escrever, descer com as setas e
-  // escolher com Enter, sem tirar as mãos do teclado.
+  // Keyboard navigation (same logic as the command menu): type, move down with the arrow keys,
+  // and pick with Enter, without leaving the keyboard.
   const [idx, setIdx] = useState(0);
   useEffect(() => { setIdx(0); }, [term]);
   const onKeys = (e: React.KeyboardEvent) => {
