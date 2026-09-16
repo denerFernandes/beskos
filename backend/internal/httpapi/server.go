@@ -76,7 +76,7 @@ func (s *Server) Router() http.Handler {
 			// Domains/mailboxes — gated by permission (RBAC).
 			// Organization brand: any user reads it (for the app's top bar); only admin/owner writes it.
 			r.Get("/branding", s.handleGetBranding)
-			r.With(s.requirePerm(rbac.PermOrgBranding)).Patch("/branding", s.handleUpdateBranding)
+			r.With(s.requirePerm(rbac.PermOrgBranding)).Patch("/branding", s.handleUpdateBrandingGate)
 
 			// Organization apps: any user reads them (the rail filters); only admin/owner toggles them.
 			r.Get("/apps", s.handleGetApps)
