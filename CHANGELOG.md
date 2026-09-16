@@ -20,9 +20,14 @@ Work preparing the first public, source-available release.
   a public `GET /api/edition` endpoint so the frontend can gate Pro-only UI before a user is even
   logged in. See [docs/pro/README.md](docs/pro/README.md) for the full activation flow, including
   why a missing key and an invalid key are handled differently.
-- A `backend/ee` scaffold: the seam Pro-only backend routes will register through once a feature
-  actually moves there, gated by both a Go build tag and the relevant capability. No feature uses
-  it yet.
+- A `backend/ee` seam: Pro-only backend routes register through it, gated by both a Go build tag
+  and the relevant capability. Three features moved there so far -- organization AI agents,
+  custom branding, and mandatory organization-wide MFA -- each with a Community build that
+  refuses the capability unconditionally, independent of any license state. See
+  [`backend/ee/README.md`](backend/ee/README.md) for the pattern the next feature follows.
+- `cmd/bootstrap-owner`, the self-hosted equivalent of the hosted signup flow: creates the first
+  tenant, domain, and owner mailbox on a fresh install (refuses if one already exists). Without
+  it a fresh Community install had no way to create its first organization at all.
 - `deploy/docker-compose.community.yml`, a self-hosted reference deployment: the same product
   without the hosted operator console, running Valkey instead of Redis for license compatibility.
 - Public documentation: `docs/README-oss.md`, `docs/architecture.md`,
@@ -63,6 +68,59 @@ Work preparing the first public, source-available release.
   failed under any other one.
 - A malformed line in the `gitleaks` CI configuration that had been silently failing the entire
   workflow.
+- A fresh Community install: the public `Dockerfile` built three Cloud-only binaries that don't
+  exist in the export, Stalwart crash-looped because the database its config expects was never
+  created, and self-hosted plan quotas of `0` were enforced as literal zero-mailbox/zero-storage
+  caps instead of "unlimited" (only `MaxDailySend` had that convention before). All three meant a
+  self-hosted instance could not boot, or booted into a mailbox that could not do anything, before
+  this was tested end-to-end for the first time.
+- All remaining hardcoded Portuguese strings and code comments across the backend and frontend
+  translated to English (law 4.6) -- including a real bug, not just a translation gap: a public
+  booking page's calendar-event title/description was always built in Portuguese even though the
+  host's own language preference was already available at that call site.
+- `sync-daemon`'s `cargo clippy -D warnings` gate had never actually been run clean: 2 formatting
+  violations and 6 clippy errors, plus dead documentation comments left behind by an earlier
+  refactor describing functions that had since moved elsewhere in the file.
+
+### Security
+
+- **A legacy, fully unauthenticated tenant-creation endpoint (`/auth/signup`) was mounted in
+  every build, self-hosted and hosted, with no rate limit, no relation to the real signup flow,
+  and no check for an already-provisioned instance -- any request could create a new organization
+  and owner account for free, with no limit.** Gated behind an explicit, off-by-default flag that
+  a production boot now refuses outright if enabled.
+- The OnlyOffice save callback and meet-presentation PDF conversion could be pointed at an
+  attacker-controlled URL if the Document Server's own response were ever compromised; both now
+  share one host allowlist and a hardened (no-redirect, timeout) HTTP client.
+- File uploads: the multipart upload path didn't sanitize its filename the way the sync-upload
+  path already did; image thumbnailing had no cap on a file's declared pixel dimensions before
+  allocating a buffer for them (a classic decode-time memory bomb); OOXML text extraction had no
+  cap on a single zip member's decompression ratio.
+- A meet-lobby endpoint let an authenticated host of one tenant look up another tenant's pending
+  guest-request row by guessing its ID, before the subsequent ownership check rejected the request.
+- Logging out on the native app only cleared the `wm_session` cookie's session row, never the
+  `Authorization: Bearer` token the native app actually authenticates with -- a leaked native-app
+  token stayed valid after "logging out" until it expired on its own (up to 7 days).
+- SMS MFA enrollment (`/mfa/sms/start`) had no rate limiting at all, letting any authenticated
+  account script SMS sends to an arbitrary phone number.
+- Fuzz tests (`FuzzSNSVerify`, `FuzzValidCertURL`, `FuzzVerifyStripeSignature`,
+  `FuzzParsePresToken`) added for the SNS, Stripe, and OnlyOffice-presentation-token signature/
+  parsing boundaries; none found a crash.
+- Two indirect dependencies patched for known advisories (`klauspost/compress`, `golang-jwt/jwt`);
+  a third (`golang.org/x/crypto`) deliberately left unpatched for now since the fix requires a Go
+  toolchain bump past what the published Docker image provides -- documented as an open item
+  rather than silently deferred.
+- A full pass over tenant isolation, sessions/MFA, uploads/OnlyOffice, license enforcement, and
+  JMAP credential brokering found the existing design sound; see
+  [`docs/security/threat-model.md`](docs/security/threat-model.md) for the complete, per-boundary
+  writeup, including the residual risks above and one deliberately unfixed item (an
+  organization's "MFA required" policy is enforced only as a UI hint today, not against a
+  not-yet-enrolled user's session -- closing it needs a product decision, not a blind patch).
+- The `check_tenant_scoping.py` heuristic's ~219 flagged queries were cross-checked by hand
+  against their actual call sites (not just spot-checked): every one resolved to either
+  self/owner-scoped access (the row's owner already implies its tenant) or a documented,
+  intentional cross-tenant maintenance path (a CLI tool or background worker, never reachable
+  from an authenticated tenant request) -- no real gap found.
 
 ### Security
 
@@ -74,7 +132,8 @@ Work preparing the first public, source-available release.
   blocking and DNS-rebinding protection already in place) rather than real gaps.
 - Added a heuristic checker (`scripts/check_tenant_scoping.py`) that cross-references every
   tenant-scoped table against the queries that touch it and flags any missing a `tenant_id`
-  mention, to support review of the project's multi-tenancy rule (report-only; 219 pre-existing
-  hits found, none confirmed as a real gap in spot checks, still awaiting full manual triage).
+  mention, to support review of the project's multi-tenancy rule. Remains report-only by design
+  (a query can be safely scoped without mentioning the column, e.g. via ownership or a join), but
+  every hit has since been triaged by hand -- see the tenant-isolation entry above.
 
 [Unreleased]: https://github.com/beskosorg/beskos/commits/master
