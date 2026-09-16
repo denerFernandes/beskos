@@ -11,6 +11,11 @@ before:
     - sh -c "cd backend && go mod tidy"
 
 builds:
+  # Every binary below carries -tags pro: docs/OPEN-SOURCE.md's decided shape is ONE published
+  # binary for both editions -- Community is the same binary with no license key configured, not
+  # a separately-built artifact. Building without the tag would mean the ee package's real Pro
+  # logic never links into any released binary at all, so a paying customer's license key would
+  # have nothing to unlock no matter what they configure.
   - id: api
     dir: backend
     main: ./cmd/api
@@ -18,6 +23,7 @@ builds:
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
+    tags: [pro]
   - id: worker
     dir: backend
     main: ./cmd/worker
@@ -25,6 +31,7 @@ builds:
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
+    tags: [pro]
   - id: bootstrap
     dir: backend
     main: ./cmd/bootstrap
@@ -32,6 +39,7 @@ builds:
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
+    tags: [pro]
   - id: bootstrap-owner
     dir: backend
     main: ./cmd/bootstrap-owner
@@ -39,12 +47,20 @@ builds:
     env: [CGO_ENABLED=0]
     goos: [linux, darwin]
     goarch: [amd64, arm64]
+    tags: [pro]
 
 archives:
   - id: default
     formats: [tar.gz]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # Every binary here is built with -tags pro (see the comment on `builds` above), so the
+    # archive carries both the BUSL core license and the Enterprise terms that govern the ee
+    # package actually compiled into it, plus the trademark notice -- not just the code license.
+    files:
+      - LICENSE.md
+      - ee/LICENSE
+      - TRADEMARK.md
 
 checksum:
   name_template: checksums.txt
