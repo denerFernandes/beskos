@@ -6,12 +6,12 @@ import { useAuthedMedia } from "./useAuthedMedia";
 import { IcDownload } from "../panel/icons";
 import { ViewerBar } from "./ViewerBar";
 
-// Visualizador embutido de imagem / PDF / áudio / vídeo em tela cheia. Os demais tipos continuam
-// fazendo download direto (o Drive decide antes de abrir isto).
+// Embedded full-screen viewer for image / PDF / audio / video. Other types still
+// go straight to download (Drive decides before opening this).
 export function ViewerModal({ file, onClose }: { file: StorageFile; onClose: () => void }) {
   const { t } = useTranslation();
   const kind = viewerKind(file.name);
-  // src autenticado: URL direta na web (cookie), blob no app nativo (ver useAuthedMedia).
+  // authenticated src: direct URL on the web (cookie), blob in the native app (see useAuthedMedia).
   const url = useAuthedMedia(`/api/files/${file.id}/download?inline=1`);
   const loading = !url && kind !== "text";
 
@@ -39,13 +39,13 @@ export function ViewerModal({ file, onClose }: { file: StorageFile; onClose: () 
   );
 }
 
-// Visualizador de texto/código (txt, json, xml, md, yaml, código…). JSON é formatado.
+// Text/code viewer (txt, json, xml, md, yaml, code…). JSON gets formatted.
 function TextView({ file }: { file: StorageFile }) {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["text", file.id], queryFn: () => fetchText(file.id), retry: false });
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   let body = q.data ?? "";
-  if (ext === "json" && body) { try { body = JSON.stringify(JSON.parse(body), null, 2); } catch { /* mantém cru */ } }
+  if (ext === "json" && body) { try { body = JSON.stringify(JSON.parse(body), null, 2); } catch { /* keep raw */ } }
   return (
     <div className="viewer-text">
       {q.isLoading ? <div className="editor-msg">{t("editor.loading")}</div>

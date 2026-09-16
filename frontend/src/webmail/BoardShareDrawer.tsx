@@ -6,8 +6,8 @@ import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 import { WikiGrantsEditor } from "./WikiGrantsEditor";
 
-// Partilha de um QUADRO do Kanban (managers): pessoa/equipa/org com papel ver/editar/gerir.
-// Nota importante mostrada na UI: quem tem card atribuído no quadro tem acesso automático (editor).
+// Sharing a Kanban BOARD (managers): person/team/org with a view/edit/manage role.
+// Important note shown in the UI: whoever has a card assigned on the board gets automatic access (editor).
 export function BoardShareDrawer({ boardId, onClose }: { boardId: string; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

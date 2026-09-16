@@ -9,7 +9,7 @@ export interface ChatSocketEvent { type: string; channel_id: string; payload: Re
 // travels in the query string (?access_token=); the backend only accepts it on this route (see
 // requireWebmailSession).
 function chatWsUrl(): string {
-  const base = API_BASE || location.origin; // API_BASE vazio na web
+  const base = API_BASE || location.origin; // API_BASE empty on the web
   const u = new URL(base);
   u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
   u.pathname = "/api/chat/ws";
@@ -18,8 +18,8 @@ function chatWsUrl(): string {
   return u.toString();
 }
 
-// Conexão WebSocket do chat (hub Redis no backend). Reconecta com backoff. Envia só "digitando";
-// o resto trafega por REST + eventos de push.
+// Chat WebSocket connection (Redis hub on the backend). Reconnects with backoff. Sends only "typing";
+// everything else travels via REST + push events.
 export function useChatSocket(onEvent: (ev: ChatSocketEvent) => void): { sendTyping: (channelId: string) => void } {
   const cb = useRef(onEvent);
   cb.current = onEvent;
@@ -31,8 +31,8 @@ export function useChatSocket(onEvent: (ev: ChatSocketEvent) => void): { sendTyp
     let timer: ReturnType<typeof setTimeout> | undefined;
     const connect = () => {
       if (closed) return;
-      // new WebSocket pode lançar de forma síncrona (URL inválida ou bloqueio de CSP). Isolar num
-      // try/catch impede que um erro aqui derrube toda a app (tela em branco no Tauri).
+      // new WebSocket can throw synchronously (invalid URL or CSP block). Isolating it in a
+      // try/catch keeps an error here from taking down the whole app (blank screen in Tauri).
       let sock: WebSocket;
       try {
         sock = new WebSocket(chatWsUrl());
@@ -42,7 +42,7 @@ export function useChatSocket(onEvent: (ev: ChatSocketEvent) => void): { sendTyp
       }
       wsRef.current = sock;
       sock.onopen = () => { retry = 1000; };
-      sock.onmessage = (e) => { try { cb.current(JSON.parse(e.data)); } catch { /* ignora frame inválido */ } };
+      sock.onmessage = (e) => { try { cb.current(JSON.parse(e.data)); } catch { /* ignore invalid frame */ } };
       sock.onerror = () => sock.close();
       sock.onclose = () => {
         wsRef.current = null;

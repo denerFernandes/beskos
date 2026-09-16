@@ -6,7 +6,7 @@ import { IcX } from "../panel/icons";
 // actions (e.g. Download) on the LEFT, title always CENTERED. One place for the layout, so every
 // preview screen ends up with the same bar.
 export function ViewerBar({ title, onClose, children }: {
-  title: string; onClose: () => void; children?: ReactNode; // children = ações extra (ex.: Baixar)
+  title: string; onClose: () => void; children?: ReactNode; // children = extra actions (e.g. Download)
 }) {
   const { t } = useTranslation();
   return (

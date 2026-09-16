@@ -9,14 +9,14 @@ export const LANGUAGES: { value: Language; labelKey: string }[] = [
   { value: "en", labelKey: "settings.language.en" },
 ];
 
-// Regra (lei §4 + pedido do user): a preferência SALVA na conta tem prioridade sobre o browser.
-// Quando vazia, o i18next-browser-languagedetector cuida da detecção automática.
-// setLanguage persiste na conta E aplica na hora.
+// Rule (law §4 + user's request): the SAVED preference in the account takes priority over the browser.
+// When empty, i18next-browser-languagedetector handles automatic detection.
+// setLanguage persists to the account AND applies immediately.
 export function useUserLanguage(me: Me | undefined) {
   const { i18n } = useTranslation();
   const qc = useQueryClient();
 
-  // Aplica a preferência salva assim que o /me chega (browser é só o default inicial).
+  // Apply the saved preference as soon as /me arrives (the browser is just the initial default).
   useEffect(() => {
     if (me?.language && i18n.language !== me.language) {
       void i18n.changeLanguage(me.language);
@@ -26,7 +26,7 @@ export function useUserLanguage(me: Me | undefined) {
   const mutation = useMutation({
     mutationFn: (lang: Language) => api.updateLanguage(lang),
     onSuccess: (_data, lang) => {
-      // "" volta a ser automático: deixa o detector decidir na próxima carga.
+      // "" goes back to automatic: let the detector decide on the next load.
       if (lang) void i18n.changeLanguage(lang);
       void qc.invalidateQueries({ queryKey: ["me"] });
     },

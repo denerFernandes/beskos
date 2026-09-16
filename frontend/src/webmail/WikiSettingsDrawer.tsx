@@ -6,9 +6,9 @@ import { wikiApi, backend } from "./backend";
 import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 
-// WikiSettingsDrawer (B4): definições do espaço — nome/ícone/descrição/visibilidade/indexação IA
-// (managers) — e a "danger zone" de apagar a wiki, restrita ao DONO do espaço ou admin da org, com
-// confirmação a ESCREVER O NOME da wiki (input compara; nada de diálogos nativos).
+// WikiSettingsDrawer (B4): space settings — name/icon/description/visibility/AI indexing
+// (managers) — and the "danger zone" to delete the wiki, restricted to the space OWNER or org admin, with
+// confirmation by TYPING THE WIKI'S NAME (input compares; no native dialogs).
 
 export function WikiSettingsDrawer({ spaceId, onClose, onDeleted }: {
   spaceId: string; onClose: () => void; onDeleted: () => void;
@@ -25,7 +25,7 @@ export function WikiSettingsDrawer({ spaceId, onClose, onDeleted }: {
   const [aiIndexed, setAiIndexed] = useState(true);
   const [confirmName, setConfirmName] = useState("");
 
-  // Pré-preenche quando o espaço chega (uma vez por abertura).
+  // Pre-fill once the space arrives (once per opening).
   const sp = space.data?.space;
   useEffect(() => {
     if (!sp) return;
@@ -48,7 +48,7 @@ export function WikiSettingsDrawer({ spaceId, onClose, onDeleted }: {
     onError: (e) => toast((e as Error).message),
   });
 
-  // Danger zone só para o dono do espaço ou admin da org (o backend revalida de qualquer forma).
+  // Danger zone only for the space owner or org admin (the backend revalidates regardless).
   const myRole = me.data?.role ?? "";
   const canDelete = !!sp && (me.data?.id === sp.owner_user_id || myRole === "owner" || myRole === "admin" || myRole === "internal_admin");
   const nameMatches = !!sp && confirmName.trim() === sp.name;

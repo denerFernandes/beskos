@@ -1,6 +1,6 @@
-// Catálogo de emojis. Lista curada em vez de uma dependência: um pacote completo traz ~1.800
-// entradas e centenas de KB por um seletor de chat (lei §2.5). Aqui estão os que se usam de facto,
-// com palavras-chave em pt E en — sem isso a busca só serviria metade dos utilizadores (lei §4).
+// Emoji catalog. A curated list instead of a dependency: a full package brings ~1,800
+// entries and hundreds of KB for a chat picker (law §2.5). These are the ones actually used,
+// with keywords in both pt and en — without that, search would only serve half the users (law §4).
 export interface EmojiDef { ch: string; name: string }
 
 export const EMOJI_GROUPS: { key: string; icon: string; emojis: EmojiDef[] }[] = [
@@ -284,7 +284,7 @@ export const EMOJI_GROUPS: { key: string; icon: string; emojis: EmojiDef[] }[] =
 
 const ALL: EmojiDef[] = EMOJI_GROUPS.flatMap((g) => g.emojis);
 
-// Busca sem acento: quem escreve "coracao" tem de achar "coração", e vice-versa.
+// Accent-insensitive search: a query typed without diacritics must still find a name that has them, and vice versa.
 const fold = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 export function searchEmoji(q: string): EmojiDef[] {
@@ -293,7 +293,7 @@ export function searchEmoji(q: string): EmojiDef[] {
   return ALL.filter((e) => fold(e.name).includes(needle) || e.ch === q.trim()).slice(0, 80);
 }
 
-// Atalhos :assim: no texto → emoji. Só os óbvios; o seletor cobre o resto.
+// :like-this: shortcodes in text → emoji. Only the obvious ones; the picker covers the rest.
 export const SHORTCODES: Record<string, string> = {
   ":)": "🙂", ":-)": "🙂", ":(": "🙁", ":-(": "🙁", ":D": "😄", ":P": "😛", ";)": "😉",
   ":o": "😮", "<3": "❤️", ":|": "😐", ":/": "😕",

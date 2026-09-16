@@ -5,8 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { publicWikiApi, WikiTreeNode } from "../webmail/backend";
 import "../webmail/webmail.css";
 
-// Página pública de uma wiki (anónima, sem login): serve só páginas published, o body_html sanitizado
-// derivado no backend. Sem editar/histórico/comentários/anexos. Rotas /w/:slug e /w/:slug/:pageSlug.
+// Public page for a wiki (anonymous, no login): serves only published pages, the body_html sanitized
+// derived on the backend. No editing/history/comments/attachments. Routes /w/:slug and /w/:slug/:pageSlug.
 
 export function PublicWikiPage() {
   const { slug = "", pageSlug } = useParams();

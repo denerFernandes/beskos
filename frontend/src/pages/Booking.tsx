@@ -38,10 +38,10 @@ function BookingFlow() {
   useEffect(() => {
     fetch(base).then((r) => r.ok ? r.json() : Promise.reject()).then(setInfo).catch(() => setErr(true));
   }, [base]);
-  // Branding da organização: a página pública veste a cor da marca do cliente.
+  // Organization branding: the public page wears the customer's brand color.
   useEffect(() => { if (info?.brand?.color) applyBrandColor(info.brand.color); return () => applyBrandColor(""); }, [info?.brand?.color]);
 
-  // Próximos 21 dias com janela (o backend decide a disponibilidade real por dia).
+  // Next 21 days within the window (the backend decides real availability per day).
   const days = useMemo(() => {
     if (!info) return [];
     const out: Date[] = [];
@@ -159,8 +159,8 @@ function BookingFlow() {
   );
 }
 
-// Troca de idioma na página pública: a deteção do browser é automática (LanguageDetector);
-// isto dá o override manual a quem recebeu o link.
+// Language switch on the public page: browser detection is automatic (LanguageDetector);
+// this gives a manual override to whoever received the link.
 function LangSwitch() {
   const { i18n } = useTranslation();
   const cur = i18n.language.startsWith("pt") ? "pt-BR" : "en";

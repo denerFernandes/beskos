@@ -5,8 +5,8 @@ import { api, hasPerm, type Me, type Group } from "../api";
 import { Modal, toast } from "./ui";
 import { IcPlus, IcTrash, IcUsers, IcX } from "./icons";
 
-// Grupos de utilizadores. Criar um grupo cria automaticamente um canal privado no chat, e a
-// associação fica em sincronia (entrar no grupo entra no canal; sair sai).
+// User groups. Creating a group automatically creates a private chat channel, and the
+// membership stays in sync (joining the group joins the channel; leaving leaves it).
 export function GroupsSection({ me }: { me: Me | undefined }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

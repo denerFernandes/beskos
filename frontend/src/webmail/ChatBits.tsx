@@ -18,7 +18,7 @@ export function BookmarkIcon({ filled, size = 13 }: { filled?: boolean; size?: n
   return <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z" /></svg>;
 }
 
-// Cartão de chamada: mostra quem iniciou e um botão para entrar na sala do Meet (LiveKit).
+// Call card: shows who started it and a button to join the Meet room (LiveKit).
 export function CallCard({ call, author }: { call: { mode: "video" | "audio"; room: string }; author: string }) {
   const { t } = useTranslation();
   return (

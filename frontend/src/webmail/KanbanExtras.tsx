@@ -12,7 +12,7 @@ type Col = { column: Column; cards: Card[] };
 const fmtDate = (d: string, locale: string) => (d ? new Date(d + "T00:00").toLocaleDateString(locale, { day: "2-digit", month: "short" }) : "");
 const colName = (cols: Col[], id: string) => cols.find((c) => c.column.id === id)?.column.name ?? "";
 
-// ---- Visão em lista: tabela de todos os cards, ordenada por prazo. ----
+// ---- List view: table of all cards, sorted by due date. ----
 export function BoardListView({ cols, onCard, locale }: { cols: Col[]; onCard: (c: Card) => void; locale: string }) {
   const { t } = useTranslation();
   const rows = useMemo(() => cols.flatMap((c) => c.cards).sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || a.title.localeCompare(b.title)), [cols]);
@@ -33,7 +33,7 @@ export function BoardListView({ cols, onCard, locale }: { cols: Col[]; onCard: (
   );
 }
 
-// ---- Visão calendário: cards no dia do prazo, no mês do cursor. ----
+// ---- Calendar view: cards on their due date, within the cursor's month. ----
 export function BoardCalendarView({ cols, onCard, locale }: { cols: Col[]; onCard: (c: Card) => void; locale: string }) {
   const [cursor, setCursor] = useState(() => { const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0); return d; });
   const cards = useMemo(() => cols.flatMap((c) => c.cards).filter((c) => c.due), [cols]);
@@ -62,7 +62,7 @@ export function BoardCalendarView({ cols, onCard, locale }: { cols: Col[]; onCar
   );
 }
 
-// ---- Visão timeline: barras de start_date → due. Cards sem ambos ficam de fora. ----
+// ---- Timeline view: bars from start_date → due. Cards missing either are left out. ----
 export function BoardTimelineView({ cols, onCard, locale }: { cols: Col[]; onCard: (c: Card) => void; locale: string }) {
   const { t } = useTranslation();
   const items = useMemo(() => cols.flatMap((c) => c.cards).filter((c) => c.start_date && c.due), [cols]);
@@ -87,7 +87,7 @@ export function BoardTimelineView({ cols, onCard, locale }: { cols: Col[]; onCar
   );
 }
 
-// ---- Swimlanes: lanes por responsável, cada uma mostra as colunas com os cards daquele responsável. ----
+// ---- Swimlanes: lanes by assignee, each showing the columns with that assignee's cards. ----
 export function SwimlaneBoard({ cols, onCard }: { cols: Col[]; onCard: (c: Card) => void }) {
   const { t } = useTranslation();
   const lanes = useMemo(() => {
@@ -116,7 +116,7 @@ export function SwimlaneBoard({ cols, onCard }: { cols: Col[]; onCard: (c: Card)
   );
 }
 
-// ---- Gestor de automações: quando um card entra numa coluna → ação. ----
+// ---- Automation manager: when a card enters a column → action. ----
 export function AutomationsModal({ boardId, cols, onClose }: { boardId: string; cols: Col[]; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

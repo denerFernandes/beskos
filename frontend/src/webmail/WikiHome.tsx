@@ -7,8 +7,8 @@ import { toast } from "./toast";
 import { WikiEditor } from "./WikiEditor";
 import { IcPencil } from "../panel/icons";
 
-// WikiHome (B5): o ecrã inicial da app Wiki é uma "página" da organização, editável pelos admins
-// (PermOrgSettings) com o mesmo editor BlockNote das páginas. Sem conteúdo, mostra o texto padrão.
+// WikiHome (B5): the Wiki app's home screen is an organization "page", editable by admins
+// (PermOrgSettings) with the same BlockNote editor as the pages. With no content, it shows the default text.
 
 export function WikiHome() {
   const { t } = useTranslation();

@@ -7,12 +7,12 @@ import { hueFor } from "./util";
 import { Avatar } from "./Avatar";
 import { IcSearch } from "../panel/icons";
 
-// Convidado escolhido: colega (com userId), contacto ou e-mail externo digitado.
+// Chosen invitee: colleague (with userId), contact, or a typed external email.
 export interface Invitee {
   email: string;
   name?: string;
-  userId?: string; // presente = colega interno
-  status?: string; // rsvp existente (accepted/declined/maybe), quando aplicável
+  userId?: string; // present = internal colleague
+  status?: string; // existing rsvp (accepted/declined/maybe), when applicable
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

@@ -1,4 +1,4 @@
-// Ícone por tipo de arquivo (monocromático, stroke currentColor). Diferente por extensão.
+// Icon per file type (monochrome, stroke currentColor). Different per extension.
 type P = { size?: number };
 const S = (size = 22) => ({
   width: size, height: size, viewBox: "0 0 24 24", fill: "none",

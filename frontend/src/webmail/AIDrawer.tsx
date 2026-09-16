@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { backend } from "./backend";
 import { Spinner, AiThinking } from "./Spinner";
 
-// Gaveta "Escrever com IA": gera um rascunho de resposta real (backend.draft) e permite usá-lo.
+// "Write with AI" drawer: generates a real reply draft (backend.draft) and lets it be used.
 export function AIDrawer({
   original, onClose, onUse,
 }: {

@@ -25,14 +25,14 @@ export function BrandingSection() {
     backend.brandingGet().then((b) => { setColor(b.color); setLogo(b.logo); setLogoWhiteDark(b.logo_white_dark ?? false); }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
-  // Pré-visualiza a cor no app enquanto se edita; ao sair sem gravar, o App reaplica a guardada.
+  // Preview the color in the app while editing; on leaving without saving, App reapplies the saved one.
   useEffect(() => { applyBrandColor(color); }, [color]);
 
   const onFile = (files: FileList | null) => {
     const f = files?.[0];
     if (!f) return;
     if (!f.type.startsWith("image/")) { toast(t("branding.notImage")); return; }
-    // Redimensiona para no máx. 80px de altura (retina do topo) → data URI pequeno.
+    // Resize to a max height of 80px (retina top bar) → small data URI.
     const img = new Image();
     const url = URL.createObjectURL(f);
     img.onload = () => {
@@ -81,8 +81,8 @@ export function BrandingSection() {
         <div className="pnl-card"><div className="pnl-card-h"><h3>{t("branding.logo")}</h3></div>
           <div className="pnl-card-b">
             <div className="brand-logo-row">
-              {/* Pré-visualização nos DOIS temas: claro e escuro lado a lado — a do escuro aplica
-                  o filtro branco ao vivo quando a opção está ligada. */}
+              {/* Preview in BOTH themes: light and dark side by side — the dark one applies
+                  the white filter live when the option is enabled. */}
               <div className="brand-logo-duo">
                 <div className="brand-logo-preview light">
                   {logo ? <img src={logo} alt="logo" /> : <span className="desc">{t("branding.noLogo")}</span>}

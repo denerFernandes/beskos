@@ -3,14 +3,14 @@ import { useTranslation } from "react-i18next";
 import type { Meeting } from "./backend";
 
 type View = "day" | "week" | "month";
-const DAY_START = 7, DAY_END = 21, ROW = 72; // 7h–21h — mesma cara da página do calendário
+const DAY_START = 7, DAY_END = 21, ROW = 72; // 7am–9pm — same look as the calendar page
 
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-function weekStart(d: Date) { const x = startOfDay(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; } // segunda
+function weekStart(d: Date) { const x = startOfDay(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; } // Monday
 
-// Agenda do Meet: dia / semana / mês. Mostra as reuniões agendadas; clicar abre o detalhe.
+// Meet agenda: day / week / month. Shows scheduled meetings; clicking opens the detail.
 export function MeetAgenda({ meetings, view, cursor, onOpen }: {
   meetings: Meeting[]; view: View; cursor: Date; onOpen: (m: Meeting) => void;
 }) {
@@ -88,7 +88,7 @@ function MonthGrid({ meetings, cursor, onOpen }: { meetings: Meeting[]; cursor: 
   );
 }
 
-// navegação de período (dia/semana/mês)
+// period navigation (day/week/month)
 export function useAgendaNav() {
   const [view, setView] = useState<"list" | View>("list");
   const [cursor, setCursor] = useState(new Date());
