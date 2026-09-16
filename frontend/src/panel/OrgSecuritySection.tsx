@@ -4,13 +4,21 @@ import { api } from "../api";
 import { toast } from "./ui";
 import { Switch } from "../webmail/Switch";
 import { IcShield } from "./icons";
+import { useEdition } from "../useEdition";
 
-// admin/security = política DA ORGANIZAÇÃO: MFA obrigatório para todo o tenant, com o método
-// escolhido pelo admin. Padrão visual da casa: Switch iOS + segmented control + caixa de aviso.
+// admin/security = organization-wide policy: MFA required for the whole tenant, with the method
+// chosen by the admin. House visual pattern: iOS switch + segmented control + warning box.
+//
+// Unlike branding/agents, this screen stays Community even without the Pro OrgPolicies
+// capability: showing the org's current MFA posture is safety information any admin should see,
+// not a feature to upsell around. Only the ability to CHANGE the policy is Enterprise (see
+// ee/security_policy_pro.go) -- the controls below just disable themselves without it.
 export function OrgSecuritySection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const policy = useQuery({ queryKey: ["org-security"], queryFn: () => api.securityPolicyGet(), retry: false });
+  const { data: ed } = useEdition();
+  const canEdit = ed?.org_policies ?? false;
   const method = policy.data?.mfa_method ?? "any";
   const on = policy.data?.mfa_required ?? false;
 
@@ -22,7 +30,7 @@ export function OrgSecuritySection() {
     },
     onError: (e) => toast((e as Error).message),
   });
-  const busy = policy.isPending || save.isPending;
+  const busy = policy.isPending || save.isPending || !canEdit;
 
   return (
     <>
@@ -63,6 +71,12 @@ export function OrgSecuritySection() {
               </div>
             </div>
 
+            {!canEdit && (
+              <div className="warnbox">
+                {t("pro.upsellBody", { feature: t("orgSecurity.title") })}{" "}
+                <a href="https://beskos.com/pro" target="_blank" rel="noreferrer">{t("pro.upsellCta")}</a>
+              </div>
+            )}
             <div className="warnbox">{t("orgSecurity.killWarning")}</div>
           </div>
         </div>

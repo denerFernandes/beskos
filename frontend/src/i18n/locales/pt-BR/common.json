@@ -743,6 +743,7 @@
     "chat.cannot_delete_general": "O canal por defeito não pode ser apagado.",
     "branding.edition_required": "Esta funcionalidade exige uma licença Pro.",
     "assistant.agents_edition_required": "Esta funcionalidade exige uma licença Pro.",
+    "security.edition_required": "Esta funcionalidade exige uma licença Pro.",
     "notif": {
       "meeting_invite": {
         "t": "{{actor}} convidou você: {{title}}",
