@@ -7,8 +7,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Preferências do utilizador (assinatura, prefs por app). Organizadas por app no JSONB `settings`;
-// cada secção grava-se isolada (merge de topo na query), então guardar E-mail não toca no Chat.
+// User preferences (signature, per-app prefs). Organized by app in the `settings` JSONB column;
+// each section saves in isolation (top-level merge in the query), so saving E-mail doesn't touch Chat.
 
 func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -17,7 +17,7 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "settings.failed")
 		return
 	}
-	// raw é json.RawMessage (o JSONB da coluna); devolve-o tal como está.
+	// raw is json.RawMessage (the column's JSONB); return it as-is.
 	w.Header().Set("Content-Type", "application/json")
 	if len(raw) == 0 {
 		_, _ = w.Write([]byte("{}"))
@@ -28,7 +28,7 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
-	// Aceita um objeto {app: {...}} e faz merge. Valida que é JSON de objeto, não um valor solto.
+	// Accepts an object {app: {...}} and merges it. Validates that it's object JSON, not a bare value.
 	var patch map[string]json.RawMessage
 	if !decode(w, r, &patch) {
 		return

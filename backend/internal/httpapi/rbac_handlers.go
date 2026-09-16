@@ -30,8 +30,8 @@ type inviteReq struct {
 	Role  string `json:"role"`
 }
 
-// handleCreateInvite cria um convite. Segurança: papel precisa ser atribuível; só um OWNER pode
-// convidar como owner (evita que um admin promova alguém — inclusive ele mesmo — a owner).
+// handleCreateInvite creates an invite. Security: the role must be assignable; only an OWNER can
+// invite as owner (prevents an admin from promoting someone — including themselves — to owner).
 func (s *Server) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	tid := u.TenantID
@@ -62,7 +62,7 @@ func (s *Server) handleCreateInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "invite.create", Target: req.Email})
-	// O envio do e-mail de convite é um gancho externo; devolvemos o token para o fluxo.
+	// Sending the invite email is an external hook; we return the token for the flow.
 	writeJSON(w, http.StatusCreated, map[string]any{"id": inv.ID, "email": inv.Email, "role": inv.Role, "token": inv.Token})
 }
 
@@ -91,7 +91,7 @@ func (s *Server) handleRevokeInvite(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 
-// handleGetInvite (público) valida um token de convite para a tela de aceite.
+// handleGetInvite (public) validates an invite token for the acceptance screen.
 func (s *Server) handleGetInvite(w http.ResponseWriter, r *http.Request) {
 	inv, err := s.q.GetValidInvite(r.Context(), chi.URLParam(r, "token"))
 	if err != nil {
@@ -107,7 +107,7 @@ type acceptInviteReq struct {
 	Password string `json:"password"`
 }
 
-// handleAcceptInvite (público) cria o usuário do painel a partir de um convite válido.
+// handleAcceptInvite (public) creates the panel user from a valid invite.
 func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 	var req acceptInviteReq
 	if !decode(w, r, &req) {
@@ -117,14 +117,14 @@ func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "auth.missing_fields")
 		return
 	}
-	// Consome o convite ATOMICAMENTE (uso único, sem corrida): marca aceito e devolve só se ainda
-	// era válido. Só quem receber a linha segue para criar a conta.
+	// Consumes the invite ATOMICALLY (single use, no race): marks it accepted and returns it only
+	// if it was still valid. Only whoever gets the row proceeds to create the account.
 	inv, err := s.q.ConsumeInvite(r.Context(), req.Token)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "invites.not_found")
 		return
 	}
-	// Revalida o papel do convite (fail-closed caso o banco tenha algo inesperado).
+	// Revalidates the invite's role (fail-closed in case the database has something unexpected).
 	if !rbac.IsAssignableRole(rbac.Role(inv.Role)) {
 		writeErr(w, http.StatusBadRequest, "invites.invalid")
 		return
@@ -153,8 +153,8 @@ type changeRoleReq struct {
 	Role string `json:"role"`
 }
 
-// handleChangeRole muda o papel de um membro. Segurança: papel atribuível; mexer com owner
-// (promover ou rebaixar) exige ser owner; nunca deixar a organização sem owner.
+// handleChangeRole changes a member's role. Security: the role must be assignable; touching an
+// owner (promoting or demoting) requires being an owner; the organization must never be left without an owner.
 func (s *Server) handleChangeRole(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -181,7 +181,7 @@ func (s *Server) handleChangeRole(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "members.owner_only")
 		return
 	}
-	// Nunca remover o último owner (rebaixar o único owner).
+	// Never remove the last owner (demoting the only owner).
 	if rbac.Role(target.Role) == rbac.RoleOwner && newRole != rbac.RoleOwner {
 		if n, _ := s.q.CountOwners(r.Context(), u.TenantID); n <= 1 {
 			writeErr(w, http.StatusConflict, "members.last_owner")
@@ -197,7 +197,7 @@ func (s *Server) handleChangeRole(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
-// handleRemoveMember remove um membro. Não permite remover o último owner.
+// handleRemoveMember removes a member. Doesn't allow removing the last owner.
 func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -221,6 +221,6 @@ func (s *Server) handleRemoveMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "member.remove", Target: target.Email})
-	s.syncSeats(u.TenantID) // seats na Stripe acompanham (crédito proporcional)
+	s.syncSeats(u.TenantID) // Stripe seats follow along (prorated credit)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
 }

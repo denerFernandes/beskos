@@ -11,19 +11,19 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
-// Exceções de permissão por membro (RBAC granular). O papel continua a ser o ponto de partida; isto
-// resolve os casos que nenhum papel de fábrica cobre. As regras que importam:
+// Per-member permission exceptions (granular RBAC). The role remains the starting point; this
+// resolves the cases no factory role covers. The rules that matter:
 //
-//   - retirar ganha a conceder (rbac.Effective), para uma contradição cair sempre do lado seguro;
-//   - quem edita só pode conceder/retirar o que ELE PRÓPRIO tem — senão um admin dava-se billing a
-//     si mesmo por interposta pessoa (escalada de privilégio);
-//   - e só age sobre alguém de rank inferior (rbac.CanManage), a mesma regra do mudar papel.
+//   - deny beats allow (rbac.Effective), so a contradiction always falls on the safe side;
+//   - whoever edits can only grant/deny what THEY THEMSELVES have — otherwise an admin could give
+//     themselves billing access through a proxy (privilege escalation);
+//   - and only acts on someone of a lower rank (rbac.CanManage), the same rule as changing a role.
 
-// memberOverrides lê as exceções de um utilizador, já separadas em conceder/retirar.
+// memberOverrides reads a user's exceptions, already split into allow/deny.
 func (s *Server) memberOverrides(ctx context.Context, tenant, user uuid.UUID) (allow, deny []rbac.Permission) {
 	rows, err := s.q.ListMemberPermissions(ctx, db.ListMemberPermissionsParams{TenantID: tenant, UserID: user})
 	if err != nil {
-		return nil, nil // sem exceções (ou falha de leitura): fica o papel, que é o comportamento seguro
+		return nil, nil // no exceptions (or a read failure): falls back to the role, which is the safe behavior
 	}
 	for _, r := range rows {
 		if r.Allow {
@@ -35,14 +35,14 @@ func (s *Server) memberOverrides(ctx context.Context, tenant, user uuid.UUID) (a
 	return allow, deny
 }
 
-// effectivePerms devolve as permissões efetivas de um utilizador (papel ± exceções).
+// effectivePerms returns a user's effective permissions (role ± exceptions).
 func (s *Server) effectivePerms(ctx context.Context, tenant, user uuid.UUID, role string) []rbac.Permission {
 	allow, deny := s.memberOverrides(ctx, tenant, user)
 	return rbac.Effective(rbac.Role(role), allow, deny)
 }
 
-// handleGetMemberPermissions devolve o que vem do papel e o que foi ajustado à mão, para a UI poder
-// mostrar a diferença em vez de uma lista de caixas sem contexto.
+// handleGetMemberPermissions returns what comes from the role and what was adjusted by hand, so the
+// UI can show the difference instead of a list of checkboxes with no context.
 func (s *Server) handleGetMemberPermissions(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -63,12 +63,12 @@ func (s *Server) handleGetMemberPermissions(w http.ResponseWriter, r *http.Reque
 		"effective": rbac.Effective(rbac.Role(target.Role), allow, deny),
 		"allow":     orEmpty(allow),
 		"deny":      orEmpty(deny),
-		// O que EU posso mexer: não se concede o que não se tem.
+		// What I can touch: you can't grant what you don't have.
 		"editable": s.effectivePerms(r.Context(), mu.TenantID, mu.ID, mu.Role),
 	})
 }
 
-// handleSetMemberPermissions grava as exceções (substitui as que houver).
+// handleSetMemberPermissions saves the exceptions (replaces any existing ones).
 func (s *Server) handleSetMemberPermissions(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -81,7 +81,7 @@ func (s *Server) handleSetMemberPermissions(w http.ResponseWriter, r *http.Reque
 		writeErr(w, http.StatusNotFound, "rbac.not_found")
 		return
 	}
-	// Mesma hierarquia do mudar papel: não se ajusta quem está no mesmo nível ou acima.
+	// Same hierarchy as changing a role: you don't adjust someone at the same level or above.
 	if !rbac.CanManage(rbac.Role(mu.Role), rbac.Role(target.Role)) {
 		writeErr(w, http.StatusForbidden, "rbac.forbidden")
 		return
@@ -116,7 +116,7 @@ func (s *Server) handleSetMemberPermissions(w http.ResponseWriter, r *http.Reque
 				writeErr(w, http.StatusBadRequest, "rbac.unknown_permission")
 				return
 			}
-			// Vale para conceder E para retirar: quem não tem a permissão também não a governa.
+			// Applies to both granting AND denying: whoever doesn't have the permission doesn't govern it either.
 			if !mine[p] {
 				writeErr(w, http.StatusForbidden, "rbac.cannot_grant")
 				return

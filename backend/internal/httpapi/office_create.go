@@ -18,7 +18,7 @@ import (
 //go:embed templates/empty.docx templates/empty.xlsx templates/empty.pptx
 var officeTemplates embed.FS
 
-// tipo de documento novo → (extensão, arquivo de template embutido).
+// new document kind → (extension, embedded template file).
 var newDocKinds = map[string]struct{ ext, tmpl string }{
 	"document":     {"docx", "templates/empty.docx"},
 	"spreadsheet":  {"xlsx", "templates/empty.xlsx"},
@@ -31,8 +31,8 @@ type createOfficeReq struct {
 	FolderID string `json:"folder_id"`
 }
 
-// handleCreateOfficeFile cria um documento de office EM BRANCO a partir de um template embutido,
-// grava no MinIO e registra o arquivo. O frontend então abre o editor (Collabora/OnlyOffice).
+// handleCreateOfficeFile creates a BLANK office document from an embedded template, writes it to
+// MinIO, and registers the file. The frontend then opens the editor (Collabora/OnlyOffice).
 func (s *Server) handleCreateOfficeFile(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -76,17 +76,17 @@ func (s *Server) handleCreateOfficeFile(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusCreated, rec)
 }
 
-// storeUserFile grava um blob no armazenamento do utilizador e regista o ficheiro. Partilhado entre
-// a criação de ficheiros em branco (interface) e a geração pelo assistente (docs.create): a lógica
-// de cota, dedup por hash e registo é a mesma, e duas cópias divergiriam em silêncio (§5).
+// storeUserFile writes a blob to the user's storage and registers the file. Shared between
+// creating blank files (the UI) and generation by the assistant (docs.create): the quota,
+// hash-based dedup, and registration logic is the same, and two copies would silently diverge (§5).
 //
-// Devolve um error_code em vez de escrever na resposta, para servir também quem NÃO tem um
-// http.ResponseWriter — como uma ferramenta do assistente.
+// Returns an error_code instead of writing to the response, so it can also serve callers that do
+// NOT have an http.ResponseWriter — such as an assistant tool.
 func (s *Server) storeUserFile(ctx context.Context, mu db.MailUser, name string, data []byte, folderID pgtype.UUID) (db.StorageFile, string) {
 	if s.storage == nil {
 		return db.StorageFile{}, "storage.disabled"
 	}
-	// Cota de disco (só conta se o blob for novo — dedup por hash).
+	// Disk quota (only counted if the blob is new — dedup by hash).
 	sum := sha256.Sum256(data)
 	hash := hex.EncodeToString(sum[:])
 	blobKey := mu.TenantID.String() + "/" + hash
@@ -114,8 +114,8 @@ func (s *Server) storeUserFile(ctx context.Context, mu db.MailUser, name string,
 	return rec, ""
 }
 
-// storageStatusFor mapeia o error_code para o código HTTP. A cota é 402, o armazenamento em baixo
-// é 502, o resto é 500 — a interface distingue "sem espaço" de "avaria" por aqui.
+// storageStatusFor maps the error_code to an HTTP status. Quota is 402, storage being down is
+// 502, everything else is 500 — this is how the UI tells "out of space" from "outage" apart.
 func storageStatusFor(code string) int {
 	switch code {
 	case "quota.storage":

@@ -23,24 +23,24 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
-// Registo self-service (/signup): numa ida só cria a organização, o domínio, a CAIXA do dono e os
-// dados de faturação, e devolve a URL do checkout com período de teste.
+// Self-service signup (/signup): in a single pass, creates the organization, the domain, the
+// owner's MAILBOX, and the billing data, and returns the checkout URL with a trial period.
 //
-// A caixa é criada com o domínio ainda em `domain_created` (DNS por publicar), e não em `active`
-// como exige o painel: quem acaba de se registar tem de conseguir entrar e usar chat, drive,
-// calendário e reuniões no minuto seguinte. O e-mail de fora só entra quando o DNS estiver
-// publicado — e a app diz isso no topo até lá.
+// The mailbox is created with the domain still in `domain_created` (DNS pending publication),
+// not in `active` as the panel requires: whoever just signed up has to be able to log in and use
+// chat, drive, calendar, and meetings the next minute. External e-mail only starts arriving once
+// DNS is published — and the app says so at the top until then.
 //
-// Se algo falhar a meio, desfaz-se o que já foi criado: meia organização (sem caixa, sem domínio)
-// prendia o e-mail e o domínio para sempre, sem ninguém lá dentro para os libertar.
+// If something fails midway, whatever was already created gets undone: half an organization (no
+// mailbox, no domain) would lock the e-mail and the domain forever, with no one inside to free them.
 
 var (
 	domainRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
 	loginRe  = regexp.MustCompile(`^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$`)
 )
 
-// trialDays é o teste grátis do checkout. O cartão é pedido à partida (decisão do produto), mas só
-// é cobrado no fim do período.
+// trialDays is the checkout's free trial. The card is requested upfront (a product decision), but
+// is only charged at the end of the period.
 func trialDays() int {
 	if v := atoiOr(os.Getenv("BILLING_TRIAL_DAYS"), 14); v > 0 {
 		return v
@@ -63,22 +63,22 @@ func atoiOr(s string, def int) int {
 }
 
 type publicSignupReq struct {
-	// Conta
+	// Account
 	OrgName  string `json:"org_name"`
 	Domain   string `json:"domain"`   // acme.com
-	Login    string `json:"login"`    // parte antes do @
-	Name     string `json:"name"`     // nome de quem se regista
-	Password string `json:"password"` // senha da caixa (Stalwart + painel)
-	// Plano
+	Login    string `json:"login"`    // part before the @
+	Name     string `json:"name"`     // name of whoever is signing up
+	Password string `json:"password"` // mailbox password (Stalwart + panel)
+	// Plan
 	Plan  string `json:"plan"`
 	Cycle string `json:"cycle"`
-	// Faturação (mesmos campos do perfil; o checkout usa-os para a fatura)
+	// Billing (same fields as the profile; checkout uses them for the invoice)
 	Billing billingProfileReq `json:"billing"`
 }
 
 func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
-	// O registo cria contas e fala com o Stalwart: sem limite, um script criava organizações à
-	// velocidade da rede.
+	// Signup creates accounts and talks to Stalwart: without a limit, a script could create
+	// organizations at network speed.
 	if !s.loginIP.allow("signup:"+clientIP(r), time.Now()) {
 		writeErr(w, http.StatusTooManyRequests, "auth.rate_limited")
 		return
@@ -111,10 +111,11 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "signup.password_weak")
 		return
 	}
-	// Sem senha no registo (o caminho normal): geramos uma aleatória e quem entra define a sua no
-	// primeiro acesso. É menos um campo antes do cartão, e a senha nunca viaja de graça no formulário.
+	// No password on signup (the normal path): we generate a random one and the user sets their
+	// own on first login. It's one fewer field before the card, and the password never travels
+	// unnecessarily through the form.
 	if req.Password == "" {
-		pw, err := auth.NewSessionToken() // 32 bytes aleatórios em base64url
+		pw, err := auth.NewSessionToken() // 32 random bytes in base64url
 		if err != nil {
 			writeErr(w, http.StatusInternalServerError, "auth.password_hash_failed")
 			return
@@ -131,7 +132,7 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	email := req.Login + "@" + req.Domain
-	// Domínio já registado (por outra organização ou por esta) → não se rouba nem se duplica.
+	// Domain already registered (by another organization or this one) → never stolen, never duplicated.
 	if _, err := s.q.GetDomainByName(r.Context(), req.Domain); err == nil {
 		writeErr(w, http.StatusConflict, "signup.domain_taken")
 		return
@@ -146,25 +147,26 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "tenant.create_failed")
 		return
 	}
-	// A partir daqui, qualquer falha desfaz tudo (o tenant cai em cascata com domínio e caixa).
+	// From here on, any failure undoes everything (the tenant cascades away with domain and mailbox).
 	rollback := func(reason string, err error) {
-		log.Printf("signup: %s: %v (a desfazer o tenant %s)", reason, err, tenant.ID)
+		log.Printf("signup: %s: %v (rolling back tenant %s)", reason, err, tenant.ID)
 		_ = s.q.DeleteTenant(context.WithoutCancel(r.Context()), tenant.ID)
 	}
 
 	dom, err := s.q.CreateDomain(r.Context(), db.CreateDomainParams{TenantID: tenant.ID, Domain: req.Domain})
 	if err != nil {
-		rollback("criar domínio", err)
+		rollback("create domain", err)
 		writeErr(w, http.StatusConflict, "signup.domain_taken")
 		return
 	}
-	// Cria o domínio no Stalwart já (é o 1º passo da máquina de provisionamento): sem ele não há
-	// onde pendurar a caixa. O worker apanha o resto — DKIM, zona DNS e ativação.
-	// autoDKIM segue a mesma regra do worker: com relay SES quem assina é o SES (BYODKIM).
+	// Create the domain in Stalwart right away (it's the 1st step of the provisioning machine):
+	// without it there's nowhere to hang the mailbox. The worker picks up the rest — DKIM, DNS
+	// zone, and activation.
+	// autoDKIM follows the same rule as the worker: with an SES relay, SES does the signing (BYODKIM).
 	autoDKIM := os.Getenv("SES_REGION") == "" || os.Getenv("AWS_ACCESS_KEY_ID") == ""
 	swDomainID, err := s.sw.CreateDomain(r.Context(), req.Domain, "tenant_id="+tenant.ID.String(), autoDKIM)
 	if err != nil {
-		rollback("criar domínio no Stalwart", err)
+		rollback("create domain in Stalwart", err)
 		writeErr(w, http.StatusBadGateway, "signup.provision_failed")
 		return
 	}
@@ -172,17 +174,17 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		ID: dom.ID, ProvisionState: provisioning.StateDomainCreated, StalwartID: &swDomainID,
 		DkimStatus: dom.DkimStatus, DnsStatus: dom.DnsStatus, DnsZone: dom.DnsZone,
 	}); err != nil {
-		rollback("guardar o estado do domínio", err)
+		rollback("save domain state", err)
 		writeErr(w, http.StatusInternalServerError, "signup.provision_failed")
 		return
 	}
 
-	// Caixa do dono no Stalwart + utilizador (identidade unificada: caixa, senha e papel num só).
+	// Owner's mailbox in Stalwart + user (unified identity: mailbox, password, and role in one).
 	acctID, err := s.sw.CreateAccount(r.Context(), stalwart.AccountInput{
 		Login: req.Login, DomainID: swDomainID, DisplayName: req.Name, Password: req.Password, QuotaBytes: 5 << 30,
 	})
 	if err != nil {
-		rollback("criar a caixa no Stalwart", err)
+		rollback("create mailbox in Stalwart", err)
 		if errors.Is(err, stalwart.ErrWeakPassword) {
 			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
 			return
@@ -192,7 +194,7 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		rollback("cifrar a senha", err)
+		rollback("hash password", err)
 		writeErr(w, http.StatusInternalServerError, "auth.password_hash_failed")
 		return
 	}
@@ -201,19 +203,19 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 		StalwartAccountID: &acctID, QuotaBytes: 5 << 30, PasswordHash: hash,
 	})
 	if err != nil {
-		rollback("criar o utilizador", err)
+		rollback("create user", err)
 		writeErr(w, http.StatusConflict, "auth.email_taken")
 		return
 	}
 
-	// Dados de faturação: guardados antes do checkout, para a fatura sair completa desde a primeira.
+	// Billing data: saved before checkout, so the invoice comes out complete from the first one.
 	b := req.Billing
 	if _, err := s.q.UpsertBillingProfile(r.Context(), db.UpsertBillingProfileParams{
 		TenantID: tenant.ID, Kind: b.Kind, LegalName: b.LegalName, TaxID: b.TaxID, Country: b.Country,
 		City: b.City, PostalCode: b.PostalCode, AddressLine1: b.AddressLine1, AddressLine2: b.AddressLine2,
 		InvoiceEmail: b.InvoiceEmail, InvoiceName: b.InvoiceName, Phone: b.Phone,
 	}); err != nil {
-		log.Printf("signup: save billing for tenant %s: %v", tenant.ID, err) // não trava o registo
+		log.Printf("signup: save billing for tenant %s: %v", tenant.ID, err) // doesn't block signup
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
 		TenantID: pgtype.UUID{Bytes: tenant.ID, Valid: true}, Actor: email, Action: "signup", Target: req.Domain,
@@ -224,13 +226,13 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Credencial JMAP (Basic da caixa) cifrada server-side, como no login: é o que o proxy injeta
-	// para falar com o Stalwart. Sem isto o webmail respondia 401 logo a seguir ao registo.
+	// JMAP credential (mailbox's Basic auth) encrypted server-side, same as login: it's what the
+	// proxy injects to talk to Stalwart. Without this the webmail would answer 401 right after signup.
 	basic := base64.StdEncoding.EncodeToString([]byte(email + ":" + req.Password))
 	_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: owner.ID, JmapCred: s.encTOTP(basic)})
 
-	// Avisos: a conta existe (com o endereço e o que falta no DNS) e o teste está a correr. Vão para
-	// o endereço criado; o de faturação recebe os avisos de dinheiro.
+	// Alerts: the account exists (with the address and what's still missing in DNS) and the trial
+	// is running. They go to the address just created; the billing address gets the money alerts.
 	s.alertAccountCreated(owner.Language, email, req.Domain)
 	s.alertTrialStarted(owner.Language, email, plan.Name, trialDays(), planAmount(s.localPlan(plan, s.tenantCurrency(r.Context(), tenant.ID)), req.Cycle))
 
@@ -241,8 +243,9 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, out)
 }
 
-// signupCheckoutURL cria o checkout do teste (cartão pedido à partida, cobrança só no fim). Falhar
-// aqui não desfaz o registo: a conta existe e a subscrição pode ser feita depois em Faturação.
+// signupCheckoutURL creates the trial checkout (card requested upfront, charged only at the end).
+// Failing here doesn't undo the signup: the account exists and the subscription can be done
+// later in Billing.
 func (s *Server) signupCheckoutURL(r *http.Request, tid uuid.UUID, plan billing.Plan, cycle string) string {
 	plan = s.localPlan(plan, s.tenantCurrency(r.Context(), tid))
 	seats := plan.MinUsers
@@ -254,7 +257,7 @@ func (s *Server) signupCheckoutURL(r *http.Request, tid uuid.UUID, plan billing.
 		Cycle: billing.Cycle(cycle).Normalize(), CustomerID: cus, InvoiceEmail: invEmail, TrialDays: trialDays(),
 	})
 	if err != nil {
-		log.Printf("signup: checkout do tenant %s: %v", tid, err)
+		log.Printf("signup: checkout for tenant %s: %v", tid, err)
 		return ""
 	}
 	return res.URL
@@ -262,14 +265,14 @@ func (s *Server) signupCheckoutURL(r *http.Request, tid uuid.UUID, plan billing.
 
 // --- Public catalog and simulation endpoints (the signup page has no session yet) ---
 
-// handlePublicPlans devolve os planos ativos com o preço na moeda base. Não expõe nada que já não
-// esteja na página de preços do site.
+// handlePublicPlans returns the active plans with the price in the base currency. It doesn't
+// expose anything that isn't already on the site's pricing page.
 func (s *Server) handlePublicPlans(w http.ResponseWriter, r *http.Request) {
 	cur := s.billingCfg.Currency
 	plans := make([]billing.Plan, 0)
 	for _, p := range s.activePlans(r.Context()) {
 		if p.PriceCentsPerUser <= 0 {
-			continue // grátis/enterprise não se assinam por aqui
+			continue // free/enterprise plans aren't subscribed to through here
 		}
 		plans = append(plans, s.localPlan(p, cur))
 	}
@@ -288,8 +291,8 @@ type publicQuoteReq struct {
 	Seats   int    `json:"seats"`
 }
 
-// handlePublicQuote é a mesma conta do /api/billing/quote para quem ainda não tem conta: a página
-// de registo tem de mostrar o total com IVA antes de existir organização.
+// handlePublicQuote is the same computation as /api/billing/quote for someone who doesn't have an
+// account yet: the signup page has to show the total with VAT before the organization exists.
 func (s *Server) handlePublicQuote(w http.ResponseWriter, r *http.Request) {
 	var req publicQuoteReq
 	if !decode(w, r, &req) {
@@ -318,7 +321,8 @@ func (s *Server) handlePublicQuote(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// planAmount formata "12,00 EUR/mês" para os avisos — o valor por utilizador, como no checkout.
+// planAmount formats a price with its billing-cycle suffix (e.g. "12.00 EUR" plus per-month or
+// per-year) for the alerts — the per-user amount, as in checkout.
 func planAmount(plan billing.Plan, cycle string) string {
 	c := billing.Cycle(cycle).Normalize()
 	unit := float64(plan.UnitCents(c)) / 100

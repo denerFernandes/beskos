@@ -17,10 +17,10 @@ import (
 // the worker assembles the MP4 offline with ffmpeg. Tracks published AFTER the start come in via
 // the track_published webhook.
 
-// s3Output monta o destino S3/MinIO comum aos egresses.
+// s3Output builds the S3/MinIO destination shared by the egresses.
 func (m *meet) s3Output(filepath string) map[string]any {
 	return map[string]any{
-		"fileType": "MP4", // ignorado no track egress (o LiveKit decide pela codec); exigido no composite
+		"fileType": "MP4", // ignored in track egress (LiveKit decides by codec); required in composite
 		"filepath": filepath,
 		"s3": map[string]any{
 			"accessKey": m.s3key, "secret": m.s3secret, "bucket": m.s3bucket,
@@ -29,7 +29,7 @@ func (m *meet) s3Output(filepath string) map[string]any {
 	}
 }
 
-// startTracksRecording cria a gravação em modo tracks e liga um egress por faixa já publicada.
+// startTracksRecording creates the tracks-mode recording and starts one egress per already-published track.
 func (s *Server) startTracksRecording(ctx context.Context, mu db.MailUser, mtgID pgtype.UUID, room string, priority int32) (db.Recording, error) {
 	rec, err := s.q.CreateTracksRecording(ctx, db.CreateTracksRecordingParams{
 		TenantID: mu.TenantID, RoomName: room, MeetingID: mtgID,
@@ -46,14 +46,14 @@ func (s *Server) startTracksRecording(ctx context.Context, mu db.MailUser, mtgID
 	return rec, nil
 }
 
-// publishedTrack é uma faixa ao vivo na sala (áudio ou vídeo de um participante).
+// publishedTrack is a live track in the room (audio or video from a participant).
 type publishedTrack struct {
 	SID         string
 	Participant string
 	Kind        string // audio | video
 }
 
-// listPublishedTracks pergunta ao RoomService as faixas publicadas (não mutadas) da sala.
+// listPublishedTracks asks RoomService for the room's published (unmuted) tracks.
 func (m *meet) listPublishedTracks(ctx context.Context, room string) []publishedTrack {
 	out, err := m.roomAPI(ctx, "ListParticipants", map[string]any{"room": room}, room)
 	if err != nil {
@@ -65,7 +65,7 @@ func (m *meet) listPublishedTracks(ctx context.Context, room string) []published
 			Identity string `json:"identity"`
 			Tracks   []struct {
 				Sid   string          `json:"sid"`
-				Type  json.RawMessage `json:"type"` // "AUDIO"/"VIDEO" ou enum numérico
+				Type  json.RawMessage `json:"type"` // "AUDIO"/"VIDEO" or numeric enum
 				Muted bool            `json:"muted"`
 			} `json:"tracks"`
 		} `json:"participants"`
@@ -86,7 +86,7 @@ func (m *meet) listPublishedTracks(ctx context.Context, room string) []published
 	return tracks
 }
 
-// trackKind normaliza o enum do LiveKit ("AUDIO"/"VIDEO" em JSON, 0/1 em protobuf numérico).
+// trackKind normalizes the LiveKit enum ("AUDIO"/"VIDEO" in JSON, 0/1 in numeric protobuf).
 func trackKind(raw json.RawMessage) string {
 	s := strings.Trim(string(raw), `"`)
 	switch s {
@@ -98,8 +98,8 @@ func trackKind(raw json.RawMessage) string {
 	return ""
 }
 
-// startTrackEgress liga um Track Egress para uma faixa e regista a linha. O caminho final (com a
-// extensão que o LiveKit escolhe pela codec) chega no webhook egress_ended.
+// startTrackEgress starts a Track Egress for a track and registers the row. The final path (with
+// the extension LiveKit picks based on the codec) arrives in the egress_ended webhook.
 func (s *Server) startTrackEgress(ctx context.Context, rec db.Recording, t publishedTrack) error {
 	path := fmt.Sprintf("recordings/raw/%s/%s-%s", rec.ID, t.Participant, t.SID)
 	req := map[string]any{
@@ -107,7 +107,7 @@ func (s *Server) startTrackEgress(ctx context.Context, rec db.Recording, t publi
 		"trackId":  t.SID,
 		"file":     s.meet.s3Output(path),
 	}
-	// O destino de track egress usa DirectFileOutput (sem fileType).
+	// The track egress destination uses DirectFileOutput (no fileType).
 	delete(req["file"].(map[string]any), "fileType")
 	out, err := s.meet.twirp(ctx, "StartTrackEgress", req)
 	if err != nil {
@@ -126,7 +126,7 @@ func (s *Server) startTrackEgress(ctx context.Context, rec db.Recording, t publi
 	return err
 }
 
-// handleTrackPublished (webhook): uma faixa nova numa sala com gravação tracks ativa ganha egress.
+// handleTrackPublished (webhook): a new track in a room with an active tracks recording gets an egress.
 func (s *Server) handleTrackPublished(ctx context.Context, room, participant string, rawType json.RawMessage, sid string) {
 	kind := trackKind(rawType)
 	if kind == "" || sid == "" {
@@ -134,14 +134,14 @@ func (s *Server) handleTrackPublished(ctx context.Context, room, participant str
 	}
 	rec, err := s.q.GetActiveTracksRecordingForRoom(ctx, room)
 	if err != nil {
-		return // sala sem gravação tracks ativa
+		return // room without an active tracks recording
 	}
 	if err := s.startTrackEgress(ctx, rec, publishedTrack{SID: sid, Participant: participant, Kind: kind}); err != nil {
 		log.Printf("meet: late track egress %s: %v", sid, err)
 	}
 }
 
-// stopTracksRecording para todos os egresses ativos e põe a gravação na fila de montagem.
+// stopTracksRecording stops all active egresses and puts the recording in the assembly queue.
 func (s *Server) stopTracksRecording(w http.ResponseWriter, r *http.Request, rec db.Recording) {
 	tracks, err := s.q.ListActiveRecordingTracks(r.Context(), rec.ID)
 	if err != nil {

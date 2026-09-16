@@ -14,11 +14,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Meet v1.5: "organizador entra primeiro", expulsar participante, e notas por e-mail ao encerrar.
-// Em todos: só o DONO da sala manda — a query filtra por owner_user_id, que é a checagem real.
+// Meet v1.5: "organizer joins first", kicking a participant, and emailing notes on end.
+// In all of these: only the room's OWNER is in charge — the query filters by owner_user_id, which is the real check.
 
-// hostPresent diz se o organizador está conectado na sala AGORA. É o LiveKit que sabe: a nossa
-// base só sabe quem foi convidado, não quem está lá dentro.
+// hostPresent reports whether the organizer is connected in the room RIGHT NOW. LiveKit is the one
+// that knows: our database only knows who was invited, not who's actually in there.
 func (m *meet) hostPresent(ctx context.Context, room string, hostIdentities ...string) (bool, error) {
 	out, err := m.roomAPI(ctx, "ListParticipants", map[string]any{"room": room}, room)
 	if err != nil {
@@ -44,13 +44,13 @@ func (m *meet) hostPresent(ctx context.Context, room string, hostIdentities ...s
 	return false, nil
 }
 
-// kickReq identifica quem sai pela identity do LiveKit (que é o nosso user id).
+// kickReq identifies who leaves by their LiveKit identity (which is our user id).
 type kickReq struct {
 	Identity string `json:"identity"`
 }
 
-// handleKickParticipant expulsa alguém da sala. Só o dono; e ele não pode expulsar-se a si mesmo
-// (sairia da própria sala por engano, e com a tranca ligada ninguém mais entrava).
+// handleKickParticipant removes someone from the room. Owner only; and they can't kick themselves
+// (they'd accidentally leave their own room, and with the lock on nobody else could get back in).
 func (s *Server) handleKickParticipant(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -84,8 +84,8 @@ func (s *Server) handleKickParticipant(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
 }
 
-// handleMuteParticipant silencia (server-side) o microfone de um participante. O host manda; o
-// LiveKit exige o track_sid do áudio, que buscamos na lista de participantes da sala.
+// handleMuteParticipant mutes (server-side) a participant's microphone. The host is in charge;
+// LiveKit requires the audio track_sid, which we look up in the room's participant list.
 func (s *Server) handleMuteParticipant(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -112,7 +112,7 @@ func (s *Server) handleMuteParticipant(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "meet.invalid_id")
 		return
 	}
-	// Acha o track de microfone do participante na sala.
+	// Finds the participant's microphone track in the room.
 	out, err := s.meet.roomAPI(r.Context(), "ListParticipants", map[string]any{"room": m.RoomName}, m.RoomName)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "meet.failed")
@@ -154,8 +154,8 @@ func (s *Server) handleMuteParticipant(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "muted"})
 }
 
-// handleMeetParticipants lista quem está NA SALA agora (via LiveKit), para o painel do host poder
-// expulsar. A lista da nossa base é de convidados — não é a mesma coisa.
+// handleMeetParticipants lists who's IN THE ROOM right now (via LiveKit), so the host panel can
+// kick them. Our database's list is of invitees — not the same thing.
 func (s *Server) handleMeetParticipants(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -184,7 +184,7 @@ func (s *Server) handleMeetParticipants(w http.ResponseWriter, r *http.Request) 
 		} `json:"participants"`
 	}
 	_ = json.Unmarshal(out, &lp)
-	// Co-hosts também são "host" na lista (badge + poderes na UI).
+	// Co-hosts are also "host" in the list (badge + powers in the UI).
 	hosts := map[string]bool{m.OwnerUserID.String(): true}
 	if cohosts, cerr := s.q.ListCohostIDs(r.Context(), m.ID); cerr == nil {
 		for _, c := range cohosts {
@@ -203,8 +203,8 @@ func (s *Server) handleMeetParticipants(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, list)
 }
 
-// handleSendMeetNotes manda as notas da reunião por e-mail aos participantes. Só o dono dispara —
-// as notas são da sala dele.
+// handleSendMeetNotes emails the meeting notes to participants. Only the owner can trigger it —
+// the notes belong to their room.
 func (s *Server) handleSendMeetNotes(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -219,7 +219,7 @@ func (s *Server) handleSendMeetNotes(w http.ResponseWriter, r *http.Request) {
 	}
 	notes, err := s.q.GetMeetingNotes(r.Context(), db.GetMeetingNotesParams{MeetingID: m.ID, TenantID: mu.TenantID})
 	if err != nil || strings.TrimSpace(notes.Body) == "" {
-		// Sem notas não há o que enviar — e um e-mail vazio é pior que nenhum.
+		// With no notes there's nothing to send — and an empty email is worse than none.
 		writeErr(w, http.StatusBadRequest, "meet.no_notes")
 		return
 	}
@@ -232,11 +232,11 @@ func (s *Server) handleSendMeetNotes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"sent": sent, "failed": failed})
 }
 
-// mailNotes envia a cada participante. Best-effort e contado: quem chamou fica a saber quantos
-// saíram e quantos falharam, em vez de um "ok" que esconde metade dos e-mails perdidos.
+// mailNotes sends the notes to each participant. Best-effort and counted: the caller finds out
+// how many went out and how many failed, instead of an "ok" that hides half the lost emails.
 func (s *Server) mailNotes(ctx context.Context, m db.Meeting, body string, people []db.MeetingParticipant) (int, int) {
-	subject := fmt.Sprintf("[%s] %s", m.Title, "Notas da reunião")
-	text := strings.TrimSpace(fmt.Sprintf("Notas da reunião \"%s\"\n\n%s\n\n---\nBeskos", m.Title, body))
+	subject := fmt.Sprintf("[%s] %s", m.Title, "Meeting notes")
+	text := strings.TrimSpace(fmt.Sprintf("Meeting notes \"%s\"\n\n%s\n\n---\nBeskos", m.Title, body))
 	var sent, failed int
 	seen := map[string]bool{}
 	for _, p := range people {
@@ -254,19 +254,19 @@ func (s *Server) mailNotes(ctx context.Context, m db.Meeting, body string, peopl
 	return sent, failed
 }
 
-// lockedOut: com "organizador entra primeiro", quem não é o host espera até ele chegar.
+// lockedOut: with "organizer joins first", whoever isn't the host waits until they arrive.
 func (s *Server) lockedOut(ctx context.Context, m db.Meeting, isHost bool) bool {
 	if isHost || s.meet == nil {
 		return false
 	}
-	// Sala trancada a novas entradas: ninguém novo entra (só o host, já tratado acima).
+	// Room locked to new entries: no newcomer gets in (only the host, already handled above).
 	if m.Locked {
 		return true
 	}
 	if !m.LockUntilHost {
 		return false
 	}
-	// Qualquer host abre a sala: o dono ou um co-host presente já libera a entrada dos demais.
+	// Any host opens the room: the owner or a co-host being present already lets everyone else in.
 	hostIDs := []string{m.OwnerUserID.String()}
 	if cohosts, cerr := s.q.ListCohostIDs(ctx, m.ID); cerr == nil {
 		for _, c := range cohosts {
@@ -275,8 +275,8 @@ func (s *Server) lockedOut(ctx context.Context, m db.Meeting, isHost bool) bool 
 	}
 	present, err := s.meet.hostPresent(ctx, m.RoomName, hostIDs...)
 	if err != nil {
-		// Se o LiveKit não responde, não trancamos ninguém de fora: a sala existir é mais
-		// importante que a tranca, e o erro é nosso, não do convidado.
+		// If LiveKit doesn't respond, we don't lock anyone out: the room existing matters more
+		// than the lock, and the error is ours, not the guest's.
 		slog.Error("meet: host presence check failed", "room", m.RoomName, "err", err)
 		return false
 	}

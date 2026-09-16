@@ -14,12 +14,13 @@ import (
 	"time"
 )
 
-// Link unfurl: busca metadados (Open Graph / <title>) de uma URL para o preview no chat. É um
-// fetch server-to-server de URL controlada pelo usuário → SSRF é o risco central. Defesas:
-//   - só http/https;
-//   - a resolução DNS é checada no DIAL (bloqueia IP privado/loopback/link-local, evita rebinding);
-//   - timeout curto, teto de corpo, poucos redirects (cada um revalidado pelo mesmo dialer);
-//   - cache em memória com TTL para não refazer nem martelar o alvo.
+// Link unfurl: fetches metadata (Open Graph / <title>) from a URL for the chat preview. It's a
+// server-to-server fetch of a user-controlled URL → SSRF is the central risk. Defenses:
+//   - http/https only;
+//   - DNS resolution is checked at DIAL time (blocks private/loopback/link-local IPs, avoiding
+//     rebinding);
+//   - short timeout, body cap, few redirects (each revalidated by the same dialer);
+//   - in-memory cache with TTL so we don't redo the fetch or hammer the target.
 
 type unfurlData struct {
 	// Kind tells the client how to draw it: "" is a plain web page, "task" is one of ours and gets
@@ -45,17 +46,17 @@ var (
 
 const (
 	unfurlTTL     = time.Hour
-	unfurlMaxBody = 512 << 10 // 512 KiB é suficiente para o <head>
+	unfurlMaxBody = 512 << 10 // 512 KiB is enough for the <head>
 )
 
-// isBlockedIP recusa endereços não roteáveis publicamente (SSRF).
+// isBlockedIP rejects addresses that aren't publicly routable (SSRF).
 func isBlockedIP(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
 		ip.IsUnspecified() || ip.IsMulticast()
 }
 
-// safeDialContext resolve o host e só disca se TODOS os IPs forem públicos — a checagem no dial
-// (e não antes) fecha o DNS rebinding.
+// safeDialContext resolves the host and only dials if ALL the IPs are public — checking at dial
+// time (and not before) closes off DNS rebinding.
 func safeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -83,7 +84,7 @@ var unfurlClient = &http.Client{
 		if req.URL.Scheme != "http" && req.URL.Scheme != "https" {
 			return fmt.Errorf("unfurl: bad redirect scheme")
 		}
-		return nil // o safeDialContext revalida o IP a cada hop
+		return nil // safeDialContext revalidates the IP on every hop
 	},
 	Transport: &http.Transport{DialContext: safeDialContext, DisableKeepAlives: true},
 }
@@ -140,7 +141,7 @@ func (s *Server) handleUnfurl(w http.ResponseWriter, r *http.Request) {
 	data, ok := s.fetchUnfurl(r.Context(), u)
 	unfurlMu.Lock()
 	unfurlCache[raw] = unfurlEntry{data: data, ok: ok, exp: time.Now().Add(unfurlTTL)}
-	if len(unfurlCache) > 5000 { // poda simples
+	if len(unfurlCache) > 5000 { // simple pruning
 		for k, e := range unfurlCache {
 			if time.Now().After(e.exp) {
 				delete(unfurlCache, k)
@@ -173,7 +174,7 @@ func (s *Server) fetchUnfurl(ctx context.Context, u *url.URL) (unfurlData, bool)
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, unfurlMaxBody))
 	head := string(body)
 	if i := strings.Index(strings.ToLower(head), "</head>"); i >= 0 {
-		head = head[:i] // só o <head> importa para OG/title
+		head = head[:i] // only the <head> matters for OG/title
 	}
 	d := unfurlData{URL: u.String(), Site: u.Host}
 	for _, tag := range metaRe.FindAllString(head, -1) {
@@ -203,7 +204,7 @@ func (s *Server) fetchUnfurl(ctx context.Context, u *url.URL) (unfurlData, bool)
 			d.Title = strings.TrimSpace(html.UnescapeString(m[1]))
 		}
 	}
-	// Imagem relativa → absoluta; recusa esquemas estranhos.
+	// Relative image → absolute; rejects unusual schemes.
 	if d.Image != "" {
 		if iu, e := u.Parse(d.Image); e == nil && (iu.Scheme == "http" || iu.Scheme == "https") {
 			d.Image = iu.String()
@@ -212,7 +213,7 @@ func (s *Server) fetchUnfurl(ctx context.Context, u *url.URL) (unfurlData, bool)
 		}
 	}
 	if d.Title == "" && d.Description == "" {
-		return unfurlData{}, false // nada útil
+		return unfurlData{}, false // nothing useful
 	}
 	return d, true
 }

@@ -23,8 +23,9 @@ import (
 //     ever lost).
 //   - quota, hash-based dedup, and tenant/owner isolation are preserved.
 
-// hashToTemp escoa o corpo para um ficheiro temporário calculando o SHA-256 ao mesmo tempo (sem
-// carregar o ficheiro inteiro em memória). Devolve o temp (rebobinado), o hash hex e o tamanho.
+// hashToTemp streams the body into a temporary file while computing the SHA-256 at the same time
+// (without loading the whole file into memory). Returns the temp file (rewound), the hex hash, and
+// the size.
 func hashToTemp(r io.Reader) (*os.File, string, int64, error) {
 	tmp, err := os.CreateTemp("", "mailin-sync-*")
 	if err != nil {
@@ -45,7 +46,7 @@ func hashToTemp(r io.Reader) (*os.File, string, int64, error) {
 	return tmp, hex.EncodeToString(h.Sum(nil)), size, nil
 }
 
-// putBlobWithQuota grava o blob (dedup por tenant/hash) respeitando a cota. Devolve a blobKey.
+// putBlobWithQuota writes the blob (dedup per tenant/hash) respecting the quota. Returns the blobKey.
 func (s *Server) putBlobWithQuota(r *http.Request, mu db.MailUser, hash string, size int64, body io.Reader) (string, int, string) {
 	blobKey := mu.TenantID.String() + "/" + hash
 	exists, err := s.storage.Exists(r.Context(), blobKey)
@@ -64,8 +65,8 @@ func (s *Server) putBlobWithQuota(r *http.Request, mu db.MailUser, hash string, 
 	return blobKey, 0, ""
 }
 
-// handleSyncUpdateFile: PUT /api/sync/files/{id} — atualiza o conteúdo de um ficheiro existente com
-// controlo de concorrência otimista (If-Match). Corpo = bytes crus.
+// handleSyncUpdateFile: PUT /api/sync/files/{id} — updates the content of an existing file with
+// optimistic concurrency control (If-Match). Body = raw bytes.
 func (s *Server) handleSyncUpdateFile(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -76,8 +77,8 @@ func (s *Server) handleSyncUpdateFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "files.invalid_id")
 		return
 	}
-	// If-Match é obrigatório: sem uma base conhecida, um upload cego poderia perder a versão do
-	// servidor. Ausente → 428 Precondition Required.
+	// If-Match is mandatory: without a known base, a blind upload could lose the server's version.
+	// Missing → 428 Precondition Required.
 	base := r.Header.Get("If-Match")
 	if base == "" {
 		writeErr(w, http.StatusPreconditionRequired, "sync.if_match_required")
@@ -88,7 +89,7 @@ func (s *Server) handleSyncUpdateFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "files.not_found")
 		return
 	}
-	// O servidor mudou desde a base do daemon → conflito. O daemon trata (guarda cópia de conflito).
+	// The server changed since the daemon's base → conflict. The daemon handles it (keeps a conflict copy).
 	if cur.Hash != base {
 		writeErr(w, http.StatusPreconditionFailed, "sync.conflict")
 		return
@@ -101,7 +102,7 @@ func (s *Server) handleSyncUpdateFile(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tmp.Close(); _ = os.Remove(tmp.Name()) }()
 
-	// Sem alteração real (mesmo conteúdo) → no-op idempotente.
+	// No real change (same content) → idempotent no-op.
 	if hash == cur.Hash {
 		writeJSON(w, http.StatusOK, cur)
 		return
@@ -112,7 +113,7 @@ func (s *Server) handleSyncUpdateFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, code, ecode)
 		return
 	}
-	// Fotografa o estado corrente antes de sobrescrever (histórico navegável, nunca perde).
+	// Snapshots the current state before overwriting (browsable history, never lost).
 	_ = s.q.SnapshotFileVersion(r.Context(), db.SnapshotFileVersionParams{
 		FileID: cur.ID, TenantID: mu.TenantID, BlobKey: cur.BlobKey, Hash: cur.Hash,
 		Size: cur.Size, Version: cur.Version, CreatedBy: pgtype.UUID{Bytes: mu.ID, Valid: true},
@@ -127,8 +128,8 @@ func (s *Server) handleSyncUpdateFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, rec)
 }
 
-// handleSyncCreateFile: POST /api/sync/files?name=<nome>&folder_id=<uuid> — cria um novo ficheiro a
-// partir do corpo (bytes crus). Serve os ficheiros novos que aparecem na pasta local.
+// handleSyncCreateFile: POST /api/sync/files?name=<name>&folder_id=<uuid> — creates a new file from
+// the body (raw bytes). Serves the new files that appear in the local folder.
 func (s *Server) handleSyncCreateFile(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -172,8 +173,8 @@ func (s *Server) handleSyncCreateFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, rec)
 }
 
-// sanitizeUploadName garante um nome de ficheiro seguro (um só componente, sem separadores nem ".."),
-// espelhando a defesa do daemon do lado do servidor.
+// sanitizeUploadName guarantees a safe file name (a single component, no separators or ".."),
+// mirroring the daemon's defense on the server side.
 func sanitizeUploadName(name string) string {
 	if i := strings.LastIndexAny(name, "/\\"); i >= 0 {
 		name = name[i+1:]

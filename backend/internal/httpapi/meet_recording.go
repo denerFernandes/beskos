@@ -19,12 +19,12 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Gravação de reunião via LiveKit Egress (RoomComposite) → MinIO. Opcional: só quando o usuário
-// inicia. Chamamos a API Twirp do LiveKit; o Egress compõe a sala e sobe o MP4.
+// Meeting recording via LiveKit Egress (RoomComposite) → MinIO. Optional: only when the user
+// starts it. We call LiveKit's Twirp API; Egress composites the room and uploads the MP4.
 
 const recordTokenTTL = 6 * time.Hour
 
-// twirp chama um método da API do LiveKit (Egress) com token roomRecord.
+// twirp calls a LiveKit (Egress) API method with a roomRecord token.
 func (m *meet) twirp(ctx context.Context, method string, req any) ([]byte, error) {
 	tok, err := m.signVideo("egress", map[string]any{"roomRecord": true}, recordTokenTTL)
 	if err != nil {
@@ -49,7 +49,7 @@ func (m *meet) twirp(ctx context.Context, method string, req any) ([]byte, error
 	return out, nil
 }
 
-// handleStartRecording inicia a gravação da sala e registra a gravação.
+// handleStartRecording starts the room's recording and registers it.
 func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 	if !s.meet.recordingEnabled() {
 		writeErr(w, http.StatusServiceUnavailable, "meet.recording_disabled")
@@ -64,9 +64,9 @@ func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mu := mailUserFrom(r.Context())
-	// A sala precisa ser uma reunião DESTE tenant e o solicitante ser o host. Sem isto, qualquer
-	// usuário inicia o egress de uma sala de outro tenant e a gravação é guardada sob o próprio
-	// tenant (e depois reproduzível por ele) — captura cross-tenant (auditoria H4).
+	// The room must be a meeting of THIS tenant and the requester must be the host. Without this,
+	// any user could start the egress of another tenant's room and the recording would be stored
+	// under their own tenant (and later playable by them) — cross-tenant capture (audit H4).
 	mtg, err := s.q.GetMeetingByRoom(r.Context(), req.Room)
 	if err != nil || mtg.TenantID != mu.TenantID {
 		writeErr(w, http.StatusNotFound, "meet.meeting_not_found")
@@ -76,9 +76,9 @@ func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "meet.host_only")
 		return
 	}
-	// Gravação por plano: o plano de entrada não grava; "offline"/"offline_priority" usam o
-	// PIPELINE DE TRACKS (padrão — barato ao vivo, MP4 montado offline pelo worker); qualquer
-	// outro valor cai no RoomComposite legado.
+	// Recording per plan: the entry plan doesn't record; "offline"/"offline_priority" use the
+	// TRACKS PIPELINE (default — cheap live, MP4 assembled offline by the worker); any
+	// other value falls back to the legacy RoomComposite.
 	recording := s.tenantPlanByID(r.Context(), mu.TenantID).Recording
 	if recording == "none" {
 		writeErr(w, http.StatusForbidden, "meet.recording_not_in_plan")
@@ -98,10 +98,10 @@ func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"recording_id": rec.ID, "mode": "tracks"})
 		return
 	}
-	// Prefixo de tenant na chave: é o que faz a gravação cair na cifra POR TENANT em vez de ser
-	// embrulhada pela KEK. Apagar a chave de um tenant tem de tornar ilegível tudo o que é dele,
-	// gravações incluídas. As gravações antigas ficam onde estão — leem-se pela chave guardada na
-	// base de dados — e serão seladas com a KEK pela passagem de selagem.
+	// Tenant prefix in the key: this is what makes the recording fall under PER-TENANT encryption
+	// instead of being wrapped by the KEK. Deleting a tenant's key must make everything of theirs
+	// unreadable, recordings included. Old recordings stay where they are — read via the key stored
+	// in the database — and will be sealed with the KEK by the sealing pass.
 	filepath := mu.TenantID.String() + "/recordings/" + req.Room + "-" +
 		strconv.FormatInt(time.Now().Unix(), 10) + ".mp4"
 
@@ -131,7 +131,7 @@ func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "meet.record_start_failed")
 		return
 	}
-	// Vincula à reunião já validada acima (mesmo tenant, host).
+	// Links to the meeting already validated above (same tenant, host).
 	meetingID := pgtype.UUID{Bytes: mtg.ID, Valid: true}
 	rec, err := s.q.CreateRecording(r.Context(), db.CreateRecordingParams{
 		TenantID: mu.TenantID, RoomName: req.Room, MeetingID: meetingID,
@@ -144,7 +144,7 @@ func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"recording_id": rec.ID, "egress_id": egressID})
 }
 
-// handleStopRecording encerra a gravação ativa da sala.
+// handleStopRecording ends the room's active recording.
 func (s *Server) handleStopRecording(w http.ResponseWriter, r *http.Request) {
 	if !s.meet.recordingEnabled() {
 		writeErr(w, http.StatusServiceUnavailable, "meet.recording_disabled")
@@ -160,11 +160,11 @@ func (s *Server) handleStopRecording(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rec, err := s.q.GetActiveRecordingForRoom(r.Context(), req.Room)
 	if err != nil || rec.TenantID != mu.TenantID {
-		// Gravação inexistente OU de outro tenant → 404 (não confirma a existência cross-tenant).
+		// Nonexistent recording OR from another tenant → 404 (doesn't confirm cross-tenant existence).
 		writeErr(w, http.StatusNotFound, "meet.no_active_recording")
 		return
 	}
-	// Só o host da reunião para a gravação (auditoria H4).
+	// Only the meeting's host can stop the recording (audit H4).
 	if mtg, err := s.q.GetMeetingByRoom(r.Context(), req.Room); err != nil || mtg.OwnerUserID != mu.ID {
 		writeErr(w, http.StatusForbidden, "meet.host_only")
 		return
@@ -180,7 +180,7 @@ func (s *Server) handleStopRecording(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "stopping"})
 }
 
-// handleListRecordings lista as gravações do tenant, paginadas no servidor (home do Meet).
+// handleListRecordings lists the tenant's recordings, paginated server-side (Meet home).
 func (s *Server) handleListRecordings(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	// Upper-bounded too: an unbounded page overflows the int32 offset below.
@@ -214,7 +214,7 @@ func (s *Server) handleListRecordings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"recordings": recs, "total": total, "page": page, "per": per})
 }
 
-// handlePlayRecording faz streaming do MP4 do MinIO (inline) para o player.
+// handlePlayRecording streams the MP4 from MinIO (inline) to the player.
 func (s *Server) handlePlayRecording(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -237,12 +237,12 @@ func (s *Server) handlePlayRecording(w http.ResponseWriter, r *http.Request) {
 	}
 	defer obj.Close()
 	w.Header().Set("Content-Type", "video/mp4")
-	// ServeContent honra o Range: o player pode avançar/retroceder (seek), em vez de baixar tudo.
+	// ServeContent honors Range: the player can seek forward/back instead of downloading everything.
 	http.ServeContent(w, r, "recording.mp4", rec.StartedAt, obj)
 }
 
-// handleDeleteRecording apaga uma gravação: remove o blob do MinIO e a linha. Só quem iniciou a
-// gravação ou o dono da reunião pode apagar (posse do conteúdo).
+// handleDeleteRecording deletes a recording: removes the blob from MinIO and the row. Only whoever
+// started the recording or the meeting's owner can delete it (content ownership).
 func (s *Server) handleDeleteRecording(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -255,7 +255,7 @@ func (s *Server) handleDeleteRecording(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "meet.recording_not_found")
 		return
 	}
-	// Posse: quem iniciou, OU o dono da reunião ligada.
+	// Ownership: whoever started it, OR the owner of the linked meeting.
 	allowed := rec.StartedBy == mu.Email
 	if !allowed && rec.MeetingID.Valid {
 		if m, merr := s.q.GetMeetingOwned(r.Context(), db.GetMeetingOwnedParams{ID: uuid.UUID(rec.MeetingID.Bytes), OwnerUserID: mu.ID}); merr == nil {
@@ -276,9 +276,9 @@ func (s *Server) handleDeleteRecording(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleEgressEvent trata os eventos de gravação vindos no webhook do LiveKit. Primeiro tenta a
-// tabela de TRACK egresses (pipeline offline); se o egress_id não é de track, cai no legado
-// (RoomComposite em recordings.egress_id).
+// handleEgressEvent handles the recording events coming from the LiveKit webhook. First tries the
+// TRACK egresses table (offline pipeline); if the egress_id isn't a track's, falls back to the
+// legacy path (RoomComposite in recordings.egress_id).
 func (s *Server) handleEgressEvent(ctx context.Context, event string, raw []byte) {
 	var ev struct {
 		EgressInfo struct {
@@ -295,12 +295,12 @@ func (s *Server) handleEgressEvent(ctx context.Context, event string, raw []byte
 		return
 	}
 	eg := ev.EgressInfo
-	// Sem arquivo (abortada) ou status de falha → marca como falha.
+	// No file (aborted) or failure status → mark as failed.
 	failed := event == "egress_failed" || len(eg.FileResults) == 0 || eg.Status == "EGRESS_ABORTED" || eg.Status == "EGRESS_FAILED"
 	if event != "egress_ended" && event != "egress_failed" {
 		return
 	}
-	// Track egress? O filename final (extensão escolhida pela codec) chega aqui.
+	// Track egress? The final filename (extension chosen by the codec) arrives here.
 	tStatus, blob := "done", ""
 	if failed {
 		tStatus = "failed"
@@ -324,18 +324,18 @@ func (s *Server) handleEgressEvent(ctx context.Context, event string, raw []byte
 	}
 }
 
-// blobKeyFromFilename normaliza o filename do EgressInfo para a chave no bucket (o LiveKit pode
-// devolver o caminho absoluto local ou com o nome do bucket à frente).
+// blobKeyFromFilename normalizes the EgressInfo filename into the bucket key (LiveKit can return
+// either the local absolute path or one with the bucket name in front).
 //
-// As chaves novas trazem o tenant à frente (`<tenant>/recordings/…`), por isso o corte é feito no
-// UUID quando ele existe — cortar em "recordings/" perderia o prefixo e a gravação deixaria de ser
-// cifrada com a chave do tenant.
+// New keys carry the tenant up front (`<tenant>/recordings/…`), so the cut is made at the UUID
+// when it exists — cutting at "recordings/" would drop the prefix and the recording would stop
+// being encrypted with the tenant's key.
 func blobKeyFromFilename(name string) string {
 	i := strings.Index(name, "recordings/")
 	if i < 0 {
 		return name
 	}
-	// Recua até ao início do segmento anterior, se for um UUID de tenant.
+	// Backs up to the start of the previous segment, if it's a tenant UUID.
 	if i > 0 {
 		anterior := strings.LastIndex(name[:i-1], "/")
 		candidato := name[anterior+1 : i-1]
@@ -346,8 +346,8 @@ func blobKeyFromFilename(name string) string {
 	return name[i:]
 }
 
-// recordLayout valida o layout do RoomComposite pedido pelo host contra a lista suportada pelo
-// LiveKit Egress; qualquer valor desconhecido (ou vazio) cai no "grid" para nunca falhar o egress.
+// recordLayout validates the RoomComposite layout requested by the host against the list
+// supported by LiveKit Egress; any unknown (or empty) value falls back to "grid" so egress never fails.
 func recordLayout(v string) string {
 	switch v {
 	case "speaker", "single-speaker", "grid":
@@ -357,7 +357,7 @@ func recordLayout(v string) string {
 	}
 }
 
-// firstString devolve o primeiro valor não-vazio dentre as chaves dadas de um mapa JSON.
+// firstString returns the first non-empty value among the given keys of a JSON map.
 func firstString(m map[string]any, keys ...string) any {
 	for _, k := range keys {
 		if v, ok := m[k]; ok {

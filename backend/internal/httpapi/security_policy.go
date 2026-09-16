@@ -48,7 +48,7 @@ func (s *Server) handleSetSecurityPolicy(w http.ResponseWriter, r *http.Request)
 	action := "security.mfa_required_off"
 	if req.MFARequired {
 		action = "security.mfa_required_on"
-		// Derruba todas as sessões do tenant (menos a atual): próximo acesso = login + gate.
+		// Drops every session in the tenant (except the current one): next access = login + gate.
 		_ = s.q.DeleteTenantWebmailSessions(r.Context(), db.DeleteTenantWebmailSessionsParams{
 			TenantID: u.TenantID, KeepToken: sessionToken(r),
 		})
@@ -60,7 +60,7 @@ func (s *Server) handleSetSecurityPolicy(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]any{"mfa_required": req.MFARequired, "mfa_method": req.MFAMethod})
 }
 
-// mfaSatisfied diz se o utilizador cumpre a política (método exigido pelo tenant).
+// mfaSatisfied says whether the user meets the policy (method required by the tenant).
 func mfaSatisfied(method string, totpOn, smsOn bool) bool {
 	switch method {
 	case "totp":

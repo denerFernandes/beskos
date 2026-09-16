@@ -14,8 +14,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
-// Gestão de caixas pelo painel: listar e trocar a senha (admin). A senha não é guardada por nós;
-// só é aplicada no Stalwart (brief §2). A leitura de e-mail segue JMAP direto.
+// Mailbox management from the panel: list and change the password (admin). We never store the
+// password ourselves; it's only applied on Stalwart (brief §2). Reading e-mail goes through JMAP
+// directly.
 
 func (s *Server) handleListMailboxes(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
@@ -24,7 +25,7 @@ func (s *Server) handleListMailboxes(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "mailbox.list_failed")
 		return
 	}
-	// Devolve só o necessário (nunca há senha aqui).
+	// Returns only what's needed (there's never a password here).
 	out := make([]map[string]any, len(list))
 	for i, m := range list {
 		row := map[string]any{"id": m.ID, "email": m.Email, "name": m.Name, "role": m.Role, "created_at": m.CreatedAt}
@@ -45,7 +46,7 @@ type resetPasswordReq struct {
 	Password string `json:"password"`
 }
 
-// handleResetMailboxPassword troca a senha de uma caixa no Stalwart (checa posse do tenant).
+// handleResetMailboxPassword changes a mailbox's password on Stalwart (checks tenant ownership).
 func (s *Server) handleResetMailboxPassword(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -58,7 +59,7 @@ func (s *Server) handleResetMailboxPassword(w http.ResponseWriter, r *http.Reque
 		writeErr(w, http.StatusNotFound, "mailbox.not_found")
 		return
 	}
-	// Anti-escalonamento (lei §5.2): não deixar um papel resetar a senha de alguém de rank ≥ o seu.
+	// Anti-escalation (law §5.2): don't let a role reset the password of someone at a rank ≥ its own.
 	if mu.ID != u.ID && !rbac.CanManage(rbac.Role(u.Role), rbac.Role(mu.Role)) {
 		writeErr(w, http.StatusForbidden, "rbac.forbidden")
 		return

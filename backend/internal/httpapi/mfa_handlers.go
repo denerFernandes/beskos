@@ -22,9 +22,9 @@ const (
 	recoveryCount   = 10
 )
 
-// ---- Login em 2 passos ----
+// ---- Two-step login ----
 
-// startMFAChallenge emite um desafio após a senha correta. Se SMS ativo, envia o código.
+// startMFAChallenge issues a challenge after the correct password. If SMS is enabled, sends the code.
 func (s *Server) startMFAChallenge(w http.ResponseWriter, r *http.Request, u db.MailUser) {
 	token, err := auth.NewSessionToken()
 	if err != nil {
@@ -103,15 +103,15 @@ func (s *Server) handleMFAVerify(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user_id": u.ID, "token": token})
 }
 
-// checkSecondFactor tenta TOTP, depois SMS, depois códigos de recuperação (consumindo o usado).
+// checkSecondFactor tries TOTP, then SMS, then recovery codes (consuming the one used).
 func (s *Server) checkSecondFactor(ctx context.Context, u db.MailUser, ch db.MfaChallenge, code string) bool {
 	if u.MfaTotpEnabled && u.TotpSecret != "" {
 		if step, ok := totp.NowStep(s.decTOTP(u.TotpSecret), code); ok {
-			// Anti-replay: só aceita um passo ainda não usado. SetTOTPLastStep só avança (guarda
-			// `$2 > last_totp_step`), então um passo repetido não regrava — mas também não bloqueia
-			// aqui se o relógio empatar; a checagem estrita é abaixo.
+			// Anti-replay: only accepts a step not yet used. SetTOTPLastStep only advances (guards
+			// `$2 > last_totp_step`), so a repeated step doesn't rewrite it — but that alone doesn't
+			// block it here if the clock ties; the strict check is below.
 			if step <= u.LastTotpStep {
-				return false // código deste passo (ou anterior) já foi usado
+				return false // code for this step (or an earlier one) was already used
 			}
 			_ = s.q.SetTOTPLastStep(ctx, db.SetTOTPLastStepParams{ID: u.ID, LastTotpStep: step})
 			return true
@@ -120,7 +120,7 @@ func (s *Server) checkSecondFactor(ctx context.Context, u db.MailUser, ch db.Mfa
 	if u.MfaSmsEnabled && ch.SmsCodeHash != "" && auth.CheckPassword(ch.SmsCodeHash, code) {
 		return true
 	}
-	// Códigos de recuperação (uso único).
+	// Recovery codes (single use).
 	codes, err := s.q.ListActiveRecoveryCodes(ctx, u.ID)
 	if err == nil {
 		for _, rc := range codes {
@@ -133,7 +133,7 @@ func (s *Server) checkSecondFactor(ctx context.Context, u db.MailUser, ch db.Mfa
 	return false
 }
 
-// ---- Enrollment TOTP ----
+// ---- TOTP enrollment ----
 
 func (s *Server) handleTOTPStart(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
@@ -142,7 +142,7 @@ func (s *Server) handleTOTPStart(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "mfa.failed")
 		return
 	}
-	// Guarda o segredo CIFRADO em repouso; devolve o claro só agora (para o QR/app autenticador).
+	// Stores the secret ENCRYPTED at rest; returns the plaintext only now (for the QR/authenticator app).
 	if err := s.q.SetTOTPSecret(r.Context(), db.SetTOTPSecretParams{ID: u.ID, TotpSecret: s.encTOTP(secret)}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "mfa.failed")
 		return
@@ -154,7 +154,7 @@ type codeReq struct {
 	Code string `json:"code"`
 }
 
-// handleTOTPEnable confirma o TOTP (código do app) e ativa; devolve os códigos de recuperação UMA vez.
+// handleTOTPEnable confirms TOTP (code from the app) and activates it; returns the recovery codes ONCE.
 func (s *Server) handleTOTPEnable(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	fresh, err := s.q.GetUserByID(r.Context(), u.ID)
@@ -182,7 +182,7 @@ func (s *Server) handleTOTPEnable(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"enabled": true, "recovery_codes": codes})
 }
 
-// ---- Enrollment SMS ----
+// ---- SMS enrollment ----
 
 type smsStartReq struct {
 	Phone string `json:"phone"`
@@ -273,7 +273,7 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 
 // ---- helpers ----
 
-// regenRecoveryCodes substitui os códigos de recuperação e devolve os novos EM CLARO (só aqui).
+// regenRecoveryCodes replaces the recovery codes and returns the new ones IN PLAINTEXT (only here).
 func (s *Server) regenRecoveryCodes(w http.ResponseWriter, ctx context.Context, userID uuid.UUID) []string {
 	_ = s.q.DeleteRecoveryCodes(ctx, userID)
 	out := make([]string, 0, recoveryCount)
@@ -293,8 +293,8 @@ func (s *Server) regenRecoveryCodes(w http.ResponseWriter, ctx context.Context, 
 	return out
 }
 
-// numericCode gera um código numérico de n dígitos (crypto/rand), sem viés de módulo: rejeita os
-// bytes ≥ 250 (250 = 25×10), garantindo distribuição uniforme dos 10 dígitos.
+// numericCode generates an n-digit numeric code (crypto/rand) with no modulo bias: rejects
+// bytes ≥ 250 (250 = 25×10), guaranteeing a uniform distribution across the 10 digits.
 func numericCode(n int) string {
 	out := make([]byte, n)
 	buf := make([]byte, 1)
@@ -303,7 +303,7 @@ func numericCode(n int) string {
 			continue
 		}
 		if buf[0] >= 250 {
-			continue // descarta para não enviesar (256 não é múltiplo de 10)
+			continue // discard to avoid bias (256 is not a multiple of 10)
 		}
 		out[i] = '0' + buf[0]%10
 		i++
@@ -313,7 +313,7 @@ func numericCode(n int) string {
 
 var b32nopad = base32.StdEncoding.WithPadding(base32.NoPadding)
 
-// recoveryCode gera um código de recuperação legível (ex.: "K3M7-Q9AZ").
+// recoveryCode generates a human-readable recovery code (e.g. "K3M7-Q9AZ").
 func recoveryCode() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)

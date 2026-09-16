@@ -7,14 +7,14 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/provisioning"
 )
 
-// Dados de ligação para clientes de e-mail externos (Outlook, Thunderbird, telemóvel) e para quem
-// quer enviar a partir do próprio site por SMTP. É informação, não segredo: as portas e o host são
-// públicos; a senha é a da caixa e nunca passa por aqui.
+// Connection data for external e-mail clients (Outlook, Thunderbird, mobile) and for anyone who
+// wants to send from their own site via SMTP. This is information, not a secret: the ports and
+// host are public; the password is the mailbox's own and never passes through here.
 //
-// O host vem de STALWART_HOSTNAME. Sem ele configurado, o que aparece na zona DNS é o hostname
-// interno do contentor — inútil para quem está de fora.
+// The host comes from STALWART_HOSTNAME. Without it configured, what shows up in the DNS zone is
+// the container's internal hostname — useless to anyone outside.
 
-// SetMailHost define o host público do servidor de correio (IMAP/SMTP/JMAP).
+// SetMailHost sets the mail server's public host (IMAP/SMTP/JMAP).
 func (s *Server) SetMailHost(h string) { s.mailHost = h }
 
 // SetMTASTSHost sets the public name that serves MTA-STS policies, which every customer's
@@ -41,11 +41,11 @@ func (s *Server) handleMailConnection(w http.ResponseWriter, r *http.Request) {
 	host := s.mailHost
 	writeJSON(w, http.StatusOK, map[string]any{
 		"host":     host,
-		"username": mu.Email, // sempre o endereço completo — é o que o Stalwart espera
+		"username": mu.Email, // always the full address — that's what Stalwart expects
 		"imap":     map[string]any{"host": host, "port": 993, "security": "ssl"},
 		"smtp": []map[string]any{
-			{"host": host, "port": 465, "security": "ssl"},      // implícito, o mais simples
-			{"host": host, "port": 587, "security": "starttls"}, // alternativa para quem só fala 587
+			{"host": host, "port": 465, "security": "ssl"},      // implicit, the simplest one
+			{"host": host, "port": 587, "security": "starttls"}, // alternative for clients that only speak 587
 		},
 		"jmap":   map[string]any{"url": "https://" + host + "/.well-known/jmap"},
 		"caldav": map[string]any{"url": "https://" + host + "/dav/"},
