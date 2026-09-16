@@ -12,16 +12,16 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
-// Rotas registadas. Escrever o handler não chega — se ninguém o liga ao router, a app responde 404
-// e ninguém percebe até um cliente tentar (foi o que aconteceu com /api/aliases: handlers, queries,
-// frontend e migração prontos, rota nenhuma). Este teste passa a apanhá-lo.
+// Registered routes. Writing the handler isn't enough — if nobody wires it to the router, the app
+// responds 404 and nobody notices until a client tries (that's what happened with /api/aliases:
+// handlers, queries, frontend and migration ready, no route at all). This test now catches it.
 func TestRoutesRegistered(t *testing.T) {
-	// Cliente Stalwart mínimo: o router monta o proxy JMAP e lê-lhe a URL base.
+	// Minimal Stalwart client: the router sets up the JMAP proxy and reads its base URL from it.
 	srv := NewServer(nil, stalwart.New("http://stalwart.invalid", "", ""), nil, nil, nil,
 		billing.ManualProvider{}, billing.Settings{Currency: "EUR", MinPaidUsers: 1}, edition.CommunityCapabilities())
 	router, ok := srv.Router().(chi.Routes)
 	if !ok {
-		t.Fatal("o router não expõe as rotas")
+		t.Fatal("the router doesn't expose the routes")
 	}
 	got := map[string]bool{}
 	_ = chi.Walk(router, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
@@ -30,20 +30,20 @@ func TestRoutesRegistered(t *testing.T) {
 	})
 
 	want := []string{
-		// Sondas públicas: é o que a página de estado mede. Fora do /api, o proxy não as alcança
-		// e a medição seria a do servidor de ficheiros estáticos.
+		// Public probes: this is what the status page measures. Outside /api, the proxy can't
+		// reach them and the measurement would be the static file server's instead.
 		"GET /api/healthz", "GET /api/readyz",
-		// Aliases de e-mail (o caso que motivou o teste).
+		// Email aliases (the case that motivated the test).
 		"GET /api/aliases", "POST /api/aliases", "DELETE /api/aliases/{id}", "GET /api/me/addresses",
-		// Registo self-service e o que a página pública precisa antes de haver conta.
+		// Self-service signup and what the public page needs before there's an account.
 		"POST /api/public/signup", "GET /api/public/plans", "POST /api/public/quote",
-		// Faturação: perfil, simulação e checkout.
+		// Billing: profile, quote, and checkout.
 		"GET /api/billing/profile", "PUT /api/billing/profile", "POST /api/billing/quote",
 		"POST /api/billing/checkout", "POST /api/billing/webhook",
 	}
 	for _, w := range want {
 		if !got[w] {
-			t.Errorf("rota em falta: %s", w)
+			t.Errorf("missing route: %s", w)
 		}
 	}
 }

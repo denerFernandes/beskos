@@ -11,11 +11,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Co-hosts + limite por plano. Co-host = utilizador do tenant que o dono promove a anfitrião: ganha
-// política plena na sala e poderes de moderação (mutar/remover). O dono continua a gerir a lista.
+// Co-hosts + per-plan limit. Co-host = a tenant user the owner promotes to host: gains the full
+// room policy and moderation powers (mute/remove). The owner still manages the list.
 
-// meetingAsHost devolve a reunião se o utilizador for o dono OU um co-host. Base do gate das ações
-// de moderação (antes só o dono passava por GetMeetingOwned).
+// meetingAsHost returns the meeting if the user is the owner OR a co-host. Base of the gate for
+// moderation actions (previously only the owner passed GetMeetingOwned).
 func (s *Server) meetingAsHost(ctx context.Context, id uuid.UUID, mu db.MailUser) (db.Meeting, bool) {
 	m, err := s.q.GetMeetingInTenant(ctx, db.GetMeetingInTenantParams{ID: id, TenantID: mu.TenantID})
 	if err != nil {
@@ -30,7 +30,7 @@ func (s *Server) meetingAsHost(ctx context.Context, id uuid.UUID, mu db.MailUser
 	return db.Meeting{}, false
 }
 
-// isHostOf diz se o utilizador é dono ou co-host da reunião (para grants no join).
+// isHostOf reports whether the user is the owner or a co-host of the meeting (for grants on join).
 func (s *Server) isHostOf(ctx context.Context, m db.Meeting, userID uuid.UUID) bool {
 	if m.OwnerUserID == userID {
 		return true
@@ -39,8 +39,8 @@ func (s *Server) isHostOf(ctx context.Context, m db.Meeting, userID uuid.UUID) b
 	return ok
 }
 
-// participantCount conta quantos estão AGORA na sala do LiveKit (para o limite por plano). Erro do
-// LiveKit → -1 (o chamador decide não bloquear: a sala existir importa mais que a contagem).
+// participantCount counts how many are CURRENTLY in the LiveKit room (for the per-plan limit). A
+// LiveKit error → -1 (the caller decides not to block: the room existing matters more than the count).
 func (m *meet) participantCount(ctx context.Context, room string) int {
 	out, err := m.roomAPI(ctx, "ListParticipants", map[string]any{"room": room}, room)
 	if err != nil {
@@ -55,8 +55,8 @@ func (m *meet) participantCount(ctx context.Context, room string) int {
 	return len(lp.Participants)
 }
 
-// presentNonHost devolve as identidades (ids de utilizador) presentes na sala, menos o host — base
-// da auto-distribuição dos breakouts.
+// presentNonHost returns the identities (user ids) present in the room, minus the host — base for
+// the breakouts' auto-distribution.
 func (m *meet) presentNonHost(ctx context.Context, room, hostIdentity string) []string {
 	out, err := m.roomAPI(ctx, "ListParticipants", map[string]any{"room": room}, room)
 	if err != nil {
@@ -79,7 +79,7 @@ func (m *meet) presentNonHost(ctx context.Context, room, hostIdentity string) []
 	return ids
 }
 
-// --- Gestão de co-hosts (SÓ O DONO) ---
+// --- Co-host management (OWNER ONLY) ---
 
 func (s *Server) handleListCohosts(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -126,7 +126,7 @@ func (s *Server) handleAddCohost(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "meet.invalid_id")
 		return
 	}
-	// O co-host tem de ser um utilizador do mesmo tenant (não promover alguém de fora).
+	// The co-host must be a user of the same tenant (never promote an outsider).
 	if _, err := s.q.GetMailUserInTenant(r.Context(), db.GetMailUserInTenantParams{ID: uid, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusBadRequest, "meet.cohost_not_found")
 		return

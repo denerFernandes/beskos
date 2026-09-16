@@ -15,33 +15,33 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Notificações in-app (sino) + disparo de e-mail. O envio real de e-mail é opcional (só se
-// NOTIFY_* estiver configurado); as notificações in-app funcionam sempre.
+// In-app notifications (bell) + email dispatch. The actual email send is optional (only if
+// NOTIFY_* is configured); in-app notifications always work.
 
-// Rotas dos ELEMENTOS que originam notificações. O `link` é o que abre ao clicar — no sino, na
-// notificação do sistema (app de desktop) e no web push. Aponta sempre para o item concreto, não
-// para a área: clicar num aviso de ficheiro partilhado abre o ficheiro, não o Drive.
+// Routes for the ELEMENTS that originate notifications. The `link` is what opens on click — in the
+// bell, in the system notification (desktop app), and in the web push. It always points to the
+// concrete item, not the area: clicking a shared-file alert opens the file, not the Drive.
 
-// chatLink abre a conversa (canal ou DM).
+// chatLink opens the conversation (channel or DM).
 func chatLink(channelID uuid.UUID) string { return "/mail/chat/" + channelID.String() }
 
-// fileLink abre o ficheiro (visualizador ou editor Office, conforme o tipo).
+// fileLink opens the file (viewer or Office editor, depending on the type).
 func fileLink(fileID uuid.UUID) string { return "/mail/files/file/" + fileID.String() }
 
-// meetingLink abre a ficha da reunião (não entra na sala — a decisão de entrar é de quem clica).
+// meetingLink opens the meeting page (doesn't join the room — the decision to join is up to whoever clicks).
 func meetingLink(meetingID uuid.UUID) string { return "/mail/meet/m/" + meetingID.String() }
 
-// eventLink abre o evento no calendário. A data vai junto (`?d=`) porque a agenda carrega por
-// intervalo: sem ela abriria na semana de hoje e o evento nem estaria carregado.
+// eventLink opens the event in the calendar. The date rides along (`?d=`) because the agenda loads
+// by range: without it, it would open on the current week and the event wouldn't even be loaded.
 func eventLink(eventID uuid.UUID, when time.Time) string {
 	return "/mail/cal/" + eventID.String() + "?d=" + url.QueryEscape(when.UTC().Format(time.RFC3339))
 }
 
-// notifyUser cria uma notificação in-app para um usuário do tenant.
+// notifyUser creates an in-app notification for a tenant user.
 //
-// `args` leva os dados estruturados do evento (ator, título, quando…) para o frontend traduzir por
-// `server.notif.<kind>` no idioma do usuário (CLAUDE.md §4.6). title/body continuam preenchidos em
-// inglês como fallback e para e-mail/web-push, que são renderizados no backend (sem frontend).
+// `args` carries the event's structured data (actor, title, when…) for the frontend to translate via
+// `server.notif.<kind>` in the user's language (CLAUDE.md §4.6). title/body stay filled in
+// English as a fallback and for email/web-push, which are rendered on the backend (no frontend).
 func (s *Server) notifyUser(ctx context.Context, tenantID, userID uuid.UUID, kind, title, body, link string, meetingID uuid.UUID, args map[string]string) {
 	_, err := s.q.CreateNotification(ctx, db.CreateNotificationParams{
 		TenantID: tenantID, UserID: userID, Kind: kind, Title: title, Body: body, Link: link,
@@ -51,7 +51,7 @@ func (s *Server) notifyUser(ctx context.Context, tenantID, userID uuid.UUID, kin
 	if err != nil {
 		log.Printf("notify: create in-app failed: %v", err)
 	}
-	// Espelha como notificação desktop (Web Push) — entregue mesmo com o Beskos fechado. Best-effort.
+	// Mirrors as a desktop notification (Web Push) — delivered even with Beskos closed. Best-effort.
 	s.sendWebPush(ctx, userID, pushPayload{Kind: kind, Title: title, Body: body, Link: link})
 }
 
@@ -62,7 +62,7 @@ func (s *Server) notifyPushOnly(ctx context.Context, userID uuid.UUID, kind, tit
 	s.sendWebPush(ctx, userID, pushPayload{Kind: kind, Title: title, Body: body, Link: link})
 }
 
-// notifArgs serializa os dados estruturados da notificação como JSON (objeto vazio se nada).
+// notifArgs serializes the notification's structured data as JSON (empty object if nothing).
 func notifArgs(m map[string]string) json.RawMessage {
 	if len(m) == 0 {
 		return json.RawMessage("{}")
@@ -74,7 +74,7 @@ func notifArgs(m map[string]string) json.RawMessage {
 	return b
 }
 
-// sendEmail dispara um e-mail se o sender estiver configurado (best-effort).
+// sendEmail sends an email if the sender is configured (best-effort).
 func (s *Server) sendEmail(to, subject, body string) bool {
 	if s.email == nil {
 		return false
@@ -123,8 +123,8 @@ func (s *Server) handleMarkAllNotificationsRead(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleMarkNotificationsReadByKind marca lidas as notificações de um tipo (limpa a badge da área
-// ao abri-la, ex.: meeting_invite ao ver Meet, file_share ao ver Arquivos).
+// handleMarkNotificationsReadByKind marks notifications of one kind as read (clears the area's
+// badge when opening it, e.g. meeting_invite when viewing Meet, file_share when viewing Files).
 func (s *Server) handleMarkNotificationsReadByKind(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req struct {

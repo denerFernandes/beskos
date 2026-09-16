@@ -24,7 +24,7 @@ import (
 // time over the LiveKit data channel. The PDF is served via a signed URL (HMAC token), reachable
 // by everyone in the room without depending on a session — that's why guests can see it too.
 
-// presReady exige storage + office (para converter) + meet ligados.
+// presReady requires storage + office (to convert) + meet to be enabled.
 func (s *Server) presReady(w http.ResponseWriter) bool {
 	if s.office == nil {
 		writeErr(w, http.StatusServiceUnavailable, "office.disabled")
@@ -33,7 +33,7 @@ func (s *Server) presReady(w http.ResponseWriter) bool {
 	return s.storageReady(w)
 }
 
-// --- token HMAC das URLs públicas (PDF ao cliente; fonte ao Document Server) ---
+// --- HMAC token for public URLs (PDF to the client; source to the Document Server) ---
 
 func (o *onlyoffice) mintPresToken(kind, value string, ttl time.Duration) string {
 	payload := kind + "|" + value + "|" + strconv.FormatInt(time.Now().Add(ttl).Unix(), 10)
@@ -73,7 +73,7 @@ func (o *onlyoffice) parsePresToken(tok, wantKind string) (string, bool) {
 	return f[1], true
 }
 
-// presentationJSON serializa a apresentação para o cliente, com um token de PDF fresco (6h).
+// presentationJSON serializes the presentation for the client, with a fresh PDF token (6h).
 func (s *Server) presentationJSON(p db.MeetPresentation) map[string]any {
 	tok := s.office.mintPresToken("pdf", p.ID.String(), 6*time.Hour)
 	return map[string]any{
@@ -81,14 +81,14 @@ func (s *Server) presentationJSON(p db.MeetPresentation) map[string]any {
 		"name":          p.Name,
 		"current_slide": p.CurrentSlide,
 		"token":         tok,
-		// by = identidade LiveKit do apresentador (mu.ID). Permite ao próprio, ao reentrar na sala,
-		// recuperar o papel de apresentador (controlos + responder aos hellos dos que chegam).
+		// by = the presenter's LiveKit identity (mu.ID). Lets them, on rejoining the room,
+		// recover the presenter role (controls + responding to newcomers' hellos).
 		"by": p.CreatedBy.String(),
 	}
 }
 
-// buildPresentationPDF grava o PDF final no MinIO e devolve a chave. PDF entra direto; office
-// (pptx/ppt/odp/…) é convertido pelo Document Server. src é lido por completo.
+// buildPresentationPDF stores the final PDF in MinIO and returns the key. A PDF goes in directly;
+// office files (pptx/ppt/odp/…) are converted by the Document Server. src is read in full.
 func (s *Server) buildPresentationPDF(ctx context.Context, tenant uuid.UUID, name, ext string, size int64, src io.Reader) (string, error) {
 	pdfKey := tenant.String() + "/meet-pres/" + uuid.New().String() + ".pdf"
 	if ext == "pdf" {
@@ -97,8 +97,8 @@ func (s *Server) buildPresentationPDF(ctx context.Context, tenant uuid.UUID, nam
 		}
 		return pdfKey, nil
 	}
-	// Office → PDF: sobe a fonte para o MinIO, dá ao DS uma URL assinada para buscá-la, converte,
-	// baixa o PDF gerado e guarda. A fonte temporária é removida no fim.
+	// Office → PDF: uploads the source to MinIO, gives the DS a signed URL to fetch it, converts,
+	// downloads the generated PDF and stores it. The temporary source is removed at the end.
 	srcKey := tenant.String() + "/meet-src/" + uuid.New().String() + "." + ext
 	if err := s.storage.Put(ctx, srcKey, src, size, "application/octet-stream"); err != nil {
 		return "", err
@@ -129,7 +129,7 @@ func (s *Server) buildPresentationPDF(ctx context.Context, tenant uuid.UUID, nam
 	return pdfKey, nil
 }
 
-// finishStart desativa apresentações anteriores da sala e cria a nova (ativa), devolvendo o JSON.
+// finishStart deactivates the room's previous presentations and creates the new (active) one, returning the JSON.
 func (s *Server) finishStart(w http.ResponseWriter, r *http.Request, room, name, pdfKey string, tenant, user uuid.UUID) {
 	_ = s.q.DeactivateRoomPresentations(r.Context(), db.DeactivateRoomPresentationsParams{Room: room, TenantID: tenant})
 	pres, err := s.q.CreatePresentation(r.Context(), db.CreatePresentationParams{
@@ -144,7 +144,7 @@ func (s *Server) finishStart(w http.ResponseWriter, r *http.Request, room, name,
 
 func presentableExt(ext string) bool { return ext == "pdf" || officeExts[ext] }
 
-// POST /api/meet/presentation/upload — inicia apresentação a partir de um ficheiro enviado.
+// POST /api/meet/presentation/upload — starts a presentation from an uploaded file.
 func (s *Server) handleStartPresentationUpload(w http.ResponseWriter, r *http.Request) {
 	if !s.presReady(w) {
 		return
@@ -178,7 +178,7 @@ func (s *Server) handleStartPresentationUpload(w http.ResponseWriter, r *http.Re
 	s.finishStart(w, r, room, header.Filename, pdfKey, mu.TenantID, mu.ID)
 }
 
-// POST /api/meet/presentation/drive — inicia a partir de um ficheiro do Drive (mesmo tenant/domínio).
+// POST /api/meet/presentation/drive — starts from a Drive file (same tenant/domain).
 func (s *Server) handleStartPresentationDrive(w http.ResponseWriter, r *http.Request) {
 	if !s.presReady(w) {
 		return
@@ -197,7 +197,7 @@ func (s *Server) handleStartPresentationDrive(w http.ResponseWriter, r *http.Req
 		writeErr(w, http.StatusBadRequest, "files.not_found")
 		return
 	}
-	// Escopo de domínio: o ficheiro tem de ser do mesmo tenant (lei §5.1).
+	// Domain scope: the file must belong to the same tenant (law §5.1).
 	f, err := s.q.GetStorageFileInTenant(r.Context(), db.GetStorageFileInTenantParams{ID: fid, TenantID: mu.TenantID})
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "files.not_found")
@@ -222,7 +222,7 @@ func (s *Server) handleStartPresentationDrive(w http.ResponseWriter, r *http.Req
 	s.finishStart(w, r, in.Room, f.Name, pdfKey, mu.TenantID, mu.ID)
 }
 
-// GET /api/meet/presentation?room=... — apresentação ativa da sala (para quem entra a meio).
+// GET /api/meet/presentation?room=... — the room's active presentation (for whoever joins midway).
 func (s *Server) handleGetPresentation(w http.ResponseWriter, r *http.Request) {
 	if s.office == nil {
 		writeJSON(w, http.StatusOK, map[string]any{"active": false})
@@ -241,7 +241,7 @@ func (s *Server) handleGetPresentation(w http.ResponseWriter, r *http.Request) {
 }
 
 // POST /api/meet/presentation/{id}/slide — o apresentador fixa o slide atual (persistido para quem
-// entra depois). O sync em tempo real vai pelo data channel; isto é só o baseline dos atrasados.
+// joins later). Real-time sync goes over the data channel; this is just the baseline for latecomers.
 func (s *Server) handleSetPresentationSlide(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -254,7 +254,7 @@ func (s *Server) handleSetPresentationSlide(w http.ResponseWriter, r *http.Reque
 		writeErr(w, http.StatusNotFound, "meet.presentation_not_found")
 		return
 	}
-	// Só o apresentador controla os slides (não qualquer membro do tenant) — auditoria.
+	// Only the presenter controls the slides (not any tenant member) — audit.
 	if pres.CreatedBy != mu.ID {
 		writeErr(w, http.StatusForbidden, "meet.not_presenter")
 		return
@@ -270,7 +270,7 @@ func (s *Server) handleSetPresentationSlide(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 }
 
-// POST /api/meet/presentation/{id}/stop — encerra a apresentação (some para todos).
+// POST /api/meet/presentation/{id}/stop — ends the presentation (disappears for everyone).
 func (s *Server) handleStopPresentation(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -278,7 +278,7 @@ func (s *Server) handleStopPresentation(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "meet.presentation_not_found")
 		return
 	}
-	// Só o apresentador encerra a própria apresentação (não qualquer membro do tenant).
+	// Only the presenter can end their own presentation (not any tenant member).
 	pres, err := s.q.GetPresentation(r.Context(), id)
 	if err != nil || pres.TenantID != mu.TenantID {
 		writeErr(w, http.StatusNotFound, "meet.presentation_not_found")
@@ -314,10 +314,10 @@ func (s *Server) handlePresentationPDF(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "meet.presentation_not_found")
 		return
 	}
-	// ServeContent (e não io.Copy): manda Content-Length e responde 206 a um pedido de Range. Com o
-	// io.Copy a resposta ia em chunked, sem tamanho e ignorando Range — mas o proxy à frente anuncia
-	// `Accept-Ranges: bytes`, e então o pdf.js pedia intervalos e recebia 200 com o ficheiro inteiro:
-	// o PDF grande nunca abria (o PPTX convertido, pequeno, baixava de uma vez e abria).
+	// ServeContent (not io.Copy): sends Content-Length and answers 206 to a Range request. With
+	// io.Copy the response went chunked, with no size and ignoring Range — but the proxy in front
+	// advertises `Accept-Ranges: bytes`, so pdf.js requested ranges and got 200 with the whole file:
+	// the large PDF never opened (the converted PPTX, being small, downloaded whole and opened fine).
 	obj, err := s.storage.GetSeek(r.Context(), pres.ObjectKey)
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "files.not_found")
@@ -329,8 +329,8 @@ func (s *Server) handlePresentationPDF(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "presentation.pdf", pres.CreatedAt, obj)
 }
 
-// GET /meet/presentation-src/{token} — PÚBLICO: o Document Server busca aqui a FONTE (pptx/…) durante
-// a conversão. Autorizado pelo token HMAC de curta duração emitido no buildPresentationPDF.
+// GET /meet/presentation-src/{token} — PUBLIC: the Document Server fetches the SOURCE (pptx/…) here
+// during conversion. Authorized by the short-lived HMAC token issued in buildPresentationPDF.
 func (s *Server) handlePresentationSource(w http.ResponseWriter, r *http.Request) {
 	if s.office == nil || s.storage == nil {
 		writeErr(w, http.StatusServiceUnavailable, "office.disabled")
@@ -344,7 +344,7 @@ func (s *Server) handlePresentationSource(w http.ResponseWriter, r *http.Request
 	s.streamObject(w, r, key, "application/octet-stream")
 }
 
-// streamObject copia um objeto do MinIO para a resposta.
+// streamObject copies an object from MinIO to the response.
 func (s *Server) streamObject(w http.ResponseWriter, r *http.Request, key, contentType string) {
 	rc, err := s.storage.Get(r.Context(), key)
 	if err != nil {

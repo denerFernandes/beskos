@@ -1,6 +1,6 @@
-// Package httpapi expõe a API do control plane (painel do cliente + admin interno).
-// Toda operação administrativa passa por aqui e checa posse do tenant antes de falar
-// com o Stalwart (brief §2/§10). O frontend NUNCA recebe credencial de admin do Stalwart.
+// Package httpapi exposes the control plane API (customer panel + internal admin).
+// Every administrative operation passes through here and checks tenant ownership before
+// talking to Stalwart (brief §2/§10). The frontend NEVER receives a Stalwart admin credential.
 //
 // This file holds the Server type and its constructor; the route table lives in server.go, kept
 // apart so neither file grows into the other (law §1.4).
@@ -28,45 +28,45 @@ import (
 type Server struct {
 	q            *db.Queries
 	sw           *stalwart.Client
-	ai           ai.Provider // pode ser nil se a IA não estiver configurada
+	ai           ai.Provider // may be nil if AI is not configured
 	sms          sms.Sender
-	storage      *storage.Service // pode ser nil se o MinIO não estiver configurado
+	storage      *storage.Service // may be nil if MinIO is not configured
 	billing      billing.Provider
 	signupsOpen  bool
 	billingCfg   billing.Settings
-	office       *onlyoffice   // edição de office (OnlyOffice Document Server); nil = desligado
-	meet         *meet         // videochamada (LiveKit); nil = desligado
+	office       *onlyoffice   // office editing (OnlyOffice Document Server); nil = off
+	meet         *meet         // video calling (LiveKit); nil = off
 	salesEmail   string        // where the website's contact form delivers; empty = form disabled
-	email        *notify.Email // envio de e-mail (notificações); nil = desligado
-	hub          *chat.Hub     // tempo real do chat (Redis pub/sub); nil = desligado
-	wiki         *wiki.Service // base de conhecimento (Confluence-style); serviço sobre as queries
-	wikiEmb      *ai.Embedder  // embeddings do RAG da wiki (nil = busca semântica desligada)
-	push         *webPush      // Web Push (notificações desktop com o app fechado); nil = desligado
-	maxUpload    int64         // teto por ficheiro no upload para o Files (bytes); 0 = default
-	corsOrigins  []string      // origens permitidas para CORS (app nativo Tauri, web externa)
-	cookieSecure bool          // cookie de sessão como Secure+SameSite=None (HTTPS/cross-site)
-	publicURL    string        // URL pública da app p/ links absolutos que saem em e-mails (sem "/" final)
+	email        *notify.Email // e-mail sending (notifications); nil = off
+	hub          *chat.Hub     // chat's real-time transport (Redis pub/sub); nil = off
+	wiki         *wiki.Service // knowledge base (Confluence-style); service layer over the queries
+	wikiEmb      *ai.Embedder  // wiki RAG embeddings (nil = semantic search off)
+	push         *webPush      // Web Push (desktop notifications with the app closed); nil = off
+	maxUpload    int64         // per-file cap on uploads to Files (bytes); 0 = default
+	corsOrigins  []string      // origins allowed for CORS (native Tauri app, external web)
+	cookieSecure bool          // session cookie as Secure+SameSite=None (HTTPS/cross-site)
+	publicURL    string        // app's public URL for absolute links that go out in e-mails (no trailing "/")
 	brandURL     string        // fallback for appURL when publicURL is unset (BRAND_URL)
-	mailHost     string        // host público do servidor de correio (IMAP/SMTP/JMAP) para os clientes externos
+	mailHost     string        // public hostname of the mail server (IMAP/SMTP/JMAP) for external clients
 	mtaStsHost   string        // public name serving MTA-STS policies; every customer's mta-sts.<domain> points here
-	aiProxyBase  string        // endpoint DeepSeek (OpenAI-compat) p/ o proxy de IA do editor
-	aiProxyKey   string        // chave real do DeepSeek — SÓ no servidor, nunca vai ao browser
-	aiProxyModel string        // modelo a forçar no proxy (ex.: deepseek-chat)
+	aiProxyBase  string        // DeepSeek endpoint (OpenAI-compat) for the editor's AI proxy
+	aiProxyKey   string        // real DeepSeek key — server-side ONLY, never reaches the browser
+	aiProxyModel string        // model to force in the proxy (e.g. deepseek-chat)
 
-	loginIP    *rateLimiter // tentativas de login por IP
-	loginUser  *rateLimiter // tentativas de login por conta (e-mail)
-	mfaIP      *rateLimiter // verificações de 2º fator por IP (trava rotação de challenges)
-	aiLimiter  *rateLimiter // chamadas de IA por usuário (custo/abuso)
-	pubLimiter *rateLimiter // endpoints públicos (Meet sem login) por IP
-	// presLimiter: balde próprio para o PDF da apresentação. Um PDF é lido por INTERVALOS (dezenas
-	// de pedidos para um deck grande) e a sala inteira pode estar atrás do mesmo IP (escritório,
-	// casa) — no balde público de 60/min bastavam dois participantes para levarem 429 e a
-	// apresentação nunca abrir. Continua limitado (não é uma torneira aberta), mas com folga real.
+	loginIP    *rateLimiter // login attempts per IP
+	loginUser  *rateLimiter // login attempts per account (e-mail)
+	mfaIP      *rateLimiter // second-factor checks per IP (locks down challenge rotation)
+	aiLimiter  *rateLimiter // AI calls per user (cost/abuse)
+	pubLimiter *rateLimiter // public endpoints (Meet without login) per IP
+	// presLimiter: its own bucket for the presentation PDF. A PDF is read in BURSTS (dozens of
+	// requests for a large deck) and the whole room can be behind the same IP (office, home) — in
+	// the shared public bucket of 60/min, two participants alone were enough to trigger 429s and
+	// the presentation would never open. Still bounded (not an open tap), but with real headroom.
 	presLimiter *rateLimiter
-	// agentLimiter tem balde próprio: uma execução agêntica gasta vários pedidos ao modelo, logo
-	// não pode partilhar o limite das chamadas de IA de um só passo.
+	// agentLimiter has its own bucket: one agentic run spends several calls to the model, so it
+	// can't share the limit meant for a single-step AI call.
 	agentLimiter *rateLimiter
-	// confirms guarda as ações do assistente à espera de aprovação humana (§6.3).
+	// confirms holds the assistant's actions awaiting human approval (§6.3).
 	confirms *assistantConfirms
 
 	// planCat is the cache of the plan catalog loaded from the database; see plans_catalog.go.
@@ -75,28 +75,28 @@ type Server struct {
 	// edition holds which Pro capabilities this instance has unlocked (edition.Load at startup).
 	edition edition.Capabilities
 
-	// agent é o motor agêntico do assistente (ciclo pensar→agir→observar). O provider por baixo
-	// pode ser nil se a IA não estiver configurada — o handler é que verifica.
+	// agent is the assistant's agentic engine (think→act→observe cycle). The underlying provider
+	// may be nil if AI is not configured — the handler is what checks.
 	agent *assistant.Engine
-	// agentRouter escolhe o perfil de agente a partir da mensagem do utilizador (§3.2). Fica FORA
-	// do motor de propósito: o encaminhamento decide-se antes de o ciclo arrancar e nunca a meio.
+	// agentRouter picks the agent profile from the user's message (§3.2). Kept OUTSIDE the
+	// engine on purpose: routing is decided before the cycle starts, never midway.
 	agentRouter *assistant.Router
 
-	totpBox *secretbox.Box // cifra o segredo TOTP em repouso (nil = guarda em claro)
+	totpBox *secretbox.Box // encrypts the TOTP secret at rest (nil = stored in plaintext)
 
-	// sesRelay remove identidades SES ao apagar domínios (nil = SES desligado). O REGISTO de
-	// identidades vive no worker (provisioning.EmailRelay); aqui só a limpeza.
+	// sesRelay removes SES identities when a domain is deleted (nil = SES off). Identity
+	// REGISTRATION lives in the worker (provisioning.EmailRelay); this is cleanup only.
 	sesRelay *ses.Client
-	// snsVerifier valida a assinatura do webhook de eventos do SES (bounces/complaints).
+	// snsVerifier validates the signature of the SES event webhook (bounces/complaints).
 	snsVerifier *ses.SNSVerifier
 
-	readiness func(context.Context) error // testa dependências críticas (ex.: ping ao Postgres) no /readyz; nil = só liveness
+	readiness func(context.Context) error // tests critical dependencies (e.g. ping to Postgres) in /readyz; nil = liveness only
 }
 
 func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSender sms.Sender, st *storage.Service, bp billing.Provider, bset billing.Settings, ed edition.Capabilities) *Server {
 	srv := &Server{
 		q: q, sw: sw, ai: aiProvider, sms: smsSender, storage: st, billing: bp, billingCfg: bset, edition: ed,
-		signupsOpen: true, // por omissão aberto; o main aplica a configuração
+		signupsOpen: true, // open by default; main applies the actual configuration
 		snsVerifier: ses.NewSNSVerifier(),
 		loginIP:     newRateLimiter(30, 5*time.Minute),
 		loginUser:   newRateLimiter(8, 5*time.Minute),
@@ -104,7 +104,7 @@ func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSe
 		aiLimiter:   newRateLimiter(30, time.Minute),
 		pubLimiter:  newRateLimiter(60, time.Minute),
 		presLimiter: newRateLimiter(600, time.Minute),
-		// 10 execuções por 5 minutos: cada uma pode gastar até DefaultMaxSteps chamadas ao modelo.
+		// 10 runs per 5 minutes: each can spend up to DefaultMaxSteps calls to the model.
 		agentLimiter: newRateLimiter(10, 5*time.Minute),
 		confirms:     newAssistantConfirms(),
 		wiki:         wiki.New(q),

@@ -5,17 +5,16 @@ import (
 	"net/http"
 )
 
-// sseWriter transmite eventos Server-Sent Events. Cada evento é uma linha `data: <json>`, seguida
-// de linha em branco — o JSON serializado nunca contém quebras de linha cruas, portanto uma linha
-// por evento chega.
+// sseWriter streams Server-Sent Events. Each event is a `data: <json>` line, followed by a blank
+// line — the serialized JSON never contains raw line breaks, so one line per event is enough.
 type sseWriter struct {
 	w http.ResponseWriter
 	f http.Flusher
 }
 
-// newSSE escreve os cabeçalhos e devolve o transmissor. Falha quando a ligação não permite
-// flush — sem flush, tudo ficaria em buffer e chegaria de uma vez no fim, que é o oposto de
-// streaming.
+// newSSE writes the headers and returns the streamer. It fails when the connection doesn't
+// support flush — without flush, everything would stay buffered and arrive all at once at the
+// end, which is the opposite of streaming.
 func newSSE(w http.ResponseWriter) (*sseWriter, bool) {
 	f, ok := w.(http.Flusher)
 	if !ok {
@@ -25,15 +24,15 @@ func newSSE(w http.ResponseWriter) (*sseWriter, bool) {
 	h.Set("Content-Type", "text/event-stream")
 	h.Set("Cache-Control", "no-cache")
 	h.Set("Connection", "keep-alive")
-	// Diz ao nginx para não fazer buffer da resposta; sem isto o proxy anula o streaming.
+	// Tells nginx not to buffer the response; without this the proxy would defeat the streaming.
 	h.Set("X-Accel-Buffering", "no")
 	w.WriteHeader(http.StatusOK)
 	f.Flush()
 	return &sseWriter{w: w, f: f}, true
 }
 
-// send emite um evento. Um valor que não serialize é ignorado em silêncio: matar o fio a meio por
-// causa de um evento seria pior do que perder esse evento.
+// send emits an event. A value that fails to serialize is silently dropped: killing the
+// connection midway over one event would be worse than losing that event.
 func (s *sseWriter) send(v any) {
 	payload, err := json.Marshal(v)
 	if err != nil {

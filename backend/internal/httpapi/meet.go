@@ -21,16 +21,16 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Meet — videochamada via LiveKit. Nosso Go assina o token de sala (JWT HS256 com o segredo do
-// LiveKit, mesmo padrão do OnlyOffice) e o browser entra com o SDK. O LiveKit roda como serviço
-// rede-only, sem modificação (leis §2/§5.4).
+// Meet — video calling via LiveKit. Our Go signs the room token (JWT HS256 with the LiveKit
+// secret, same pattern as OnlyOffice) and the browser joins with the SDK. LiveKit runs as a
+// network-only service, unmodified (laws §2/§5.4).
 
 type meet struct {
 	url    string // WebSocket que o BROWSER usa (ws://…)
 	apiKey string
 	secret []byte
 
-	// Gravação (Egress). httpURL = API Twirp do LiveKit (nosso Go a alcança); s3* = destino MinIO.
+	// Recording (Egress). httpURL = LiveKit's Twirp API (reached by our Go); s3* = MinIO destination.
 	httpURL    string
 	s3endpoint string
 	s3key      string
@@ -46,8 +46,8 @@ func (s *Server) EnableMeet(url, apiKey, secret string) {
 	s.meet = &meet{url: url, apiKey: apiKey, secret: []byte(secret)}
 }
 
-// EnableMeetRecording liga a gravação via Egress (opcional). Precisa da API Twirp do LiveKit e do
-// destino S3/MinIO.
+// EnableMeetRecording turns on recording via Egress (optional). Needs LiveKit's Twirp API and the
+// S3/MinIO destination.
 func (s *Server) EnableMeetRecording(httpURL, s3endpoint, s3key, s3secret, s3bucket string) {
 	if s.meet == nil || httpURL == "" || s3bucket == "" {
 		return
@@ -58,7 +58,7 @@ func (s *Server) EnableMeetRecording(httpURL, s3endpoint, s3key, s3secret, s3buc
 
 func (m *meet) recordingEnabled() bool { return m != nil && m.httpURL != "" && m.s3bucket != "" }
 
-// signVideo assina um token do LiveKit com um grant `video` arbitrário (join, record, etc.).
+// signVideo signs a LiveKit token with an arbitrary `video` grant (join, record, etc.).
 func (m *meet) signVideo(identity string, video map[string]any, ttl time.Duration) (string, error) {
 	now := time.Now()
 	claims := map[string]any{"iss": m.apiKey, "sub": identity, "nbf": now.Unix(), "exp": now.Add(ttl).Unix(), "video": video}
@@ -74,7 +74,7 @@ func (m *meet) signVideo(identity string, video map[string]any, ttl time.Duratio
 	return signing + "." + enc.EncodeToString(mac.Sum(nil)), nil
 }
 
-// videoGrant são os grants de sala do LiveKit embutidos no token.
+// videoGrant holds the LiveKit room grants embedded in the token.
 type videoGrant struct {
 	Room              string   `json:"room"`
 	RoomJoin          bool     `json:"roomJoin"`
@@ -84,18 +84,18 @@ type videoGrant struct {
 	CanPublishSources []string `json:"canPublishSources,omitempty"`
 }
 
-// roomPolicy é o que o organizador libera aos participantes (controles estilo Meet).
+// roomPolicy is what the organizer grants to participants (Meet-style controls).
 type roomPolicy struct{ Mic, Cam, Share, Chat bool }
 
 func fullPolicy() roomPolicy { return roomPolicy{true, true, true, true} }
 
-// meetingPolicy é a política da sala (o que vale para participantes e convidados; o dono recebe
+// meetingPolicy is the room's policy (what applies to participants and guests; the owner gets
 // fullPolicy).
 func meetingPolicy(m db.Meeting) roomPolicy {
 	return roomPolicy{Mic: m.AllowMic, Cam: m.AllowCam, Share: m.AllowShare, Chat: m.AllowChat}
 }
 
-// sources traduz a política para as fontes publicáveis do token (nomes minúsculos, formato do grant).
+// sources translates the policy into the token's publishable sources (lowercase names, grant format).
 func (p roomPolicy) sources() []string {
 	s := []string{}
 	if p.Mic {
@@ -110,19 +110,19 @@ func (p roomPolicy) sources() []string {
 	return s
 }
 
-// grant monta o videoGrant da política. ATENÇÃO: no LiveKit, canPublishSources vazio/ausente
-// significa "todas as fontes"; por isso, se nada é permitido, negamos canPublish por inteiro.
+// grant builds the videoGrant from the policy. WARNING: in LiveKit, an empty/absent
+// canPublishSources means "all sources"; so if nothing is allowed, we deny canPublish entirely.
 func (p roomPolicy) grant(room string) videoGrant {
-	// CanPublishData sempre true: o data channel é app-controlado (chat "digitando" + apresentação —
-	// slides/caneta/laser). Sem isto, um apresentador não-organizador não conseguiria transmitir a
-	// apresentação aos demais. A permissão de anotar é aplicada no cliente pelo apresentador.
+	// CanPublishData is always true: the data channel is app-controlled (chat "typing" + presentation —
+	// slides/pen/laser). Without this, a non-organizer presenter couldn't broadcast the
+	// presentation to the others. The annotation permission is applied client-side by the presenter.
 	g := videoGrant{Room: room, RoomJoin: true, CanSubscribe: true, CanPublishData: true}
 	srcs := p.sources()
 	switch {
 	case len(srcs) == 0:
 		g.CanPublish = false
 	case p.Mic && p.Cam && p.Share:
-		g.CanPublish = true // tudo liberado: omite a lista
+		g.CanPublish = true // everything allowed: omit the list
 	default:
 		g.CanPublish = true
 		g.CanPublishSources = srcs
@@ -130,7 +130,7 @@ func (p roomPolicy) grant(room string) videoGrant {
 	return g
 }
 
-// token assina um access token do LiveKit para (identity, room), com os grants da política.
+// token signs a LiveKit access token for (identity, room), with the policy's grants.
 func (m *meet) token(identity, name, room string, ttl time.Duration, p roomPolicy) (string, error) {
 	now := time.Now()
 	claims := map[string]any{
@@ -153,8 +153,8 @@ func (m *meet) token(identity, name, room string, ttl time.Duration, p roomPolic
 	return signing + "." + enc.EncodeToString(mac.Sum(nil)), nil
 }
 
-// verifyWebhook confere o JWT que o LiveKit envia no header Authorization (HS256 com o segredo),
-// incluindo o hash sha256 do corpo. Garante que o webhook veio do nosso LiveKit.
+// verifyWebhook checks the JWT LiveKit sends in the Authorization header (HS256 with the secret),
+// including the body's sha256 hash. Ensures the webhook came from our LiveKit.
 func (m *meet) verifyWebhook(authz string, body []byte) bool {
 	tok := strings.TrimSpace(strings.TrimPrefix(authz, "Bearer "))
 	parts := strings.Split(tok, ".")
@@ -180,8 +180,8 @@ func (m *meet) verifyWebhook(authz string, body []byte) bool {
 	if err := json.Unmarshal(raw, &claims); err != nil {
 		return false
 	}
-	// Rejeita token expirado / ainda não válido: sem isto um webhook capturado é reproduzível
-	// indefinidamente (auditoria). LiveKit emite exp; exige presença e validade.
+	// Rejects an expired / not-yet-valid token: without this, a captured webhook would be
+	// replayable indefinitely (audit). LiveKit emits exp; require its presence and validity.
 	now := time.Now().Unix()
 	if claims.Exp == 0 || now > claims.Exp || (claims.Nbf != 0 && now < claims.Nbf) {
 		return false
@@ -190,7 +190,7 @@ func (m *meet) verifyWebhook(authz string, body []byte) bool {
 	return claims.Sha256 == base64.StdEncoding.EncodeToString(sum[:])
 }
 
-// protoSources traduz a política para o enum TrackSource do protobuf (usado no UpdateParticipant).
+// protoSources translates the policy into the protobuf TrackSource enum (used in UpdateParticipant).
 func (p roomPolicy) protoSources() []string {
 	s := []string{}
 	if p.Mic {
@@ -205,7 +205,7 @@ func (p roomPolicy) protoSources() []string {
 	return s
 }
 
-// roomAPI chama a API RoomService do LiveKit com token de admin da sala.
+// roomAPI calls LiveKit's RoomService API with a room admin token.
 func (m *meet) roomAPI(ctx context.Context, method string, req any, room string) ([]byte, error) {
 	tok, err := m.signVideo("admin", map[string]any{"roomAdmin": true, "room": room}, 10*time.Minute)
 	if err != nil {
@@ -230,8 +230,8 @@ func (m *meet) roomAPI(ctx context.Context, method string, req any, room string)
 	return out, nil
 }
 
-// applyPolicy aplica a política a quem JÁ está conectado (o token só vale para quem entra depois).
-// O organizador mantém os grants completos.
+// applyPolicy applies the policy to those ALREADY connected (the token only applies to those who
+// join afterward). The organizer keeps the full grants.
 func (m *meet) applyPolicy(ctx context.Context, room, hostIdentity string, p roomPolicy) error {
 	out, err := m.roomAPI(ctx, "ListParticipants", map[string]any{"room": room}, room)
 	if err != nil {
@@ -245,9 +245,9 @@ func (m *meet) applyPolicy(ctx context.Context, room, hostIdentity string, p roo
 	if err := json.Unmarshal(out, &lp); err != nil {
 		return err
 	}
-	// canPublishData SEMPRE true (igual ao grant do token): o data channel é app-controlado
-	// (apresentação/caneta/laser/"digitando"). Amarrá-lo ao chat quebrava a apresentação de quem já
-	// estava conectado quando o host desligava o chat. O chat on/off é aplicado no cliente (allow_chat).
+	// canPublishData is ALWAYS true (same as the token grant): the data channel is app-controlled
+	// (presentation/pen/laser/"typing"). Tying it to chat would break the presentation for anyone
+	// already connected when the host turned chat off. Chat on/off is applied client-side (allow_chat).
 	perm := map[string]any{"canSubscribe": true, "canPublishData": true}
 	if srcs := p.protoSources(); len(srcs) == 0 {
 		perm["canPublish"] = false
@@ -271,12 +271,12 @@ func (m *meet) applyPolicy(ctx context.Context, room, hostIdentity string, p roo
 const meetTokenTTL = 6 * time.Hour
 
 type joinMeetReq struct {
-	Room   string `json:"room"`   // vazio → cria uma sala nova (ad-hoc)
-	Access string `json:"access"` // public | approval (só quando cria uma sala nova)
+	Room   string `json:"room"`   // empty → creates a new room (ad-hoc)
+	Access string `json:"access"` // public | approval (only when creating a new room)
 }
 
-// handleJoinMeet devolve a URL do LiveKit e um token para entrar na sala. Se room vier vazio,
-// cria uma reunião instantânea (com registro, para ser compartilhável e ter controle de acesso).
+// handleJoinMeet returns the LiveKit URL and a token to join the room. If room comes in empty,
+// it creates an instant meeting (with a record, so it can be shared and have access control).
 func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -291,12 +291,12 @@ func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 	if room == "" {
 		room = "beskos-" + uuid.NewString()[:8]
 	}
-	// Toda sala tem registro (dono = quem cria/entra primeiro). É o que dá organizador,
-	// controles e acesso também para salas ad-hoc (ex.: chamada iniciada no chat).
+	// Every room has a record (owner = whoever creates/joins first). This is what gives an
+	// organizer, controls, and access control to ad-hoc rooms too (e.g. a call started in chat).
 	m, err := s.q.GetMeetingByRoom(r.Context(), room)
 	if err != nil {
 		m, err = s.q.CreateMeeting(r.Context(), db.CreateMeetingParams{
-			TenantID: mu.TenantID, OwnerUserID: mu.ID, Title: "Reunião instantânea",
+			TenantID: mu.TenantID, OwnerUserID: mu.ID, Title: "Instant meeting",
 			RoomName: room, Access: normalizeAccess(req.Access),
 		})
 		if err != nil {
@@ -308,18 +308,18 @@ func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 			UserID: pgtype.UUID{Bytes: mu.ID, Valid: true}, Role: "host",
 		})
 	} else if m.TenantID != mu.TenantID {
-		// A sala é indexada só por nome (GetMeetingByRoom não filtra tenant). Sem esta checagem,
-		// um usuário de outro tenant que adivinhe/enumere o nome recebe um token de mídia da sala
-		// alheia, furando inclusive o lobby de aprovação (auditoria H3). Nunca emitir token aqui.
+		// The room is indexed only by name (GetMeetingByRoom doesn't filter by tenant). Without this
+		// check, a user from another tenant who guesses/enumerates the name would get a media token
+		// for someone else's room, even bypassing the approval lobby (audit H3). Never issue a token here.
 		writeErr(w, http.StatusForbidden, "meet.forbidden")
 		return
 	}
 
-	// O organizador (e os co-hosts) publicam tudo; os demais recebem os grants da política da sala.
+	// The organizer (and co-hosts) publish everything; everyone else gets the room policy's grants.
 	isHost := s.isHostOf(r.Context(), m, mu.ID)
 
-	// "Organizador entra primeiro": sem ele na sala, ninguém entra. Recusa ANTES de assinar o
-	// token — um token emitido já daria acesso, mesmo que a UI mostrasse uma sala de espera.
+	// "Organizer joins first": without them in the room, nobody joins. Refuse BEFORE signing the
+	// token — an already-issued token would grant access even if the UI showed a waiting room.
 	if s.lockedOut(r.Context(), m, isHost) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"locked": true, "room": room, "title": m.Title, "meeting_id": m.ID,
@@ -327,8 +327,8 @@ func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Limite de participantes por plano do tenant. Hosts/co-hosts entram sempre (para poderem abrir
-	// e moderar); só conta para os demais. Erro do LiveKit (-1) não bloqueia (a sala importa mais).
+	// Participant limit per tenant plan. Hosts/co-hosts always join (so they can open the room and
+	// moderate); it only counts for everyone else. A LiveKit error (-1) doesn't block (the room matters more).
 	if !isHost && s.meet != nil {
 		if t, terr := s.q.GetTenant(r.Context(), mu.TenantID); terr == nil {
 			limit := s.planByKey(r.Context(), t.Plan).MaxMeetParticipants
@@ -364,7 +364,7 @@ func (s *Server) handleJoinMeet(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// controlsDTO expõe os controles do organizador ao frontend.
+// controlsDTO exposes the organizer's controls to the frontend.
 func controlsDTO(m db.Meeting) map[string]bool {
 	return map[string]bool{
 		"allow_mic": m.AllowMic, "allow_cam": m.AllowCam,
@@ -373,8 +373,8 @@ func controlsDTO(m db.Meeting) map[string]bool {
 	}
 }
 
-// handleUpdateMeetControls — SÓ O DONO da sala altera: a query filtra por owner_user_id, então
-// um não-dono recebe "no rows" → 403. Aplica também a quem já está conectado.
+// handleUpdateMeetControls — ONLY THE OWNER of the room can change this: the query filters by
+// owner_user_id, so a non-owner gets "no rows" → 403. Also applies to those already connected.
 func (s *Server) handleUpdateMeetControls(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -388,7 +388,7 @@ func (s *Server) handleUpdateMeetControls(w http.ResponseWriter, r *http.Request
 		AllowShare    bool `json:"allow_share"`
 		AllowChat     bool `json:"allow_chat"`
 		LockUntilHost bool `json:"lock_until_host"`
-		Locked        bool `json:"locked"` // trancar a sala a novas entradas
+		Locked        bool `json:"locked"` // lock the room to new entries
 	}
 	if !decode(w, r, &req) {
 		return
@@ -411,7 +411,7 @@ func (s *Server) handleUpdateMeetControls(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, controlsDTO(m))
 }
 
-// handleUpdateMeetAccess — SÓ O DONO: troca aberta ↔ aprovação sem sair da sala.
+// handleUpdateMeetAccess — OWNER ONLY: switches open ↔ approval without leaving the room.
 func (s *Server) handleUpdateMeetAccess(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -481,12 +481,12 @@ func (s *Server) handleMeetWebhook(w http.ResponseWriter, r *http.Request) {
 	case "participant_left":
 		if id, err := uuid.Parse(ev.Participant.Identity); err == nil {
 			_ = s.q.MarkParticipantLeft(ctx, db.MarkParticipantLeftParams{RoomName: ev.Room.Name, UserID: pgtype.UUID{Bytes: id, Valid: true}})
-			// Se quem saiu era o apresentador, encerra a apresentação ativa da sala (senão fica
-			// órfã: ao reentrar continuava "a apresentar"). Só afeta apresentações criadas por ele.
+			// If whoever left was the presenter, end the room's active presentation (otherwise it's
+			// left orphaned: on rejoining it would still be "presenting"). Only affects presentations they created.
 			_ = s.q.DeactivateRoomPresentationsByCreator(ctx, db.DeactivateRoomPresentationsByCreatorParams{Room: ev.Room.Name, CreatedBy: id})
 		}
 	case "track_published":
-		// Faixa nova numa sala com gravação em modo tracks ativa → liga egress para ela.
+		// New track in a room with an active tracks-mode recording → start egress for it.
 		s.handleTrackPublished(ctx, ev.Room.Name, ev.Participant.Identity, ev.Track.Type, ev.Track.Sid)
 	case "egress_started", "egress_updated", "egress_ended", "egress_failed":
 		s.handleEgressEvent(ctx, ev.Event, body)

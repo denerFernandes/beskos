@@ -16,8 +16,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
-// SetReadiness liga a sonda de prontidão (/readyz): a função deve falhar se uma dependência crítica
-// (ex.: Postgres) estiver indisponível. Sem ela, /readyz responde sempre "ready".
+// SetReadiness wires the readiness probe (/readyz): the function should fail if a critical
+// dependency (e.g. Postgres) is unavailable. Without it, /readyz always answers "ready".
 func (s *Server) SetReadiness(ping func(context.Context) error) { s.readiness = ping }
 
 func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
@@ -35,13 +35,13 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 // SetSalesEmail sets where the website's contact form delivers. Empty disables the form.
 func (s *Server) SetSalesEmail(addr string) { s.salesEmail = addr }
 
-// EnableSES liga a limpeza de identidades SES ao apagar domínios.
+// EnableSES wires the cleanup of SES identities when a domain is deleted.
 func (s *Server) EnableSES(c *ses.Client) { s.sesRelay = c }
 
-// EnableTOTPEncryption liga a cifra do segredo TOTP em repouso (MFA_ENC_KEY). Vazio = desligado.
+// EnableTOTPEncryption enables encryption of the TOTP secret at rest (MFA_ENC_KEY). Empty = off.
 func (s *Server) EnableTOTPEncryption(key string) { s.totpBox = secretbox.New(key) }
 
-// encTOTP/decTOTP cifram/decifram o segredo TOTP; com box nil, são no-op (texto claro).
+// encTOTP/decTOTP encrypt/decrypt the TOTP secret; with a nil box, they are no-ops (plaintext).
 func (s *Server) encTOTP(plain string) string {
 	if v, err := s.totpBox.Encrypt(plain); err == nil {
 		return v
@@ -56,8 +56,8 @@ func (s *Server) decTOTP(stored string) string {
 	return stored
 }
 
-// decryptCred decifra a credencial JMAP guardada (brokering H11). Fail-closed: string vazia ou erro
-// de decifra → (,"", false), o que o proxy trata como "sem mailbox" (401 → re-login).
+// decryptCred decrypts the stored JMAP credential (H11 brokering). Fail-closed: an empty string or
+// a decryption error → ("", false), which the proxy treats as "no mailbox" (401 → re-login).
 func (s *Server) decryptCred(stored string) (string, bool) {
 	if stored == "" {
 		return "", false
@@ -69,7 +69,7 @@ func (s *Server) decryptCred(stored string) (string, bool) {
 	return v, true
 }
 
-// SetFileUploadLimit define o tamanho máximo por ficheiro no Files (configurável via env).
+// SetFileUploadLimit sets the maximum size per file in Files (configurable via env).
 func (s *Server) SetFileUploadLimit(n int64) { s.maxUpload = n }
 
 // SetAppOrigins wires CORS for the given origins (e.g. the Tauri app) and sets whether the
@@ -79,18 +79,18 @@ func (s *Server) SetAppOrigins(origins []string, cookieSecure bool) {
 	s.cookieSecure = cookieSecure
 }
 
-// SetPublicURL define a URL pública da app, usada para montar links absolutos que saem para fora
-// (ex.: o link de uma sala de reunião num e-mail). Sem ela, esses links ficariam relativos e
-// inúteis fora da app.
+// SetPublicURL sets the app's public URL, used to build absolute links that go out externally
+// (e.g. a meeting room link in an e-mail). Without it, those links would stay relative and
+// useless outside the app.
 func (s *Server) SetPublicURL(u string) { s.publicURL = strings.TrimRight(u, "/") }
 
 // SetBrandURL sets the fallback address for links that must stay absolute (e.g. inside an
 // e-mail) when PublicURL is unset -- see appURL in mail_alerts.go.
 func (s *Server) SetBrandURL(u string) { s.brandURL = strings.TrimRight(u, "/") }
 
-// originHostPatterns extrai os hosts das origens configuradas para o OriginPatterns do WebSocket.
-// Autoriza o app nativo (cross-origin) sem abrir o WS para qualquer site — o default (lista vazia)
-// já aceita só same-origin, fechando o CSWSH.
+// originHostPatterns extracts the hosts from the configured origins for the WebSocket's
+// OriginPatterns. It authorizes the native app (cross-origin) without opening the WS to any
+// site — the default (empty list) already accepts same-origin only, closing off CSWSH.
 func originHostPatterns(origins []string) []string {
 	out := make([]string, 0, len(origins))
 	for _, o := range origins {
@@ -110,12 +110,12 @@ func (s *Server) originAllowed(origin string) bool {
 	return false
 }
 
-// SetSignupsOpen abre/fecha o registo self-service (SIGNUPS_OPEN). Fechado, a página mostra
-// "em breve" e a API recusa — o resto do produto continua igual para quem já é cliente.
+// SetSignupsOpen opens/closes self-service signup (SIGNUPS_OPEN). When closed, the page shows
+// "coming soon" and the API refuses — the rest of the product stays the same for existing customers.
 func (s *Server) SetSignupsOpen(open bool) { s.signupsOpen = open }
 
-// EnableEmail liga o envio de e-mail para notificações (opcional).
+// EnableEmail wires e-mail sending for notifications (optional).
 func (s *Server) EnableEmail(e *notify.Email) { s.email = e }
 
-// EnableChat liga o tempo real do chat (WebSocket + Redis pub/sub).
+// EnableChat wires the chat's real-time transport (WebSocket + Redis pub/sub).
 func (s *Server) EnableChat(h *chat.Hub) { s.hub = h }
