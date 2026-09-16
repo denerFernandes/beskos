@@ -22,26 +22,26 @@ import { sanitize } from "./mailHtml";
 const parseList = (s?: string) => (s ?? "").split(",").map((e) => e.trim()).filter(Boolean);
 const toAddrs = (list: string[]) => list.map((email) => ({ email }));
 
-const UNDO_MS = 5000; // janela de "desfazer envio", à moda do Gmail.
-// Aviso de anexo esquecido: casa menções a anexo (pt/en) para avisar quem escreveu "segue anexo"
-// mas não anexou nada. Palavras isoladas com \b para não disparar em "attachment policy" etc.
+const UNDO_MS = 5000; // "undo send" window, Gmail-style.
+// Forgotten attachment warning: matches attachment mentions (pt/en) to warn whoever wrote "see attached"
+// but did not actually attach anything. Uses \b word boundaries to avoid firing on "attachment policy" etc.
 const ATTACH_RE = /\b(anexo|anexos|anexad[oa]s?|anexei|anexad|em anexo|segue anexo|attach|attached|attachment|attachments|enclosed)\b/i;
-const INLINE_LIMIT = 10 * 1024 * 1024; // >10MB não vai como anexo: sobe ao Files e envia-se um link.
-const DRIVE_LIMIT = 100 * 1024 * 1024 * 1024; // fallback do teto por ficheiro no Files (o real vem da env via /api/files/limits).
+const INLINE_LIMIT = 10 * 1024 * 1024; // >10MB does not go as an attachment: it is uploaded to Files and a link is sent instead.
+const DRIVE_LIMIT = 100 * 1024 * 1024 * 1024; // fallback per-file cap on Files (the real one comes from the env via /api/files/limits).
 
-// Anexo grande: vive no Files, entra no e-mail como link de download seguro (token).
+// Large attachment: lives in Files, enters the email as a secure download link (token).
 interface BigAttachment { fileId: string; name: string; size: number; token: string }
 const publicLink = (token: string) => publicUrl(`/api/public/files/${token}/download`);
 const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
-// Compose moderno: destinatários com autocomplete de contatos, Cc/Cco, editor rich-text,
-// anexos (upload JMAP), "Escrever com IA" e salvar rascunho.
+// Modern Compose: recipients with contact autocomplete, Cc/Bcc, rich-text editor,
+// attachments (JMAP upload), "Write with AI", and draft saving.
 export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   service: MailService;
   from: string;
   onClose: () => void;
   initial?: { to?: string; cc?: string; subject?: string; body?: string; bodyHtml?: string; draftId?: string; attachFiles?: File[]; attachments?: UploadedBlob[] };
-  dockIndex?: number; // posição na pilha de janelas (0 = mais à direita) — como o Gmail
+  dockIndex?: number; // position in the window stack (0 = rightmost) — like Gmail
 }) {
   const { t } = useTranslation();
   const [to, setTo] = useState<string[]>(parseList(initial?.to));
@@ -49,12 +49,12 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   const [bcc, setBcc] = useState<string[]>([]);
   const [showCc, setShowCc] = useState<boolean>(!!initial?.cc);
   const [subject, setSubject] = useState(initial?.subject ?? "");
-  const filesOff = useDisabledApps().includes("files"); // sem Ficheiros, não há Drive p/ anexos grandes
-  // Anexos já no servidor (ex.: ao reabrir um rascunho): reidrata o estado com os blobs existentes,
-  // senão o rascunho perdia o anexo ao ser reaberto/re-gravado. Novos ficheiros entram por onFiles.
+  const filesOff = useDisabledApps().includes("files"); // without Files, there is no Drive for large attachments
+  // Attachments already on the server (e.g. when reopening a draft): rehydrates the state with the existing blobs,
+  // otherwise the draft would lose the attachment when reopened/re-saved. New files come in via onFiles.
   const [atts, setAtts] = useState<UploadedBlob[]>(initial?.attachments ?? []);
   const [bigAtts, setBigAtts] = useState<BigAttachment[]>([]);
-  const [pendingBig, setPendingBig] = useState<File[]>([]); // grandes à espera de confirmação
+  const [pendingBig, setPendingBig] = useState<File[]>([]); // large files awaiting confirmation
   // Dropping files on the window attaches them. `onFiles` is a function declaration and therefore
   // hoisted, so it can be referenced here, above where it is written -- and it already decides
   // between a normal attachment and a large file that goes up to the Drive instead.
@@ -74,12 +74,12 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   const savedRange = useRef<Range | null>(null);
 
   const contacts = useQuery({ queryKey: ["contacts"], queryFn: () => contactsApi.list(), retry: false });
-  // Grupos de contatos como listas de distribuição no autocomplete de destinatários.
+  // Contact groups as distribution lists in the recipient autocomplete.
   const contactGroups = useQuery({ queryKey: ["contact-groups"], queryFn: () => contactsApi.groups(), retry: false });
-  // Identidades de envio (De:): o principal + aliases. Só mostra o seletor quando há mais de uma.
+  // Sending identities (From:): the primary one + aliases. Only shows the selector when there is more than one.
   const identities = useQuery({ queryKey: ["identities"], queryFn: () => service.identities(), retry: false });
-  // Aliases nossos: um alias entrega na mesma caixa, mas o servidor pode não publicar uma identidade
-  // JMAP para ele. Juntamos as duas fontes para o endereço aparecer no "De:" de qualquer forma.
+  // Our own aliases: an alias delivers to the same mailbox, but the server may not publish a JMAP
+  // identity for it. We combine both sources so the address shows up in "From:" regardless.
   const myAddr = useQuery({ queryKey: ["my-addresses"], queryFn: () => backend.myAddresses(), retry: false });
   const fromOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -96,7 +96,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     return out;
   }, [from, identities.data, myAddr.data]);
   const [fromAddr, setFromAddr] = useState(from);
-  // Regras de saída (mesmo cache do RulesView): avaliadas no envio para aplicar Bcc automático.
+  // Outbound rules (same cache as RulesView): evaluated on send to apply automatic Bcc.
   const rulesQ = useQuery({
     queryKey: ["sieve"],
     queryFn: async () => {
@@ -111,7 +111,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   const limits = useQuery({ queryKey: ["file-limits"], queryFn: () => backend.fileLimits(), retry: false, staleTime: Infinity });
   const [tplOpen, setTplOpen] = useState(false);
   const templatesQ = useQuery({ queryKey: ["mail-templates"], queryFn: () => backend.templatesList(), retry: false });
-  // Inserir template: preenche o assunto se vazio e prepende o corpo (HTML sanitizado) no editor.
+  // Insert template: fills in the subject if empty and prepends the (sanitized HTML) body in the editor.
   const insertTemplate = (tpl: { subject: string; body_html: string }) => {
     if (!subject.trim() && tpl.subject) setSubject(tpl.subject);
     if (editor.current) {
@@ -135,22 +135,22 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     try { await backend.templateDelete(id); qcTpl.invalidateQueries({ queryKey: ["mail-templates"] }); }
     catch (e) { toast((e as Error).message); }
   };
-  const driveLimit = limits.data?.max_upload_bytes ?? DRIVE_LIMIT; // teto por ficheiro no Files (env)
+  const driveLimit = limits.data?.max_upload_bytes ?? DRIVE_LIMIT; // per-file cap on Files (env)
 
-  // Corpo inicial = o que veio (resposta/rascunho) + assinatura. A assinatura entra SÓ quando é
-  // mensagem nova (sem corpo pré-definido) e está ligada — não a empilho numa resposta longa.
+  // Initial body = what came in (reply/draft) + signature. The signature is added ONLY for a
+  // new message (no predefined body) and when enabled — it is not stacked onto a long reply.
   const sig = settings.data?.email;
-  // Conteúdo inicial do editor em HTML: o corpo que veio (resposta/rascunho, texto → HTML) e, só em
-  // mensagem nova com assinatura ligada, a assinatura HTML depois do separador "-- ".
+  // Initial editor content in HTML: the body that came in (reply/draft, text -> HTML) and, only for a
+  // new message with the signature enabled, the HTML signature after the "-- " separator.
   const startBodyHtml = () => {
-    // Resposta/rascunho preservando HTML: usa o HTML original (sanitizado) em vez de texto→HTML.
+    // Reply/draft preserving HTML: uses the original (sanitized) HTML instead of text->HTML.
     if (initial?.bodyHtml) return sanitize(initial.bodyHtml).html;
     const base = initial?.body ?? "";
     const baseHtml = base ? escapeHtml(base).replace(/\n/g, "<br>") : "";
     if (base || draftId || !sig?.signature || sig.signatureOn === false) return baseHtml;
     return `<br><br>-- <br>${sig.signature}`;
   };
-  // Só injeta depois de as settings carregarem (o editor arranca vazio e recebe a assinatura).
+  // Only injects after settings load (the editor starts empty and receives the signature).
   const sigApplied = useRef(false);
   useEffect(() => {
     if (sigApplied.current || settings.isLoading) return;
@@ -158,13 +158,13 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     if (editor.current && !editor.current.innerHTML.trim()) editor.current.innerHTML = startBodyHtml();
   }, [settings.isLoading]);
 
-  // Bloco de links dos anexos grandes, anexado ao fim do corpo (texto simples).
+  // Block of links for the large attachments, appended at the end of the body (plain text).
   const bigAttBlock = () => {
     if (!bigAtts.length) return "";
     const lines = bigAtts.map((b) => `${b.name} (${Math.round(b.size / (1024 * 1024))} MB): ${publicLink(b.token)}`);
     return `\n\n${t("webmail.compose.bigAttHeader")}\n${lines.join("\n")}\n`;
   };
-  // O mesmo bloco em HTML (para o corpo HTML).
+  // The same block in HTML (for the HTML body).
   const bigAttBlockHtml = () => {
     if (!bigAtts.length) return "";
     const items = bigAtts.map((b) => `<li><a href="${publicLink(b.token)}">${escapeHtml(b.name)}</a> (${Math.round(b.size / (1024 * 1024))} MB)</li>`).join("");
@@ -178,7 +178,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     bcc: bcc.length ? toAddrs(bcc) : undefined,
     subject,
     textBody: (() => { const b = (editor.current?.innerText ?? "") + bigAttBlock(); return b.endsWith("\n") ? b : b + "\n"; })(),
-    // Enviamos sempre HTML (como o Gmail): preserva formatação, imagens, links e a assinatura HTML.
+    // We always send HTML (like Gmail): preserves formatting, images, links, and the HTML signature.
     htmlBody: `<div>${editor.current?.innerHTML ?? ""}${bigAttBlockHtml()}</div>`,
     attachments: atts,
   });
@@ -189,24 +189,24 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     onError: (e) => setErr((e as Error).message),
   });
 
-  // Rascunho automático: guarda em silêncio 2s depois de a pessoa parar de escrever, para nunca
-  // se perder o que foi digitado. Não corre em resposta a envio nem enquanto está a enviar.
+  // Autosave draft: saves silently 2s after the person stops typing, so what was typed is never
+  // lost. Does not run right after sending, nor while sending is in progress.
   const dirty = useRef(false);
   useEffect(() => {
     if (!dirty.current || sending) return;
     const id = setTimeout(() => {
       if (!editor.current) return;
       const empty = !to.length && !subject.trim() && !editor.current.innerText.trim() && !atts.length;
-      if (empty) return; // não cria rascunho vazio
-      service.saveDraft(buildDraft(), draftId).then((newId) => setDraftId(newId)).catch(() => { /* silencioso */ });
+      if (empty) return; // does not create an empty draft
+      service.saveDraft(buildDraft(), draftId).then((newId) => setDraftId(newId)).catch(() => { /* silent */ });
     }, 2000);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [to, cc, bcc, subject, atts, sending]);
   const markDirty = () => { dirty.current = true; };
 
-  // Partilha os anexos grandes com os destinatários da mesma organização — para aparecerem em
-  // "Partilhado comigo" no Files deles. Externos são ignorados pelo backend (ficam só com o link).
+  // Shares the large attachments with recipients from the same organization — so they show up in
+  // "Shared with me" in their Files. External recipients are ignored by the backend (they only get the link).
   const shareBigWithOrg = () => {
     if (!bigAtts.length) return;
     const emails = [...to, ...cc, ...bcc];
@@ -214,15 +214,15 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     for (const b of bigAtts) backend.shareRecipients(b.fileId, emails).catch(() => { /* best-effort */ });
   };
 
-  // Envio com janela de "desfazer": fecha o compositor e só dispara de facto após UNDO_MS.
-  // O toast oferece "Desfazer" durante essa janela. sendAt (opcional) agenda no servidor.
+  // Send with an "undo" window: closes the composer and only actually fires after UNDO_MS.
+  // The toast offers "Undo" during that window. sendAt (optional) schedules it on the server.
   function doSend(sendAt?: Date) {
     setErr("");
-    // Anexo esquecido: o corpo/assunto menciona anexo mas nada foi anexado → confirma antes de enviar.
+    // Forgotten attachment: the body/subject mentions an attachment but nothing was attached -> confirm before sending.
     const hasAtt = atts.length > 0 || bigAtts.length > 0 || pendingBig.length > 0;
     if (!hasAtt && ATTACH_RE.test(`${subject} ${editor.current?.innerText ?? ""}`) && !window.confirm(t("webmail.compose.attachWarn"))) return;
     const draft = buildDraft();
-    // Regras de SAÍDA: adiciona Bcc automático das que casam (ex.: "ao enviar p/ @cliente.com, Bcc arquivo").
+    // OUTBOUND rules: adds an automatic Bcc for the ones that match (e.g. "when sending to @client.com, Bcc archive").
     const extraBcc = outboundBcc(rulesQ.data ?? [], {
       to: to.join(", "), cc: cc.join(", "), subject, body: editor.current?.innerText ?? "",
     });
@@ -232,9 +232,9 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     const dId = draftId;
     dirty.current = false;
     setSending(true);
-    // Envio server-side: cria o rascunho no JMAP e regista o envio na outbox. O worker submete quando
-    // vence — agendado (hora escolhida) ou undo-send (agora + janela). Sobrevive a fechar a aba, e o
-    // "desfazer" cancela no servidor (não depende de um timer no cliente).
+    // Server-side send: creates the draft in JMAP and registers the send in the outbox. The worker submits it
+    // when it is due — scheduled (chosen time) or undo-send (now + window). Survives closing the tab, and
+    // "undo" cancels it on the server (it does not depend on a timer on the client).
     const when = sendAt ?? new Date(Date.now() + UNDO_MS);
     service.prepareOutbox(draft, dId)
       .then((prep) => backend.outboxCreate({
@@ -243,8 +243,8 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
       }))
       .then(({ id }) => {
         shareBigWithOrg();
-        // Guarda os destinatários como contactos, para os sugerir no próximo "Para". Não bloqueia o
-        // envio nem mostra erro se falhar — é um extra.
+        // Saves the recipients as contacts, to suggest them in the next "To". Does not block
+        // sending or show an error if it fails — it is a nice-to-have.
         const rcpts = [...to, ...cc, ...bcc];
         if (rcpts.length) void contactsApi.seen(rcpts).then(() => qcTpl.invalidateQueries({ queryKey: ["contacts"] })).catch(() => {});
         if (sendAt) {
@@ -260,11 +260,11 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
       .catch((e) => { setSending(false); dirty.current = true; setErr((e as Error).message); });
   }
 
-  // Total já anexado inline (o limite de 10 MB é do CONJUNTO, não de cada ficheiro).
+  // Total already attached inline (the 10 MB limit applies to the WHOLE set, not each file).
   const inlineTotal = () => atts.reduce((s, a) => s + a.size, 0);
 
-  // Ficheiros já prontos para anexar ao abrir a escrita (ex.: o .vcf de "enviar contacto"). Sobe uma
-  // única vez, no montar. São pequenos, por isso caem sempre no anexo inline.
+  // Files already prepared to attach when opening the composer (e.g. the .vcf from "send contact"). Runs
+  // only once, on mount. They are small, so they always fall into the inline attachment.
   const preAttached = useRef(false);
   useEffect(() => {
     const files = initial?.attachFiles;
@@ -280,18 +280,18 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     if (!files) return;
     markDirty();
     const gb = driveLimit / (1024 * 1024 * 1024);
-    let budget = INLINE_LIMIT - inlineTotal(); // espaço que resta no total de 10 MB
+    let budget = INLINE_LIMIT - inlineTotal(); // remaining space in the 10 MB total
     const toInline: File[] = [];
     const toBig: File[] = [];
     for (const f of Array.from(files)) {
       if (f.size > driveLimit) { toast(t("webmail.compose.bigTooLarge", { name: f.name, limit: gb.toFixed(gb < 10 ? 1 : 0) })); continue; }
-      // Cabe no que resta do total de anexos? Segue inline; senão vai via Files.
+      // Does it fit in what remains of the attachment total? Goes inline; otherwise it goes via Files.
       if (f.size <= budget) { toInline.push(f); budget -= f.size; }
       else toBig.push(f);
     }
     if (toBig.length) {
-      // Sem a app Ficheiros, não há Drive para onde subir o anexo grande: diz que não pode, em vez
-      // de sugerir um caminho que a organização desligou.
+      // Without the Files app, there is no Drive to upload the large attachment to: says it cannot, instead
+      // of suggesting a path the organization has turned off.
       if (filesOff) toBig.forEach((f) => toast(t("webmail.compose.bigNoDrive", { name: f.name })));
       else setPendingBig((p) => [...p, ...toBig]);
     }
@@ -303,7 +303,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     }
   }
 
-  // Confirmado: sobe os ficheiros grandes ao Files e gera um link seguro para cada um.
+  // Confirmed: uploads the large files to Files and generates a secure link for each one.
   async function confirmBig() {
     const files = pendingBig;
     setPendingBig([]);
@@ -325,7 +325,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     markDirty();
   };
 
-  // Guarda a posição do cursor (o picker de emoji/imagem rouba o foco do editor).
+  // Saves the cursor position (the emoji/image picker steals focus from the editor).
   const saveSelection = () => {
     const sel = window.getSelection();
     if (sel && sel.rangeCount && editor.current?.contains(sel.anchorNode)) savedRange.current = sel.getRangeAt(0).cloneRange();
@@ -336,7 +336,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     if (savedRange.current && sel) { sel.removeAllRanges(); sel.addRange(savedRange.current); }
   };
 
-  // Inserir link: envolve a seleção (ou insere o próprio URL) num <a>.
+  // Insert link: wraps the selection (or inserts the URL itself) in an <a>.
   const insertLink = () => {
     saveSelection();
     const url = window.prompt(t("webmail.compose.linkPrompt"), "https://");
@@ -348,7 +348,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
     markDirty();
   };
 
-  // Inserir imagem inline: lê o ficheiro como data URI e mete-o no corpo (renderiza já no editor).
+  // Insert inline image: reads the file as a data URI and puts it in the body (renders right away in the editor).
   const onImageFile = (files: FileList | null) => {
     const f = files?.[0];
     if (!f) return;
@@ -363,8 +363,8 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
 
   const pickEmoji = (ch: string) => { restoreSelection(); document.execCommand("insertText", false, ch); markDirty(); };
 
-  // Empilhamento estilo Gmail: cada janela encosta-se à direita, deslocada pela sua posição. Quando
-  // maximizada ocupa o ecrã (ignora o offset).
+  // Gmail-style stacking: each window docks to the right, offset by its position. When
+  // maximized it takes over the screen (ignores the offset).
   const dockStyle = maxed ? undefined : { right: 24 + dockIndex * 736 };
   return (
     <div className="cmp-bg open">
@@ -449,8 +449,8 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
               </span>
             ))}
             {bigAtts.map((b) => (
-              // Anexo grande = link do Files. Ícone diferente e legenda para deixar claro que vai
-              // como link (não como ficheiro colado ao e-mail).
+              // Large attachment = a Files link. Different icon and caption to make it clear it goes
+              // as a link (not as a file attached to the email).
               <span key={b.fileId} className="cmp-att big" title={t("webmail.compose.bigAttTip")}>
                 <IcLink size={13} /> {b.name}
                 <small>{Math.round(b.size / (1024 * 1024))} MB · {t("webmail.compose.bigAttLabel")}</small>
@@ -462,7 +462,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
         )}
 
         {pendingBig.length > 0 && (
-          // Ficheiro acima do limite: perguntar antes de enviar via Files (não sobe sozinho).
+          // File above the limit: ask before sending via Files (it does not upload on its own).
           <div className="bigask">
             <div className="bigask-txt">
               <b>{t("webmail.compose.bigAskTitle", { limit: 10 })}</b>
@@ -515,13 +515,13 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
   );
 }
 
-// Formata o instante de agendamento para o toast/label, no locale ativo.
+// Formats the scheduled instant for the toast/label, in the active locale.
 function fmtWhen(d: Date): string {
   return new Intl.DateTimeFormat(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" }).format(d);
 }
 
-// Menu de agendamento: presets úteis + hora personalizada. As presets são calculadas a partir de
-// agora (só aqui, em código de UI — sem restrição de Date). datetime-local devolve hora local.
+// Scheduling menu: useful presets + a custom time. The presets are computed from
+// now (only here, in UI code — no Date restriction). datetime-local returns local time.
 function ScheduleMenu({ onPick, onClose }: { onPick: (d: Date) => void; onClose: () => void }) {
   const { t } = useTranslation();
   const [custom, setCustom] = useState("");
@@ -533,7 +533,7 @@ function ScheduleMenu({ onPick, onClose }: { onPick: (d: Date) => void; onClose:
     d.setHours(h, 0, 0, 0);
     return d;
   };
-  // Amanhã 08:00; hoje/amanhã 13:00; próxima segunda 08:00.
+  // Tomorrow 08:00; today/tomorrow 13:00; next Monday 08:00.
   const tomorrowAm = atHour(1, 8);
   const laterToday = now.getHours() < 12 ? atHour(0, 13) : atHour(1, 13);
   const nextMon = (() => { const d = atHour(1, 8); while (d.getDay() !== 1) d.setDate(d.getDate() + 1); return d; })();
@@ -569,7 +569,7 @@ function ScheduleMenu({ onPick, onClose }: { onPick: (d: Date) => void; onClose:
   );
 }
 
-// Painel inline "Escrever com IA": gera o corpo do zero a partir de uma instrução.
+// Inline "Write with AI" panel: generates the body from scratch based on an instruction.
 function AICompose({ onUse, onClose }: { onUse: (text: string) => void; onClose: () => void }) {
   const { t } = useTranslation();
   const [instruction, setInstruction] = useState("");

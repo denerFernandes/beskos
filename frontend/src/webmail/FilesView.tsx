@@ -26,35 +26,35 @@ type TypeF = "" | "doc" | "pdf" | "sheet" | "image" | "video" | "audio" | "code"
 type PeopleF = "" | "me" | "shared" | "with-me";
 type ModF = "" | "today" | "7d" | "30d" | "year";
 
-// Drive: pastas/subpastas, ícones por tipo, grade/lista, arrastar para mover, compartilhar,
-// filtros (tipo/pessoas/modificado), coluna de proprietário e indicador de armazenamento.
+// Drive: folders/subfolders, icons by type, grid/list, drag to move, share,
+// filters (type/people/modified), owner column, and storage indicator.
 export function FilesView({ search, folderParam, fileParam, onFolder }: {
   search: string;
-  /** Pasta aberta, vinda da URL (/mail/files/<id>) — não há estado local a duplicá-la. */
+  /** Open folder, coming from the URL (/mail/files/<id>) — no local state duplicates it. */
   folderParam?: string;
-  /** Ficheiro a abrir de imediato (/mail/files/file/<id>): é o destino do aviso de partilha. */
+  /** File to open immediately (/mail/files/file/<id>): the target of the share notice. */
   fileParam?: string;
   onFolder: (id: string | null) => void;
 }) {
   const { t, i18n } = useTranslation();
   const nav = useNavigate();
   const qc = useQueryClient();
-  // A pasta atual VIVE na URL: recarregar, partilhar o link ou usar o botão "voltar" do browser
-  // continuam na mesma pasta. `setFolderId` navega em vez de guardar estado.
-  // "trash" é o único segmento reservado (os ids de pasta são UUID, nunca colidem).
+  // The current folder LIVES in the URL: reloading, sharing the link, or using the browser's
+  // "back" button all stay on the same folder. `setFolderId` navigates instead of storing state.
+  // "trash" is the only reserved segment (folder ids are UUIDs, so they never collide).
   const trashOpen = folderParam === "trash";
   const folderId = trashOpen ? null : (folderParam ?? null);
   const setFolderId = onFolder;
   const setTrashOpen = (open: boolean) => onFolder(open ? "trash" : null);
   const [view, setView] = useState<"grid" | "list">("list");
-  // Vista por defeito das Definições (settings.files.view): aplica uma vez ao carregar; depois o
-  // utilizador controla via os botões da barra.
+  // Default view from Settings (settings.files.view): applied once on load; after that the
+  // user controls it via the toolbar buttons.
   const settings = useUserSettings();
   const filesCfg = useSection("files");
   const changeView = (v: "grid" | "list") => { setView(v); filesCfg.save({ view: v }); };
-  // Pastas sincronizadas com o computador: destacadas na lista (só existe no app de desktop).
-  // A conta atual (e-mail) isola o sync por utilizador — sem ela, ao trocar de conta apareciam as
-  // pastas da conta anterior.
+  // Folders synced with the computer: highlighted in the list (only exists in the desktop app).
+  // The current account (email) isolates sync per user — without it, switching accounts would
+  // show the previous account's folders.
   const meQ = useQuery({ queryKey: ["me"], queryFn: () => backend.me(), staleTime: 60000 });
   const account = meQ.data?.email ?? "";
   const [syncedIds, setSyncedIds] = useState<Set<string>>(new Set());
@@ -93,20 +93,20 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   const [modF, setModF] = useState<ModF>("");
   const input = useRef<HTMLInputElement>(null);
   const dragId = useRef<string | null>(null);
-  const dragKind = useRef<"file" | "folder">("file"); // o que está a ser arrastado (move ficheiro vs pasta)
+  const dragKind = useRef<"file" | "folder">("file"); // what's being dragged (moving a file vs a folder)
 
   const listing = useQuery({ queryKey: ["files", folderId], queryFn: () => backend.files(folderId ?? undefined), retry: false });
-  // "Partilhado comigo": ficheiros que outras pessoas partilharam (fonte à parte, vista plana).
+  // "Shared with me": files other people shared (separate source, flat view).
   const sharedWithMe = useQuery({ queryKey: ["files-shared"], queryFn: () => backend.sharedWithMe(), enabled: peopleF === "with-me" || folderId === null, retry: false, refetchInterval: 30000, refetchOnWindowFocus: true });
-  // Busca global (recursiva): quando há termo, o backend procura em TODAS as pastas — não só a aberta.
+  // Global (recursive) search: when there's a term, the backend searches ALL folders — not just the open one.
   const searchTerm = search.trim();
   const searching = searchTerm.length > 0 && peopleF !== "with-me";
   const globalSearch = useQuery({ queryKey: ["files-search", searchTerm], queryFn: () => backend.searchFiles(searchTerm), enabled: searching, retry: false });
   const invalidate = () => { qc.invalidateQueries({ queryKey: ["files"] }); qc.invalidateQueries({ queryKey: ["files-shared"] }); };
 
-  const [uploads, setUploads] = useState<{ name: string; pct: number }[]>([]); // barra de progresso por ficheiro
-  const [osDrag, setOsDrag] = useState(false); // ficheiro do SO a ser arrastado sobre a área
-  // Upload múltiplo, sequencial, com progresso. Falha de um não derruba os outros (toast por erro).
+  const [uploads, setUploads] = useState<{ name: string; pct: number }[]>([]); // per-file progress bar
+  const [osDrag, setOsDrag] = useState(false); // an OS file being dragged over the area
+  // Multiple, sequential upload with progress. One failing doesn't bring down the others (toast per error).
   async function uploadMany(files: File[]) {
     if (!files.length) return;
     setUploads(files.map((f) => ({ name: f.name, pct: 0 })));
@@ -127,12 +127,12 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   const move = useMutation({ mutationFn: ({ id, to }: { id: string; to: string | null }) => backend.moveFile(id, to), onSuccess: () => { invalidate(); toast(t("files.moved")); } });
   const moveFolder = useMutation({ mutationFn: ({ id, to }: { id: string; to: string | null }) => backend.moveFolder(id, to), onSuccess: () => { invalidate(); toast(t("files.moved")); }, onError: (e) => toast((e as Error).message) });
   const del = useMutation({ mutationFn: (id: string) => backend.deleteFile(id), onSuccess: () => { invalidate(); toast(t("files.movedToTrash")); } });
-  // Duplicar: insere "(cópia)" antes da extensão (o backend reusa o blob — sem recopiar bytes).
+  // Duplicate: inserts "(copy)" before the extension (the backend reuses the blob — no re-copying bytes).
   const copyName = (name: string) => { const dot = name.lastIndexOf("."); const suf = " " + t("files.copySuffix"); return dot > 0 ? name.slice(0, dot) + suf + name.slice(dot) : name + suf; };
   const dup = useMutation({ mutationFn: (f: StorageFile) => backend.copyFile(f.id, copyName(f.name)), onSuccess: () => { invalidate(); toast(t("files.duplicated")); }, onError: (e) => toast((e as Error).message) });
   const star = useMutation({ mutationFn: ({ id, v }: { id: string; v: boolean }) => backend.starFile(id, v), onSuccess: () => invalidate(), onError: (e) => toast((e as Error).message) });
   const [sort, setSort] = useState<"name" | "date" | "size">("name");
-  // Seleção múltipla + ação em lote (lixeira com desfazer). Limpa ao trocar de pasta.
+  // Multiple selection + batch action (trash with undo). Cleared on folder change.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleSel = (id: string) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   useEffect(() => { setSelected(new Set()); }, [folderId, trashOpen]);
@@ -142,7 +142,7 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
     onError: (e) => toast((e as Error).message),
   });
   const delFolder = useMutation({ mutationFn: (id: string) => backend.deleteFolder(id), onSuccess: () => invalidate() });
-  // Lixeira: soft delete restaurável. A vista abre num painel próprio (setTrashOpen).
+  // Trash: restorable soft delete. The view opens in its own panel (setTrashOpen).
   const trash = useQuery({ queryKey: ["files-trash"], queryFn: () => backend.trashFiles(), enabled: trashOpen, retry: false });
   const invalidateTrash = () => { qc.invalidateQueries({ queryKey: ["files-trash"] }); qc.invalidateQueries({ queryKey: ["files"] }); };
   const restore = useMutation({ mutationFn: (id: string) => backend.restoreFile(id), onSuccess: () => { invalidateTrash(); toast(t("files.restored")); }, onError: (e) => toast((e as Error).message) });
@@ -163,7 +163,7 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   const sharedSet = new Set((searching ? globalSearch.data?.shared : data?.shared) ?? []);
   const isShared = (id: string) => sharedSet.has(id);
   const filtering = typeF !== "" || peopleF !== "" || modF !== "";
-  // Coluna "Local": na busca global o ficheiro pode estar em qualquer pasta, então não afirma a atual.
+  // "Location" column: in a global search the file can be in any folder, so it doesn't assert the current one.
   const localName = searching ? t("files.searchAll") : data?.breadcrumb?.length ? data.breadcrumb[data.breadcrumb.length - 1].name : t("files.myFiles");
 
   function withinMod(iso: string): boolean {
@@ -176,53 +176,53 @@ export function FilesView({ search, folderParam, fileParam, onFolder }: {
   // otherwise a file someone shares with me "does not show up in my Drive".
   const sharedWithMeIds = new Set((sharedWithMe.data?.files ?? []).map((f) => f.id));
   const rootDefault = folderId === null && peopleF === "" && !searching && typeF === "" && modF === "";
-  // Em "partilhado comigo" a fonte é outra (ficheiros de terceiros); ao buscar, a fonte é o resultado
-  // GLOBAL do backend (todas as pastas); senão, os ficheiros da pasta aberta. O nome já vem filtrado
-  // pelo servidor na busca, então aqui só aplicam-se os filtros de tipo/pessoa/data.
+  // In "shared with me" the source is different (other people's files); when searching, the source
+  // is the backend's GLOBAL result (all folders); otherwise, the open folder's files. The name is
+  // already filtered by the server during search, so only the type/people/date filters apply here.
   const source = withMe ? (sharedWithMe.data?.files ?? []) : searching ? (globalSearch.data?.files ?? []) : (data?.files ?? []);
   const sharedExtra = rootDefault ? (sharedWithMe.data?.files ?? []) : [];
   const files = source.filter((f) =>
     (typeF === "" || fileCategory(f.name) === typeF) &&
     (withMe || peopleF === "" || (peopleF === "shared" ? isShared(f.id) : !isShared(f.id))) &&
     withinMod(f.created_at))
-    // Favoritos primeiro; depois pela coluna escolhida (nome/data/tamanho).
+    // Favorites first; then by the chosen column (name/date/size).
     .sort((a, b) => (Number(!!b.starred) - Number(!!a.starred)) ||
       (sort === "size" ? b.size - a.size
         : sort === "date" ? b.created_at.localeCompare(a.created_at)
           : a.name.localeCompare(b.name, undefined, { numeric: true })));
-  // Ao buscar, as pastas vêm do backend (nome casado em qualquer nível); senão, as da pasta atual.
+  // When searching, folders come from the backend (name matched at any level); otherwise, the current folder's.
   const folders = searching ? (globalSearch.data?.folders ?? []) : (filtering ? [] : (data?.folders ?? []));
 
   function onDropTo(target: string | null) {
     const id = dragId.current;
     if (id && dragKind.current === "folder") {
-      // Pasta em cima de si mesma não faz nada; o backend também barra ciclo/descendente.
+      // A folder dropped on itself does nothing; the backend also blocks cycles/descendants.
       if (id !== target) moveFolder.mutate({ id, to: target });
     } else if (id) {
       move.mutate({ id, to: target });
     }
     dragId.current = null; setDropTarget(null);
   }
-  // Editor Office: no app nativo (Tauri) abre numa janela dedicada; na web navega na própria SPA.
+  // Office editor: in the native app (Tauri) opens in a dedicated window; on the web it navigates within the SPA itself.
   function openEditor(id: string) {
     if (!openInWindow(`editor-${id}`, `/mail/files/edit/${id}`, "Beskos — Editor")) nav(`/mail/files/edit/${id}`);
   }
-  // Office abre no editor; imagem/pdf/áudio/vídeo abrem no visualizador; os demais fazem download.
+  // Office files open in the editor; image/pdf/audio/video open in the viewer; the rest are downloaded.
   function openFile(f: StorageFile) {
     if (isOfficeFile(f.name)) openEditor(f.id);
     else if (viewerKind(f.name)) setViewing(f);
     else triggerDownload(backend.downloadFileUrl(f.id), f.name);
   }
 
-  // /mail/files/file/<id>: destino do aviso "partilharam um ficheiro contigo". Procura-o entre os
-  // partilhados comigo e os da raiz e abre-o como se tivesse sido clicado. Uma vez por id — abrir
-  // o editor troca de janela e reabrir a cada render seria um pesadelo.
+  // /mail/files/file/<id>: target of the "a file was shared with you" notice. Looks for it among
+  // files shared with me and root files, and opens it as if it had been clicked. Once per id —
+  // opening the editor switches windows and reopening on every render would be a nightmare.
   const openedFile = useRef<string | null>(null);
   useEffect(() => {
     if (!fileParam || openedFile.current === fileParam) return;
     const f = (sharedWithMe.data?.files ?? []).find((x) => x.id === fileParam)
       ?? (listing.data?.files ?? []).find((x) => x.id === fileParam);
-    if (!f) return; // ainda a carregar (ou já sem acesso): não faz nada
+    if (!f) return; // still loading (or access already revoked): does nothing
     openedFile.current = fileParam;
     openFile(f);
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -11,8 +11,8 @@ import { publicUrl } from "../apiBase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
-// Busca de pessoas para partilhar: colaboradores + contactos enquanto escreve, e aceita e-mail
-// livre digitado (padrão do InviteePicker). Escolher/confirmar chama onAdd com o e-mail.
+// People search for sharing: colleagues + contacts while typing, and accepts a freely
+// typed email (InviteePicker pattern). Picking/confirming calls onAdd with the email.
 function PeopleSearch({ onAdd, disabled }: { onAdd: (email: string) => void; disabled?: boolean }) {
   const { t } = useTranslation();
   const [q, setQ] = useState("");
@@ -70,15 +70,15 @@ function PeopleSearch({ onAdd, disabled }: { onAdd: (email: string) => void; dis
   );
 }
 
-// URL pública (SEM login) de um token de link: abre o ficheiro (OnlyOffice) na página pública /p/.
+// Public URL (NO login) for a link token: opens the file (OnlyOffice) on the public /p/ page.
 const publicLinkUrl = (token: string) => publicUrl(`/p/${token}`);
 
-// Principal sentinela da partilha ao NÍVEL DA ORGANIZAÇÃO (tem de casar o backend). Um âmbito de
-// acesso geral, não uma pessoa.
+// Sentinel principal for ORGANIZATION-LEVEL sharing (must match the backend). A general
+// access scope, not a person.
 const ORG = "@org";
 type Scope = "restricted" | "org" | "public";
 
-// Compartilhamento estilo Google Drive: adicionar pessoas com papel + acesso por link.
+// Google Drive-style sharing: add people with a role + link access.
 export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -87,15 +87,15 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   const [role, setRole] = useState("leitor");
   const [groupId, setGroupId] = useState("");
   const refresh = () => qc.invalidateQueries({ queryKey: ["shares", file.id] });
-  // Trocar a permissão de quem já tem acesso: é o mesmo pedido de partilhar (o servidor faz upsert
-  // por ficheiro+pessoa), por isso não duplica nem dispara e-mail a quem já foi avisado.
+  // Changing the permission of someone who already has access: it's the same share request (the server
+  // upserts by file+person), so it doesn't duplicate or trigger an email to someone already notified.
   const setPerm = useMutation({
     mutationFn: (v: { principal: string; level: string }) => backend.shareFile(file.id, v.principal, v.level),
     onSuccess: () => { refresh(); toast(t("files.permChanged")); },
     onError: (e) => toast((e as Error).message),
   });
 
-  // Equipas do utilizador: partilhar com o grupo inteiro (expande em e-mails no backend).
+  // User's teams: share with the whole group (expands into emails in the backend).
   const myGroupsQ = useQuery({ queryKey: ["my-groups"], queryFn: () => backend.myGroups(), retry: false });
   const myGroups = myGroupsQ.data ?? [];
   const shareGroup = useMutation({
@@ -105,12 +105,12 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   });
 
   const shares = sharesQ.data ?? [];
-  // Partilha de organização = principal sentinela "@org"; não é uma pessoa, não entra na lista.
+  // Organization share = sentinel principal "@org"; it's not a person, doesn't go in the list.
   const orgShare = shares.find((s) => s.principal === ORG);
   const people = shares.filter((s) => s.principal !== ORG && s.level !== "link");
 
-  // Partilha com alguém de FORA: não há conta para notificar, por isso vai um link por e-mail. Se o
-  // envio estiver desligado no servidor, dizemo-lo — dar por concluído o que não saiu é mentir.
+  // Sharing with someone OUTSIDE: there's no account to notify, so a link goes out by email. If
+  // sending is disabled on the server, we say so — reporting as done what didn't go out is a lie.
   const add = useMutation({
     mutationFn: (email: string) => backend.shareFile(file.id, email, role),
     onSuccess: (r) => {
@@ -123,17 +123,17 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
   });
   const remove = useMutation({ mutationFn: (s: Share) => backend.removeShare(file.id, s.id), onSuccess: refresh });
 
-  // Estado do link PÚBLICO (sem login): abre no OnlyOffice, com permissão + senha + expiração + descarga.
+  // PUBLIC link state (no login): opens in OnlyOffice, with permission + password + expiry + download.
   const pubLinkQ = useQuery({ queryKey: ["file-link", file.id], queryFn: () => backend.getFileLink(file.id), retry: false });
   const pubToken = pubLinkQ.data?.token ?? "";
   const refreshPub = () => qc.invalidateQueries({ queryKey: ["file-link", file.id] });
   const refreshAll = () => { refresh(); refreshPub(); };
-  const settings = useUserSettings(); // expiração por defeito do link (settings.files.linkExpiryDays)
+  const settings = useUserSettings(); // link's default expiry (settings.files.linkExpiryDays)
   const [expDays, setExpDays] = useState(settings.files?.linkExpiryDays ?? 30);
   const [pw, setPw] = useState("");
   const [linkPerm, setLinkPerm] = useState<"view" | "edit">("view");
   const [allowDl, setAllowDl] = useState(true);
-  // dirty = há alterações aos controlos do link ainda por guardar (só valem ao clicar em Aplicar).
+  // dirty = there are changes to the link controls still unsaved (only take effect on clicking Apply).
   const [dirty, setDirty] = useState(false);
   useEffect(() => {
     const d = pubLinkQ.data;
@@ -143,7 +143,7 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
     backend.fileLink(file.id, { expires_days: expDays, password: pw, permission: linkPerm, allow_download: allowDl, ...opts });
   const createPub = useMutation({ mutationFn: () => applyPub(), onSuccess: () => { refreshPub(); setPw(""); setDirty(false); toast(t("files.linkSaved")); }, onError: (e) => toast((e as Error).message) });
 
-  // Âmbito do "acesso geral": um de cada vez (estilo Google). Escolher um limpa os outros.
+  // "General access" scope: one at a time (Google style). Picking one clears the others.
   const scope: Scope = pubToken ? "public" : orgShare ? "org" : "restricted";
   const orgPerm: "view" | "edit" = orgShare?.level === "editor" ? "edit" : "view";
   const setScope = useMutation({
@@ -156,7 +156,7 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
     onSuccess: refreshAll,
     onError: (e) => toast((e as Error).message),
   });
-  // Permissão da organização (ver/editar): recria o share com o novo nível.
+  // Organization permission (view/edit): recreates the share with the new level.
   const setOrgPerm = useMutation({
     mutationFn: async (perm: "view" | "edit") => {
       if (orgShare) await backend.removeShare(file.id, orgShare.id);
@@ -200,8 +200,8 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
             <div className="share-row" key={s.id}>
               <Avatar email={s.principal} name={s.principal} size={30} />
               <div className="grow"><div className="who">{s.principal}</div></div>
-              {/* A permissão é EDITÁVEL: mudar de leitor para editor obrigava a remover e voltar a
-                  partilhar, e quem o fizesse com alguém de fora mandava-lhe um segundo e-mail. */}
+              {/* The permission is EDITABLE: switching from viewer to editor used to require removing and
+                  re-sharing, and doing that with someone outside would send them a second email. */}
               <select className="share-perm" value={s.level === "editor" ? "editor" : "leitor"}
                 disabled={setPerm.isPending}
                 onChange={(e) => setPerm.mutate({ principal: s.principal, level: e.target.value })}>
@@ -212,7 +212,7 @@ export function ShareModal({ file, onClose }: { file: StorageFile; onClose: () =
             </div>
           ))}
 
-          {/* ACESSO GERAL — um só seletor (estilo Google): Restrito · Organização · Link público. */}
+          {/* GENERAL ACCESS — a single selector (Google style): Restricted · Organization · Public link. */}
           <p className="dv-sec" style={{ margin: "16px 0 6px" }}>{t("files.generalAccess")}</p>
           <div className="share-general">
             <span className={"ic" + (scope === "restricted" ? "" : " on")}><IcLink size={20} /></span>

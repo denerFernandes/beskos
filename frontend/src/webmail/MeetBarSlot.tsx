@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-// Encaixe para pôr os NOSSOS botões dentro da barra de controlos do LiveKit, em vez de flutuarem
-// por cima dela.
+// Slot to place OUR buttons inside the LiveKit control bar, instead of floating
+// above it.
 //
-// Porquê um portal e não simplesmente posicionar ao lado: a barra é renderizada pelo
-// <VideoConference/> e a sua largura muda com o idioma, os dispositivos e o botão de chat. Qualquer
-// posicionamento absoluto ao lado dela é um palpite que falha assim que ela cresce — foi assim que
-// os ícones acabaram sobrepostos. Sendo filhos do mesmo flex, partilham a fila e quebram linha
-// juntos, sem número mágico nenhum.
+// Why a portal and not simply positioning alongside it: the bar is rendered by
+// <VideoConference/> and its width changes with the language, the devices, and the chat button.
+// Any absolute positioning next to it is a guess that fails as soon as it grows — that's how
+// the icons ended up overlapping. Being children of the same flex, they share the row and wrap
+// together, with no magic number at all.
 //
-// Reconstruir a barra de raiz com os hooks do LiveKit era a outra hipótese, mas o ChatToggle depende
-// do contexto de layout do <VideoConference/> e o chat deixaria de funcionar.
+// Rebuilding the bar from scratch with LiveKit's hooks was the other option, but ChatToggle depends
+// on <VideoConference/>'s layout context and chat would stop working.
 
-/** Devolve um nó dentro da barra do LiveKit, ou null enquanto ela não existir. */
+/** Returns a node inside the LiveKit bar, or null while it doesn't exist yet. */
 export function useControlBarSlot(): HTMLElement | null {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
 
@@ -21,18 +21,18 @@ export function useControlBarSlot(): HTMLElement | null {
     let mine: HTMLDivElement | null = null;
 
     const attach = () => {
-      if (mine?.isConnected) return; // já lá está
+      if (mine?.isConnected) return; // already there
       const bar = document.querySelector<HTMLElement>(".lk-control-bar");
       if (!bar) return;
       mine = document.createElement("div");
-      // display:contents — o invólucro desaparece do layout e os botões viram filhos diretos da fila.
+      // display:contents — the wrapper disappears from the layout and the buttons become direct children of the row.
       mine.className = "room-actions";
       bar.appendChild(mine);
       setSlot(mine);
     };
 
     attach();
-    // A barra só aparece depois de a sala ligar, e o LiveKit volta a montá-la ao reconectar.
+    // The bar only appears after the room connects, and LiveKit remounts it on reconnect.
     const obs = new MutationObserver(attach);
     obs.observe(document.body, { childList: true, subtree: true });
     return () => {
@@ -45,18 +45,18 @@ export function useControlBarSlot(): HTMLElement | null {
 }
 
 /**
- * Destino para sobreposições de ecrã inteiro (palco da apresentação, mãos levantadas, modais).
+ * Destination for full-screen overlays (presentation stage, raised hands, modals).
  *
- * `.wm` e NÃO `document.body`: todo o design system está escopado em `.wm` — as variáveis
- * (`--surface`, `--ink`) e as classes utilitárias (`.chipbtn`, `.ib`). Fora dela `var(--surface)`
- * não resolve e os botões perdem o estilo. `.wm` não tem transform/filter/contain, por isso os
- * `position:fixed` continuam a medir-se pelo ecrã — que é a razão de sair da barra de controlos.
+ * `.wm` and NOT `document.body`: the whole design system is scoped to `.wm` — the variables
+ * (`--surface`, `--ink`) and the utility classes (`.chipbtn`, `.ib`). Outside it `var(--surface)`
+ * doesn't resolve and the buttons lose their styling. `.wm` has no transform/filter/contain, so
+ * `position:fixed` still measures itself against the screen — which is why it leaves the control bar.
  */
 export function overlayRoot(): HTMLElement {
   return document.querySelector<HTMLElement>(".wm") ?? document.body;
 }
 
-/** Rende os filhos dentro da barra do LiveKit. Enquanto ela não existir, não rende nada. */
+/** Renders the children inside the LiveKit bar. While it doesn't exist yet, renders nothing. */
 export function ControlBarSlot({ children }: { children: React.ReactNode }) {
   const slot = useControlBarSlot();
   return slot ? createPortal(children, slot) : null;

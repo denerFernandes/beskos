@@ -14,7 +14,7 @@ import { BookmarkIcon } from "./ChatBits";
 import { ChannelPane, ThreadPanel } from "./ChannelPane";
 import { NewConvoModal } from "./ChatModals";
 
-// Chat estilo Slack: canais + DMs, mensagens em tempo real (WebSocket), reações e menções.
+// Slack-style chat: channels + DMs, real-time messages (WebSocket), reactions, and mentions.
 export function ChatView({ search, onSearch, session, channelParam, onChannel }: {
   search: string; onSearch?: (v: string) => void; session: WebmailSession; channelParam?: string; onChannel: (id: string) => void;
 }) {
@@ -23,44 +23,44 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
   const [typing, setTyping] = useState<Record<string, string>>({}); // channelId -> author
   const [showNew, setShowNew] = useState<null | "channel" | "dm">(null);
   const [thread, setThread] = useState<ChatMessage | null>(null);
-  const [railOpen, setRailOpen] = useState(false); // gaveta de conversas no telemóvel
-  const [focus, setFocus] = useState<{ channel: string; msg: string } | null>(null); // saltar para a mensagem
+  const [railOpen, setRailOpen] = useState(false); // conversation drawer on mobile
+  const [focus, setFocus] = useState<{ channel: string; msg: string } | null>(null); // jump to the message
   const [showSaved, setShowSaved] = useState(false);
   const savedQ = useQuery({ queryKey: ["chat-saved"], queryFn: () => backend.chatSaved(), enabled: showSaved });
-  // Id do usuário atual: usado para recalcular `mine` ao aplicar reações vindas do WS.
+  // Current user id: used to recompute `mine` when applying reactions coming from the WS.
   const meQ = useQuery({ queryKey: ["me"], queryFn: () => backend.me(), retry: false, staleTime: Infinity });
   const myId = meQ.data?.id ?? "";
-  // Emojis customizados do workspace: alimenta o registo global (renderRich troca :nome: por imagem).
+  // Workspace custom emoji: feeds the global registry (renderRich swaps :name: for an image).
   const emojisQ = useQuery({ queryKey: ["chat-emojis"], queryFn: () => backend.chatEmojis(), retry: false, staleTime: 300000 });
   useEffect(() => { if (emojisQ.data) setCustomEmoji(emojisQ.data); }, [emojisQ.data]);
 
   const chansQ = useQuery({ queryKey: ["chat-channels"], queryFn: () => backend.chatChannels(), refetchInterval: 30000 });
-  // O canal por defeito chega marcado (is_general) com o nome guardado em inglês; mostramos o nome
-  // no idioma da interface. Trocamos aqui, à entrada, para toda a UI (barra lateral, cabeçalho,
-  // troca rápida, `in:` da busca) falar do mesmo nome — a busca casa por id, não por texto.
+  // The default channel arrives flagged (is_general) with its name stored in English; we show the name
+  // in the interface language. We swap it here, at the entry point, so the whole UI (sidebar, header,
+  // quick switcher, search `in:`) refers to the same name — search matches by id, not by text.
   const channels = useMemo(
     () => (chansQ.data?.channels ?? []).map((c) => (c.is_general ? { ...c, name: t("chat.generalName") } : c)),
     [chansQ.data, t],
   );
   const discover = chansQ.data?.discover ?? [];
-  // Arquivados: a lista só traz os que ESTA pessoa pode restaurar (dono do canal ou admin), por isso
-  // tudo o que aparece aqui é acionável. Para os restantes, o canal simplesmente desaparece.
+  // Archived: the list only brings back the ones THIS person can restore (channel owner or admin), so
+  // everything shown here is actionable. For the rest, the channel simply disappears.
   const archQ = useQuery({ queryKey: ["chat-archived"], queryFn: () => backend.chatArchivedChannels(), retry: false, staleTime: 60000 });
   const archived = archQ.data?.channels ?? [];
   const [showArch, setShowArch] = useState(false);
-  // O canal ativo vem da URL (link compartilhável); sem ele, cai no primeiro.
+  // The active channel comes from the URL (shareable link); without it, falls back to the first one.
   const active = channelParam && channels.some((c) => c.id === channelParam) ? channelParam : channels[0]?.id ?? null;
   const activeChan = channels.find((c) => c.id === active) ?? null;
   const setActive = onChannel;
 
-  // Presença (online/ausente): poll a cada 20s.
+  // Presence (online/away): poll every 20s.
   const presenceQ = useQuery({ queryKey: ["chat-presence"], queryFn: () => backend.chatPresence(), refetchInterval: 20000, retry: false });
   const online = useMemo(() => new Set(presenceQ.data?.online ?? []), [presenceQ.data]);
-  // Presença rica: offline se não estiver online; senão o estado escolhido (active/away/dnd).
+  // Rich presence: offline if not online; otherwise the chosen state (active/away/dnd).
   const presenceOf = (id?: string): string => (id && online.has(id) ? (presenceQ.data?.presence?.[id] ?? "active") : "offline");
 
-  // Busca de mensagens. Suporta `in:<canal>` para restringir a um canal (estilo Slack) — o filtro
-  // vai na PRÓPRIA busca, sem um segundo campo.
+  // Message search. Supports `in:<channel>` to restrict to one channel (Slack-style) — the filter
+  // lives in the search box ITSELF, without a second field.
   const inMatch = search.match(/(?:^|\s)in:(\S+)/i);
   const inChannel = inMatch ? channels.find((c) => c.name.toLowerCase() === inMatch[1].toLowerCase()) : undefined;
   const rawTerm = search.replace(/(?:^|\s)in:\S+/i, " ").trim();
@@ -78,7 +78,7 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
     enabled: searchActive,
   });
 
-  // Tempo real: cada evento revalida a conversa ativa e a lista (não-lido). "typing" é efêmero.
+  // Real-time: every event revalidates the active conversation and the list (unread). "typing" is ephemeral.
   const { sendTyping } = useChatSocket((ev) => {
     if (ev.type === "typing") {
       const author = String(ev.payload.author ?? "");
@@ -86,11 +86,11 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
       window.setTimeout(() => setTyping((m) => { const n = { ...m }; if (n[ev.channel_id] === author) delete n[ev.channel_id]; return n; }), 3000);
       return;
     }
-    void qc.invalidateQueries({ queryKey: ["chat-channels"] }); // não-lido/ordem sempre
+    void qc.invalidateQueries({ queryKey: ["chat-channels"] }); // unread/order, always
 
-    // Patch incremental na lista do canal em vez de refetch — o evento é entregue a TODOS os membros,
-    // então refazer o fetch inteiro por evento não escala em canais movimentados (débito técnico §chat).
-    // Cada patch é idempotente/dedup, então o eco da própria ação não duplica.
+    // Incremental patch to the channel list instead of a refetch — the event is delivered to ALL members,
+    // so redoing the whole fetch per event does not scale on busy channels (tech debt §chat).
+    // Each patch is idempotent/dedup, so the echo of one's own action does not duplicate it.
     const p = ev.payload as Record<string, unknown>;
     const patchMsgs = (fn: (ms: ChatMessage[]) => ChatMessage[]) =>
       qc.setQueryData<{ messages: ChatMessage[]; has_more: boolean }>(["chat-messages", ev.channel_id], (old) =>
@@ -101,7 +101,7 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
       if (msg?.id && !msg.parent_id) {
         patchMsgs((ms) => (ms.some((m) => m.id === msg.id) ? ms : [...ms, msg]));
       } else if (msg?.parent_id) {
-        // Resposta de thread: sobe o contador do pai na lista principal (sem refazer o canal).
+        // Thread reply: bumps the parent's counter in the main list (without redoing the channel).
         patchMsgs((ms) => ms.map((m) => (m.id === msg.parent_id ? { ...m, reply_count: m.reply_count + 1 } : m)));
       }
     } else if (ev.type === "message_edit") {
@@ -115,8 +115,8 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
       patchMsgs((ms) => ms.map((m) => (m.id === mid ? applyReaction(m, String(p.emoji ?? ""), String(p.user_id ?? ""), Boolean(p.remove), myId) : m)));
     }
 
-    // Thread aberta: nova resposta, edição, remoção ou reação → revalida a thread (query pequena, não
-    // é o canal inteiro). Cobre o caso de outro membro mexer numa mensagem da thread que tenho aberta.
+    // Open thread: a new reply, edit, delete, or reaction -> revalidates the thread (a small query, not
+    // the whole channel). Covers the case of another member touching a message in the thread I have open.
     if (thread && ev.channel_id === active) {
       const touchesThread =
         (ev.type === "message" && String(p.parent_id ?? "") === thread.id) ||
@@ -125,7 +125,7 @@ export function ChatView({ search, onSearch, session, channelParam, onChannel }:
     }
   });
 
-  // Fecha a thread ao trocar de canal.
+  // Closes the thread when switching channels.
   useEffect(() => { setThread(null); setRailOpen(false); }, [active]);
 
   return (

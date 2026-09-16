@@ -13,9 +13,9 @@ import { IcUsers, IcKey, IcShield, IcDownload } from "../panel/icons";
 type Section = "profile" | "password" | "security" | "migration";
 const SECTIONS: Section[] = ["profile", "password", "security", "migration"];
 
-// Página "A minha conta" (menu do avatar): MESMO padrão do Admin — rail de secções à esquerda,
-// conteúdo à direita (telemóvel: lista → detalhe). A 2FA respeita a política da organização:
-// obrigatória → não desativa e só o método permitido aparece.
+// "My account" page (avatar menu): SAME pattern as Admin — section rail on the left,
+// content on the right (mobile: list -> detail). 2FA respects the organization's policy:
+// when required -> it can't be disabled and only the allowed method appears.
 export function ProfileView({ section, onSection }: { section?: string; onSection: (s: string) => void }) {
   const { t } = useTranslation();
   const current: Section | null = SECTIONS.includes(section as Section) ? (section as Section) : null;
@@ -52,7 +52,7 @@ export function ProfileView({ section, onSection }: { section?: string; onSectio
   );
 }
 
-// ---------- Perfil ----------
+// ---------- Profile ----------
 function ProfileSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -137,14 +137,14 @@ function ProfileSection() {
   );
 }
 
-// ---------- Senha ----------
+// ---------- Password ----------
 function PasswordSection() {
   const { t } = useTranslation();
   const [curPw, setCurPw] = useState("");
   const [newPw, setNewPw] = useState("");
   const [pwErr, setPwErr] = useState("");
-  // O medidor decide se a senha passa: o servidor de correio recusa as fracas, e é preferível
-  // dizê-lo com o campo à frente do que depois de submeter.
+  // The meter decides whether the password passes: the mail server rejects weak ones, and it's
+  // better to say so right at the field than after submitting.
   const pwOk = useRef(false);
   const meQ = useQuery({ queryKey: ["me-profile"], queryFn: () => backend.me(), retry: false });
   const email = meQ.data?.email ?? "";
@@ -178,7 +178,7 @@ function PasswordSection() {
   );
 }
 
-// ---------- 2FA (ciente da política da organização) ----------
+// ---------- 2FA (aware of the organization's policy) ----------
 function MFASection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -207,7 +207,7 @@ function MFASection() {
     onError: (e) => setErr((e as Error).message),
   });
 
-  // Política fixa o método: só o botão permitido aparece.
+  // Policy fixes the method: only the allowed button appears.
   const canTotp = !totpOn && (!orgRequired || method !== "sms");
   const canSms = !smsOn && (!orgRequired || method !== "totp");
 
@@ -233,7 +233,7 @@ function MFASection() {
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {canTotp && <button className="pnl-btn" onClick={() => setMfaDrawer("totp")}>{t("mfa.enableTotp")}</button>}
               {canSms && <button className="pnl-btn" onClick={() => setMfaDrawer("sms")}>{t("mfa.enableSms")}</button>}
-              {/* Desativar: NUNCA quando a organização exige 2FA. */}
+              {/* Disable: NEVER when the organization requires 2FA. */}
               {!orgRequired && (totpOn || smsOn) && !disableOpen && (
                 <button className="pnl-btn danger" onClick={() => setDisableOpen(true)}>{t("mfa.disable")}</button>
               )}

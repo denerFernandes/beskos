@@ -6,8 +6,8 @@ import { Spinner } from "./Spinner";
 import { toast } from "./toast";
 import { IcTrash, IcUpload } from "../panel/icons";
 
-// Biblioteca de GIFs pessoal. Sem Giphy/Tenor: o GIF é um ficheiro do Drive, e a busca de ninguém
-// sai para um terceiro (decisão de 2026-07-16). Carrega uma vez, reusa sempre.
+// Personal GIF library. No Giphy/Tenor: the GIF is a Drive file, and nobody's search ever leaves
+// for a third party (decision from 2026-07-16). Loads once, always reused.
 export function GifPicker({ anchor, onPick, onClose }: {
   anchor: DOMRect | null; onPick: (g: Gif) => void; onClose: () => void;
 }) {
@@ -18,7 +18,7 @@ export function GifPicker({ anchor, onPick, onClose }: {
   const [busy, setBusy] = useState(false);
   const q = useQuery({ queryKey: ["gifs"], queryFn: () => gifsApi.list(), retry: false });
 
-  // Igual ao seletor de emoji: o listener entra no tick seguinte, senão apanha o clique que abriu.
+  // Same as the emoji picker: the listener is attached on the next tick, otherwise it catches the opening click.
   useEffect(() => {
     const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -33,7 +33,7 @@ export function GifPicker({ anchor, onPick, onClose }: {
     onError: (e) => toast((e as Error).message),
   });
 
-  // Carregar: vai para o Drive e ganha a marca de GIF. Dois passos, um clique.
+  // Upload: goes to the Drive and gets tagged as a GIF. Two steps, one click.
   const upload = async (files: FileList | null) => {
     const f = files?.[0];
     if (!f) return;

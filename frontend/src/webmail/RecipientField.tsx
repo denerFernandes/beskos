@@ -7,8 +7,8 @@ import { hueFor } from "./util";
 import { Avatar } from "./Avatar";
 import { IcUsers } from "../panel/icons";
 
-// Campo de destinatários em chips com autocomplete de contatos. Reutilizado por Para/Cc/Cco.
-// Grupos de contatos aparecem como listas de distribuição: escolher expande para todos os e-mails.
+// Recipient field as chips with contact autocomplete. Reused by To/Cc/Bcc.
+// Contact groups appear as distribution lists: picking one expands to all the emails.
 export function RecipientField({ label, value, onChange, contacts, groups, autoFocus }: {
   label: string;
   value: string[];
@@ -48,7 +48,7 @@ export function RecipientField({ label, value, onChange, contacts, groups, autoF
   const groupSuggestions = q ? (groups ?? []).filter((g) => g.name.toLowerCase().includes(q)).slice(0, 4) : [];
 
   const add = (email: string) => { const e = email.trim().replace(/[,;]$/, ""); if (e && !value.includes(e)) onChange([...value, e]); setInput(""); };
-  // Lista de distribuição: busca os e-mails do grupo e adiciona os que ainda não estão.
+  // Distribution list: fetches the group's emails and adds the ones not already present.
   const addGroup = async (g: ContactGroup) => {
     setInput("");
     try {

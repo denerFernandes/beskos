@@ -7,7 +7,7 @@ import { viewerKind } from "./backend";
 import { IcDownload, IcPaperclip } from "../panel/icons";
 import { ViewerBar } from "./ViewerBar";
 
-// Classifica o anexo pelo mime-type; cai para a extensão do nome quando o mime é genérico.
+// Classifies the attachment by mime-type; falls back to the name's extension when the mime is generic.
 function kindOf(type: string, name: string): string | null {
   const t = (type || "").toLowerCase();
   if (t.startsWith("image/")) return "image";
@@ -18,9 +18,9 @@ function kindOf(type: string, name: string): string | null {
   return viewerKind(name);
 }
 
-// Visualizador em tela cheia de um anexo de e-mail (imagem/pdf/vídeo/áudio/texto). O blob é
-// baixado com autenticação (Basic por header) e servido como object URL — <img>/<iframe>/<a> não
-// mandam o header, então apontar direto para /jmap/download daria 401.
+// Full-screen viewer for an email attachment (image/pdf/video/audio/text). The blob is
+// downloaded with authentication (Basic via header) and served as an object URL — <img>/<iframe>/<a>
+// don't send the header, so pointing directly at /jmap/download would give a 401.
 export function AttachmentViewer({ service, attachment, onClose }: {
   service: MailService; attachment: EmailAttachment; onClose: () => void;
 }) {
@@ -33,11 +33,11 @@ export function AttachmentViewer({ service, attachment, onClose }: {
     queryFn: () => service.attachmentObjectUrl(attachment.blobId, name, attachment.type),
     retry: false,
     staleTime: Infinity,
-    gcTime: 0, // não guarda: revogamos o object URL ao fechar
+    gcTime: 0, // doesn't cache: we revoke the object URL on close
   });
   const url = blob.data;
 
-  // Revoga o object URL ao desmontar (evita vazamento de memória).
+  // Revokes the object URL on unmount (avoids a memory leak).
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
 
   return (

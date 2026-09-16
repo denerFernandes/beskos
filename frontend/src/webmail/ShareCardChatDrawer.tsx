@@ -7,9 +7,9 @@ import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 import { IcSearch, IcChat, IcUsers } from "../panel/icons";
 
-// ShareCardChatDrawer (Kanban): envia um card para um CANAL do chat ou para uma PESSOA (DM),
-// como mensagem com link interno para o card. Canais mais recentes primeiro + pesquisa. Só aparece
-// quando a app de Chat está ligada (gate no TaskModal).
+// ShareCardChatDrawer (Kanban): sends a card to a chat CHANNEL or to a PERSON (DM),
+// as a message with an internal link to the card. Most recent channels first + search. Only appears
+// when the Chat app is enabled (gated in TaskModal).
 
 export function ShareCardChatDrawer({ boardId, cardId, title, onClose }: {
   boardId: string; cardId: string; title: string; onClose: () => void;
@@ -20,7 +20,7 @@ export function ShareCardChatDrawer({ boardId, cardId, title, onClose }: {
   const channelsQ = useQuery({ queryKey: ["chat-channels"], queryFn: () => backend.chatChannels(), retry: false });
   const colleagues = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false });
 
-  // Mensagem: link interno em markdown (o chat já renderiza [texto](url)).
+  // Message: internal link in markdown (chat already renders [text](url)).
   const body = `📌 [${title}](/mail/kanban/${boardId}/${cardId})`;
 
   const send = useMutation({
@@ -35,7 +35,7 @@ export function ShareCardChatDrawer({ boardId, cardId, title, onClose }: {
   });
 
   const term = q.trim().toLowerCase();
-  // Recentes primeiro: ordena pelo last_read_at (proxy de atividade) desc; sem data vai para o fim.
+  // Most recent first: sorts by last_read_at (activity proxy) desc; no date goes to the end.
   const channels = (channelsQ.data?.channels ?? [])
     .slice()
     .sort((a: ChatChannel, b: ChatChannel) => (b.last_read_at ?? "").localeCompare(a.last_read_at ?? ""))

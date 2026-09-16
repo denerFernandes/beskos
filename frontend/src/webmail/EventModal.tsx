@@ -16,18 +16,18 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const toDate = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const toTime = (iso: string) => { const d = new Date(iso); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
-// Modal de criar/editar evento: form + tags (catálogo) + IA (linguagem natural) + sala do Meet +
-// aviso de conflito de horário (sem alert/prompt).
+// Create/edit event modal: form + tags (catalog) + AI (natural language) + Meet room +
+// schedule-conflict warning (no alert/prompt).
 export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
   initial?: CalEvent | null; day?: Date; prefillTitle?: string; onClose: () => void; onSaved: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const settings = useUserSettings(); // duração/lembrete por defeito (settings.calendar)
-  // Abre em LEITURA um evento existente; um evento novo abre já em edição. O lápis alterna — o mesmo
-  // gesto ver→editar da tarefa, agora também no evento.
+  const settings = useUserSettings(); // default duration/reminder (settings.calendar)
+  // Opens an existing event in READ mode; a new event opens straight into editing. The pencil
+  // toggles it — the same view→edit gesture as the task, now on the event too.
   const [editing, setEditing] = useState(!initial);
   const base = day ?? new Date();
-  // Fim por defeito de um evento novo = início + duração default (das Definições, senão 60 min).
+  // Default end of a new event = start + default duration (from Settings, otherwise 60 min).
   const startHour = base.getHours() || 9;
   const endDefault = new Date(base); endDefault.setHours(startHour, 0, 0, 0);
   endDefault.setMinutes(endDefault.getMinutes() + (settings.calendar?.defaultDuration ?? 60));
@@ -57,17 +57,17 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
   const [ai, setAi] = useState("");
   const [conflicts, setConflicts] = useState<CalEvent[] | null>(null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
-  const invited = !!initial?.invited; // sou convidado (não dono) → vista de RSVP, não de edição
+  const invited = !!initial?.invited; // I'm an invitee (not the owner) → RSVP view, not editing
 
-  // Convidados (só o dono edita): internos + externos já convidados (com status).
+  // Guests (only the owner edits): internal + external already-invited (with status).
   const existingInvites = useQuery({ queryKey: ["event-invites", initial?.id], queryFn: () => backend.eventInvites(initial!.id), enabled: !!initial && !invited, retry: false });
   const [guests, setGuests] = useState<Invitee[]>([]);
   const existingExternals = useQuery({ queryKey: ["event-externals", initial?.id], queryFn: () => backend.eventExternals(initial!.id), enabled: !!initial && !invited, retry: false });
   useEffect(() => {
     if (!existingInvites.data && !existingExternals.data) return;
-    const internos: Invitee[] = (existingInvites.data ?? []).map((i) => ({ email: i.email, name: i.name, userId: i.user_id, status: i.status }));
-    const externos: Invitee[] = (existingExternals.data ?? []).map((e) => ({ email: e }));
-    setGuests([...internos, ...externos]);
+    const internal: Invitee[] = (existingInvites.data ?? []).map((i) => ({ email: i.email, name: i.name, userId: i.user_id, status: i.status }));
+    const external: Invitee[] = (existingExternals.data ?? []).map((e) => ({ email: e }));
+    setGuests([...internal, ...external]);
   }, [existingInvites.data, existingExternals.data]);
   const [myRsvp, setMyRsvp] = useState(initial?.my_rsvp ?? "");
   const rsvp = useMutation({
@@ -78,7 +78,8 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
     onError: (e) => toast((e as Error).message),
   });
 
-  // Sugerir horário livre (IA): usa a duração atual e procura na janela comercial do dia.
+  // Suggest a free time slot (AI): uses the current duration and searches within the day's
+  // business window.
   const durationMin = () => Math.max(15, (new Date(`${date}T${end}`).getTime() - new Date(`${date}T${start}`).getTime()) / 60000);
   const suggest = useMutation({
     mutationFn: () => backend.aiSuggestSlots(durationMin(), new Date(`${date}T08:00`).toISOString(), new Date(`${date}T19:00`).toISOString()),
@@ -102,7 +103,8 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
   const body = (force: boolean): EventInput => {
     const common = { title: title.trim(), location, description, color, tags, create_meet: createMeet, force, remind_minutes: remind, recur, recur_until: recur && recurUntil ? new Date(`${recurUntil}T23:59:59`).toISOString() : "", invitee_ids: guests.filter((g) => g.userId).map((g) => g.userId!), external_emails: guests.filter((g) => !g.userId).map((g) => g.email), calendar_id: calendarId };
     if (allDay) {
-      // Dia inteiro: sem hora, do início do dia inicial ao fim do dia final (inclusivo) — cobre multi-dia.
+      // All day: no time, from the start of the first day to the end of the last day (inclusive) —
+      // covers multi-day events.
       return { ...common, all_day: true, starts_at: new Date(`${date}T00:00`).toISOString(), ends_at: new Date(`${endDate}T23:59:59`).toISOString(), remind_minutes: 0 };
     }
     return { ...common, all_day: false, starts_at: new Date(`${date}T${start}`).toISOString(), ends_at: new Date(`${date}T${end}`).toISOString() };
@@ -113,7 +115,7 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
     onError: (e) => { if (e instanceof ConflictError) setConflicts(e.conflicts); else toast((e as Error).message); },
   });
   const restore = useMutation({ mutationFn: (id: string) => backend.restoreEvent(id), onSuccess: () => { toast(t("cal.restored")); onSaved(); }, onError: (e) => toast((e as Error).message) });
-  // Exclusão com "desfazer" (soft-delete no backend): a janela do toast dá tempo de restaurar pelo id.
+  // Delete with "undo" (soft-delete on the backend): the toast window gives time to restore by id.
   const del = useMutation({
     mutationFn: () => backend.deleteEvent(initial!.id),
     onSuccess: () => { const id = initial!.id; toastAction(t("cal.deleted"), t("common.undo"), () => restore.mutate(id)); onSaved(); },
@@ -125,7 +127,7 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
     onError: (e) => toast((e as Error).message),
   });
 
-  // Convidado (não dono): não edita — só responde ao convite (RSVP).
+  // Invitee (not the owner): doesn't edit — only responds to the invitation (RSVP).
   if (invited && initial) {
     return (
       <Drawer title={t("cal.invitation")} onClose={onClose}
@@ -148,7 +150,7 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
     );
   }
 
-  // Dono, evento existente, em LEITURA: um resumo do evento com o lápis para editar.
+  // Owner, existing event, in READ mode: an event summary with the pencil to edit.
   if (initial && !editing) {
     const s = new Date(initial.starts_at), e = new Date(initial.ends_at);
     const when = initial.all_day
@@ -306,7 +308,7 @@ export function EventModal({ initial, day, prefillTitle, onClose, onSaved }: {
   );
 }
 
-// Row é uma linha rótulo→valor da vista de leitura (mesmo dl que a tarefa usa).
+// Row is a label→value line in the read view (the same dl the task uses).
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (<><dt>{label}</dt><dd>{children}</dd></>);
 }

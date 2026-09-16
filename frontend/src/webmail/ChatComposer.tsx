@@ -22,24 +22,24 @@ export const Composer = forwardRef<ComposerHandle, {
   const settings = useUserSettings(); // settings.chat.enterSends
   const [text, setText] = useState("");
   const [mentionQ, setMentionQ] = useState<string | null>(null);
-  const [slashQ, setSlashQ] = useState<string | null>(null); // texto depois do "/" (menu de comandos)
-  const [slashIdx, setSlashIdx] = useState(0);               // item destacado no menu (setas ↑/↓)
-  const [taskPick, setTaskPick] = useState(false);           // seletor de tarefa (/task)
+  const [slashQ, setSlashQ] = useState<string | null>(null); // text after "/" (command menu)
+  const [slashIdx, setSlashIdx] = useState(0);               // highlighted item in the menu (↑/↓ arrows)
+  const [taskPick, setTaskPick] = useState(false);           // task picker (/task)
   const [emoji, setEmoji] = useState<DOMRect | null>(null);
   const [gif, setGif] = useState<DOMRect | null>(null);
   const [drivePick, setDrivePick] = useState(false);
   const [atts, setAtts] = useState<ChatAttachment[]>([]);
   const [uploading, setUploading] = useState(0);
   const [sched, setSched] = useState(false);
-  // Menu do "+": guarda o retângulo do botão (null = fechado). A posição vem do JS porque o menu
-  // é `fixed` — dentro da .rich-box (overflow:hidden) ficaria recortado, como o seletor de emojis.
+  // "+" menu: stores the button's rectangle (null = closed). The position comes from JS because
+  // the menu is `fixed` — inside .rich-box (overflow:hidden) it would get clipped, like the emoji picker.
   const [addMenu, setAddMenu] = useState<DOMRect | null>(null);
-  // Seleção guardada enquanto o modal do link está aberto (null = modal fechado).
+  // Selection kept while the link modal is open (null = modal closed).
   const [linkSel, setLinkSel] = useState<{ start: number; end: number; text: string } | null>(null);
-  // Barra de formatação visível? É preferência de quem escreve (o "Aa" do Slack) e vive no
-  // aparelho: quem escreve markdown de cor deixa-a escondida e ganha altura para a mensagem.
+  // Is the formatting bar visible? It's the writer's preference (Slack's "Aa") and lives on the
+  // device: whoever writes markdown from memory hides it and gains height for the message.
   const [showFmt, setShowFmt] = useState(() => { try { return localStorage.getItem(LS_FMT) !== "0"; } catch { return true; } });
-  const toggleFmt = () => setShowFmt((v) => { try { localStorage.setItem(LS_FMT, v ? "0" : "1"); } catch { /* modo privado */ } return !v; });
+  const toggleFmt = () => setShowFmt((v) => { try { localStorage.setItem(LS_FMT, v ? "0" : "1"); } catch { /* private mode */ } return !v; });
   const mentioned = useRef<Set<string>>(new Set());
   const lastTyping = useRef(0);
   const ta = useRef<HTMLTextAreaElement>(null);
@@ -55,10 +55,10 @@ export const Composer = forwardRef<ComposerHandle, {
     }
   }
 
-  // Permite que o painel (zona de drop) injete arquivos arrastados neste composer.
+  // Lets the panel (drop zone) inject files dragged onto this composer.
   useImperativeHandle(ref, () => ({ addFiles: (files) => { void onFiles(files); } }));
 
-  // Envolve a seleção com marcadores markdown (negrito, itálico, etc.), estilo Slack.
+  // Wraps the selection with markdown markers (bold, italic, etc.), Slack-style.
   const wrap = (before: string, after = before) => {
     const el = ta.current; if (!el) return;
     const s = el.selectionStart, e = el.selectionEnd, val = el.value;
@@ -67,8 +67,8 @@ export const Composer = forwardRef<ComposerHandle, {
     setText(next);
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + before.length, s + before.length + sel.length); });
   };
-  // "Adicionar link": guarda a seleção ANTES de abrir o modal — ao focar o campo de texto a caixa
-  // perde a seleção, e sem ela não saberíamos onde inserir nem o que a pessoa tinha marcado.
+  // "Add link": saves the selection BEFORE opening the modal — focusing the text field's input
+  // loses the selection, and without it we wouldn't know where to insert or what the person had marked.
   const openLink = () => {
     const el = ta.current;
     const start = el?.selectionStart ?? text.length;
@@ -84,12 +84,12 @@ export const Composer = forwardRef<ComposerHandle, {
     const caret = sel.start + md.length;
     requestAnimationFrame(() => { const el = ta.current; el?.focus(); el?.setSelectionRange(caret, caret); });
   };
-  // Insere "@" ou "/" na posição do cursor e devolve o foco: escrever o carácter é o que ABRE o
-  // menu (menções/comandos), então o botão faz exatamente o que a pessoa faria pelo teclado.
+  // Inserts "@" or "/" at the cursor position and returns focus: typing the character is what
+  // OPENS the menu (mentions/commands), so the button does exactly what the person would do via keyboard.
   const insertAt = (ch: string) => {
     const el = ta.current;
     const pos = el ? el.selectionStart : text.length;
-    // O menu de comandos só abre com "/" no início da mensagem — é a regra do onChange.
+    // The command menu only opens with "/" at the start of the message — that's onChange's rule.
     const at = ch === "/" ? 0 : pos;
     const next = text.slice(0, at) + ch + text.slice(at);
     onChange(next);
@@ -106,8 +106,8 @@ export const Composer = forwardRef<ComposerHandle, {
     const q = mentionQ.toLowerCase();
     return members.filter((m) => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)).slice(0, 5);
   }, [mentionQ, members]);
-  // @channel / @here (não em DM): mencionam o canal inteiro / só os online. São texto no corpo — o
-  // backend os interpreta; aqui é só descoberta pelo autocomplete.
+  // @channel / @here (not in a DM): mention the whole channel / only those online. They're text
+  // in the body — the backend interprets them; here it's just discovery via autocomplete.
   const specials = useMemo(() => {
     if (mentionQ === null || dm) return [] as { key: string; desc: string }[];
     const q = mentionQ.toLowerCase();
@@ -116,16 +116,16 @@ export const Composer = forwardRef<ComposerHandle, {
   const pickSpecial = (key: string) => { setText((v) => v.replace(/@([\w.\-]*)$/, `@${key} `)); setMentionQ(null); };
 
   const onChange = (raw: string) => {
-    // Atalhos (:) → 🙂) só quando a pessoa acaba de os fechar com espaço: substituir enquanto
-    // escreve trocaria ":" no meio de um "http://" ou de um horário.
+    // Shortcodes (:) → 🙂) only when the person has just closed them with a space: replacing while
+    // typing would swap out a ":" in the middle of an "http://" or a time.
     const v = applyShortcodes(raw);
     setText(v);
     const mt = v.match(/@([\w.\-]*)$/);
     setMentionQ(mt ? mt[1] : null);
-    // Menu de comandos: só quando o "/" abre a mensagem (um "e/ou" no meio do texto não é comando).
+    // Command menu: only when "/" opens the message (an "and/or" in the middle of the text isn't a command).
     const st = v.match(/^\/(\w*)$/);
     setSlashQ(st ? st[1] : null);
-    setSlashIdx(0); // filtrou, volta ao topo — o destaque nunca fica num item que saiu da lista
+    setSlashIdx(0); // filtered, back to the top — the highlight never stays on an item that left the list
     const now = Date.now();
     if (now - lastTyping.current > 2000) { lastTyping.current = now; onTyping(); }
   };
@@ -136,14 +136,14 @@ export const Composer = forwardRef<ComposerHandle, {
   }, [slashQ]);
   const pickCommand = (key: string) => {
     setSlashQ(null);
-    // O menu só aparece quando o "/" é a mensagem inteira, por isso limpar a caixa não perde nada.
+    // The menu only shows when "/" is the whole message, so clearing the box loses nothing.
     if (key === "task") { setText(""); setTaskPick(true); return; }
     setText(`/${key} `);
     requestAnimationFrame(() => ta.current?.focus());
   };
-  // Insere a referência no composer (em vez de enviar já): assim dá para juntar contexto antes de
-  // enviar, e uma escolha errada corrige-se sem apagar mensagem nenhuma. O formato é o MESMO do
-  // partilhar do quadro, portanto os dois caminhos aparecem iguais na conversa.
+  // Inserts the reference into the composer (instead of sending right away): this way context can
+  // be added before sending, and a wrong pick is fixed without deleting any message. The format is
+  // the SAME as sharing from the board, so both paths look the same in the conversation.
   const insertTask = (c: CardHit) => {
     setTaskPick(false);
     const ref = `📌 [${String(c.card_key)} — ${c.title}](/mail/kanban/${c.board_id}/${c.id})`;
@@ -199,8 +199,8 @@ export const Composer = forwardRef<ComposerHandle, {
         </div>
       )}
       <div className="rich-box">
-        {/* Barra de FORMATAÇÃO em cima (só ícones de traço, como o Slack); as ações de conteúdo
-            vivem em baixo. O "Aa" esconde/mostra esta barra e a escolha fica no aparelho. */}
+        {/* FORMATTING bar on top (only stroke icons, like Slack); content actions
+            live below. The "Aa" hides/shows this bar and the choice stays on the device. */}
         {showFmt && (
           <div className="rich-toolbar">
             <button title={t("chat.bold")} onMouseDown={(e) => { e.preventDefault(); wrap("**"); }}><IcBold size={16} /></button>
@@ -221,15 +221,15 @@ export const Composer = forwardRef<ComposerHandle, {
         <textarea ref={ta} rows={1} value={text} placeholder={t("chat.messagePh")} onChange={(e) => onChange(e.target.value)}
           onInput={(e) => { const el = e.currentTarget; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 180) + "px"; }}
           onPaste={(e) => {
-            // Colar imagem (print) ou ficheiro do clipboard → vira anexo, como arrastar. Só intercepta
-            // quando há ficheiros; texto normal continua a colar-se como sempre.
+            // Pasting an image (screenshot) or file from the clipboard → becomes an attachment, like
+            // dragging. Only intercepts when there are files; normal text keeps pasting as usual.
             const files = e.clipboardData?.files;
             if (files && files.length) { e.preventDefault(); void onFiles(files); }
           }}
           onKeyDown={(e) => {
             if (e.key === "Escape" && slashQ !== null) { setSlashQ(null); return; }
-            // Menu de comandos aberto: ↑/↓ andam na lista (com volta ao início/fim) e Enter/Tab
-            // escolhem o destacado — em vez de enviar "/task" como texto.
+            // Command menu open: ↑/↓ move through the list (wrapping around) and Enter/Tab
+            // choose the highlighted one — instead of sending "/task" as text.
             if (slashCmds.length > 0) {
               if (e.key === "ArrowDown") { e.preventDefault(); setSlashIdx((i) => (i + 1) % slashCmds.length); return; }
               if (e.key === "ArrowUp") { e.preventDefault(); setSlashIdx((i) => (i - 1 + slashCmds.length) % slashCmds.length); return; }
@@ -240,8 +240,8 @@ export const Composer = forwardRef<ComposerHandle, {
               }
             }
             if (e.key !== "Enter" || suggestions.length) return;
-            // settings.chat.enterSends: com Enter-envia (default), Enter envia e Shift+Enter quebra
-            // linha; desligado, inverte-se — só Ctrl/Cmd+Enter envia e Enter quebra linha.
+            // settings.chat.enterSends: with Enter-sends (default), Enter sends and Shift+Enter breaks
+            // the line; when off, it's reversed — only Ctrl/Cmd+Enter sends and Enter breaks the line.
             const enterSends = settings.chat?.enterSends !== false;
             const shouldSend = enterSends ? !e.shiftKey : (e.metaKey || e.ctrlKey);
             if (shouldSend) { e.preventDefault(); send(); }
@@ -258,8 +258,8 @@ export const Composer = forwardRef<ComposerHandle, {
           </div>
         )}
         <div className="rich-foot">
-          {/* "+" abre um menu (como o Slack) em vez de saltar direto para o seletor de ficheiros:
-              anexar do computador e anexar do Drive são caminhos diferentes e ambos cabem aqui. */}
+          {/* "+" opens a menu (like Slack) instead of jumping straight to the file picker:
+              attaching from the computer and attaching from Drive are different paths and both fit here. */}
           <span className="react-wrap">
             <button className={addMenu ? "on" : ""} title={t("chat.attach")}
               onMouseDown={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setAddMenu((v) => (v ? null : r)); }}>
@@ -267,7 +267,7 @@ export const Composer = forwardRef<ComposerHandle, {
             </button>
             {addMenu && (
               <>
-                {/* Fundo invisível: clicar fora fecha, como em qualquer menu da app. */}
+                {/* Invisible backdrop: clicking outside closes it, like any menu in the app. */}
                 <div className="menu-backdrop" onMouseDown={() => setAddMenu(null)} />
                 <div className="add-menu" style={{ left: addMenu.left, bottom: window.innerHeight - addMenu.top + 8 }}>
                   <button onMouseDown={(e) => { e.preventDefault(); setAddMenu(null); fileIn.current?.click(); }}>
@@ -298,7 +298,7 @@ export const Composer = forwardRef<ComposerHandle, {
           <span className="react-wrap">
             <button className="gif-btn" title={t("chat.gif")}
               onMouseDown={(e) => { e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setGif((v) => (v ? null : r)); }}>GIF</button>
-            {/* O GIF entra como anexo — é o mesmo caminho de qualquer imagem, já com visualizador. */}
+            {/* The GIF comes in as an attachment — the same path as any image, already with a viewer. */}
             {gif && <GifPicker anchor={gif} onClose={() => setGif(null)}
               onPick={(g) => { setAtts((a) => [...a, { file_id: g.file_id, name: g.name, size: g.size }]); setGif(null); }} />}
             {drivePick && <DrivePickerDrawer onClose={() => setDrivePick(false)}

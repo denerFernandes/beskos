@@ -9,8 +9,8 @@ import { soundPrefs, setSoundPref, playSound } from "./sounds";
 import { enableWebPush, disableWebPush, pushSupported } from "./webpush";
 import { isTauri } from "./tauriNotify";
 
-// Notificações desktop: permissão do browser + escolha por app. Preferências por-dispositivo
-// (localStorage) — a permissão é do browser, então activar aqui não afeta outros aparelhos.
+// Desktop notifications: browser permission + per-app choice. Per-device preferences
+// (localStorage) — the permission belongs to the browser, so enabling it here doesn't affect other devices.
 const NOTIF_DOMAINS: NotifDomain[] = ["email", "chat", "meet", "cal", "files", "tasks"];
 const WEBPUSH_FLAG = "mailin.webpush.on";
 export function NotificationsSection() {
@@ -19,15 +19,15 @@ export function NotificationsSection() {
   const [prefs, setPrefs] = useState(notifPrefs());
   const [closedOn, setClosedOn] = useState(() => { try { return localStorage.getItem(WEBPUSH_FLAG) === "1"; } catch { return false; } });
 
-  // Ao conceder permissão, tenta também subscrever o Web Push (para notificar com o app fechado).
-  // Se o servidor não tiver VAPID, a subscrição falha em silêncio e ficam só as notificações
-  // com a aba aberta — em ambos os casos a experiência com a aba aberta funciona.
+  // Upon granting permission, also tries to subscribe to Web Push (to notify with the app closed).
+  // If the server has no VAPID, the subscription fails silently and only the notifications
+  // with the tab open remain — in both cases the open-tab experience works.
   const ask = async () => {
     const p = await requestNotifPermission();
     setPerm(p);
     if (p === "granted") { const ok = await enableWebPush(); setClosed(ok); }
   };
-  const setClosed = (on: boolean) => { setClosedOn(on); try { localStorage.setItem(WEBPUSH_FLAG, on ? "1" : "0"); } catch { /* modo privado */ } };
+  const setClosed = (on: boolean) => { setClosedOn(on); try { localStorage.setItem(WEBPUSH_FLAG, on ? "1" : "0"); } catch { /* private mode */ } };
   const toggleClosed = async (on: boolean) => {
     if (on) { const ok = await enableWebPush(); setClosed(ok); }
     else { await disableWebPush(); setClosed(false); }
@@ -37,7 +37,7 @@ export function NotificationsSection() {
   const toggleSound = (k: "notify" | "meet", on: boolean) => {
     setSoundPref(k, on);
     setSounds(soundPrefs());
-    if (on) playSound(k === "meet" ? "meetJoin" : "notify"); // ligar dá logo a ouvir o que ficou ligado
+    if (on) playSound(k === "meet" ? "meetJoin" : "notify"); // turning it on plays immediately what was just turned on
   };
 
   if (!notifSupported()) {
@@ -74,9 +74,9 @@ export function NotificationsSection() {
                 </div>
               ))}
             </div>
-            {/* App nativo (Tauri): notifica pelo SO sempre que está a correr (mesmo minimizado),
-                por isso mostra uma nota em vez do Web Push (que o WKWebView não suporta). Na web,
-                o toggle só aparece quando o browser suporta Push; senão explica porquê. */}
+            {/* Native app (Tauri): notifies via the OS whenever it's running (even minimized),
+                so it shows a note instead of Web Push (which WKWebView doesn't support). On the web,
+                the toggle only appears when the browser supports Push; otherwise it explains why. */}
             {isTauri() ? (
               <div className="ios-list">
                 <div className="ios-row">
@@ -114,9 +114,9 @@ export function NotificationsSection() {
         )}
       </div>
 
-      {/* Sons: FORA do bloco da permissão, de propósito. Tocar um som não precisa de autorização
-          nenhuma do sistema — quem recusou as notificações do SO pode na mesma querer ouvir que
-          chegou uma mensagem, e escondê-lo aqui deixava essa pessoa sem nada. */}
+      {/* Sounds: OUTSIDE the permission block, on purpose. Playing a sound needs no system
+          authorization at all — someone who declined OS notifications might still want to hear that
+          a message arrived, and hiding it here would leave that person with nothing. */}
       <div className="set-card">
         <div className="ios-group-label">{t("settings.soundGroup")}</div>
         <div className="ios-list">
@@ -135,8 +135,8 @@ export function NotificationsSection() {
             <Switch checked={sounds.meet} onChange={(on) => toggleSound("meet", on)} label={t("settings.soundMeet")} />
           </div>
         </div>
-        {/* Ouvir antes de decidir: um interruptor de som sem forma de o experimentar obriga a
-            esperar por uma reunião a sério para saber se está bom. */}
+        {/* Hear it before deciding: a sound toggle with no way to try it forces you to
+            wait for a real meeting to find out if it's any good. */}
         <div className="set-field" style={{ gap: 8 }}>
           <button className="chipbtn" onClick={() => playSound("notify")}>{t("settings.soundTryNotify")}</button>
           <button className="chipbtn" onClick={() => playSound("meetKnock")}>{t("settings.soundTryKnock")}</button>

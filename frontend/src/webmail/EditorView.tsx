@@ -9,7 +9,7 @@ import { isDedicatedWindow, closeSelfWindow } from "./nativeWindow";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare global { interface Window { DocsAPI?: any } }
 
-// Carrega o api.js do Document Server uma vez (cacheia a Promise por URL).
+// Loads the Document Server's api.js once (caches the Promise per URL).
 const loaded = new Map<string, Promise<void>>();
 function loadScript(src: string): Promise<void> {
   if (!loaded.has(src)) {
@@ -24,10 +24,11 @@ function loadScript(src: string): Promise<void> {
   return loaded.get(src)!;
 }
 
-// Editor de office (OnlyOffice Document Server) em tela cheia, SEM barra nossa por cima: fechar e
-// renomear vivem no cabeçalho do próprio editor, que já leva a marca Beskos. Ambos só existem
-// porque registamos os eventos aqui — é `onRequestClose` que faz nascer o X, e `onRequestRename`
-// que torna o título editável (ver api.js: canRequestClose/canRename derivam dos eventos).
+// Office editor (OnlyOffice Document Server) in full screen, with NO bar of ours on top: close
+// and rename live in the editor's own header, which already carries the Beskos brand. Both only
+// exist because we register the events here — it's `onRequestClose` that makes the X appear, and
+// `onRequestRename` that makes the title editable (see api.js: canRequestClose/canRename derive
+// from the events).
 export function EditorView() {
   const { t, i18n } = useTranslation();
   const nav = useNavigate();
@@ -57,9 +58,9 @@ export function EditorView() {
       editor.current = new window.DocsAPI.DocEditor(mount.current.id, {
         ...session.data!.config,
         events: {
-          // X do cabeçalho: janela dedicada fecha-se; no separador normal, volta ao Drive.
+          // Header X: a dedicated window closes itself; in a normal tab, it goes back to Drive.
           onRequestClose: () => { if (isDedicatedWindow()) closeSelfWindow(); else nav("/mail/files"); },
-          // Título do cabeçalho passa a editável; o novo nome chega em `data`.
+          // Header title becomes editable; the new name arrives in `data`.
           onRequestRename: (e: { data?: string }) => {
             const name = String(e?.data ?? "").trim();
             if (!name) return;
@@ -69,7 +70,7 @@ export function EditorView() {
           },
         },
       });
-    }).catch(() => { /* erro mostrado abaixo pela query em caso de falha de config */ });
+    }).catch(() => { /* error shown below by the query in case of config failure */ });
     return () => {
       cancelled = true;
       try { editor.current?.destroyEditor?.(); } catch { /* noop */ }

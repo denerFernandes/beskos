@@ -7,7 +7,7 @@ import { Switch } from "./Switch";
 import { Avatar } from "./Avatar";
 import { IcTrash, IcX } from "../panel/icons";
 
-// Mensagens agendadas do usuário: lista com hora + canal, com opção de cancelar antes do envio.
+// The user's scheduled messages: a list with time + channel, with an option to cancel before sending.
 export function ScheduledModal({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
@@ -38,10 +38,10 @@ export function NewConvoModal({ mode, me, onClose, onCreated }: { mode: "channel
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
-  const [priv, setPriv] = useState(false);     // privado (só por convite, nunca listado)
-  const [unlisted, setUnlisted] = useState(false); // público mas não listado na descoberta
-  const [restricted, setRestricted] = useState(false); // só gestores adicionam membros
-  const [picked, setPicked] = useState<{ email: string; name: string }[]>([]); // DM: 1 pessoa = DM, 2+ = grupo
+  const [priv, setPriv] = useState(false);     // private (invite-only, never listed)
+  const [unlisted, setUnlisted] = useState(false); // public but not listed in discovery
+  const [restricted, setRestricted] = useState(false); // only managers add members
+  const [picked, setPicked] = useState<{ email: string; name: string }[]>([]); // DM: 1 person = DM, 2+ = group
   const orgMembers = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false, enabled: mode === "dm" });
   const q = name.trim().toLowerCase();
   // Conversations are with ORGANIZATION MEMBERS (colleagues) — not external contacts, since they
@@ -66,7 +66,7 @@ export function NewConvoModal({ mode, me, onClose, onCreated }: { mode: "channel
       }
     } catch (e) { toast((e as Error).message); }
   };
-  // 1 pessoa → DM normal; 2+ → DM de grupo. Reutiliza o canal se já existir (dedup por dm_key).
+  // 1 person -> regular DM; 2+ -> group DM. Reuses the channel if it already exists (dedup by dm_key).
   const startDM = async () => {
     try {
       const emails = picked.map((p) => p.email);
@@ -127,7 +127,7 @@ export function NewConvoModal({ mode, me, onClose, onCreated }: { mode: "channel
   );
 }
 
-// ForwardModal escolhe o canal de destino para encaminhar uma mensagem.
+// ForwardModal picks the destination channel to forward a message to.
 // Also used by Notes to pick where to share. The title is a prop because "forward to" is not what
 // someone sharing a note is doing, and a picker that says the wrong verb teaches the wrong model.
 export function ForwardModal({ channels, onClose, onPick, title }: {

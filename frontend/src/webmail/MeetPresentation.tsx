@@ -13,18 +13,18 @@ import { onTauriEvent } from "./tauriNotify";
 import { GrantMenu } from "./MeetPresentationGrantMenu";
 import { Picker } from "./MeetPresentationPicker";
 
-// Apresentação no Meet (estilo BBB). O apresentador escolhe PDF/PPTX (upload ou Drive); todos
-// renderizam o PDF localmente (pdf.js) e o slide/caneta/laser sincronizam pelo data channel do
-// LiveKit. Funciona na web e no desktop (o mesmo código; o PDF vem por URL pública com token).
+// Presentation in Meet (BBB style). The presenter picks a PDF/PPTX (upload or Drive); everyone
+// renders the PDF locally (pdf.js) and the slide/pen/laser sync over the LiveKit data channel.
+// Works on web and desktop (same code; the PDF comes via a public URL with a token).
 
-type Stroke = { pts: number[]; color: string; w: number }; // pts normalizados (0..1), pares x,y
+type Stroke = { pts: number[]; color: string; w: number }; // normalized pts (0..1), x,y pairs
 type Msg =
   | { t: "hello" }
   | { t: "start"; id: string; token: string; by: string; slide: number; granted: string[] }
   | { t: "slide"; n: number }
   | { t: "stroke"; page: number; s: Stroke }
-  /** Fotografia dos traços de uma página, para quem entra a meio. `reset` marca o primeiro lote:
-   *  substitui o que houver; os seguintes acrescentam (um desenho longo não cabe num só pacote). */
+  /** Snapshot of a page's strokes, for someone joining mid-way. `reset` marks the first batch:
+   *  replaces whatever is there; the following ones append (a long drawing doesn't fit in a single packet). */
   | { t: "strokes"; page: number; list: Stroke[]; reset: boolean }
   | { t: "clear"; page: number }
   | { t: "laser"; x: number; y: number }
@@ -34,11 +34,11 @@ type Msg =
   | { t: "stop" };
 
 const COLORS = ["#e53935", "#1e88e5", "#43a047", "#fdd835", "#111"];
-/** Teto por pacote ao reenviar traços. O LiveKit corta perto dos 15 KB; ficamos com folga. */
+/** Cap per packet when resending strokes. LiveKit cuts off near 15 KB; we keep margin. */
 const MAX_SNAPSHOT_BYTES = 8000;
 const enc = new TextEncoder();
 const dec = new TextDecoder();
-const DEBUG = false; // painel de diagnóstico da apresentação (ligar só para depurar)
+const DEBUG = false; // presentation diagnostic panel (turn on only to debug)
 
 export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOnly?: boolean }) {
   const { t } = useTranslation();
@@ -46,7 +46,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   const { localParticipant } = useLocalParticipant();
   const myId = localParticipant?.identity ?? "";
 
-  // Diagnóstico temporário: conta mensagens recebidas e mostra o estado.
+  // Temporary diagnostic: counts received messages and shows the state.
   const dbg = useRef({ rx: 0, tx: 0, topic: "-", lastT: "-", err: "" });
   const [, setDbgTick] = useState(0);
   useEffect(() => {
@@ -58,18 +58,18 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   const [pres, setPres] = useState<{ id: string; token: string; by: string } | null>(null);
   const [picker, setPicker] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [hidden, setHidden] = useState(false); // esconder localmente (não encerra; mostra as câmaras)
-  const [barCollapsed, setBarCollapsed] = useState(false); // encolher a barra de controlos (aba)
-  const [full, setFull] = useState(false); // apresentação a ocupar o ecrã todo (esconde as câmaras)
+  const [hidden, setHidden] = useState(false); // hide locally (doesn't end it; shows the cameras)
+  const [barCollapsed, setBarCollapsed] = useState(false); // collapse the control bar (tab)
+  const [full, setFull] = useState(false); // presentation occupying the full screen (hides the cameras)
   const isPresenter = !!pres && pres.by === myId;
 
-  // Envio pelo data channel do LiveKit (tópico "pres"). publishData SÓ funciona com a sala
-  // CONECTADA — antes disso o LiveKit rejeita ("PC manager is closed") e a mensagem perde-se (era
-  // por isso que o hello/start nunca chegavam). Mensagens cedo demais vão para a fila e são
-  // despachadas no RoomEvent.Connected. Laser vai lossy (rápido); o resto fiável.
+  // Sending over the LiveKit data channel ("pres" topic). publishData ONLY works with the room
+  // CONNECTED — before that LiveKit rejects it ("PC manager is closed") and the message is lost (that was
+  // why hello/start never arrived). Messages sent too early go to the queue and are
+  // dispatched on RoomEvent.Connected. Laser goes lossy (fast); everything else reliable.
   const pending = useRef<{ m: Msg; reliable: boolean }[]>([]);
-  /** `to` limita a entrega a participantes concretos (usado para pôr quem entra agora em dia sem
-   *  reenviar o estado a toda a sala). Sem `to`, vai para todos. */
+  /** `to` limits delivery to specific participants (used to bring a newcomer up to date without
+   *  resending the state to the whole room). Without `to`, it goes to everyone. */
   const post = useCallback((m: Msg, reliable = true, to?: string[]) => {
     const room = roomCtx;
     if (!room) { if (DEBUG) dbg.current.err = "no-room"; return; }
@@ -79,7 +79,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
       .catch((e) => { if (DEBUG) dbg.current.err = "tx:" + String((e as Error).message).slice(0, 24); });
   }, [roomCtx]);
 
-  // Estado partilhado da anotação (refs para não re-renderizar a cada traço).
+  // Shared annotation state (refs so it doesn't re-render on every stroke).
   const strokes = useRef<Map<number, Stroke[]>>(new Map());
   const [granted, setGranted] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -92,9 +92,9 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   const pdfCanvas = useRef<HTMLCanvasElement>(null);
   const annoCanvas = useRef<HTMLCanvasElement>(null);
 
-  // Laser IMPERATIVO: mover um elemento por ref não re-renderiza o componente. Posiciona por
-  // TRANSFORM (só compositor) — animar left/top forçava layout a cada pixel e "travava" o rato.
-  // slideSize é atualizado quando a página renderiza (evita ler getBoundingClientRect a cada move).
+  // IMPERATIVE laser: moving an element via ref doesn't re-render the component. Positioned via
+  // TRANSFORM (compositor-only) — animating left/top forced layout on every pixel and "froze" the mouse.
+  // slideSize is updated when the page renders (avoids reading getBoundingClientRect on every move).
   const laserRef = useRef<HTMLSpanElement>(null);
   const slideSize = useRef({ w: 0, h: 0 });
   const laserFade = useRef<ReturnType<typeof setTimeout>>();
@@ -107,19 +107,19 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   }, []);
   const hideLaser = useCallback(() => { if (laserRef.current) laserRef.current.style.opacity = "0"; clearTimeout(laserFade.current); }, []);
 
-  // --- recepção de mensagens ---
+  // --- message reception ---
   function onMsg(m: Msg, from?: string) {
     switch (m.t) {
       case "hello":
-        // Só o apresentador responde, re-emitindo o estado para quem entrou agora (inclui convidados).
-        // Dirigido a quem perguntou: reemitir para a sala toda faria os outros redesenhar à toa.
+        // Only the presenter responds, re-emitting the state to whoever just joined (includes guests).
+        // Directed to whoever asked: re-emitting to the whole room would make everyone else redraw for nothing.
         if (pres && pres.by === myId) resendRef.current(from ? [from] : undefined);
         break;
       case "start":
-        // Idempotente: só (re)carrega quando é uma apresentação NOVA (id diferente). O apresentador
-        // reemite "start" em heartbeat (ver abaixo) — sem esta guarda, cada reemissão recriava o
-        // objeto `pres` e o efeito rebuscava o PDF, além de forçar setHidden(false) em quem tinha
-        // escondido localmente. `pres` aqui é o atual (onMsgRef reatribui onMsg a cada render).
+        // Idempotent: only (re)loads when it's a NEW presentation (different id). The presenter
+        // re-emits "start" as a heartbeat (see below) — without this guard, every re-emission would recreate the
+        // `pres` object and the effect would refetch the PDF, plus force setHidden(false) on whoever had
+        // hidden it locally. `pres` here is the current one (onMsgRef reassigns onMsg on every render).
         if (!pres || pres.id !== m.id) {
           setPres({ id: m.id, token: m.token, by: m.by });
           setPage(m.slide || 1);
@@ -149,27 +149,27 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     }
   }
 
-  // Recebe as mensagens "pres" direto do room. onMsgRef garante o estado atual no handler (sem
-  // fechar sobre um `pres`/`granted` obsoletos).
+  // Receives "pres" messages directly from the room. onMsgRef guarantees the current state in the handler (without
+  // closing over a stale `pres`/`granted`).
   const onMsgRef = useRef(onMsg);
   onMsgRef.current = onMsg;
-  // Identidade do apresentador atual (ref para o handler de saída ler o valor corrente).
+  // Current presenter's identity (ref so the exit handler reads the current value).
   const presByRef = useRef<string | undefined>(undefined);
   presByRef.current = pres?.by;
-  // Se EU sou o apresentador e saio da sala (desconectar/desmontar), encerra a apresentação no
-  // servidor — não fica órfã "ativa" à espera do webhook. O webhook (participant_left) é o backstop.
+  // If I AM the presenter and I leave the room (disconnect/unmount), end the presentation on the
+  // server — it doesn't stay "active" as an orphan waiting for the webhook. The webhook (participant_left) is the backstop.
   const selfStopRef = useRef<() => void>(() => {});
   selfStopRef.current = () => {
     if (pres && pres.by === myId) backend.presentationStop(pres.id).catch(() => {});
   };
   useEffect(() => () => selfStopRef.current(), []);
-  // Saída "dura" (fechar a janela/aba): o cleanup do React NÃO corre. Na web dispara `pagehide`; no
-  // desktop, fechar a janela principal só a ESCONDE (fica no tray) e o webview continua vivo — por
-  // isso o lado nativo emite "window-hidden". Em ambos, quem apresenta encerra: avisa a sala pelo
-  // data channel e desativa no servidor (o pedido vai keepalive, sobrevive ao fecho da página).
+  // "Hard" exit (closing the window/tab): React's cleanup does NOT run. On the web it fires `pagehide`; on
+  // desktop, closing the main window only HIDES it (stays in the tray) and the webview stays alive — that's
+  // why the native side emits "window-hidden". In both cases, whoever is presenting ends it: notifies the room via the
+  // data channel and deactivates it on the server (the request goes keepalive, survives the page closing).
   useEffect(() => {
     const onHardExit = () => {
-      if (!myId || presByRef.current !== myId) return; // só o apresentador encerra
+      if (!myId || presByRef.current !== myId) return; // only the presenter ends it
       post({ t: "stop" });
       selfStopRef.current();
     };
@@ -177,7 +177,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     const offNative = onTauriEvent("window-hidden", onHardExit);
     return () => { window.removeEventListener("pagehide", onHardExit); offNative(); };
   }, [post, myId]);
-  // resendState: o apresentador reemite o estado atual (usado ao entrar alguém novo).
+  // resendState: the presenter re-emits the current state (used when someone new joins).
   const resendRef = useRef<(to?: string[]) => void>(() => {});
   useEffect(() => {
     if (!roomCtx) return;
@@ -188,24 +188,24 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
         const m = JSON.parse(dec.decode(payload)) as Msg;
         if (DEBUG) dbg.current.lastT = m.t;
         onMsgRef.current(m, p?.identity);
-      } catch { /* frame inválido */ }
+      } catch { /* invalid frame */ }
     };
-    // Estado só para quem entrou (não para a sala toda). O atraso dá tempo ao novato de montar o listener.
+    // State only for whoever joined (not the whole room). The delay gives the newcomer time to mount the listener.
     const onJoin = (p?: { identity?: string }) => {
       const to = p?.identity ? [p.identity] : undefined;
       setTimeout(() => resendRef.current(to), 900);
     };
-    // Apresentador saiu da sala ⇒ a apresentação acabou para todos (o servidor também a desativa no
-    // webhook participant_left; isto é o efeito imediato, ao vivo).
+    // Presenter left the room => the presentation is over for everyone (the server also deactivates it on the
+    // participant_left webhook; this is the immediate, live effect).
     const onLeft = (p?: { identity?: string }) => {
       if (p?.identity && p.identity === presByRef.current) {
         setPres(null);
         strokes.current.clear();
       }
     };
-    // Sala conectou: despacha as mensagens em fila (ex.: o hello do mount, feito antes do connect).
+    // Room connected: dispatches the queued messages (e.g. the mount's hello, done before connect).
     const onConnected = () => { const q = pending.current.splice(0); q.forEach(({ m, reliable }) => post(m, reliable)); };
-    // Reconexão: volta a pedir o estado e, se somos o apresentador, reemite-o.
+    // Reconnection: asks for the state again and, if we're the presenter, re-emits it.
     const onReconnected = () => { post({ t: "hello" }); setTimeout(() => resendRef.current(), 600); };
     const onSelfDisconnect = () => selfStopRef.current();
     roomCtx.on(RoomEvent.DataReceived, onData);
@@ -214,7 +214,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     roomCtx.on(RoomEvent.Disconnected, onSelfDisconnect);
     roomCtx.on(RoomEvent.Connected, onConnected);
     roomCtx.on(RoomEvent.Reconnected, onReconnected);
-    if (roomCtx.state === ConnectionState.Connected) onConnected(); // já conectada ao montar
+    if (roomCtx.state === ConnectionState.Connected) onConnected(); // already connected on mount
     return () => {
       roomCtx.off(RoomEvent.DataReceived, onData);
       roomCtx.off(RoomEvent.ParticipantConnected, onJoin);
@@ -228,8 +228,8 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   resendRef.current = (to?: string[]) => {
     if (!pres || pres.by !== myId) return;
     post({ t: "start", id: pres.id, token: pres.token, by: myId, slide: pageRef.current, granted: [...granted] }, true, to);
-    // ...e os traços já desenhados. Sem isto, quem entra a meio vê a apresentação em branco: as
-    // anotações só existiam como eventos ao vivo, nunca como estado.
+    // ...and the strokes already drawn. Without this, someone joining midway sees a blank presentation: the
+    // annotations only existed as live events, never as state.
     for (const [pg, list] of strokes.current) {
       if (!list.length) continue;
       let batch: Stroke[] = [];
@@ -241,7 +241,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
         reset = false; batch = []; bytes = 0;
       };
       for (const s of list) {
-        // Um pacote de dados do LiveKit é limitado (~15 KB); parte-se antes de lá chegar.
+        // A LiveKit data packet is limited (~15 KB); it gets split before reaching that.
         const size = s.pts.length * 8 + 40;
         if (bytes + size > MAX_SNAPSHOT_BYTES) flush();
         batch.push(s); bytes += size;
@@ -250,7 +250,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     }
   };
 
-  // Ao montar/reconectar, pergunta o estado (para entrar a meio da apresentação).
+  // On mount/reconnect, asks for the state (to join mid-presentation).
   useEffect(() => { post({ t: "hello" }); }, [post]);
 
   // Presenter HEARTBEAT: re-broadcasts "start" to EVERYONE every 4s. Without this, a participant
@@ -265,26 +265,26 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     return () => clearInterval(iv);
   }, [pres, myId, granted, post]);
 
-  // Recuperação por REST só UMA vez, ao entrar (caso ninguém responda ao hello a tempo). Não pode
-  // correr sempre que `pres` fica null, senão logo após "Encerrar" voltaria a buscar e reabria.
+  // REST recovery only ONCE, on joining (in case no one answers the hello in time). It can't
+  // run every time `pres` becomes null, or right after "Stop" it would fetch again and reopen it.
   const askedRef = useRef(false);
   useEffect(() => {
-    if (viewerOnly) return; // convidado não tem sessão: este endpoint dava 401 (e o 401 global mandava-o para o login)
+    if (viewerOnly) return; // guest has no session: this endpoint would give 401 (and the global 401 handler would send them to login)
     if (askedRef.current) return;
     askedRef.current = true;
     let stop = false;
     backend.presentationGet(room).then((p) => {
       if (stop || !p.active) return;
-      // by = identidade do apresentador (backend). Se formos nós (reentrámos na sala), recuperamos
-      // o papel: controlos de volta e respondemos aos hellos de quem chegar.
+      // by = presenter's identity (backend). If it's us (we rejoined the room), we recover
+      // the role: controls back and we answer the hellos from whoever arrives.
       setPres({ id: p.id, token: p.token, by: p.by || "" }); setPage(p.current_slide || 1);
-    }).catch(() => { /* sem apresentação ou convidado sem sessão: ignora */ });
+    }).catch(() => { /* no presentation, or guest without a session: ignore */ });
     return () => { stop = true; };
   }, [room]);
 
-  // Carrega o PDF quando a apresentação fica ativa. O estado (a carregar / falhou) é mostrado NO
-  // PALCO: antes, quem não era o apresentador via só um retângulo branco enquanto o ficheiro descia
-  // — ou para sempre, se falhasse (o toast passava despercebido).
+  // Loads the PDF when the presentation becomes active. The state (loading / failed) is shown ON
+  // THE STAGE: before, whoever wasn't the presenter just saw a white rectangle while the file downloaded
+  // — or forever, if it failed (the toast went unnoticed).
   const [pdfState, setPdfState] = useState<"idle" | "loading" | "error">("idle");
   const [retry, setRetry] = useState(0);
   useEffect(() => {
@@ -299,17 +299,17 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
       if (stop) return;
       setPdfState("error");
       if (DEBUG) dbg.current.err = "pdf ERR: " + String((e as Error).message).slice(0, 40);
-      // O motivo real (rede, CORS, PDF corrompido) só vive aqui: sem o log, uma falha de
-      // apresentação era impossível de diagnosticar (o utilizador só via a mensagem genérica).
-      console.error("meet: falha a carregar o PDF da apresentação", e);
+      // The real reason (network, CORS, corrupted PDF) only lives here: without the log, a
+      // presentation failure was impossible to diagnose (the user only saw the generic message).
+      console.error("meet: failed to load the presentation PDF", e);
       toast(t("meet.presLoadFail"));
     });
     return () => { stop = true; };
   }, [pres, t, retry]);
 
-  // Renderiza a página atual no canvas do PDF e ajusta o canvas de anotação. Depende de `hidden`
-  // porque ao esconder/mostrar os canvas são remontados (novos e em branco) — sem re-renderizar,
-  // reapareceria um quadrado branco.
+  // Renders the current page on the PDF canvas and adjusts the annotation canvas. Depends on `hidden`
+  // because when hiding/showing the canvases get remounted (new and blank) — without re-rendering,
+  // a white square would reappear.
   useEffect(() => {
     if (hidden) return;
     const doc = docRef.current, stage = stageRef.current, pc = pdfCanvas.current, ac = annoCanvas.current;
@@ -322,7 +322,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
       const scale = Math.min(stage.clientWidth / base.width, stage.clientHeight / base.height) || 1;
       const vp = pg.getViewport({ scale: scale * dpr });
       const cssW = vp.width / dpr, cssH = vp.height / dpr;
-      slideSize.current = { w: cssW, h: cssH }; // para o laser posicionar por transform sem medir o DOM
+      slideSize.current = { w: cssW, h: cssH }; // so the laser can position via transform without measuring the DOM
       for (const c of [pc, ac]) { c.width = vp.width; c.height = vp.height; c.style.width = cssW + "px"; c.style.height = cssH + "px"; }
       const ctx = pc.getContext("2d")!;
       pg.render({ canvasContext: ctx, viewport: vp });
@@ -332,10 +332,10 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, numPages, redraw, hidden]);
 
-  // O slide era medido UMA vez e nunca mais. Quando o palco muda de tamanho — ao abrir a coluna das
-  // câmaras, ao redimensionar a janela, ao entrar/sair de ecrã inteiro — o canvas ficava com a
-  // medida antiga e transbordava. Observar é seguro: `.pres-canvas-wrap` é `flex:1`, dimensionado
-  // pelo palco e não pelo conteúdo, por isso mudar o canvas não realimenta o observador.
+  // The slide was measured ONCE and never again. When the stage changes size — opening the camera
+  // column, resizing the window, entering/exiting full screen — the canvas kept the old
+  // measurement and overflowed. Observing is safe: `.pres-canvas-wrap` is `flex:1`, sized
+  // by the stage and not by the content, so changing the canvas doesn't feed back into the observer.
   useEffect(() => {
     const stage = stageRef.current;
     if (!stage || hidden || !pres) return;
@@ -344,7 +344,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     return () => ro.disconnect();
   }, [hidden, pres]);
 
-  // Desenha os traços da página atual no canvas de anotação.
+  // Draws the current page's strokes on the annotation canvas.
   function drawStrokes() {
     const ac = annoCanvas.current; if (!ac) return;
     const ctx = ac.getContext("2d")!;
@@ -361,7 +361,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   }
 
   const canDraw = isPresenter || granted.has(myId);
-  const [tool, setTool] = useState<"pen" | null>(null); // null = modo laser (automático ao passar o rato)
+  const [tool, setTool] = useState<"pen" | null>(null); // null = laser mode (automatic on mouse hover)
   const [color, setColor] = useState(COLORS[0]);
   const cur = useRef<number[] | null>(null);
   const lastLaser = useRef(0);
@@ -370,8 +370,8 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     const r = annoCanvas.current!.getBoundingClientRect();
     return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height };
   };
-  // Laser AUTOMÁTICO: enquanto o rato passa sobre a apresentação (e não se está a desenhar), a
-  // posição do ponteiro vira laser para todos. Move-se por ref (sem re-render) e o envio é limitado.
+  // AUTOMATIC laser: while the mouse hovers over the presentation (and no one is drawing), the
+  // pointer's position becomes a laser for everyone. Moves via ref (no re-render) and the sending is throttled.
   const sendLaser = (x: number, y: number) => {
     showLaser(x, y);
     const now = performance.now();
@@ -385,9 +385,9 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   const onMove = (e: React.PointerEvent) => {
     if (!canDraw) return;
     const { x, y } = relPos(e);
-    // Com a CANETA escolhida o laser nunca entra em cena. Antes, mover o rato sem carregar caía no
-    // laser automático e o ponto vermelho continuava a seguir o ponteiro — parecia que a ferramenta
-    // não tinha mudado.
+    // With the PEN selected the laser never comes into play. Before, moving the mouse without pressing fell into
+    // the automatic laser and the red dot kept following the pointer — it looked like the tool
+    // hadn't changed.
     if (tool === "pen") {
       if (cur.current) {
         cur.current.push(x, y);
@@ -395,7 +395,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
       }
       return;
     }
-    sendLaser(x, y); // laser automático (só no modo laser)
+    sendLaser(x, y); // automatic laser (laser mode only)
   };
   const onUp = () => {
     if (cur.current && cur.current.length >= 4) {
@@ -407,7 +407,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   };
   const onLeave = () => { onUp(); hideLaser(); post({ t: "laserOff" }, false); };
 
-  // --- ações do apresentador ---
+  // --- presenter actions ---
   const gotoPage = (n: number) => {
     const p = Math.max(1, Math.min(numPages || 1, n));
     setPage(p); post({ t: "slide", n: p });
@@ -416,7 +416,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
   const clearPage = () => { strokes.current.set(page, []); setRedraw((v) => v + 1); post({ t: "clear", page }); };
   const stop = () => { if (pres) backend.presentationStop(pres.id).catch(() => {}); post({ t: "stop" }); setPres(null); strokes.current.clear(); };
   const startWith = async (fn: () => Promise<Presentation>) => {
-    setPicker(false); setBusy(true); // fecha o seletor e mostra o overlay "a preparar"
+    setPicker(false); setBusy(true); // closes the picker and shows the "preparing" overlay
     try {
       const p = await fn();
       strokes.current.clear();
@@ -437,13 +437,13 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
     post({ t: has ? "revoke" : "grant", id });
   };
 
-  // Participantes remotos (para conceder anotação).
+  // Remote participants (to grant annotation).
   const peers = roomCtx ? [...roomCtx.remoteParticipants.values()] : [];
 
-  // O BOTÃO fica na barra de controlos; tudo o resto (palco, modais, avisos) é sobreposição de ecrã
-  // inteiro e vai para o <body>. Se ficasse dentro da barra, bastava a barra ganhar
-  // `backdrop-filter`/`transform`/`filter` para passar a ser o containing block dos `position:fixed`
-  // — e o palco encolhia para dentro dela, por cima dos ícones. Já aconteceu; daí o portal.
+  // The BUTTON stays in the control bar; everything else (stage, modals, warnings) is a full-screen
+  // overlay and goes to the <body>. If it stayed inside the bar, the bar would only need to gain
+  // `backdrop-filter`/`transform`/`filter` to become the containing block for `position:fixed`
+  // — and the stage would shrink into it, on top of the icons. It's happened before; hence the portal.
   const overlays = (
     <>
       {DEBUG && (
@@ -455,7 +455,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
 
       {busy && <div className="pres-loading"><Spinner size={22} /><span>{t("meet.presConverting")}</span></div>}
 
-      {/* Escondida (local): mostra só um botão para trazer a apresentação de volta; as câmaras voltam. */}
+      {/* Hidden (local): shows only a button to bring the presentation back; the cameras return. */}
       {pres && hidden && (
         <button className="pres-show" onClick={() => setHidden(false)}><IcPresent size={16} /> {t("meet.presShow")}</button>
       )}
@@ -470,7 +470,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
                 onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerLeave={onLeave} />
               <span className="pres-laser" ref={laserRef} />
             </div>
-            {/* Estado do PDF sobre a área da apresentação (e só ela) — não tapa as câmaras. */}
+            {/* PDF state over the presentation area (and only it) — doesn't cover the cameras. */}
             {pdfState === "loading" && (
               <div className="pres-state"><Spinner size={22} /><span>{t("meet.presLoading")}</span></div>
             )}
@@ -501,7 +501,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
                 onClick={() => {
                   const next = tool === "pen" ? null : "pen";
                   setTool(next);
-                  // Ao passar para a caneta, apaga o laser que ficou aceso — no meu ecrã e no dos outros.
+                  // When switching to the pen, turns off the laser that was left on — on my screen and everyone else's.
                   if (next === "pen") { hideLaser(); post({ t: "laserOff" }); }
                 }}><IcPencil size={15} /></button>
               {tool === "pen" && (
@@ -513,11 +513,11 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
               <span className="pres-sep" />
             </>}
             {isPresenter && peers.length > 0 && <GrantMenu peers={peers} granted={granted} onToggle={toggleGrant} label={t("meet.presAllow")} />}
-            {/* Ecrã inteiro: o slide ocupa tudo e as câmaras saem da frente (só para mim). */}
+            {/* Full screen: the slide takes up everything and the cameras get out of the way (only for me). */}
             <button className="ib" title={full ? t("meet.presExitFull") : t("meet.presFull")} onClick={() => setFull((f) => !f)}>
               {full ? <IcRestoreWin size={15} /> : <IcMaximize size={15} />}
             </button>
-            {/* Esconder é LOCAL (não encerra): traz as câmaras de volta. */}
+            {/* Hiding is LOCAL (doesn't end it): brings the cameras back. */}
             <button className="ib" title={t("meet.presHide")} onClick={() => setHidden(true)}><IcExternal size={15} /></button>
             {isPresenter && <>
               <span className="pres-sep" />
@@ -532,7 +532,7 @@ export function PresentationLayer({ room, viewerOnly }: { room: string; viewerOn
 
   return (
     <>
-      {/* Convidados (viewerOnly) só veem — não podem iniciar apresentação (sem sessão na nossa API). */}
+      {/* Guests (viewerOnly) can only watch — they can't start a presentation (no session on our API). */}
       {!viewerOnly && (
         <button className="meet-abtn" title={t("meet.present")} aria-label={t("meet.present")} onClick={() => (pres ? undefined : setPicker(true))} disabled={!!pres && !isPresenter}>
           <IcPresent size={19} />

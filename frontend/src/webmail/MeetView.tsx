@@ -9,11 +9,11 @@ import { toast } from "./toast";
 import { MeetAgenda, useAgendaNav, agendaLabel } from "./MeetAgenda";
 import { IcVideo, IcPlus, IcCalendar, IcCheck, IcX, IcUsers, IcList, IcDownload, IcTrash, IcChevron } from "../panel/icons";
 
-// Meet: home com reuniões próximas (agendadas/convidadas) e anteriores (duração/data), RSVP e
-// agendamento. A chamada usa o componente pronto do LiveKit (grade/mudo/câmera/tela/sair).
+// Meet: home with upcoming meetings (scheduled/invited) and past ones (duration/date), RSVP and
+// scheduling. The call uses LiveKit's ready-made component (grid/mute/camera/screen/leave).
 export function MeetView({ roomParam, meetingParam }: {
   roomParam?: string;
-  /** Reunião a abrir (/mail/meet/m/<id>) — destino do convite. Mostra a ficha; entrar é escolha de quem clica. */
+  /** Meeting to open (/mail/meet/m/<id>) — the invite's destination. Shows the detail card; joining is the clicker's choice. */
   meetingParam?: string;
 }) {
   const { t, i18n } = useTranslation();
@@ -38,14 +38,14 @@ export function MeetView({ roomParam, meetingParam }: {
   const pastQ = useQuery({ queryKey: ["meetings", "past", pastPage], queryFn: () => backend.meetListPage("past", pastPage, PER), retry: false });
   const recs = useQuery({ queryKey: ["recordings", recPage], queryFn: () => backend.meetRecordings(recPage, PER), retry: false });
   const autojoined = useRef<string | null>(null);
-  // Criar reunião: o backend cria a sala e nós abrimos a janela dedicada dela.
+  // Create a meeting: the backend creates the room and we open its dedicated window.
   const join = useMutation({
     mutationFn: ({ room, access }: { room?: string; access?: string }) => backend.meetJoin(room, access),
     onSuccess: (s) => { openRoom(s.room); qc.invalidateQueries({ queryKey: ["meetings"] }); },
     onError: (e) => toast((e as Error).message),
   });
 
-  // Link antigo /mail/meet/<sala>: abre a janela da sala e volta para a home do Meet.
+  // Old link /mail/meet/<room>: opens the room's window and returns to the Meet home.
   useEffect(() => {
     if (roomParam && autojoined.current !== roomParam) {
       autojoined.current = roomParam;
@@ -54,12 +54,12 @@ export function MeetView({ roomParam, meetingParam }: {
     }
   }, [roomParam, nav]);
 
-  // /mail/meet/m/<id>: destino do convite de reunião. Abre a ficha assim que a lista chegar.
+  // /mail/meet/m/<id>: the meeting invite's destination. Opens the detail card as soon as the list arrives.
   const opened = useRef<string | null>(null);
   useEffect(() => {
     if (!meetingParam || opened.current === meetingParam) return;
     const m = (list.data?.meetings ?? []).find((x) => x.id === meetingParam);
-    if (!m) return; // ainda a carregar (ou reunião cancelada): não faz nada
+    if (!m) return; // still loading (or canceled meeting): does nothing
     opened.current = meetingParam;
     setDetail(m);
   }, [meetingParam, list.data]);
@@ -139,7 +139,7 @@ export function MeetView({ roomParam, meetingParam }: {
     </div>
   );
 
-  // Pager compacto das secções (‹ x–y de N ›) — mesmo desenho do pager do correio.
+  // Compact section pager (‹ x-y of N ›) — same design as the mail pager.
   function Pager({ page, total, per, onPage }: { page: number; total: number; per: number; onPage: (p: number) => void }) {
     if (total <= per) return null;
     const last = Math.ceil(total / per);
@@ -233,8 +233,8 @@ export function MeetView({ roomParam, meetingParam }: {
     );
   }
 
-  // Detalhe da reunião (aberto ao clicar num bloco da agenda): participantes, quem confirmou/
-  // foi notificado, entrar, RSVP (convidado) e cancelar (dono).
+  // Meeting detail (opened by clicking an agenda block): participants, who confirmed/
+  // was notified, join, RSVP (guest), and cancel (owner).
   function MeetingDetail({ m, onClose, onJoin }: { m: Meeting; onClose: () => void; onJoin: () => void }) {
     const cancel = useMutation({ mutationFn: () => backend.meetCancel(m.id), onSuccess: () => { qc.invalidateQueries({ queryKey: ["meetings"] }); toast(t("meet.canceled")); onClose(); } });
     return (
