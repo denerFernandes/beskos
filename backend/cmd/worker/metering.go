@@ -14,8 +14,8 @@ import (
 
 // Manager metering: idempotent daily rollup, plus recording retention per the tenant's plan.
 
-// scanDailyUsage congela o uso por tenant para HOJE e ONTEM (upsert). Rodar de hora em hora cobre
-// mudanças ao longo do dia; refazer ontem no primeiro tick depois da meia-noite fecha o dia certo.
+// scanDailyUsage freezes per-tenant usage for TODAY and YESTERDAY (upsert). Running hourly covers
+// changes throughout the day; redoing yesterday on the first tick after midnight closes the right day.
 func scanDailyUsage(ctx context.Context, q *db.Queries) {
 	now := time.Now()
 	for _, d := range []time.Time{now, now.AddDate(0, 0, -1)} {
@@ -26,8 +26,8 @@ func scanDailyUsage(ctx context.Context, q *db.Queries) {
 	}
 }
 
-// scanRecordingRetention apaga gravações além da retenção do plano: primeiro o objeto no
-// storage, depois a linha (nesta ordem — se o storage falhar, a linha fica e tentamos de novo).
+// scanRecordingRetention deletes recordings past the plan's retention: first the storage object,
+// then the row (in this order — if storage fails, the row stays and we try again).
 func scanRecordingRetention(ctx context.Context, q *db.Queries, st *storage.Service) {
 	rows, err := q.ExpiredRecordings(ctx)
 	if err != nil {
@@ -50,8 +50,8 @@ func scanRecordingRetention(ctx context.Context, q *db.Queries, st *storage.Serv
 	}
 }
 
-// meteringStorage monta o cliente MinIO para a retenção (mesmas envs do api). nil = sem storage
-// (a retenção só apaga linhas cujo blob esteja vazio).
+// meteringStorage builds the MinIO client for retention (same envs as the api). nil = no storage
+// (retention only deletes rows whose blob is empty).
 func meteringStorage(q *db.Queries) *storage.Service {
 	ep := os.Getenv("MINIO_ENDPOINT")
 	if ep == "" {
@@ -67,15 +67,15 @@ func meteringStorage(q *db.Queries) *storage.Service {
 		log.Printf("metering: storage disabled: %v", err)
 		return nil
 	}
-	// A montagem das gravações escreve por aqui: sem isto, o MP4 final saía em claro enquanto os
-	// ficheiros do Drive saíam cifrados. Ver docs/cifra-ficheiros.md §3a.
+	// Recording assembly writes through here: without this, the final MP4 would go out in
+	// plaintext while Drive's files went out encrypted. See the file-encryption design doc §3a.
 	if err := st.EnableEncryption(q, os.Getenv("FILE_ENC_KEYS")); err != nil {
 		log.Fatalf("metering: storage encryption: %v", err)
 	}
 	return st
 }
 
-// startMetering liga o rollup + retenção num ticker horário (primeira passada já no arranque).
+// startMetering wires up rollup + retention on an hourly ticker (first pass already at startup).
 func startMetering(q *db.Queries) {
 	st := meteringStorage(q)
 	go func() {

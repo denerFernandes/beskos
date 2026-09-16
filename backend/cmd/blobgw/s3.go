@@ -17,50 +17,52 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
-// As quatro operações. Cada uma devolve o estado que escreveu, só para o registo.
+// The four operations. Each one returns the status it wrote, only for logging.
 
-// put cifra e guarda. O Stalwart manda o corpo inteiro com Content-Length — nunca multipart —, o
-// que é o que permite cifrar em passagem, sem estado e sem disco.
+// put encrypts and stores. Stalwart sends the whole body with Content-Length — never multipart —
+// which is what allows encrypting it in stream, stateless and without disk.
 func (g *gateway) put(ctx context.Context, w http.ResponseWriter, r *http.Request, key string) int {
 	size := r.ContentLength
 	if size < 0 {
-		s3Err(w, http.StatusLengthRequired, "MissingContentLength", "este gateway precisa de Content-Length")
+		s3Err(w, http.StatusLengthRequired, "MissingContentLength", "this gateway requires Content-Length")
 		return http.StatusLengthRequired
 	}
 	defer r.Body.Close()
 
-	// A assinatura cobre o resumo DECLARADO do corpo, não o corpo. Confere-se o corpo real em
-	// passagem — sem o guardar em memória, que é o que permite um anexo grande passar por aqui.
+	// The signature covers the DECLARED digest of the body, not the body. The real body is
+	// checked in stream — without holding it in memory, which is what lets a large attachment
+	// pass through here.
 	body := newChecker(r.Body, r.Header.Get("X-Amz-Content-Sha256"))
 
-	// O tipo de conteúdo não é preservado: o objeto passa a ser opaco e dizer ao fornecedor que
-	// aquilo é um `message/rfc822` devolvia-lhe parte do que a cifra acabou de esconder.
+	// The content type is not preserved: the object becomes opaque, and telling the provider
+	// that it is a `message/rfc822` would give back part of what encryption just hid.
 	if err := g.st.Put(ctx, key, body, size, ""); err != nil {
 		log.Printf("blobgw: put %s: %v", key, err)
-		s3Err(w, http.StatusInternalServerError, "InternalError", "falha a guardar")
+		s3Err(w, http.StatusInternalServerError, "InternalError", "failed to store")
 		return http.StatusInternalServerError
 	}
 
-	// Só se sabe no fim. Um corpo que não corresponde ao que foi assinado não fica no
-	// armazenamento: apaga-se o que acabou de se escrever antes de responder.
+	// Only known at the end. A body that does not match what was signed does not stay in
+	// storage: what was just written is deleted before responding.
 	if err := body.verify(); err != nil {
 		log.Printf("blobgw: put %s rejected: %v", key, err)
 		if err := g.st.Remove(context.WithoutCancel(ctx), key); err != nil {
 			log.Printf("blobgw: and could not delete %s: %v", key, err)
 		}
-		s3Err(w, http.StatusBadRequest, "XAmzContentSHA256Mismatch", "o corpo não corresponde ao resumo assinado")
+		s3Err(w, http.StatusBadRequest, "XAmzContentSHA256Mismatch", "body does not match the signed digest")
 		return http.StatusBadRequest
 	}
-	// O ETag tem de existir, mas NÃO pode ser o do objeto cifrado nem fingir ser o md5 do que o
-	// cliente mandou. O Stalwart não o verifica (confirma a escrita com um HEAD, ver
-	// verify_after_write); devolve-se a chave, que é estável e não mente sobre ser um md5.
+	// The ETag must exist, but it must NOT be the encrypted object's nor pretend to be the md5
+	// of what the client sent. Stalwart does not verify it (it confirms the write with a HEAD,
+	// see verify_after_write); the key is returned instead, which is stable and does not lie
+	// about being an md5.
 	w.Header().Set("ETag", `"`+keyETag(key)+`"`)
 	w.WriteHeader(http.StatusOK)
 	return http.StatusOK
 }
 
-// get devolve o conteúdo decifrado. Com Range, decifra só os blocos pedidos — é para isto que o
-// formato é em blocos.
+// get returns the decrypted content. With Range, it decrypts only the requested blocks — that is
+// exactly why the format is chunked.
 func (g *gateway) get(ctx context.Context, w http.ResponseWriter, r *http.Request, key string) int {
 	interval := r.Header.Get("Range")
 	if interval == "" {
@@ -74,7 +76,7 @@ func (g *gateway) get(ctx context.Context, w http.ResponseWriter, r *http.Reques
 			_, err = obj.Seek(0, io.SeekStart)
 		}
 		if err != nil {
-			s3Err(w, http.StatusInternalServerError, "InternalError", "falha a medir o objeto")
+			s3Err(w, http.StatusInternalServerError, "InternalError", "failed to measure the object")
 			return http.StatusInternalServerError
 		}
 		objectHeaders(w, obj, key, total)
@@ -93,7 +95,7 @@ func (g *gateway) get(ctx context.Context, w http.ResponseWriter, r *http.Reques
 
 	total, err := sr.Seek(0, io.SeekEnd)
 	if err != nil {
-		s3Err(w, http.StatusInternalServerError, "InternalError", "falha a medir o objeto")
+		s3Err(w, http.StatusInternalServerError, "InternalError", "failed to measure the object")
 		return http.StatusInternalServerError
 	}
 	start, end, err := readRange(interval, total)
@@ -103,7 +105,7 @@ func (g *gateway) get(ctx context.Context, w http.ResponseWriter, r *http.Reques
 		return http.StatusRequestedRangeNotSatisfiable
 	}
 	if _, err := sr.Seek(start, io.SeekStart); err != nil {
-		s3Err(w, http.StatusInternalServerError, "InternalError", "falha a posicionar")
+		s3Err(w, http.StatusInternalServerError, "InternalError", "failed to seek")
 		return http.StatusInternalServerError
 	}
 
@@ -117,9 +119,9 @@ func (g *gateway) get(ctx context.Context, w http.ResponseWriter, r *http.Reques
 	return http.StatusPartialContent
 }
 
-// head confirma que o objeto existe e diz o tamanho EM CLARO — que é o que o cliente espera, e não
-// o do cifrado. O Stalwart usa isto logo a seguir a cada PUT (verify_after_write) para se defender
-// de armazenamentos que confirmam escritas antes de as tornarem visíveis.
+// head confirms the object exists and reports the PLAINTEXT size — which is what the client
+// expects, not the encrypted one. Stalwart uses this right after every PUT (verify_after_write)
+// to defend against storage backends that confirm writes before making them visible.
 func (g *gateway) head(ctx context.Context, w http.ResponseWriter, key string) int {
 	sr, err := g.st.GetSeek(ctx, key)
 	if err != nil {
@@ -129,7 +131,7 @@ func (g *gateway) head(ctx context.Context, w http.ResponseWriter, key string) i
 
 	total, err := sr.Seek(0, io.SeekEnd)
 	if err != nil {
-		s3Err(w, http.StatusInternalServerError, "InternalError", "falha a medir o objeto")
+		s3Err(w, http.StatusInternalServerError, "InternalError", "failed to measure the object")
 		return http.StatusInternalServerError
 	}
 	objectHeaders(w, sr, key, total)
@@ -137,9 +139,9 @@ func (g *gateway) head(ctx context.Context, w http.ResponseWriter, key string) i
 	return http.StatusOK
 }
 
-// cabecalhosDoObjeto escreve o que um cliente S3 espera de um GET ou HEAD. O Last-Modified não é
-// enfeite: um cliente legítimo recusa a resposta sem ele (o minio-go apanhou isto no ensaio), e
-// vem de borla na resposta que já se fez ao armazenamento.
+// objectHeaders writes what an S3 client expects from a GET or HEAD. Last-Modified is not
+// decoration: a legitimate client rejects the response without it (minio-go caught this during
+// testing), and it comes for free from the response already made to storage.
 func objectHeaders(w http.ResponseWriter, obj *storage.SeekObject, key string, total int64) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Length", strconv.FormatInt(total, 10))
@@ -155,48 +157,48 @@ func objectHeaders(w http.ResponseWriter, obj *storage.SeekObject, key string, t
 func (g *gateway) delete(ctx context.Context, w http.ResponseWriter, key string) int {
 	if err := g.st.Remove(ctx, key); err != nil {
 		log.Printf("blobgw: delete %s: %v", key, err)
-		s3Err(w, http.StatusInternalServerError, "InternalError", "falha a apagar")
+		s3Err(w, http.StatusInternalServerError, "InternalError", "failed to delete")
 		return http.StatusInternalServerError
 	}
 	w.WriteHeader(http.StatusNoContent)
 	return http.StatusNoContent
 }
 
-// erroLeitura traduz o erro do armazenamento. O 404 tem de passar como 404: o Stalwart distingue
-// "não existe" (resposta legítima) de "avariou" (que ele repete com recuo).
+// readErr translates the storage error. 404 must pass through as 404: Stalwart distinguishes
+// "does not exist" (a legitimate response) from "it broke" (which it retries with backoff).
 func (g *gateway) readErr(w http.ResponseWriter, key string, err error) int {
 	var resp minio.ErrorResponse
 	if errors.As(err, &resp) && (resp.StatusCode == http.StatusNotFound || resp.Code == "NoSuchKey") {
-		s3Err(w, http.StatusNotFound, "NoSuchKey", "não existe")
+		s3Err(w, http.StatusNotFound, "NoSuchKey", "does not exist")
 		return http.StatusNotFound
 	}
 	log.Printf("blobgw: read %s: %v", key, err)
-	s3Err(w, http.StatusInternalServerError, "InternalError", "falha a ler")
+	s3Err(w, http.StatusInternalServerError, "InternalError", "failed to read")
 	return http.StatusInternalServerError
 }
 
-// lerRange interpreta `bytes=início-fim`, com as formas abertas dos dois lados. Devolve limites
-// inclusivos, como o HTTP manda.
+// readRange parses `bytes=start-end`, with the open forms on either side. Returns inclusive
+// bounds, as HTTP requires.
 func readRange(header string, total int64) (int64, int64, error) {
 	if !strings.HasPrefix(header, "bytes=") {
-		return 0, 0, errf("intervalo %q não é em bytes", header)
+		return 0, 0, errf("range %q is not in bytes", header)
 	}
 	spec := strings.TrimPrefix(header, "bytes=")
 	if strings.Contains(spec, ",") {
-		return 0, 0, errf("intervalos múltiplos não são suportados")
+		return 0, 0, errf("multiple ranges are not supported")
 	}
 	from, until, ok := strings.Cut(spec, "-")
 	if !ok {
-		return 0, 0, errf("intervalo %q malformado", spec)
+		return 0, 0, errf("malformed range %q", spec)
 	}
 
 	switch {
 	case from == "" && until == "":
-		return 0, 0, errf("intervalo vazio")
-	case from == "": // sufixo: os últimos N bytes
+		return 0, 0, errf("empty range")
+	case from == "": // suffix: the last N bytes
 		n, err := strconv.ParseInt(until, 10, 64)
 		if err != nil || n <= 0 {
-			return 0, 0, errf("sufixo %q inválido", until)
+			return 0, 0, errf("invalid suffix %q", until)
 		}
 		if n > total {
 			n = total
@@ -206,28 +208,28 @@ func readRange(header string, total int64) (int64, int64, error) {
 
 	start, err := strconv.ParseInt(from, 10, 64)
 	if err != nil || start < 0 {
-		return 0, 0, errf("início %q inválido", from)
+		return 0, 0, errf("invalid start %q", from)
 	}
 	if start >= total {
-		return 0, 0, errf("início %d além do fim (%d)", start, total)
+		return 0, 0, errf("start %d past the end (%d)", start, total)
 	}
 	end := total - 1
 	if until != "" {
 		if end, err = strconv.ParseInt(until, 10, 64); err != nil {
-			return 0, 0, errf("fim %q inválido", until)
+			return 0, 0, errf("invalid end %q", until)
 		}
 		if end > total-1 {
 			end = total - 1
 		}
 	}
 	if end < start {
-		return 0, 0, errf("fim %d antes do início %d", end, start)
+		return 0, 0, errf("end %d before start %d", end, start)
 	}
 	return start, end, nil
 }
 
-// etagDaChave dá um ETag estável e honesto. As chaves do Stalwart já são o resumo do conteúdo, por
-// isso isto identifica a versão sem fingir ser o md5 de bytes que ninguém tem.
+// keyETag gives a stable, honest ETag. Stalwart's keys are already the content digest, so this
+// identifies the version without pretending to be the md5 of bytes nobody has.
 func keyETag(key string) string {
 	if i := strings.LastIndexByte(key, '/'); i >= 0 {
 		return key[i+1:]

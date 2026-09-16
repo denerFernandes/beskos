@@ -9,33 +9,36 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
-// Vigia de reputação: suspende o envio de um cliente antes que a AWS suspenda o de todos.
+// Reputation sentinel: suspends one customer's sending before AWS suspends everyone's.
 //
-// O PROBLEMA. As identidades de todos os clientes vivem na mesma conta AWS. Um cliente com uma
-// lista comprada faz subir as devoluções da CONTA, e a AWS estrangula ou suspende a conta inteira —
-// o correio de toda a gente para por causa de um. Até aqui, perante isso, as opções eram não fazer
-// nada ou suspender a conta nós mesmos.
+// THE PROBLEM. Every customer's identities live in the same AWS account. A customer with a
+// purchased list drives up the ACCOUNT's bounce rate, and AWS throttles or suspends the whole
+// account — everyone's mail stops because of one. Until now, faced with that, the options were to
+// do nothing or suspend the account ourselves.
 //
-// Com um conjunto de configuração por domínio (ver internal/ses), a SES mede cada cliente à parte e
-// deixa desligar o envio de um sem tocar nos outros. Este vigia é o que liga as duas coisas.
+// With a per-domain configuration set (see internal/ses), SES measures each customer separately
+// and lets us turn off sending for one without touching the others. This sentinel is what
+// connects the two.
 //
-// LIMIARES: os da própria AWS — 5% de devoluções e 0,1% de queixas são as marcas a partir das quais
-// ela começa a olhar para a conta. Suspender antes disso é precisamente evitar que ela o faça.
+// THRESHOLDS: AWS's own — 5% bounces and 0.1% complaints are the marks past which it starts
+// looking at the account. Suspending before that is precisely about stopping it from doing so.
 //
-// SUSPENDE MAS NÃO RETOMA. Reativar um cliente que estava a queimar reputação é uma decisão com
-// consequências para todos os outros, e deve ser de uma pessoa que olhou para o caso. Um vigia que
-// retoma sozinho acabaria a ligar e desligar o mesmo cliente em ciclo.
+// SUSPENDS BUT DOES NOT REINSTATE. Reactivating a customer who was burning reputation is a
+// decision with consequences for everyone else, and must come from a person who looked at the
+// case. A sentinel that reinstates on its own would end up switching the same customer on and
+// off in a loop.
 //
-// ESTE VIGIA NÃO CHEGA, e é bom que se diga: ele é código nosso, portanto pode estar em baixo
-// exatamente quando é preciso. A segunda linha é a pausa automática da AWS, que funciona sem nós —
-// mas exige o cabeçalho X-SES-TENANT em cada mensagem, o que obriga a mexer no caminho do correio.
+// THIS SENTINEL IS NOT ENOUGH, and it is worth saying so: it is our own code, so it can be down
+// exactly when it is needed. The second line of defense is AWS's automatic pause, which works
+// without us — but it requires the X-SES-TENANT header on every message, which means touching the
+// mail path.
 
 const (
 	reputationInterval = time.Hour
-	// Janela de análise. Vinte e quatro horas alisa o ruído de um envio pequeno: com dez mensagens,
-	// uma devolução dá 10% e suspenderia um cliente por nada.
+	// Analysis window. Twenty-four hours smooths out the noise of a small send: with ten
+	// messages, one bounce gives 10% and would suspend a customer for nothing.
 	reputationWindow = 24 * time.Hour
-	// Mínimo de envios para a taxa significar alguma coisa.
+	// Minimum sends for the rate to mean anything.
 	minSends = 100
 
 	bounceLimit    = 0.05  // 5%
@@ -52,7 +55,7 @@ func startReputation(q *db.Queries, relay *ses.Client) {
 		return
 	}
 	go func() {
-		time.Sleep(2 * time.Minute) // deixa o arranque respirar
+		time.Sleep(2 * time.Minute) // lets startup breathe
 		// Consecutive passes where NOT ONE domain could be measured. Law 2.8: a single failing
 		// domain is ordinary noise, but every read failing, pass after pass, means the watchdog is
 		// blind -- and a blind watchdog looks exactly like a happy one.
@@ -105,14 +108,15 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) (mea
 		return 0, 0
 	}
 
-	// ALINHADO À MEIA-NOITE UTC, e não a rolar a partir de agora. A SES só devolve os dados diários
-	// agregados quando o intervalo vai de meia-noite a meia-noite; com marcas de dia parcial responde
-	// HTTP 400 e não devolve número nenhum. Isto foi um erro que só apareceu em produção: o vigia
-	// falhava em TODAS as passagens desde que foi instalado, e ninguém era medido.
+	// ALIGNED TO UTC MIDNIGHT, and not rolling from now. SES only returns the aggregated daily
+	// data when the interval runs midnight to midnight; with partial-day marks it answers HTTP
+	// 400 and returns no number at all. This was a bug that only showed up in production: the
+	// sentinel failed on EVERY pass since it was installed, and nobody was being measured.
 	//
-	// O preço é a janela terminar na última meia-noite, ou seja até 24 h de atraso sobre o que está a
-	// acontecer agora. É aceitável porque este vigia nunca foi a defesa em tempo real — essa é a
-	// pausa automática da SES por tenant, que atua sem nós. Este é a rede que apanha a tendência.
+	// The price is that the window ends at the last midnight, i.e. up to 24 h of lag behind what
+	// is happening right now. That is acceptable because this sentinel was never the real-time
+	// defense — that is SES's per-tenant automatic pause, which acts without us. This one is the
+	// net that catches the trend.
 	until := time.Now().UTC().Truncate(24 * time.Hour)
 	from := until.Add(-reputationWindow)
 
@@ -120,8 +124,8 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) (mea
 		configSet := ses.TenantName(d.Domain)
 		rep, err := relay.ConfigSetReputation(ctx, configSet, from, until)
 		if err != nil {
-			// Não suspende por não conseguir medir: um erro de leitura não é prova de nada, e
-			// suspender um cliente por engano é o mesmo estrago pelo motivo errado.
+			// Does not suspend for failing to measure: a read error is not proof of anything, and
+			// suspending a customer by mistake is the same damage for the wrong reason.
 			log.Printf("reputation: %s: %v", d.Domain, err)
 			failed++
 			continue
@@ -143,7 +147,7 @@ func checkReputation(ctx context.Context, q *db.Queries, relay *ses.Client) (mea
 			log.Printf("reputation: %s: SUSPENSION FAILED, the account is still exposed: %v", d.Domain, err)
 			continue
 		}
-		log.Printf("reputation: %s suspended; reinstating is a manual decision (ses-tenants has no --reativar on purpose)",
+		log.Printf("reputation: %s suspended; reinstating is a manual decision (ses-tenants has no --reactivate on purpose)",
 			d.Domain)
 	}
 	return measured, failed

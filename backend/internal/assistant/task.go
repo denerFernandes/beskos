@@ -9,8 +9,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// Estados de uma tarefa em fundo (§3.6). São os mesmos no servidor, no worker e na interface — daí
-// viverem aqui, e não em cada um deles com o risco de divergirem numa letra.
+// States of a background task (§3.6). They are the same in the server, the worker and the
+// interface — hence living here, rather than in each of them with the risk of diverging by a
+// letter.
 const (
 	TaskQueued    = "queued"
 	TaskRunning   = "running"
@@ -20,27 +21,27 @@ const (
 	TaskCancelled = "cancelled"
 )
 
-// TaskLease é quanto tempo o arrendamento de um worker vale. Passado isto sem renovação, a tarefa
-// volta à fila: é assim que se recupera de um worker que morreu a meio (§7.5).
+// TaskLease is how long a worker's lease is valid for. Once it elapses without renewal, the task
+// goes back to the queue: that is how it recovers from a worker that died midway (§7.5).
 //
-// Generoso de propósito. Uma execução agêntica pode ficar minutos num passo — sobretudo à espera de
-// uma confirmação humana —, e roubar uma tarefa viva a um worker que está a trabalhar seria pior do
-// que esperar de mais por uma que morreu.
+// Deliberately generous. An agentic run can spend minutes on a single step — especially waiting
+// on a human confirmation — and stealing a live task from a worker that is still working would be
+// worse than waiting a bit longer for one that actually died.
 const TaskLease = 15 * time.Minute
 
-// TaskStore é o que o executor precisa da persistência. A implementação real está no worker; o
-// teste passa um duplo. O motor continua sem falar com a base de dados (§5).
+// TaskStore is what the executor needs from persistence. The real implementation lives in the
+// worker; the test passes a double. The engine still never talks to the database directly (§5).
 type TaskStore interface {
-	// Progress grava os passos já feitos e o estado atual. Chamado a CADA passo: é isto que
-	// permite retomar e é isto que a bolha mostra.
+	// Progress records the steps done so far and the current status. Called on EVERY step: this
+	// is what allows resuming and what the bubble displays.
 	Progress(ctx context.Context, taskID uuid.UUID, status string, steps []Step) error
-	// Cancelled diz se foi pedido cancelamento. Consultado entre passos.
+	// Cancelled reports whether cancellation was requested. Checked between steps.
 	Cancelled(ctx context.Context, taskID uuid.UUID) (bool, error)
-	// Finish fecha a tarefa.
+	// Finish closes the task.
 	Finish(ctx context.Context, taskID uuid.UUID, res TaskResult) error
 }
 
-// TaskResult é o desfecho de uma tarefa.
+// TaskResult is the outcome of a task.
 type TaskResult struct {
 	Status    string
 	Answer    string
@@ -50,7 +51,7 @@ type TaskResult struct {
 	RunID     uuid.UUID
 }
 
-// Task é o trabalho a executar.
+// Task is the work to execute.
 type Task struct {
 	ID             uuid.UUID
 	Identity       Identity
@@ -60,22 +61,23 @@ type Task struct {
 	History        []Turn
 }
 
-// RunTask executa uma tarefa em fundo do princípio ao fim.
+// RunTask executes a background task from start to finish.
 //
-// Três coisas distinguem isto de uma execução síncrona, e as três vêm de §7.5:
+// Three things set this apart from a synchronous run, and all three come from §7.5:
 //
-//  1. o progresso é gravado a cada passo, para a tarefa poder retomar depois de um reinício;
-//  2. as ferramentas de escrita passam pelo registo de efeitos, para uma retoma não repetir o que
-//     já aconteceu (lei 5.3);
-//  3. o cancelamento é verificado entre passos — o que já foi feito fica registado, não se perde.
+//  1. progress is recorded on every step, so the task can resume after a restart;
+//  2. write tools go through the effect log, so a resume doesn't repeat what already happened
+//     (law 5.3);
+//  3. cancellation is checked between steps — what was already done stays recorded, it isn't
+//     lost.
 //
-// Nunca devolve erro por falha do modelo: uma tarefa que falha é uma tarefa com estado 'failed' e
-// um código de i18n, não uma exceção que ninguém apanha.
+// Never returns an error for a model failure: a task that fails is a task with status 'failed'
+// and an i18n code, not an exception nobody catches.
 func RunTask(ctx context.Context, eng *Engine, store TaskStore, effects EffectLog, t Task) TaskResult {
 	var seen []Step
 
-	// O cancelamento corta o contexto, o que pára a chamada ao modelo a meio se for preciso. A
-	// verificação corre entre passos: cancelar é um pedido, e o efeito chega no passo seguinte.
+	// Cancellation cancels the context, which stops the model call midway if needed. The check
+	// runs between steps: cancelling is a request, and the effect lands on the next step.
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	cancelled := false
@@ -88,8 +90,9 @@ func RunTask(ctx context.Context, eng *Engine, store TaskStore, effects EffectLo
 		OnStep: func(steps []Step) {
 			seen = steps
 			if err := store.Progress(runCtx, t.ID, TaskRunning, steps); err != nil {
-				// Perder o progresso não deita fora o trabalho já feito: a tarefa continua, e no
-				// pior caso a retoma repete um passo que a guarda de efeitos já reconhece.
+				// Losing the progress record doesn't throw away the work already done: the task
+				// continues, and in the worst case a resume repeats a step the effect guard
+				// already recognises.
 				return
 			}
 			if stop, err := store.Cancelled(context.WithoutCancel(runCtx), t.ID); err == nil && stop {
@@ -108,7 +111,8 @@ func RunTask(ctx context.Context, eng *Engine, store TaskStore, effects EffectLo
 	res := TaskResult{Steps: steps, RunID: run.ID}
 	switch {
 	case cancelled:
-		// O que já fez fica registado (§7.5). Uma tarefa cancelada não é uma tarefa sem história.
+		// What it already did stays recorded (§7.5). A cancelled task is not a task without a
+		// history.
 		res.Status = TaskCancelled
 	case err != nil:
 		res.Status = TaskFailed
@@ -124,8 +128,8 @@ func RunTask(ctx context.Context, eng *Engine, store TaskStore, effects EffectLo
 	return res
 }
 
-// TaskSteps serializa os passos para gravar. Um erro devolve uma lista vazia em vez de falhar: o
-// progresso é informação, e perdê-lo não pode derrubar a tarefa.
+// TaskSteps serializes the steps to save. An error returns an empty list instead of failing: the
+// progress record is just information, and losing it cannot bring the task down.
 func TaskSteps(steps []Step) json.RawMessage {
 	if len(steps) == 0 {
 		return json.RawMessage("[]")
@@ -137,7 +141,7 @@ func TaskSteps(steps []Step) json.RawMessage {
 	return out
 }
 
-// ParseTaskSteps lê os passos gravados.
+// ParseTaskSteps reads the saved steps.
 func ParseTaskSteps(raw json.RawMessage) ([]Step, error) {
 	if len(raw) == 0 {
 		return nil, nil

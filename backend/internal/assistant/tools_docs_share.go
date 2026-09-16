@@ -7,15 +7,15 @@ import (
 	"strings"
 )
 
-// ShareResult é o que a partilha devolve: o ficheiro e quem ganhou acesso.
+// ShareResult is what sharing returns: the file and who gained access.
 type ShareResult struct {
 	File       string   `json:"file"`
 	SharedWith []string `json:"shared_with"`
 }
 
-// DocsShare dá acesso a um ficheiro do Drive a colegas do MESMO tenant, pelo e-mail. Erro se o
-// ficheiro não for do utilizador. Resolve tudo pelo lado do servidor — o modelo só dá o id do
-// ficheiro (de docs.create/drive.search) e os e-mails.
+// DocsShare grants a Drive file to colleagues in the SAME tenant, by email. Errors if the file
+// does not belong to the user. Everything is resolved server-side — the model only supplies the
+// file id (from docs.create/drive.search) and the emails.
 type DocsShare func(ctx context.Context, id Identity, fileID string, emails []string, role string) (ShareResult, error)
 
 type docsShareArgs struct {
@@ -44,7 +44,7 @@ func docsShareTools(share DocsShare) []Tool {
 				"required": ["file_id", "emails"]
 			}`),
 			Writes: true,
-			// Partilhar dá acesso a OUTRA pessoa: sai da esfera do dono → confirmação (§6.3).
+			// Sharing grants access to ANOTHER person: it leaves the owner's sphere → confirmation (§6.3).
 			Confirm: true,
 			Handler: func(ctx context.Context, id Identity, raw json.RawMessage) (Result, error) {
 				var a docsShareArgs

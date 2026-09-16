@@ -11,8 +11,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
-// memEffects é um registo de efeitos em memória — o mesmo papel que a tabela
-// assistant_task_effects, mas sem base de dados.
+// memEffects is an in-memory effect log — the same role as the assistant_task_effects table,
+// but without a database.
 type memEffects struct {
 	mu   sync.Mutex
 	done map[string]string
@@ -34,13 +34,13 @@ func (m *memEffects) Record(_ context.Context, fp, summary string) error {
 	return nil
 }
 
-// memStore recolhe o progresso e o desfecho, e responde ao pedido de cancelamento.
+// memStore collects the progress and the outcome, and answers the cancellation request.
 type memStore struct {
 	mu       sync.Mutex
 	progress [][]Step
 	result   TaskResult
 	cancel   bool
-	// cancelAfter manda cancelar depois de N passos.
+	// cancelAfter triggers cancellation after N steps.
 	cancelAfter int
 }
 
@@ -73,40 +73,40 @@ func testTask(ag Agent, msg string) Task {
 	return Task{ID: uuid.New(), Identity: testIdentity(), Agent: ag, Message: msg}
 }
 
-// INVARIANTE (lei 5.3, §7.5): uma retoma NÃO reenvia o mesmo e-mail. A tarefa reinicia o ciclo do
-// princípio; a guarda de efeitos reconhece o envio já feito e não o repete.
+// INVARIANT (law 5.3, §7.5): a resume does NOT resend the same e-mail. The task restarts the
+// cycle from scratch; the effect guard recognises the send already done and doesn't repeat it.
 func TestResumeDoesNotSendTwice(t *testing.T) {
 	box := &recordingBox{}
 	effects := newMemEffects()
 	ag, _ := Builtin(AgentGeneral)
 	script := []ai.Response{sendCall(sendArgs), textResp("enviado")}
 
-	// Primeira passagem: o e-mail sai.
+	// First pass: the e-mail goes out.
 	eng := NewEngine(&fakeProvider{script: script}, mailRegistry(box), &memAudit{}, 0).
 		WithConfirmer(&scriptedConfirmer{approve: true})
 	res := RunTask(context.Background(), eng, &memStore{}, effects, testTask(ag, "envia a fatura"))
 	if res.Status != TaskDone {
-		t.Fatalf("primeira passagem: estado = %q", res.Status)
+		t.Fatalf("first pass: status = %q", res.Status)
 	}
 	if len(box.sent) != 1 {
-		t.Fatalf("envios na primeira passagem = %d, quero 1", len(box.sent))
+		t.Fatalf("sends in the first pass = %d, want 1", len(box.sent))
 	}
 
-	// O servidor foi abaixo; a tarefa volta à fila e reexecuta com o MESMO registo de efeitos.
+	// The server went down; the task goes back to the queue and reruns with the SAME effect log.
 	eng2 := NewEngine(&fakeProvider{script: script}, mailRegistry(box), &memAudit{}, 0).
 		WithConfirmer(&scriptedConfirmer{approve: true})
 	res2 := RunTask(context.Background(), eng2, &memStore{}, effects, testTask(ag, "envia a fatura"))
 	if res2.Status != TaskDone {
-		t.Fatalf("retoma: estado = %q", res2.Status)
+		t.Fatalf("resume: status = %q", res2.Status)
 	}
 	if len(box.sent) != 1 {
-		t.Fatalf("A RETOMA REENVIOU: envios = %d, quero continuar em 1", len(box.sent))
+		t.Fatalf("THE RESUME RESENT: sends = %d, want to stay at 1", len(box.sent))
 	}
 }
 
-// Sem registo de efeitos (execução síncrona), a repetição acontece — e deve: aí é uma ação nova do
-// utilizador, não uma retoma de máquina. Este teste existe para deixar claro que a guarda é
-// deliberadamente limitada às tarefas, e não um acidente.
+// Without an effect log (synchronous run), the repeat happens — and it should: there it is a new
+// action from the user, not a machine resume. This test exists to make clear that the guard is
+// deliberately limited to tasks, not an accident.
 func TestWithoutEffectLogARerunActuallyReruns(t *testing.T) {
 	box := &recordingBox{}
 	ag, _ := Builtin(AgentGeneral)
@@ -118,12 +118,12 @@ func TestWithoutEffectLogARerunActuallyReruns(t *testing.T) {
 		}
 	}
 	if len(box.sent) != 2 {
-		t.Errorf("envios = %d, quero 2 — sem registo de efeitos não há deduplicação", len(box.sent))
+		t.Errorf("sends = %d, want 2 — without an effect log there is no deduplication", len(box.sent))
 	}
 }
 
-// Dois envios DIFERENTES na mesma tarefa saem os dois. A guarda impede a repetição, não a
-// pluralidade — se impedisse, uma tarefa de "responde a estas três pessoas" mandaria uma só.
+// Two DIFFERENT sends in the same task both go out. The guard prevents repetition, not
+// plurality — if it did, a "reply to these three people" task would only send one.
 func TestDifferentWritesInTheSameTaskAllHappen(t *testing.T) {
 	box := &recordingBox{}
 	ag, _ := Builtin(AgentGeneral)
@@ -136,33 +136,32 @@ func TestDifferentWritesInTheSameTaskAllHappen(t *testing.T) {
 
 	RunTask(context.Background(), eng, &memStore{}, newMemEffects(), testTask(ag, "responde aos dois"))
 	if len(box.sent) != 2 {
-		t.Errorf("envios = %d, quero 2 — são pedidos diferentes", len(box.sent))
+		t.Errorf("sends = %d, want 2 — these are different requests", len(box.sent))
 	}
 }
 
-// A impressão digital não depende da ordem das chaves nem dos espaços: o modelo emite o mesmo
-// pedido de formas diferentes entre execuções, e duas formas do mesmo envio não podem passar por
-// dois envios.
+// The fingerprint doesn't depend on key order or whitespace: the model emits the same request in
+// different shapes between runs, and two shapes of the same send must not count as two sends.
 func TestFingerprintIgnoresKeyOrderAndWhitespace(t *testing.T) {
 	a := effectFingerprint(ToolMailSend, json.RawMessage(`{"to":["ana@x.pt"],"subject":"Oi","text":"corpo"}`))
 	b := effectFingerprint(ToolMailSend, json.RawMessage("{ \"text\":\"corpo\",\n \"subject\" : \"Oi\", \"to\": [\"ana@x.pt\"] }"))
 	if a != b {
-		t.Error("a mesma mensagem escrita de outra forma deu outra impressão digital")
+		t.Error("the same message written a different way produced a different fingerprint")
 	}
-	// Mas um destinatário diferente é outro efeito.
+	// But a different recipient is a different effect.
 	c := effectFingerprint(ToolMailSend, json.RawMessage(`{"to":["bruno@x.pt"],"subject":"Oi","text":"corpo"}`))
 	if a == c {
-		t.Error("destinatários diferentes deram a mesma impressão digital")
+		t.Error("different recipients produced the same fingerprint")
 	}
-	// E a mesma carga por outra ferramenta também.
+	// And the same payload through another tool likewise.
 	d := effectFingerprint(ToolMailDraft, json.RawMessage(`{"to":["ana@x.pt"],"subject":"Oi","text":"corpo"}`))
 	if a == d {
-		t.Error("ferramentas diferentes deram a mesma impressão digital")
+		t.Error("different tools produced the same fingerprint")
 	}
 }
 
-// O progresso é gravado a CADA passo. Sem isto não há retoma nem barra de progresso — e a promessa
-// de §3.6 ("a bolha mostra progresso mesmo fechada") não teria de onde sair.
+// Progress is saved on EVERY step. Without this there is no resume and no progress bar — and the
+// promise from §3.6 ("the bubble shows progress even when closed") would have nothing to draw on.
 func TestTaskSavesProgressEveryStep(t *testing.T) {
 	store := &memStore{}
 	ag, _ := Builtin(AgentGeneral)
@@ -174,49 +173,49 @@ func TestTaskSavesProgressEveryStep(t *testing.T) {
 
 	RunTask(context.Background(), eng, store, newMemEffects(), testTask(ag, "procura"))
 	if len(store.progress) != 2 {
-		t.Fatalf("gravações de progresso = %d, quero uma por passo (2)", len(store.progress))
+		t.Fatalf("progress records = %d, want one per step (2)", len(store.progress))
 	}
 	if len(store.progress[0]) != 1 || len(store.progress[1]) != 2 {
-		t.Errorf("o progresso não é cumulativo: %v", store.progress)
+		t.Errorf("progress is not cumulative: %v", store.progress)
 	}
 	if store.result.Status != TaskDone || store.result.Answer != "pronto" {
-		t.Errorf("desfecho = %+v", store.result)
+		t.Errorf("outcome = %+v", store.result)
 	}
 }
 
-// Cancelar pára a tarefa — e o que já foi feito FICA registado (§7.5). Uma tarefa cancelada sem
-// história não deixaria ninguém perceber o que aconteceu antes de parar.
+// Cancelling stops the task — and what was already done STAYS recorded (§7.5). A cancelled task
+// without a history would leave no one able to tell what happened before it stopped.
 func TestCancelStopsAndKeepsWhatWasDone(t *testing.T) {
 	store := &memStore{cancelAfter: 1}
 	ag, _ := Builtin(AgentGeneral)
-	// O modelo pediria ferramentas indefinidamente; o cancelamento é que pára isto.
+	// The model would keep requesting tools indefinitely; cancellation is what stops this.
 	eng := NewEngine(&fakeProvider{script: []ai.Response{toolCallResp(ToolMailSearch, `{"query":"x"}`)}},
 		mailRegistry(stubBox{}), &memAudit{}, 0)
 
 	res := RunTask(context.Background(), eng, store, newMemEffects(), testTask(ag, "organiza tudo"))
 	if res.Status != TaskCancelled {
-		t.Errorf("estado = %q, quero %q", res.Status, TaskCancelled)
+		t.Errorf("status = %q, want %q", res.Status, TaskCancelled)
 	}
 	if len(res.Steps) == 0 {
-		t.Error("a tarefa cancelada não guardou nada do que já tinha feito")
+		t.Error("the cancelled task saved nothing of what it had already done")
 	}
 	if store.result.Status != TaskCancelled {
-		t.Errorf("o desfecho gravado = %q", store.result.Status)
+		t.Errorf("recorded outcome = %q", store.result.Status)
 	}
 }
 
-// Uma tarefa cancelada não pode continuar a produzir efeitos depois de parar.
+// A cancelled task must not keep producing effects after stopping.
 func TestCancelledTaskStopsCallingTools(t *testing.T) {
 	box := &recordingBox{}
 	store := &memStore{cancelAfter: 1}
 	ag, _ := Builtin(AgentGeneral)
 	eng := NewEngine(&fakeProvider{script: []ai.Response{
 		toolCallResp(ToolMailSearch, `{"query":"x"}`),
-		sendCall(sendArgs), // se o ciclo continuasse, isto sairia
+		sendCall(sendArgs), // if the cycle continued, this would go out
 	}}, mailRegistry(box), &memAudit{}, 0).WithConfirmer(&scriptedConfirmer{approve: true})
 
 	RunTask(context.Background(), eng, store, newMemEffects(), testTask(ag, "organiza e envia"))
 	if len(box.sent) != 0 {
-		t.Errorf("SAIU CORREIO DEPOIS DO CANCELAMENTO: %+v", box.sent)
+		t.Errorf("MAIL WENT OUT AFTER CANCELLATION: %+v", box.sent)
 	}
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
-// FileContent é o que uma leitura de ficheiro devolve. Version e Hash identificam a versão exata que
-// foi lida: é contra eles que a escrita seguinte se valida (§5.1).
+// FileContent is what a file read returns. Version and Hash identify the exact version that was
+// read: the next write validates against them (§5.1).
 type FileContent struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
@@ -18,16 +18,16 @@ type FileContent struct {
 	Text    string `json:"text"`
 	Version int32  `json:"version"`
 	Hash    string `json:"-"`
-	// Editable é falso para binários (imagens, PDF): esses não se editam às cegas, só se substituem
-	// por um envio novo (§5.1). O modelo é avisado, e a ferramenta de edição recusa-os na mesma.
+	// Editable is false for binaries (images, PDF): those aren't edited blindly, only replaced by
+	// a new upload (§5.1). The model is told, and the edit tool refuses them regardless.
 	Editable bool `json:"editable"`
 }
 
-// DocsRead lê o conteúdo de texto de um ficheiro do Drive e a sua versão corrente.
+// DocsRead reads the text content of a Drive file and its current version.
 type DocsRead func(ctx context.Context, id Identity, fileID string) (FileContent, error)
 
-// DocsEdit grava uma versão NOVA de um ficheiro, a partir de um plano, mas só se a versão corrente
-// ainda for expectVersion. Devolve a versão nova.
+// DocsEdit writes a NEW version of a file, from a plan, but only if the current version is still
+// expectVersion. Returns the new version.
 type DocsEdit func(ctx context.Context, id Identity, fileID string, plan office.Plan, expectVersion int32) (DriveHit, error)
 
 func docsEditTools(read DocsRead, edit DocsEdit) []Tool {
@@ -55,7 +55,7 @@ func docsEditTools(read DocsRead, edit DocsEdit) []Tool {
 				if err != nil {
 					return Result{}, fmt.Errorf("read failed: %w", err)
 				}
-				// Regista a leitura NESTA execução: é o que docs.edit vai exigir (§5.1, regra 1).
+				// Records the read WITHIN THIS RUN: this is what docs.edit will require (§5.1, rule 1).
 				MarkRead(ctx, fc.ID, ReadMark{Version: fc.Version, Hash: fc.Hash})
 				return Result{Summary: fc.Name, Data: fc}, nil
 			},
@@ -79,9 +79,9 @@ func docsEditTools(read DocsRead, edit DocsEdit) []Tool {
 				"required": ["file_id", "kind"]
 			}`),
 			Writes: true,
-			// Sem Confirm: o ficheiro é do próprio utilizador e não sai da organização. A guarda que
-			// protege isto não é a confirmação — é a versão nova (reversível) e o histórico (§5.1,
-			// regra 2). Enganar-se custa um clique a repor, não o ficheiro.
+			// No Confirm: the file is the user's own and doesn't leave the organisation. The
+			// guard protecting this isn't confirmation — it's the new (reversible) version and
+			// the history (§5.1, rule 2). A mistake costs a click to restore, not the file.
 			Handler: func(ctx context.Context, id Identity, raw json.RawMessage) (Result, error) {
 				var a struct {
 					FileID  string         `json:"file_id"`
@@ -101,8 +101,8 @@ func docsEditTools(read DocsRead, edit DocsEdit) []Tool {
 				if _, ok := office.Ext(a.Kind); !ok {
 					return Result{}, fmt.Errorf("kind must be document, spreadsheet or presentation")
 				}
-				// REGRA 1 (§5.1): ler antes de escrever. Sem uma leitura nesta execução, o modelo
-				// escreveria por cima de conteúdo que nunca viu. Isto é invariante, não conselho.
+				// RULE 1 (§5.1): read before writing. Without a read in this run, the model would
+				// write over content it never saw. This is an invariant, not advice.
 				mark, seen := ReadMarkFor(ctx, a.FileID)
 				if !seen {
 					return Result{}, fmt.Errorf("you must read this file with %s before editing it", ToolDocsRead)
@@ -114,17 +114,18 @@ func docsEditTools(read DocsRead, edit DocsEdit) []Tool {
 				if emptyPlan(plan) {
 					return Result{}, fmt.Errorf("the new content is empty")
 				}
-				// REGRA 3 (§5.1): editar em cima da versão que se leu. A escrita leva a versão lida;
-				// se o ficheiro mudou entretanto, o servidor recusa e não perde o trabalho de ninguém.
+				// RULE 3 (§5.1): edit on top of the version that was read. The write carries the
+				// read version; if the file changed in the meantime, the server refuses and no
+				// one's work is lost.
 				hit, err := edit(ctx, id, a.FileID, plan, mark.Version)
 				if err != nil {
 					return Result{}, fmt.Errorf("edit failed: %w", err)
 				}
-				// A leitura passa a apontar para a versão NOVA: um segundo edit no mesmo turno é
-				// legítimo e não deve bater na guarda de concorrência por causa da sua própria escrita.
+				// The read mark now points to the NEW version: a second edit in the same turn is
+				// legitimate and must not trip the concurrency guard because of its own write.
 				MarkRead(ctx, a.FileID, ReadMark{Version: hit.Version})
-				// REGRA 5 (§5.1): dizer o que mudou. O resumo do modelo é o que o cartão mostra; sem
-				// ele, "documento atualizado" não deixa ninguém julgar se correu bem.
+				// RULE 5 (§5.1): say what changed. The model's summary is what the card shows;
+				// without it, "document updated" doesn't let anyone judge whether it went well.
 				summary := strings.TrimSpace(a.Summary)
 				if summary == "" {
 					summary = "updated " + hit.Name

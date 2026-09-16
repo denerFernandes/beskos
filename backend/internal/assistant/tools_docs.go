@@ -9,11 +9,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
-// DocsCreate grava um ficheiro Office no Drive do utilizador e devolve o que foi criado.
+// DocsCreate writes an Office file to the user's Drive and returns what was created.
 //
-// Recebe o PLANO, não os bytes: quem constrói o ficheiro é o servidor (decisão §12.1, ponto 2), e
-// o modelo descreve o conteúdo. É essa separação que garante que sai um ficheiro Office válido em
-// vez de texto com a extensão trocada.
+// Receives the PLAN, not the bytes: the server is what builds the file (decision §12.1, point
+// 2), and the model describes the content. That separation is what guarantees a valid Office
+// file comes out, instead of text with the wrong extension.
 type DocsCreate func(ctx context.Context, id Identity, name string, plan office.Plan) (DriveHit, error)
 
 type docsCreateArgs struct {
@@ -79,8 +79,9 @@ func docsTools(create DocsCreate) []Tool {
 				"required": ["kind", "name"]
 			}`),
 			Writes: true,
-			// Sem Confirm: o ficheiro fica no Drive do próprio utilizador e não sai da organização.
-			// Partilhar é que sai — e essa é outra ferramenta, com confirmação (§6.3).
+			// No Confirm: the file stays in the user's own Drive and doesn't leave the
+			// organisation. Sharing is what goes outside — and that's a different tool, with
+			// confirmation (§6.3).
 			Handler: func(ctx context.Context, id Identity, raw json.RawMessage) (Result, error) {
 				var a docsCreateArgs
 				if err := decodeArgs(raw, &a); err != nil {
@@ -98,8 +99,9 @@ func docsTools(create DocsCreate) []Tool {
 					Blocks: a.Blocks, Sheets: a.Sheets, Slides: a.Slides,
 				}
 				if emptyPlan(plan) {
-					// Um ficheiro vazio é quase sempre o modelo a falhar o esquema, não o pedido do
-					// utilizador. Dizê-lo dá-lhe a hipótese de se corrigir; gravar o vazio não.
+					// An empty file is almost always the model missing the schema, not the
+					// user's actual request. Saying so gives it a chance to correct itself;
+					// saving the empty file wouldn't.
 					return Result{}, fmt.Errorf("the plan has no content: fill blocks, sheets or slides")
 				}
 				hit, err := create(ctx, id, name, plan)

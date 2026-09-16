@@ -1,13 +1,13 @@
-// Package assistant é o motor agêntico do Beskos: um ciclo pensar → agir → observar por cima do
-// ai.Provider, com um catálogo de ferramentas tipadas.
+// Package assistant is the Beskos agentic engine: a think → act → observe loop on top of
+// ai.Provider, with a catalog of typed tools.
 //
-// Três regras moldam tudo o que está aqui e nenhuma é negociável:
+// Three rules shape everything here and none of them is negotiable:
 //
-//  1. tenant_id e user_id vêm SEMPRE do contexto do pedido autenticado (Identity), nunca de
-//     argumentos do modelo. Nenhuma ferramenta os aceita como parâmetro (§6.2, lei 5.1).
-//  2. Conteúdo lido entra sempre como dado NÃO FIÁVEL, nunca como instrução. Não pode conceder
-//     ferramentas, mudar âmbito nem aprovar ações (§6.1).
-//  3. Há um teto de passos por execução desde o primeiro dia. É segurança, não comercial (§9.1).
+//  1. tenant_id and user_id ALWAYS come from the authenticated request context (Identity), never
+//     from model arguments. No tool accepts them as a parameter (§6.2, law 5.1).
+//  2. Content that is read always enters as UNTRUSTED data, never as an instruction. It cannot
+//     grant tools, change scope, or approve actions (§6.1).
+//  3. There is a step cap per run from day one. It is a safety measure, not a commercial one (§9.1).
 package assistant
 
 import "github.com/google/uuid"
@@ -17,28 +17,29 @@ type Identity struct {
 	TenantID uuid.UUID
 	UserID   uuid.UUID
 	Email    string
-	Language string // ex.: "pt-BR"; molda o idioma da resposta (lei 4)
+	Language string // e.g.: "pt-BR"; shapes the response language (law 4)
 }
 
-// Agent é um perfil: instruções, ferramentas permitidas, modelo.
+// Agent is a profile: instructions, allowed tools, model.
 //
-// Os agentes de ORIGEM são definidos em código e imutáveis — são parte do produto e ninguém os
-// altera, nem os administradores do cliente (§3.2, decisão 3). O conjunto de ferramentas de um
-// agente é a sua superfície de risco; congelá-lo é o que torna "o Assistente pode fazer isto" uma
-// frase verdadeira em todas as instalações.
+// BUILT-IN agents are defined in code and immutable — they are part of the product and no one
+// changes them, not even the customer's administrators (§3.2, decision 3). An agent's tool set is
+// its risk surface; freezing it is what makes "the Assistant can do this" a statement that holds
+// true across every installation.
 type Agent struct {
 	Key string
-	// Name é o nome dado pelo cliente. VAZIO nos agentes de origem: o nome deles é texto de
-	// interface e vem do i18n pela chave (lei 4.1) — guardá-lo aqui seria uma string visível
-	// codificada no backend.
+	// Name is the name given by the customer. EMPTY on built-in agents: their name is interface
+	// text and comes from i18n by key (law 4.1) — storing it here would be a user-visible string
+	// hardcoded in the backend.
 	Name string
-	// Purpose é uma linha sobre para que serve. É o que o encaminhamento lê para decidir (§3.2).
+	// Purpose is a one-line summary of what it's for. It's what routing reads to decide (§3.2).
 	Purpose string
-	// Builtin distingue os de origem, que são do produto e ninguém altera, dos criados pelo cliente.
+	// Builtin distinguishes the built-in ones, which are part of the product and no one changes,
+	// from the ones created by the customer.
 	Builtin      bool
 	Instructions string
-	// Tools é a lista de permissões. É validada no SERVIDOR a cada chamada: se a ferramenta não
-	// está aqui, nenhuma persuasão do modelo a torna disponível (§6.1, defesa 2).
+	// Tools is the permission list. It is validated on the SERVER on every call: if a tool isn't
+	// here, no amount of model persuasion makes it available (§6.1, defense 2).
 	Tools []string
 }
 
@@ -46,18 +47,18 @@ type Agent struct {
 // Routing picks this one when in doubt: err on the side that does less.
 const AgentGeneral = "assistant"
 
-// Chaves dos restantes agentes de origem. São parte do produto: mantidos e melhorados por nós, e
-// ninguém os altera — nem os administradores do cliente (§3.2, decisão 3). O conjunto de ferramentas
-// de um agente é a sua superfície de risco; congelá-lo é o que torna "o agente de Correio pode fazer
-// isto" uma frase verdadeira em todas as instalações.
+// Keys of the remaining built-in agents. They are part of the product: maintained and improved by
+// us, and no one changes them — not even the customer's administrators (§3.2, decision 3). An
+// agent's tool set is its risk surface; freezing it is what makes "the Mail agent can do this" a
+// statement that holds true across every installation.
 const (
 	AgentInbox     = "inbox"
 	AgentDocs      = "docs"
 	AgentKnowledge = "knowledge"
 )
 
-// builtins são os agentes de origem. Mapa não exportado e só de leitura: a única forma de os obter
-// é Builtin(), que devolve uma cópia.
+// builtins are the built-in agents. Unexported, read-only map: the only way to obtain them is
+// Builtin(), which returns a copy.
 var builtins = map[string]Agent{
 	AgentGeneral: {
 		Key: AgentGeneral, Builtin: true,
@@ -95,8 +96,8 @@ var builtins = map[string]Agent{
 			"Save a draft only when they want to finish it later.\n" +
 			"When the user names a recipient, resolve them with contacts.search first; if more than " +
 			"one contact matches, list them and ask which — never guess the address.",
-		// Sem drive.search: o agente de correio não toca no Drive. Não é uma sugestão do prompt —
-		// a lista é validada no servidor a cada chamada (§6.1, defesa 2).
+		// No drive.search: the mail agent doesn't touch the Drive. This isn't merely a prompt
+		// suggestion — the list is validated on the server on every call (§6.1, defense 2).
 		Tools: []string{ToolMailSearch, ToolMailRead, ToolContactsSearch, ToolMailDraft, ToolMailSend},
 	},
 	AgentDocs: {
@@ -106,7 +107,7 @@ var builtins = map[string]Agent{
 			"their files, and turn what they ask for into tasks.\n" +
 			"You work with files and tasks. You cannot read the user's email, and saying so plainly " +
 			"is better than guessing.",
-		// Sem ferramentas de correio: simetricamente, o agente de Documentos não lê a caixa.
+		// No mail tools: symmetrically, the Documents agent doesn't read the inbox.
 		Tools: []string{ToolDriveSearch, ToolDocsCreate, ToolDocsRead, ToolDocsEdit, ToolDocsShare, ToolTasksCreate},
 	},
 	AgentKnowledge: {
@@ -127,15 +128,15 @@ var builtins = map[string]Agent{
 	},
 }
 
-// BuiltinKeys devolve as chaves dos agentes de origem, por ordem estável. A geral vem primeiro:
-// é a de menor poder de escrita e o destino seguro do encaminhamento.
+// BuiltinKeys returns the keys of the built-in agents, in stable order. The general one comes
+// first: it has the least write power and is the safe destination for routing.
 func BuiltinKeys() []string { return []string{AgentGeneral, AgentInbox, AgentDocs, AgentKnowledge} }
 
-// MaxTools é o teto de ferramentas de QUALQUER agente: um perfil criado pelo cliente nunca pode ter
-// mais do que o assistente geral. Devolve uma cópia.
+// MaxTools is the tool cap for ANY agent: a profile created by the customer can never have more
+// tools than the general assistant. Returns a copy.
 //
-// É aqui que a validação do servidor assenta (§3.2): a interface pode mostrar o que quiser, mas um
-// agente com uma ferramenta fora desta lista é recusado na gravação.
+// This is where server-side validation rests (§3.2): the UI can show whatever it wants, but an
+// agent with a tool outside this list is rejected on save.
 func MaxTools() []string {
 	src := builtins[AgentGeneral].Tools
 	out := make([]string, len(src))
@@ -143,7 +144,7 @@ func MaxTools() []string {
 	return out
 }
 
-// Builtin devolve um agente de origem por chave. A cópia impede que quem o receba mexa no catálogo.
+// Builtin returns a built-in agent by key. The copy prevents whoever receives it from mutating the catalog.
 func Builtin(key string) (Agent, bool) {
 	a, ok := builtins[key]
 	if !ok {

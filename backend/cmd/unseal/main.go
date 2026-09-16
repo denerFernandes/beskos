@@ -1,16 +1,18 @@
-// unseal desfaz uma selagem: decifra objetos e volta a escrevê-los em claro no mesmo sítio.
+// unseal undoes a sealing: decrypts objects and writes them back in plaintext in the same place.
 //
-// PARA QUE SERVE. A passagem de selagem cifrou, à primeira corrida em produção, 43 mensagens que o
-// Stalwart guarda no mesmo balde e lê diretamente, sem passar pelo nosso código. Cifrar o ficheiro
-// de outro processo não é segurança acrescentada, é uma avaria — e desfaz-se aqui.
+// WHAT IT IS FOR. The sealing pass encrypted, on its first run in production, 43 messages that
+// Stalwart keeps in the same bucket and reads directly, without going through our code. Encrypting
+// another process's file is not added security, it is a malfunction — and it gets undone here.
 //
-// Fica no repositório em vez de ser um script deitado fora: se voltar a acontecer com outro
-// vizinho do balde, quer-se a reversão pronta e não um programa escrito à pressa durante a avaria.
+// It stays in the repository instead of being a throwaway script: if it happens again with
+// another neighbor of the bucket, we want the rollback ready and not a program written in a
+// hurry during the incident.
 //
-//	FILE_ENC_KEYS=… MINIO_… go run ./cmd/unseal <prefixo>          # mostra o que faria
-//	FILE_ENC_KEYS=… MINIO_… go run ./cmd/unseal --apply <prefixo>  # faz
+//	FILE_ENC_KEYS=… MINIO_… go run ./cmd/unseal <prefix>          # shows what it would do
+//	FILE_ENC_KEYS=… MINIO_… go run ./cmd/unseal --apply <prefix>  # does it
 //
-// Não corre sem prefixo: o comando que desfaz a cifra de tudo não deve existir por engano.
+// Does not run without a prefix: the command that undoes encryption on everything must not exist
+// by accident.
 package main
 
 import (
@@ -38,12 +40,13 @@ func main() {
 	st, err := storage.New(os.Getenv("MINIO_ENDPOINT"), os.Getenv("MINIO_ACCESS_KEY"),
 		os.Getenv("MINIO_SECRET_KEY"), os.Getenv("MINIO_BUCKET"), os.Getenv("MINIO_REGION"), ssl)
 	if err != nil {
-		log.Fatalf("armazenamento: %v", err)
+		log.Fatalf("storage: %v", err)
 	}
-	// Sem base de dados: só se desfazem objetos embrulhados pela KEK, que é o caso dos vizinhos do
-	// balde. Um objeto de um tenant precisaria da chave do tenant e não é o que este comando faz.
+	// No database: only objects wrapped by the KEK get undone, which is the case for the
+	// bucket's neighbors. A tenant's object would need the tenant's key, and that is not what
+	// this command does.
 	if err := st.EnableEncryption(nil, os.Getenv("FILE_ENC_KEYS")); err != nil {
-		log.Fatalf("cifra: %v", err)
+		log.Fatalf("encryption: %v", err)
 	}
 
 	ctx := context.Background()
@@ -59,7 +62,7 @@ func main() {
 			continue
 		}
 		if !*apply {
-			fmt.Printf("  decifraria %s (%d bytes)\n", obj.Key, obj.Size)
+			fmt.Printf("  would decrypt %s (%d bytes)\n", obj.Key, obj.Size)
 			done++
 			continue
 		}
@@ -68,18 +71,18 @@ func main() {
 			continue
 		}
 		done++
-		fmt.Printf("  %s reposto em claro\n", obj.Key)
+		fmt.Printf("  %s restored to plaintext\n", obj.Key)
 	}
 
-	verb := "por decifrar"
+	verb := "to decrypt"
 	if *apply {
-		verb = "repostos em claro"
+		verb = "restored to plaintext"
 	}
-	fmt.Printf("%d objetos vistos em %q, %d %s\n", seen, prefix, done, verb)
+	fmt.Printf("%d objects seen in %q, %d %s\n", seen, prefix, done, verb)
 }
 
-// desfazer lê o objeto decifrado e reescreve-o em claro na mesma chave. Uma escrita, como a
-// selagem: o PUT ou acontece por inteiro ou não acontece.
+// undo reads the decrypted object and rewrites it in plaintext under the same key. One write,
+// like sealing: the PUT either happens in full or does not happen at all.
 func undo(ctx context.Context, st *storage.Service, key string) error {
 	r, err := st.Get(ctx, key)
 	if err != nil {
@@ -98,7 +101,7 @@ func undo(ctx context.Context, st *storage.Service, key string) error {
 
 	n, err := io.Copy(tmp, r)
 	if err != nil {
-		return fmt.Errorf("decifrar: %w", err)
+		return fmt.Errorf("decrypt: %w", err)
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		return err

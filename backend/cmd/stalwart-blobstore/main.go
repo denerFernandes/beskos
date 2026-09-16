@@ -1,16 +1,15 @@
-// stalwart-blobstore aponta o armazenamento de blocos do Stalwart para o nosso gateway de cifra.
+// stalwart-blobstore points Stalwart's block storage at our encryption gateway.
 //
-// PORQUÊ UM COMANDO e não a interface de administração: a administração do Stalwart escuta em
-// 127.0.0.1 no VPS, de propósito — por ali passam credenciais de administração do correio. Expô-la
-// à internet para fazer uma alteração de dois campos trocaria uma afirmação da página de segurança
-// por cinco minutos de comodidade. As apps do CapRover já alcançam o Stalwart por dentro; este
-// comando corre lá e não abre nada.
+// WHY A COMMAND and not the admin interface: Stalwart's admin listens on 127.0.0.1 on the VPS, on
+// purpose — mail admin credentials pass through there. Exposing it to the internet to make a
+// two-field change would trade a claim on the security page for five minutes of convenience.
+// CapRover's apps already reach Stalwart from inside; this command runs there and opens nothing.
 //
-// LÊ ANTES DE ESCREVER. A primeira coisa que faz é imprimir a configuração atual, inteira, para o
-// registo. Se a alteração correr mal, a reversão está no registo e não na memória de alguém.
+// READ BEFORE WRITING. The first thing it does is print the entire current configuration to the
+// log. If the change goes wrong, the rollback is in the log and not in someone's memory.
 //
-//	--ver     mostra a configuração atual e não toca em nada (por omissão)
-//	--apply escreve a alteração
+//	--view    shows the current configuration and touches nothing (default)
+//	--apply writes the change
 package main
 
 import (
@@ -29,7 +28,7 @@ func main() {
 	apply := flag.Bool("apply", false, "write the change; without this it only reports")
 	flag.Parse()
 
-	log.Printf("=== corrida %s ===", time.Now().UTC().Format(time.RFC3339))
+	log.Printf("=== run %s ===", time.Now().UTC().Format(time.RFC3339))
 
 	c := stalwart.New(env("STALWART_URL"), env("STALWART_ADMIN_ID"), env("STALWART_ADMIN_SECRET"))
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -59,19 +58,19 @@ func main() {
 	}
 
 	if err := c.SetBlobStoreS3(ctx, current.ID, target); err != nil {
-		log.Fatalf("aplicar: %v", err)
+		log.Fatalf("apply: %v", err)
 	}
 	log.Printf("applied")
 
-	// Sem isto o Stalwart continua a usar o armazenamento antigo até reiniciar — e o correio novo
-	// ia para o sítio antigo sem dar erro nenhum.
+	// Without this, Stalwart keeps using the old storage until it restarts — and new mail would
+	// go to the old place without any error at all.
 	if err := c.ReloadSettings(ctx); err != nil {
 		log.Fatalf("reload the configuration: %v", err)
 	}
 	log.Printf("configuration reloaded")
 
-	// Ler de volta. "Escrevi" não é o mesmo que "está lá": um `set` aceite e um estado por
-	// confirmar são coisas diferentes, e esta é fácil de conferir.
+	// Read it back. "I wrote it" is not the same as "it is there": an accepted `set` and a
+	// confirmed state are different things, and this one is easy to check.
 	after, err := c.GetBlobStore(ctx)
 	if err != nil {
 		log.Fatalf("re-read: %v", err)
@@ -80,14 +79,14 @@ func main() {
 	wait()
 }
 
-// esperar mantém o contentor vivo depois do trabalho feito. Sem isto o CapRover vê o processo sair,
-// dá-o como caído e reinicia-o em ciclo — e o registo, que é o resultado deste comando, perdia-se
-// no meio das repetições.
+// wait keeps the container alive after the work is done. Without this CapRover sees the process
+// exit, marks it as crashed and restarts it in a loop — and the log, which is this command's
+// result, would get lost among the repetitions.
 func wait() {
 	log.Printf("done; the app can be deleted")
-	// Dormir em ciclo, e não `select {}`: sem casos, o Go deteta impasse e aborta o processo — o
-	// que faz o CapRover reiniciar em ciclo e mistura o registo de várias corridas, que é
-	// exatamente o que este comando não pode fazer, porque o registo É o resultado.
+	// Sleeping in a loop, not `select {}`: with no cases, Go detects a deadlock and aborts the
+	// process — which makes CapRover restart in a loop and mixes the log of several runs
+	// together, which is exactly what this command must not do, because the log IS the result.
 	for {
 		time.Sleep(time.Hour)
 	}
