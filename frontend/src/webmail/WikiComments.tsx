@@ -16,13 +16,13 @@ function avColor(name: string): string {
   return AV_COLORS[Math.abs(h) % AV_COLORS.length];
 }
 
-// WikiComments: comentários de uma página. Ler = viewer; comentar = commenter (role >= 2); apagar o
-// próprio comentário (ou qualquer um se manager). Sem diálogos nativos — apagar é botão direto.
+// WikiComments: comments on a page. Reading = viewer; commenting = commenter (role >= 2); deleting
+// your own comment (or anyone's if manager). No native dialogs — delete is a direct button.
 
 export function WikiComments({ pageId, canComment, canManage }: { pageId: string; canComment: boolean; canManage: boolean }) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
-  const [editorKey, setEditorKey] = useState(0); // recria o editor após publicar (limpa o campo)
+  const [editorKey, setEditorKey] = useState(0); // recreates the editor after posting (clears the field)
 
   const me = useQuery({ queryKey: ["me"], queryFn: () => backend.me(), retry: false, staleTime: 60_000 });
   const comments = useQuery({ queryKey: ["wiki-comments", pageId], queryFn: () => wikiApi.comments(pageId), retry: false });
@@ -74,8 +74,8 @@ export function WikiComments({ pageId, canComment, canManage }: { pageId: string
   );
 }
 
-// CommentEditor: mini editor rico (BlockNote) para comentários — mesmo formato/derive das páginas,
-// com a toolbar visível do estilo do chat (negrito/itálico/…): formatação à vista, não só por seleção.
+// CommentEditor: mini rich editor (BlockNote) for comments — same format/derivation as pages,
+// with the toolbar visible chat-style (bold/italic/…): formatting in plain sight, not only via selection.
 function CommentEditor({ onSubmit, busy }: { onSubmit: (doc: unknown) => void; busy: boolean }) {
   const { t, i18n } = useTranslation();
   const editor = useCreateBlockNote({

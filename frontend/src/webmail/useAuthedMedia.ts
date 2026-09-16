@@ -4,12 +4,12 @@ import { API_BASE, apiUrl, authHeaders } from "../apiBase";
 // useAuthedMedia returns a src usable by <img>/<iframe>/<video>/<audio> from a path on our API
 // that requires an authenticated session.
 //
-// - Na web (same-origin): usa a URL direta — o cookie autentica e o vídeo/áudio mantém streaming.
-// - No app nativo (cross-origin, API_BASE definido): <img>/<iframe> não enviam header nem cookie, e a
-//   origem da API não está no img-src/frame-src da CSP. Então buscamos os bytes com Authorization e
-//   servimos um blob: URL (permitido pela CSP em qualquer diretiva). Revoga ao desmontar/trocar.
+// - On the web (same-origin): uses the direct URL — the cookie authenticates and video/audio keeps streaming.
+// - In the native app (cross-origin, API_BASE set): <img>/<iframe> send no header or cookie, and the
+//   API origin is not in the CSP's img-src/frame-src. So we fetch the bytes with Authorization and
+//   serve a blob: URL (allowed by the CSP under any directive). Revoked on unmount/change.
 //
-// Devolve "" enquanto o blob não está pronto (o chamador mostra um loading).
+// Returns "" while the blob is not ready (the caller shows a loading state).
 export function useAuthedMedia(path: string): string {
   const [url, setUrl] = useState<string>(() => (API_BASE ? "" : apiUrl(path)));
 
@@ -21,7 +21,7 @@ export function useAuthedMedia(path: string): string {
     fetch(apiUrl(path), { headers: authHeaders(), credentials: "include" })
       .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.blob(); })
       .then((b) => { if (cancelled) return; objUrl = URL.createObjectURL(b); setUrl(objUrl); })
-      .catch(() => { /* o chamador trata o vazio como erro/loading */ });
+      .catch(() => { /* the caller treats the empty value as error/loading */ });
     return () => { cancelled = true; if (objUrl) URL.revokeObjectURL(objUrl); };
   }, [path]);
 

@@ -1,9 +1,9 @@
-// Notificações desktop (Web Notifications API), fase 1a: disparam enquanto há uma aba do Beskos
-// aberta. A permissão é por-browser, então as preferências vivem no dispositivo (localStorage),
-// não nas settings sincronizadas — activar no portátil não devia activar no telemóvel.
+// Desktop notifications (Web Notifications API), phase 1a: fire while a Beskos tab is open.
+// Permission is per-browser, so preferences live on the device (localStorage), not in the
+// synced settings — enabling it on the laptop shouldn't enable it on the phone.
 //
-// Regra de ruído: só notifica quando a aba NÃO está visível (document.hidden). Se a pessoa está a
-// olhar para o Beskos, já vê o que chega — uma notificação do SO seria redundante.
+// Noise rule: only notify when the tab is NOT visible (document.hidden). If the person is
+// looking at Beskos, they already see what arrives — an OS notification would be redundant.
 
 import { isTauri, onNotifOpen, tauriPermission, tauriRequestPermission, tauriShow } from "./tauriNotify";
 
@@ -12,7 +12,7 @@ const DOMAINS: NotifDomain[] = ["email", "chat", "meet", "cal", "files", "tasks"
 const LS_PREFS = "mailin.notif.prefs";
 
 export function notifSupported(): boolean {
-  if (isTauri()) return true; // app nativo: usa o plugin do SO (o WKWebView não tem Web Notifications)
+  if (isTauri()) return true; // native app: uses the OS plugin (WKWebView has no Web Notifications)
   return typeof window !== "undefined" && "Notification" in window;
 }
 
@@ -21,7 +21,7 @@ export function notifPermission(): NotificationPermission {
   return typeof window !== "undefined" && "Notification" in window ? Notification.permission : "denied";
 }
 
-// Pede permissão. Tem de ser chamado a partir de um gesto do utilizador (clique).
+// Requests permission. Must be called from a user gesture (click).
 export async function requestNotifPermission(): Promise<NotificationPermission> {
   if (isTauri()) return tauriRequestPermission();
   if (!("Notification" in window)) return "denied";
@@ -40,25 +40,25 @@ export function notifPrefs(): Record<NotifDomain, boolean> {
 
 export function setNotifPref(domain: NotifDomain, on: boolean): void {
   try { localStorage.setItem(LS_PREFS, JSON.stringify({ ...notifPrefs(), [domain]: on })); }
-  catch { /* modo privado: fica só nesta sessão */ }
+  catch { /* private mode: stays only in this session */ }
 }
 
 export function isDomain(v: string): v is NotifDomain {
   return (DOMAINS as string[]).includes(v);
 }
 
-// Mostra uma notificação preferindo o SERVICE WORKER (registration.showNotification), que é o
-// caminho fiável em Chrome/Edge/Firefox desktop — o construtor `new Notification()` é obsoleto e
-// não aparece em vários browsers. Cai para o construtor só se não houver SW.
+// Shows a notification, preferring the SERVICE WORKER (registration.showNotification), which is
+// the reliable path on Chrome/Edge/Firefox desktop — the `new Notification()` constructor is
+// deprecated and missing in several browsers. Falls back to the constructor only if there is no SW.
 async function show(title: string, body?: string, tag?: string, link?: string): Promise<boolean> {
   if (notifPermission() !== "granted") return false;
-  if (isTauri()) return tauriShow(title, body, link); // notificação nativa do SO (desktop/mobile)
-  // `data.link`: é daqui que o service worker tira para onde navegar no clique (mesmo contrato do
-  // push). Sem isto o clique caía sempre na caixa de entrada, fosse qual fosse o aviso.
+  if (isTauri()) return tauriShow(title, body, link); // native OS notification (desktop/mobile)
+  // `data.link`: this is where the service worker gets where to navigate on click (same contract
+  // as push). Without this, the click always landed on the inbox, whatever the notification was.
   const opts: NotificationOptions = { body, tag, icon: "/beskos-mark.svg", badge: "/beskos-mark.svg", data: { link: link || "/mail" } };
-  // Caminho preferido: service worker ATIVO. Logo após register() o SW ainda está a instalar e
-  // reg.showNotification() falha em silêncio — por isso esperamos serviceWorker.ready (com timeout
-  // curto para não pendurar) antes de usar o registration.
+  // Preferred path: an ACTIVE service worker. Right after register(), the SW is still installing
+  // and reg.showNotification() fails silently — so we wait for serviceWorker.ready (with a short
+  // timeout so it doesn't hang) before using the registration.
   if ("serviceWorker" in navigator) {
     try {
       if (!(await navigator.serviceWorker.getRegistration())) await navigator.serviceWorker.register("/sw.js");
@@ -67,10 +67,10 @@ async function show(title: string, body?: string, tag?: string, link?: string): 
         new Promise((res) => setTimeout(() => res(undefined), 1500)),
       ]);
       if (reg?.showNotification) { await reg.showNotification(title, opts); return true; }
-    } catch { /* cai para o construtor abaixo */ }
+    } catch { /* falls back to the constructor below */ }
   }
-  // Fallback: construtor Notification (menos fiável, mas suficiente em vários browsers). Aqui o
-  // clique chega a esta aba (não ao service worker), por isso navegamos nós.
+  // Fallback: the Notification constructor (less reliable, but good enough in several browsers).
+  // Here the click reaches this tab (not the service worker), so we navigate ourselves.
   try {
     const n = new Notification(title, opts);
     n.onclick = () => { window.focus(); n.close(); if (link) navigateTo?.(link); };
@@ -78,18 +78,18 @@ async function show(title: string, body?: string, tag?: string, link?: string): 
   } catch { return false; }
 }
 
-// Como navegar quando o clique é tratado NESTA aba (fallback do construtor Notification). O App
-// regista o `navigate` do router — sem isto teríamos de recarregar a página inteira.
+// How to navigate when the click is handled IN THIS TAB (Notification constructor fallback). The
+// App registers the router's `navigate` — without this we'd have to reload the whole page.
 let navigateTo: ((link: string) => void) | null = null;
 export function setNotifNavigate(fn: ((link: string) => void) | null): void {
   navigateTo = fn;
 }
 
-// onDesktopNotifClick liga o clique numa notificação NATIVA (app de desktop) à navegação da app.
+// onDesktopNotifClick wires a click on a NATIVE notification (desktop app) to the app's navigation.
 export { onNotifOpen as onDesktopNotifClick };
 
-// Notificação de TESTE — ignora a regra de visibilidade e as preferências por app. Se ainda não há
-// permissão, pede-a primeiro (o clique no botão é o gesto exigido pelo browser).
+// TEST notification — ignores the visibility rule and the per-app preferences. If there is no
+// permission yet, requests it first (the button click is the gesture the browser requires).
 export async function testNotification(title: string, body: string): Promise<boolean> {
   if (!notifSupported()) return false;
   if (notifPermission() !== "granted") {
@@ -99,18 +99,19 @@ export async function testNotification(title: string, body: string): Promise<boo
   return show(title, body, "mailin-test");
 }
 
-// Mostra uma notificação do SO se: browser suporta, permissão concedida, o domínio está ligado e a
-// aba não está visível. `tag` deduplica (uma notificação por conversa/evento em vez de empilhar).
-// `link` é a rota do ELEMENTO que originou o aviso — clicar na notificação abre-o.
+// Shows an OS notification if: the browser supports it, permission is granted, the domain is
+// enabled, and the tab isn't visible. `tag` deduplicates (one notification per conversation/event
+// instead of stacking). `link` is the route of the ELEMENT that triggered the notice — clicking
+// the notification opens it.
 export function showDesktopNotification(domain: NotifDomain, opts: {
   title: string; body?: string; tag?: string; link?: string;
 }): void {
   if (notifPermission() !== "granted") return;
   if (!notifPrefs()[domain]) return;
-  // No app nativo a janela pode estar minimizada mas "visível"; document.hidden é pouco fiável no
-  // WKWebView. Na web mantemos a regra de só notificar com a aba escondida (evita ruído redundante).
+  // In the native app the window can be minimized but "visible"; document.hidden is unreliable in
+  // WKWebView. On the web we keep the rule of only notifying with the tab hidden (avoids redundant noise).
   if (!isTauri() && !document.hidden) return;
-  // Web: o clique é tratado no service worker (notificationclick), que lê o link de `data`.
-  // Desktop: o Rust espera pelo clique e emite `notif-open` com o mesmo link.
+  // Web: the click is handled in the service worker (notificationclick), which reads the link from `data`.
+  // Desktop: Rust waits for the click and emits `notif-open` with the same link.
   void show(opts.title, opts.body, opts.tag, opts.link);
 }

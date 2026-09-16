@@ -4,15 +4,15 @@ import { SIGNATURE_TEMPLATES } from "./signatureTemplates";
 import { sanitizeRich } from "./mailHtml";
 import { IcLink, IcImage } from "../panel/icons";
 
-// Editor de assinatura em HTML: formatação básica, upload de imagem (inline, data URI) e uma galeria
-// de 10 modelos que se carregam no editor para depois editar. O valor é o innerHTML.
+// HTML signature editor: basic formatting, image upload (inline, data URI), and a gallery of
+// 10 templates that load into the editor for further editing. The value is the innerHTML.
 export function SignatureEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const { t } = useTranslation();
   const ed = useRef<HTMLDivElement>(null);
   const imgIn = useRef<HTMLInputElement>(null);
   const [gallery, setGallery] = useState(false);
 
-  // Semeia o editor com o valor guardado só uma vez (contentEditable não é controlado por React).
+  // Seeds the editor with the saved value only once (contentEditable is not controlled by React).
   useEffect(() => {
     if (ed.current && value && !ed.current.innerHTML) ed.current.innerHTML = sanitizeRich(value);
     // eslint-disable-next-line react-hooks/exhaustive-deps

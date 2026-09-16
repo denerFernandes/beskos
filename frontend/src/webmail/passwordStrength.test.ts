@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { measure } from "./passwordStrength";
 
-// O servidor (zxcvbn do Stalwart) é a autoridade; este medidor existe para avisar ANTES e é de
-// propósito mais exigente. Os casos abaixo são os que apanhámos em produção ou que o utilizador
-// tenta naturalmente.
+// The server (Stalwart's zxcvbn) is the authority; this meter exists to warn BEFORE and is
+// intentionally stricter. The cases below are the ones we caught in production or that the user
+// naturally tries.
 describe("medidor de palavra-passe", () => {
   it("recusa o que o Stalwart recusou (repetições)", () => {
     expect(measure("abcabcabcabc").ok).toBe(false);
@@ -11,10 +11,10 @@ describe("medidor de palavra-passe", () => {
   });
 
   it("recusa curtas, comuns e sequências", () => {
-    expect(measure("Ab1!xY").ok).toBe(false);            // curta
-    expect(measure("password12345").ok).toBe(false);     // comum
-    expect(measure("qwertyuiop123").ok).toBe(false);     // sequência do teclado
-    expect(measure("abcdefghijkl").ok).toBe(false);      // sequência do alfabeto
+    expect(measure("Ab1!xY").ok).toBe(false);            // short
+    expect(measure("password12345").ok).toBe(false);     // common
+    expect(measure("qwertyuiop123").ok).toBe(false);     // keyboard sequence
+    expect(measure("abcdefghijkl").ok).toBe(false);      // alphabet sequence
   });
 
   it("recusa senhas feitas do próprio endereço", () => {

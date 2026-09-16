@@ -4,8 +4,8 @@ import { assistantApi, type AssistantTask } from "./api";
 import { ToolCard } from "./ToolCard";
 import { ConfirmAction } from "./ConfirmAction";
 
-// Estados que ainda estão a mexer. Enquanto houver algum, a lista refaz-se sozinha — é o que faz a
-// bolha mostrar progresso mesmo fechada (§3.6).
+// States that are still moving. While any exists, the list refetches itself — that's what makes
+// the bubble show progress even when closed (§3.6).
 const LIVE = ["queued", "running", "awaiting_confirmation"];
 
 export function useAssistantTasks() {
@@ -22,7 +22,7 @@ export function useAssistantTasks() {
   return { tasks: q.data?.items ?? [], pending: q.data?.pending ?? [], active, isPending: q.isPending };
 }
 
-// Separador de Tarefas: o que corre em segundo plano, com progresso e cancelamento.
+// Tasks tab: what runs in the background, with progress and cancellation.
 export function TasksPanel({ onOpenConversation }: { onOpenConversation: (id: string) => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -49,10 +49,10 @@ export function TasksPanel({ onOpenConversation }: { onOpenConversation: (id: st
             {task.steps.length > 0 && ` · ${t("assistant.tasks.steps", { count: task.steps.length })}`}
           </div>
 
-          {/* O progresso à vista: os cartões de ação já feitos, não uma barra sem conteúdo. */}
+          {/* Progress in plain sight: the action cards already done, not a bar with no content. */}
           {task.steps.map((s, i) => <ToolCard key={i} step={s} />)}
 
-          {/* Uma tarefa parada tem de dizer o que está à espera, senão fica só "a aguardar". */}
+          {/* A stalled task has to say what it's waiting for, or it just reads "waiting". */}
           {pending.filter((p) => p.task_id === task.id).map((p) => (
             <ConfirmAction key={p.id} req={p}
               onDecided={() => qc.invalidateQueries({ queryKey: ["assistant-tasks"] })} />

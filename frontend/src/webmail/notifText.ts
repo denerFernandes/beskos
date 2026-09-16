@@ -1,20 +1,20 @@
 import type { TFunction } from "i18next";
 import type { Notif } from "./backend";
 
-// Traduz uma notificação in-app para o idioma do usuário (CLAUDE.md §4.6): o backend manda `kind` +
-// `args` estruturados; aqui montamos o texto por `server.notif.<kind>`. O título é sempre traduzido;
-// o corpo só quando existe chave `.b` (reunião/evento/arquivo). Para chat/tarefa o corpo é conteúdo
-// do usuário (comentário/preview) e cai no `defaultValue` = texto cru gravado. Linhas antigas sem
-// `args` também caem no fallback title/body. Datas ISO viram formato do locale via Intl.
+// Translates an in-app notification into the user's language (CLAUDE.md §4.6): the backend sends
+// a structured `kind` + `args`; here we build the text via `server.notif.<kind>`. The title is
+// always translated; the body only when a `.b` key exists (meeting/event/file). For chat/task the
+// body is user content (comment/preview) and falls into `defaultValue` = the raw stored text. Old
+// rows without `args` also fall back to title/body. ISO dates become locale format via Intl.
 export function notifText(n: Notif, t: TFunction, lang: string): { title: string; body: string } {
   const args: Record<string, string> = { ...(n.args ?? {}) };
   if (args.when) args.when = fmtWhen(args.when, lang);
   if (args.status) args.status = t(`server.rsvp.${args.status}`, { defaultValue: args.status });
 
-  // @channel/@here usa um título diferente da menção pessoal (mesmo kind no backend).
+  // @channel/@here uses a different title from a personal mention (same kind in the backend).
   const key = n.kind === "chat_mention" && args.at ? "chat_mention_at" : n.kind;
   const base = `server.notif.${key}`;
-  // Reunião instantânea não tem horário: usa a variante sem "quando".
+  // An instant meeting has no time: use the variant without "when".
   const bKey = key === "meeting_invite" && !args.when ? `${base}.b0` : `${base}.b`;
 
   const title = t(`${base}.t`, { ...args, defaultValue: n.title });

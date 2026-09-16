@@ -2,13 +2,13 @@ import type { ReactNode } from "react";
 import { customEmojiUrl } from "./customEmoji";
 import { URL_TOKEN, splitTrailing, href as linkHref } from "./links";
 
-// Renderizador de markdown leve (subconjunto estilo Slack), sem dependência externa. Constrói
-// nós React (o React já escapa texto → sem risco de XSS). Suporta: **negrito**, _itálico_,
-// __sublinhado__, ~~tachado~~, `código`, ```bloco```, links [t](u) e URLs soltas, @menções,
-// :emoji_custom:, > citação e listas (com marca e numeradas).
+// Lightweight markdown renderer (Slack-style subset), no external dependency. Builds React nodes
+// (React already escapes text → no XSS risk). Supports: **bold**, _italic_, __underline__,
+// ~~strikethrough~~, `code`, ```block```, links [t](u) and bare URLs, @mentions, :emoji_custom:,
+// > quote, and lists (bulleted and numbered).
 
-// `__sublinhado__` vem ANTES de `_itálico_`: em alternância a primeira que casa ganha, e com a
-// ordem trocada o sublinhado seria lido como itálico com underscores a mais.
+// `__underline__` comes BEFORE `_italic_`: in alternation the first one that matches wins, and
+// with the order swapped, underline would be read as italic with extra underscores.
 // The URL alternative comes from links.ts so the renderer and the unfurl preview agree on what a
 // link is. They used to carry a copy each, both demanding "https://", and a link pasted the way
 // people paste them ("meet.google.com/abc") was neither linked nor previewed.
@@ -23,13 +23,15 @@ const INLINE = new RegExp(
 const IS_URL = new RegExp(`^(?:${URL_TOKEN})$`, "i");
 
 
-// Link para uma tarefa (/mail/kanban/<quadro>/<tarefa>): em vez de um link azul no meio da frase,
-// vira um cartão com a chave em destaque — é o que se procura numa conversa cheia de texto.
+// Link to a task (/mail/kanban/<board>/<task>): instead of a blue link in the middle of the
+// sentence, it becomes a card with the key highlighted — that's what stands out in a
+// text-heavy conversation.
 const TASK_HREF = /^\/mail\/kanban\/[0-9a-fA-F-]{36}\/[0-9a-fA-F-]{36}$/;
 
-// Navegação INTERNA sem recarregar: um href normal faria reload, e no app nativo (Tauri) isso sai da
-// aplicação — o servidor de assets não tem fallback de SPA. pushState + popstate: o router reage.
-// Ctrl/Cmd/Shift continuam a valer (abrir noutro separador/janela) porque não interceptamos.
+// INTERNAL navigation without a reload: a normal href would cause a reload, and in the native app
+// (Tauri) that leaves the application — the asset server has no SPA fallback. pushState + popstate:
+// the router reacts. Ctrl/Cmd/Shift still work (open in another tab/window) because we don't
+// intercept them.
 function goInternal(e: React.MouseEvent, href: string): void {
   if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
   e.preventDefault();
@@ -48,8 +50,8 @@ function internalPath(href: string): string | null {
 }
 
 function TaskRef({ href, label }: { href: string; label: string }): ReactNode {
-  // O texto do link vem como "QUA-12 — Título" (é assim que o partilhar e o /task o escrevem);
-  // quando não vier, mostramos o rótulo inteiro sem inventar uma chave.
+  // The link text comes as "QUA-12 — Title" (that's how sharing and /task write it); when it
+  // doesn't, we show the whole label without inventing a key.
   const m = /^([A-Za-z0-9]{1,8}-\d+)\s*[—–-]\s*([\s\S]+)$/.exec(label);
   return (
     <a className="task-ref" href={href} onClick={(e) => goInternal(e, href)}>
@@ -104,18 +106,19 @@ function renderInline(text: string, keyBase: string): ReactNode[] {
   return out;
 }
 
-// renderRich transforma o texto em blocos (código, citação, listas, parágrafos com inline).
+// renderRich turns the text into blocks (code, quote, lists, paragraphs with inline formatting).
 export function renderRich(text: string): ReactNode {
   const parts = text.split(/```/);
   const blocks: ReactNode[] = [];
   parts.forEach((part, pi) => {
-    if (pi % 2 === 1) { // trecho entre ``` = bloco de código
+    if (pi % 2 === 1) { // segment between ``` = code block
       blocks.push(<pre key={`c${pi}`} className="md-block">{part.replace(/^\n/, "")}</pre>);
       return;
     }
     const lines = part.split("\n");
-    // Uma lista de cada vez: `ordered` diz se o que está a ser acumulado é numerado (<ol>) ou de
-    // marcas (<ul>). Trocar de tipo fecha a anterior — senão "1." e "-" caíam na mesma lista.
+    // One list at a time: `ordered` says whether what's being accumulated is numbered (<ol>) or
+    // bulleted (<ul>). Switching type closes the previous one — otherwise "1." and "-" would fall
+    // into the same list.
     let list: ReactNode[] | null = null;
     let ordered = false;
     const flush = () => {

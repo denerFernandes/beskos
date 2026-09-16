@@ -1,20 +1,20 @@
-// Sons de aviso: chegada de notificação, e os três momentos de uma reunião.
+// Alert sounds: notification arrival, and the three moments of a meeting.
 //
-// PORQUÊ SINTETIZADOS e não ficheiros: são cinco avisos de menos de meio segundo. Em WAV seriam
-// centenas de KiB no bundle e cinco pedidos de rede no primeiro toque — o pior momento possível,
-// porque é quando se quer o som JÁ. Gerados assim ocupam este ficheiro, tocam offline e afinam-se
-// mudando um número em vez de reexportar áudio.
+// WHY SYNTHESIZED and not files: these are five alerts under half a second. As WAV they would be
+// hundreds of KiB in the bundle and five network requests on the first play — the worst possible
+// moment, because that's exactly when you want the sound NOW. Generated this way, they live in
+// this file, play offline, and get tuned by changing a number instead of re-exporting audio.
 //
-// PREFERÊNCIA POR DISPOSITIVO (localStorage), como as notificações em desktopNotify.ts: ligar o som
-// no portátil não devia ligá-lo no telemóvel. É a mesma razão e o mesmo sítio.
+// PER-DEVICE PREFERENCE (localStorage), like the notifications in desktopNotify.ts: turning the
+// sound on on the laptop shouldn't turn it on on the phone. Same reasoning, same place.
 
 export type SoundKind = "notify" | "email" | "meetJoin" | "meetKnock" | "meetPeer";
 
 const LS = "mailin.sound.prefs";
 
 export type SoundPrefs = {
-  notify: boolean; // avisos de chat, tarefas, ficheiros, calendário, e-mail
-  meet: boolean;   // entrar na sala, alguém à porta, alguém entrou
+  notify: boolean; // chat, task, file, calendar, and email alerts
+  meet: boolean;   // joining the room, someone at the door, someone joined
 };
 
 const DEF: SoundPrefs = { notify: true, meet: true };
@@ -28,43 +28,44 @@ export function soundPrefs(): SoundPrefs {
 
 export function setSoundPref(key: keyof SoundPrefs, on: boolean): void {
   try { localStorage.setItem(LS, JSON.stringify({ ...soundPrefs(), [key]: on })); }
-  catch { /* modo privado: vale só nesta sessão */ }
+  catch { /* private mode: only applies to this session */ }
 }
 
-// Que interruptor manda em cada som.
+// Which switch controls each sound.
 function prefOf(kind: SoundKind): keyof SoundPrefs {
   return kind === "notify" || kind === "email" ? "notify" : "meet";
 }
 
-// --- síntese ---------------------------------------------------------------
+// --- synthesis ---------------------------------------------------------------
 
-// Cada aviso é uma sequência de notas: frequência (Hz), quando começa e quanto dura (segundos).
-// As frequências são notas reais para os pares soarem afinados em vez de apenas "dois bips".
+// Each alert is a sequence of notes: frequency (Hz), when it starts, and how long it lasts
+// (seconds). The frequencies are real notes so the pairs sound in tune instead of just "two beeps".
 type Note = { hz: number; at: number; dur: number; gain?: number };
 
 const VOICES: Record<SoundKind, Note[]> = {
-  // Aviso genérico: dois tons a subir (lá5 -> dó#6). Curto e claro, é o que toca mais vezes.
+  // Generic alert: two rising tones (A5 -> C#6). Short and clear, it's the one that plays most.
   notify: [
     { hz: 880, at: 0, dur: 0.09 },
     { hz: 1108.73, at: 0.085, dur: 0.14 },
   ],
-  // E-mail: um só tom, mais grave e mais suave. Chega muito e-mail; um aviso discreto evita que a
-  // pessoa desligue o som todo por cansaço.
+  // Email: a single tone, lower and softer. A lot of email arrives; a discreet alert keeps the
+  // person from turning off the sound entirely out of fatigue.
   email: [{ hz: 587.33, at: 0, dur: 0.18, gain: 0.5 }],
-  // Entrei na sala: três notas a subir (dó6-mi6-sol6), o acorde que diz "ligado".
+  // Joined the room: three rising notes (C6-E6-G6), the chord that says "connected".
   meetJoin: [
     { hz: 1046.5, at: 0, dur: 0.08 },
     { hz: 1318.51, at: 0.075, dur: 0.08 },
     { hz: 1567.98, at: 0.15, dur: 0.16 },
   ],
-  // Alguém pede para entrar: duas batidas graves, como bater à porta. É o único que o anfitrião TEM
-  // de ouvir — se lhe escapar, fica alguém à espera sem saber porquê. Por isso é o mais insistente:
-  // grave (corta melhor a voz de quem fala) e com duas batidas em vez de uma.
+  // Someone is asking to join: two low knocks, like knocking on a door. This is the only one the
+  // host HAS to hear — if it's missed, someone is left waiting without knowing why. That's why it's
+  // the most insistent: low-pitched (cuts through a speaking voice better) and with two knocks
+  // instead of one.
   meetKnock: [
     { hz: 392, at: 0, dur: 0.11, gain: 1.1 },
     { hz: 392, at: 0.17, dur: 0.13, gain: 1.1 },
   ],
-  // Alguém entrou: uma nota só, discreta. Numa reunião de dez pessoas isto toca dez vezes.
+  // Someone joined: a single, discreet note. In a ten-person meeting, this plays ten times.
   meetPeer: [{ hz: 783.99, at: 0, dur: 0.1, gain: 0.45 }],
 };
 
@@ -80,9 +81,9 @@ function audioContext(): AudioContext | null {
   } catch { return null; }
 }
 
-// O browser cria o AudioContext SUSPENSO até haver um gesto do utilizador — política de autoplay.
-// Sem isto o primeiro aviso seria engolido em silêncio e só o segundo se ouviria. Destrancamos ao
-// primeiro clique/tecla/toque na app, e o listener remove-se sozinho.
+// The browser creates the AudioContext SUSPENDED until there is a user gesture — autoplay policy.
+// Without this the first alert would be swallowed in silence and only the second would be heard.
+// We unlock it on the first click/keypress/tap in the app, and the listener removes itself.
 export function unlockSounds(): void {
   const unlock = () => {
     const c = audioContext();
@@ -94,7 +95,7 @@ export function unlockSounds(): void {
   window.addEventListener("touchstart", unlock, opts);
 }
 
-// Toca um aviso. Nunca lança: um som que falha não pode partir o que o disparou.
+// Plays an alert. Never throws: a sound that fails must not break what triggered it.
 export function playSound(kind: SoundKind): void {
   if (!soundPrefs()[prefOf(kind)]) return;
   const c = audioContext();
@@ -125,11 +126,11 @@ function emit(c: AudioContext, kind: SoundKind): void {
     try {
       const osc = c.createOscillator();
       const g = c.createGain();
-      // Onda sinusoidal: sem harmónicos ásperos. Uma quadrada seria estridente ao fim do dia.
+      // Sine wave: no harsh harmonics. A square wave would get grating by the end of the day.
       osc.type = "sine";
       osc.frequency.value = n.hz;
-      // Envelope com ataque e queda: um ganho ligado/desligado de repente dá um "clique" audível,
-      // que é o som de um altifalante a saltar, não de um aviso.
+      // Envelope with attack and decay: gain switched on/off abruptly gives an audible "click",
+      // which is the sound of a speaker popping, not of an alert.
       const startAt = t0 + n.at;
       const peak = 0.16 * (n.gain ?? 1);
       g.gain.setValueAtTime(0.0001, startAt);
@@ -138,6 +139,6 @@ function emit(c: AudioContext, kind: SoundKind): void {
       osc.connect(g).connect(c.destination);
       osc.start(startAt);
       osc.stop(startAt + n.dur + 0.02);
-    } catch { /* um aviso falhado não pode partir quem o disparou */ }
+    } catch { /* a failed alert must not break whoever triggered it */ }
   }
 }

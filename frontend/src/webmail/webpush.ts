@@ -1,14 +1,14 @@
 import { backend } from "./backend";
 
-// Web Push no cliente: regista o service worker, subscreve no serviço de push do browser com a
-// chave pública VAPID do servidor e envia a subscrição ao backend. Best-effort — se o servidor não
-// tiver push configurado (VAPID desligado), não faz nada e as notificações com aba aberta bastam.
+// Client-side Web Push: registers the service worker, subscribes to the browser's push service with
+// the server's public VAPID key, and sends the subscription to the backend. Best-effort — if the
+// server does not have push configured (VAPID disabled), it does nothing and open-tab notifications suffice.
 
 export function pushSupported(): boolean {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
-// A chave VAPID vem em base64url; o PushManager quer um Uint8Array.
+// The VAPID key comes in base64url; PushManager wants a Uint8Array.
 function urlB64ToUint8Array(base64: string): Uint8Array {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
   const b64 = (base64 + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -25,8 +25,8 @@ async function registerSW(): Promise<ServiceWorkerRegistration | null> {
   catch { return null; }
 }
 
-// Subscreve (idempotente): reaproveita a subscrição existente do browser se já houver uma. Só
-// prossegue se o servidor tiver VAPID ligado. Devolve true se ficou subscrito.
+// Subscribes (idempotent): reuses the browser's existing subscription if there already is one. Only
+// proceeds if the server has VAPID enabled. Returns true if it ended up subscribed.
 export async function enableWebPush(): Promise<boolean> {
   if (!pushSupported() || Notification.permission !== "granted") return false;
   let vapid: { enabled: boolean; publicKey?: string };
@@ -46,20 +46,20 @@ export async function enableWebPush(): Promise<boolean> {
   } catch { return false; }
 }
 
-// Cancela a subscrição neste browser (e avisa o servidor para apagar a linha).
+// Cancels the subscription on this browser (and tells the server to delete the row).
 export async function disableWebPush(): Promise<void> {
   if (!pushSupported()) return;
   try {
     const reg = await navigator.serviceWorker.getRegistration();
     const sub = await reg?.pushManager.getSubscription();
     if (sub) {
-      await backend.pushUnsubscribe(sub.endpoint).catch(() => { /* segue mesmo assim */ });
+      await backend.pushUnsubscribe(sub.endpoint).catch(() => { /* proceed anyway */ });
       await sub.unsubscribe();
     }
-  } catch { /* nada a fazer */ }
+  } catch { /* nothing to do */ }
 }
 
-// Encaminha o clique numa notificação (vindo do service worker) para a navegação do app.
+// Forwards a notification click (coming from the service worker) to the app's navigation.
 export function onNotificationClick(navigate: (link: string) => void): () => void {
   if (!("serviceWorker" in navigator)) return () => {};
   const handler = (e: MessageEvent) => {

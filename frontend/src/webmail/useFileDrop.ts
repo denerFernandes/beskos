@@ -9,8 +9,8 @@ import { useState, useRef } from "react";
 //
 // Only reacts to a drag carrying FILES. Dragging a selection, a link or a card inside the app also
 // raises drag events, and lighting up "drop your files here" for those is noise.
-// Zona de arrastar-e-soltar arquivos. Só reage a arrasto de arquivos (ignora drag de outros
-// elementos); usa contador de enter/leave para não piscar ao passar sobre filhos.
+// Drag-and-drop zone for files. Only reacts to a drag of files (ignores drag of other
+// elements); uses an enter/leave counter to avoid flickering when passing over children.
 export function useFileDrop(onDrop: (files: FileList) => void) {
   const [over, setOver] = useState(false);
   const depth = useRef(0);

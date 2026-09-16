@@ -4,12 +4,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { assistantApi, type MemoryFact, type AuditEntry } from "./api";
 import { ToolCard } from "./ToolCard";
 
-// Ecrã de gestão da memória (§3.5, §8.4). O utilizador vê tudo o que a app sabe sobre si, de onde
-// veio (a categoria) e apaga item a item ou por inteiro. Sem isto, a memória seria um arquivo de
-// dados pessoais que cresce sem ninguém ver — e o RGPD dá o direito de o ver e apagar.
+// Memory management screen (§3.5, §8.4). The user sees everything the app knows about them,
+// where it came from (the category), and deletes it item by item or all at once. Without this,
+// memory would be a store of personal data that grows with no one watching it — and GDPR grants the right to view and delete it.
 //
-// Aparece nas Definições, que é o único sítio onde a bolha do assistente NÃO aparece: tê-lo a pairar
-// sobre a sua própria configuração seria confuso (§3.1).
+// Appears in Settings, the one place where the assistant bubble does NOT show up: having it
+// hover over its own configuration screen would be confusing (§3.1).
 export function MemorySection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -43,7 +43,7 @@ export function MemorySection() {
       </div>
 
       <div className="pnl-content">
-        {/* Acrescentar à mão: a via mais pura de §6.5 — só o utilizador escreve na memória. */}
+        {/* Adding by hand: the purest path from §6.5 — only the user writes to memory. */}
         <div className="pnl-card"><div className="pnl-card-b">
           <div className="mem-add">
             <input className="pnl-input" value={draft} maxLength={300}
@@ -87,9 +87,9 @@ export function MemorySection() {
   );
 }
 
-// Registo de auditoria (§6.4): as ações que o assistente executou, legíveis pelo utilizador. É o
-// que responde a "porque é que este e-mail foi enviado?" — e tem de ser lido por quem usa, não só
-// pelo administrador.
+// Audit log (§6.4): the actions the assistant has executed, readable by the user. It's what
+// answers "why was this email sent?" — and it has to be readable by whoever uses the app, not
+// only by the administrator.
 function AuditLog() {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["assistant-audit"], queryFn: () => assistantApi.audit(), retry: false });
