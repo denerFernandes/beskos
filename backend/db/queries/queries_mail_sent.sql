@@ -10,7 +10,7 @@ SELECT COALESCE((SELECT sent FROM tenant_mail_sent
     WHERE tenant_id = @tenant_id AND day = current_date), 0)::int;
 
 -- name: TenantDailySendLimit :one
--- Limite do plano direto da BD (para o worker, que não tem o cache do catálogo). 0 = sem teto.
+-- The plan's limit straight from the DB (for the worker, which has no catalog cache). 0 = no cap.
 SELECT COALESCE(p.max_daily_send, 0)::int
 FROM tenants t LEFT JOIN plans p ON p.key = t.plan
 WHERE t.id = @tenant_id;

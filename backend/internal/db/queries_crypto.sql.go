@@ -29,9 +29,9 @@ type CreateTenantKeyRow struct {
 	KekVersion int32  `json:"kek_version"`
 }
 
-// ON CONFLICT DO NOTHING + RETURNING não devolve linha quando já existe; por isso o chamador
-// trata a corrida relendo. Dois pedidos simultâneos do mesmo tenant não podem gerar duas chaves —
-// a segunda tornaria ilegível o que a primeira cifrou.
+// ON CONFLICT DO NOTHING + RETURNING returns no row when one already exists; that's why the
+// caller handles the race by re-reading. Two simultaneous requests for the same tenant can never
+// produce two keys -- the second would make unreadable whatever the first one encrypted.
 func (q *Queries) CreateTenantKey(ctx context.Context, arg CreateTenantKeyParams) (CreateTenantKeyRow, error) {
 	row := q.db.QueryRow(ctx, createTenantKey, arg.TenantID, arg.WrappedKey, arg.KekVersion)
 	var i CreateTenantKeyRow
@@ -49,10 +49,10 @@ type GetTenantKeyRow struct {
 	KekVersion int32  `json:"kek_version"`
 }
 
-// Chaves da cifra de envelope dos ficheiros (docs/cifra-ficheiros.md).
+// Envelope-encryption keys for files (doc filename not yet renamed: docs/cifra-ficheiros.md) lang:ok
 //
-// Nenhuma destas consultas devolve chave em claro: o que sai daqui é sempre material embrulhado, e
-// só o pacote `filecrypt` o abre, com a KEK do ambiente.
+// None of these queries ever return a key in the clear: what comes out of here is always wrapped
+// material, and only the `filecrypt` package opens it, with the environment's KEK.
 func (q *Queries) GetTenantKey(ctx context.Context, tenantID uuid.UUID) (GetTenantKeyRow, error) {
 	row := q.db.QueryRow(ctx, getTenantKey, tenantID)
 	var i GetTenantKeyRow
@@ -70,7 +70,7 @@ type ListTenantKeysByKekVersionRow struct {
 	KekVersion int32     `json:"kek_version"`
 }
 
-// Para a rotação da KEK: re-embrulha só esta tabela, sem tocar num único objeto.
+// For KEK rotation: re-wraps only this table, without touching a single object.
 func (q *Queries) ListTenantKeysByKekVersion(ctx context.Context, kekVersion int32) ([]ListTenantKeysByKekVersionRow, error) {
 	rows, err := q.db.Query(ctx, listTenantKeysByKekVersion, kekVersion)
 	if err != nil {

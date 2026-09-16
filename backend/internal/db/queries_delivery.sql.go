@@ -26,7 +26,7 @@ type InsertMailEventParams struct {
 	Source    string      `json:"source"`
 }
 
-// ---------- Eventos de entrega (SNS → webhook; ver migração 00107) ----------
+// ---------- Delivery events (SNS -> webhook; see migration 00107) ----------
 func (q *Queries) InsertMailEvent(ctx context.Context, arg InsertMailEventParams) error {
 	_, err := q.db.Exec(ctx, insertMailEvent,
 		arg.TenantID,
@@ -42,7 +42,7 @@ const tenantByEmailDomain = `-- name: TenantByEmailDomain :one
 SELECT tenant_id FROM domains WHERE domain = $1 LIMIT 1
 `
 
-// Resolve o tenant dono do domínio do remetente (mail.source do evento SES).
+// Resolves the tenant that owns the sender's domain (mail.source from the SES event).
 func (q *Queries) TenantByEmailDomain(ctx context.Context, domain string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, tenantByEmailDomain, domain)
 	var tenant_id uuid.UUID
