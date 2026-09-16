@@ -6,24 +6,24 @@ import (
 	"fmt"
 )
 
-// Ferramentas da Wiki (docs/wiki-features.md §7.5). Leitura (wiki.search/wiki.read) sem confirmação;
-// escrita (wiki.create_page/wiki.edit_page) com Confirm — o utilizador aprova o conteúdo exato antes
-// de qualquer gravação (§6.3). Os handlers dos adapters revalidam canAccess (editor) no serviço —
-// nunca confiam no modelo. O texto recuperado é DADO não confiável, nunca instrução (§6.1): o motor
-// já embrulha Result.Data como conteúdo, e as instruções do agente reforçam-no.
+// Wiki tools (docs/wiki-features.md §7.5). Read (wiki.search/wiki.read) without confirmation;
+// write (wiki.create_page/wiki.edit_page) with Confirm — the user approves the exact content
+// before anything is saved (§6.3). The adapter handlers re-validate canAccess (editor) in the
+// service — they never trust the model. Retrieved text is UNTRUSTED DATA, never an instruction
+// (§6.1): the engine already wraps Result.Data as content, and the agent instructions reinforce it.
 
-// WikiHit é um trecho recuperado, com os dados de citação (página, título, slug).
+// WikiHit is a retrieved excerpt, with citation data (page, title, slug).
 type WikiHit struct {
 	PageID  string `json:"page_id"`
 	Title   string `json:"title"`
 	Slug    string `json:"slug"`
 	Snippet string `json:"snippet"`
-	// Distance é a distância de cosseno (menor = mais relevante); dá ao modelo noção de confiança.
+	// Distance is the cosine distance (lower = more relevant); gives the model a sense of confidence.
 	Distance float64 `json:"distance"`
 }
 
-// WikiPageData é uma página devolvida ao modelo (texto puro; nunca HTML). Link é o caminho interno
-// da app (/mail/wiki/<space>/<page>) para o modelo citar e o utilizador abrir (B6).
+// WikiPageData is a page returned to the model (plain text; never HTML). Link is the app's
+// internal path (/mail/wiki/<space>/<page>) for the model to cite and the user to open (B6).
 type WikiPageData struct {
 	PageID  string `json:"page_id"`
 	Title   string `json:"title"`
@@ -34,15 +34,15 @@ type WikiPageData struct {
 	Link    string `json:"link,omitempty"`
 }
 
-// WikiNewPage é o pedido de criação: espaço por nome/chave (resolvido entre os visíveis ao
-// utilizador), título e conteúdo em texto simples.
+// WikiNewPage is a creation request: space by name/key (resolved among those visible to the
+// user), title, and plain-text content.
 type WikiNewPage struct {
 	Space   string `json:"space"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }
 
-// WikiPageEdit é o pedido de alteração de uma página existente.
+// WikiPageEdit is a request to change an existing page.
 type WikiPageEdit struct {
 	PageID  string `json:"page_id"`
 	Title   string `json:"title"`
@@ -58,7 +58,7 @@ type (
 	WikiEditPage   func(ctx context.Context, id Identity, in WikiPageEdit) (WikiPageData, error)
 )
 
-// wikiTools monta as ferramentas da wiki a partir das funções ligadas (nil = ferramenta ausente).
+// wikiTools builds the wiki tools from the wired-up functions (nil = tool absent).
 func wikiTools(search WikiSearch, read WikiRead, create WikiCreatePage, edit WikiEditPage) []Tool {
 	var tools []Tool
 	if search != nil {

@@ -1,17 +1,18 @@
-// blobmigrate copia os blocos do correio do balde antigo para o novo, cifrando-os à passagem.
+// blobmigrate copies the mail blocks from the old bucket to the new one, encrypting them in
+// transit.
 //
-// PORQUÊ. O Stalwart escrevia em `beskos`, um balde SEM restrição jurisdicional, e passou a escrever
-// através do gateway em `beskos-data`, que tem jurisdição europeia. Os blocos antigos ficaram para
-// trás: uma mensagem antiga aberta por um cliente IMAP procura o original no balde novo e não o
-// encontra. Isto traz esses.
+// WHY. Stalwart used to write to `beskos`, a bucket with NO jurisdictional restriction, and
+// switched to writing through the gateway to `beskos-data`, which has European jurisdiction. The
+// old blocks were left behind: an old message opened by an IMAP client looks for the original in
+// the new bucket and does not find it. This brings those over.
 //
-//	blobmigrate            # mostra o que faria
-//	blobmigrate --apply    # copia
+//	blobmigrate            # shows what it would do
+//	blobmigrate --apply    # copies
 //
-// Cifra ao copiar, usando o mesmo storage.Service que o gateway usa — o resultado é byte a byte o
-// mesmo que se a mensagem tivesse entrado pelo caminho novo. Não apaga a origem: o balde antigo
-// fica como está até alguém decidir o contrário, e uma migração que apaga enquanto copia é uma
-// migração que não se pode repetir.
+// Encrypts while copying, using the same storage.Service the gateway uses — the result is byte
+// for byte the same as if the message had come in through the new path. Does not delete the
+// source: the old bucket stays as it is until someone decides otherwise, and a migration that
+// deletes while copying is a migration that cannot be repeated.
 package main
 
 import (
@@ -30,7 +31,7 @@ import (
 func main() {
 	log.SetFlags(0)
 	run := flag.Bool("apply", false, "actually copy; without this it only reports")
-	prefix := flag.String("prefixo", "mail/", "prefixo a migrar")
+	prefix := flag.String("prefixo", "mail/", "prefix to migrate")
 	flag.Parse()
 
 	source, err := minio.New(env("ORIGEM_ENDPOINT"), &minio.Options{
@@ -46,10 +47,10 @@ func main() {
 	dest, err := storage.New(env("DESTINO_ENDPOINT"), env("DESTINO_ACCESS_KEY"),
 		env("DESTINO_SECRET_KEY"), env("DESTINO_BUCKET"), envOr("DESTINO_REGION", "auto"), ssl)
 	if err != nil {
-		log.Fatalf("destino: %v", err)
+		log.Fatalf("destination: %v", err)
 	}
 	if err := dest.EnableEncryption(nil, env("FILE_ENC_KEYS")); err != nil {
-		log.Fatalf("cifra: %v", err)
+		log.Fatalf("encryption: %v", err)
 	}
 	if !dest.Encrypting() {
 		log.Fatal("without FILE_ENC_KEYS there is no point migrating — the goal is to arrive encrypted")
@@ -69,14 +70,14 @@ func main() {
 		}
 		seen++
 
-		// Já lá está cifrado? Então não se toca: repetir a migração tem de ser inofensivo.
+		// Already encrypted there? Then leave it alone: repeating the migration must be harmless.
 		if cifrado, err := dest.IsEncrypted(ctx, obj.Key); err == nil && cifrado {
 			alreadyEncrypted++
 			continue
 		}
 
 		if !*run {
-			log.Printf("  copiaria %s (%d bytes)", obj.Key, obj.Size)
+			log.Printf("  would copy %s (%d bytes)", obj.Key, obj.Size)
 			copied++
 			continue
 		}
@@ -89,9 +90,9 @@ func main() {
 		log.Printf("  ✓ %s (%d bytes, encrypted)", obj.Key, obj.Size)
 	}
 
-	verb := "por copiar"
+	verb := "to copy"
 	if *run {
-		verb = "copiados"
+		verb = "copied"
 	}
 	log.Printf("%d objects at the source, %d %s, %d were already encrypted, %d failures",
 		seen, copied, verb, alreadyEncrypted, failures)

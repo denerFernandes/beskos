@@ -7,28 +7,28 @@ import (
 	"strings"
 )
 
-// NewTask é uma tarefa a criar num quadro Kanban.
+// NewTask is a task to create on a Kanban board.
 type NewTask struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
-	// Due é uma data ISO (AAAA-MM-DD). Vazio = sem prazo.
+	// Due is an ISO date (YYYY-MM-DD). Empty = no due date.
 	Due string `json:"due"`
-	// Board é o NOME do quadro. Vazio usa o primeiro do tenant — o modelo não conhece ids de
-	// quadros, e obrigá-lo a adivinhar um seria pedir-lhe para inventar.
+	// Board is the board NAME. Empty uses the tenant's first one — the model doesn't know board
+	// ids, and forcing it to guess one would be asking it to make one up.
 	Board string `json:"board"`
-	// Assignee é o NOME ou E-MAIL do colega responsável (ex.: "Bob"). Vazio = sem responsável.
+	// Assignee is the NAME or EMAIL of the responsible colleague (e.g. "Bob"). Empty = unassigned.
 	Assignee string `json:"assignee"`
 }
 
-// TaskRef é a tarefa criada, como o cartão de ação a mostra.
+// TaskRef is the created task, as the action card shows it.
 type TaskRef struct {
 	ID       string `json:"id"`
 	Board    string `json:"board"`
 	Number   string `json:"number"`
-	Assignee string `json:"assignee"` // nome resolvido do responsável ("" = sem)
+	Assignee string `json:"assignee"` // resolved name of the assignee ("" = none)
 }
 
-// TaskCreate cria a tarefa usando as MESMAS consultas do handler equivalente (§5: sem SQL novo).
+// TaskCreate creates the task using the SAME queries as the equivalent handler (§5: no new SQL).
 type TaskCreate func(ctx context.Context, id Identity, t NewTask) (TaskRef, error)
 
 func taskTools(create TaskCreate) []Tool {
@@ -48,9 +48,10 @@ func taskTools(create TaskCreate) []Tool {
 				"required": ["title"]
 			}`),
 			Writes: true,
-			// Sem Confirm: uma tarefa não sai da organização nem destrói nada, e é reversível. A
-			// confirmação é para o que sai para fora ou apaga (§6.3) — exigi-la aqui gastaria a
-			// atenção de quem confirma no que não importa, e é essa atenção que protege o resto.
+			// No Confirm: a task doesn't leave the organisation or destroy anything, and is
+			// reversible. Confirmation is for what leaves or deletes (§6.3) — requiring it here
+			// would spend the confirmer's attention on what doesn't matter, and that attention is
+			// what protects everything else.
 			Handler: func(ctx context.Context, id Identity, raw json.RawMessage) (Result, error) {
 				var t NewTask
 				if err := decodeArgs(raw, &t); err != nil {

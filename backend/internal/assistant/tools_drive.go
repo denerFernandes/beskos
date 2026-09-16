@@ -6,19 +6,19 @@ import (
 	"fmt"
 )
 
-// DriveHit é um resultado de pesquisa no Drive — ficheiro ou pasta.
+// DriveHit is a Drive search result — file or folder.
 type DriveHit struct {
 	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Kind    string `json:"kind"` // "file" | "folder"
 	Size    int64  `json:"size,omitempty"`
 	Folder  string `json:"folder_id,omitempty"`
-	Version int32  `json:"version,omitempty"` // versão corrente, preenchida por docs.edit
+	Version int32  `json:"version,omitempty"` // current version, filled in by docs.edit
 }
 
-// DriveSearch procura no Drive do utilizador autenticado. Implementado por quem já tem as queries
-// existentes: o motor não fala com a base de dados (§5 — as ferramentas assentam no que já existe,
-// nunca em SQL novo).
+// DriveSearch searches the authenticated user's Drive. Implemented by whoever already has the
+// existing queries: the engine never talks to the database (§5 — tools sit on top of what already
+// exists, never on new SQL).
 type DriveSearch func(ctx context.Context, id Identity, query string, limit int) ([]DriveHit, error)
 
 type driveSearchArgs struct {
@@ -58,8 +58,8 @@ func driveTools(search DriveSearch) []Tool {
 	}
 }
 
-// Deps são as ligações às capacidades da instalação. Um campo nil deixa as ferramentas dessa área
-// FORA do catálogo — o assistente diz que não consegue, em vez de falhar a meio de uma execução.
+// Deps are the wiring to the deployment's capabilities. A nil field leaves that area's tools
+// OUT of the catalog — the assistant says it cannot, instead of failing mid-run.
 type Deps struct {
 	Mail          MailAccess
 	Drive         DriveSearch
@@ -72,8 +72,8 @@ type Deps struct {
 	Contacts      ContactSearch
 	ContactCreate ContactCreate
 	ContactShare  ContactShare
-	// Wiki (base de conhecimento, §7.5): leitura + escrita-com-confirmação. WikiSearch pode ficar
-	// nil (sem embeddings configurados) sem desligar as restantes.
+	// Wiki (knowledge base, §7.5): read + write-with-confirmation. WikiSearch can be left nil
+	// (no embeddings configured) without disabling the rest.
 	WikiSearch     WikiSearch
 	WikiRead       WikiRead
 	WikiCreatePage WikiCreatePage
@@ -86,7 +86,7 @@ type Deps struct {
 	NotesEdit   NotesEdit
 }
 
-// BuildRegistry monta o catálogo a partir do que a instalação tem ligado.
+// BuildRegistry builds the catalog from whatever the deployment has wired up.
 func BuildRegistry(d Deps) *Registry {
 	var tools []Tool
 	if d.Mail != nil {

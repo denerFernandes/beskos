@@ -9,8 +9,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
-// Nomes das ferramentas. Constantes porque aparecem em três sítios (catálogo, lista de permissões
-// do agente, registo de auditoria) e um erro de escrita entre eles seria silencioso.
+// Tool names. Constants because they appear in three places (catalog, agent permission list,
+// audit log) and a typo between them would go unnoticed.
 const (
 	ToolMailSearch     = "mail.search"
 	ToolMailRead       = "mail.read"
@@ -37,59 +37,63 @@ const (
 	ToolNotesEdit   = "notes.edit"
 )
 
-// Result é o que uma ferramenta devolve.
+// Result is what a tool returns.
 type Result struct {
-	// Summary é a linha que o cartão da conversa mostra: o registo da chamada real, não uma frase
-	// do modelo a afirmar que fez (§3.3).
+	// Summary is the line the conversation card shows: the record of the actual call, not a
+	// sentence from the model claiming what it did (§3.3).
 	Summary string
-	// Data volta ao modelo, sempre embrulhada como conteúdo não fiável (§6.1).
+	// Data goes back to the model, always wrapped as untrusted content (§6.1).
 	Data any
-	// Choices, quando presente, são respostas rápidas que o frontend mostra como BOTÕES (ex.: qual
-	// dos vários contactos "Bob"). Clicar envia Value como a próxima mensagem — poupa ao utilizador
-	// escrever a resposta. É extra à conversa; não substitui a pergunta em texto do modelo.
+	// Choices, when present, are quick replies the frontend shows as BUTTONS (e.g. which of
+	// several "Bob" contacts). Clicking sends Value as the next message — it saves the user from
+	// typing the answer. It's extra to the conversation; it doesn't replace the model's text
+	// question.
 	Choices []Choice
 }
 
-// Choice é um botão de resposta rápida: Label é o que se vê, Value o que se envia ao clicar.
+// Choice is a quick-reply button: Label is what is shown, Value is what is sent when clicked.
 type Choice struct {
 	Label string `json:"label"`
 	Value string `json:"value"`
 }
 
-// Handler executa a ferramenta. Recebe a Identity do pedido — NÃO a lê dos args, que vêm do modelo.
+// Handler executes the tool. Receives the Identity of the request — it does NOT read it from
+// args, which come from the model.
 type Handler func(ctx context.Context, id Identity, args json.RawMessage) (Result, error)
 
-// Tool é uma função tipada que o modelo pode invocar. É a única forma de tocar em dados.
+// Tool is a typed function the model can invoke. It's the only way to touch data.
 type Tool struct {
 	Name        string
 	Description string
-	// Parameters é um JSON Schema do tipo "object". NUNCA declara tenant_id nem user_id: um
-	// parâmetro que aceitasse tenant seria um atravessamento de inquilino à espera de acontecer
-	// (§6.2). Há um teste que o garante.
+	// Parameters is a JSON Schema of type "object". NEVER declares tenant_id or user_id: a
+	// parameter that accepted a tenant would be a tenant-crossing bug waiting to happen (§6.2).
+	// A test guarantees this.
 	Parameters json.RawMessage
-	// Writes marca ferramentas de escrita.
+	// Writes marks write tools.
 	Writes bool
-	// Confirm marca o que SAI PARA FORA ou DESTRÓI: enviar, partilhar, convidar, apagar, webhooks
-	// (§6.3). Uma ferramenta assim nunca corre sem aprovação humana com o conteúdo exato à vista, e
-	// a aprovação é individual — não há aprovação em bloco. É a defesa que não depende de o modelo
-	// se portar bem, e por isso é a que sustenta a decisão de alcance amplo (§12.1, decisão 1).
+	// Confirm marks whatever GOES OUTSIDE or DESTROYS: send, share, invite, delete, webhooks
+	// (§6.3). A tool like this never runs without human approval with the exact content in view,
+	// and approval is per-item — there is no bulk approval. It's the defense that doesn't depend
+	// on the model behaving well, and that's why it's what backs the broad-scope decision
+	// (§12.1, decision 1).
 	Confirm bool
-	// ConfirmWhen, quando definida, decide a confirmação POR CHAMADA a partir dos args — para
-	// ferramentas em que só ALGUNS usos saem para fora. Ex.: criar um evento a solo é interno (sem
-	// confirmação), mas criar um evento COM convidados avisa outra pessoa (convidar → §6.3, confirma).
-	// Se definida, tem precedência sobre Confirm. Na dúvida (args ilegíveis) devolve true: fail-closed.
+	// ConfirmWhen, when set, decides confirmation PER CALL from the args — for tools where only
+	// SOME uses go outside. E.g.: creating a solo event is internal (no confirmation), but
+	// creating an event WITH guests notifies another person (inviting → §6.3, confirms).
+	// When set, it takes precedence over Confirm. When in doubt (unreadable args) returns true:
+	// fail-closed.
 	ConfirmWhen func(args json.RawMessage) bool
 	Handler     Handler
 }
 
-// Registry é o catálogo de ferramentas disponíveis na instalação. Não é o mesmo que a lista de
-// permissões de um agente: o catálogo é o que existe, a lista é o que cada agente pode usar.
+// Registry is the catalog of tools available in the installation. It's not the same as an
+// agent's permission list: the catalog is what exists, the list is what each agent may use.
 type Registry struct {
 	tools map[string]Tool
 }
 
-// NewRegistry constrói o catálogo. Nomes duplicados são erro de programação e entram em pânico na
-// inicialização — melhor falhar no arranque do que despachar a ferramenta errada em produção.
+// NewRegistry builds the catalog. Duplicate names are a programming error and panic at
+// initialization — better to fail at startup than dispatch the wrong tool in production.
 func NewRegistry(tools ...Tool) *Registry {
 	r := &Registry{tools: make(map[string]Tool, len(tools))}
 	for _, t := range tools {
@@ -101,13 +105,13 @@ func NewRegistry(tools ...Tool) *Registry {
 	return r
 }
 
-// Get devolve uma ferramenta do catálogo.
+// Get returns a tool from the catalog.
 func (r *Registry) Get(name string) (Tool, bool) {
 	t, ok := r.tools[name]
 	return t, ok
 }
 
-// Names devolve os nomes do catálogo, por ordem — útil para testes e para o ecrã de auditoria.
+// Names returns the catalog's names, in order — useful for tests and for the audit screen.
 func (r *Registry) Names() []string {
 	out := make([]string, 0, len(r.tools))
 	for n := range r.tools {
@@ -117,9 +121,9 @@ func (r *Registry) Names() []string {
 	return out
 }
 
-// Schemas traduz para o formato do fornecedor as ferramentas que ESTE agente pode usar. Uma
-// ferramenta pedida pelo agente mas ausente do catálogo é ignorada em silêncio: significa que a
-// instalação não a tem configurada (ex.: Drive sem armazenamento), não que houve um ataque.
+// Schemas translates to the provider's format the tools THIS agent may use. A tool requested by
+// the agent but absent from the catalog is silently ignored: it means the installation doesn't
+// have it configured (e.g. Drive without storage), not that there was an attack.
 func (r *Registry) Schemas(allowed []string) []ai.Tool {
 	out := make([]ai.Tool, 0, len(allowed))
 	for _, name := range allowed {
@@ -132,8 +136,8 @@ func (r *Registry) Schemas(allowed []string) []ai.Tool {
 	return out
 }
 
-// allows diz se o agente tem esta ferramenta na sua lista de permissões. A verificação corre no
-// servidor a cada chamada, não no prompt (§6.1, defesa 2).
+// allows reports whether the agent has this tool in its permission list. The check runs on the
+// server on every call, not in the prompt (§6.1, defense 2).
 func allows(ag Agent, tool string) bool {
 	for _, t := range ag.Tools {
 		if t == tool {
@@ -143,9 +147,8 @@ func allows(ag Agent, tool string) bool {
 	return false
 }
 
-// decodeArgs desserializa os argumentos do modelo para o tipo esperado da ferramenta. Argumentos
-// vazios são tratados como objeto vazio: alguns modelos omitem-nos quando o schema não tem campos
-// obrigatórios.
+// decodeArgs deserializes the model's arguments into the type the tool expects. Empty arguments
+// are treated as an empty object: some models omit them when the schema has no required fields.
 func decodeArgs(raw json.RawMessage, v any) error {
 	if len(raw) == 0 {
 		raw = json.RawMessage("{}")

@@ -6,22 +6,22 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
-// Tipos de evento emitidos durante uma execução. São o que a conversa mostra ao vivo.
+// Event types emitted during a run. This is what the conversation shows live.
 const (
-	// EventDelta é um pedaço de texto da resposta final.
+	// EventDelta is a chunk of text from the final answer.
 	EventDelta = "delta"
-	// EventStep é uma chamada de ferramenta CONCLUÍDA — o cartão de ação (§3.3). Nunca uma frase a
-	// dizer que fez: o registo da chamada real, com o resultado ou o código de erro.
+	// EventStep is a COMPLETED tool call — the action card (§3.3). Never a sentence saying what it
+	// did: the record of the actual call, with the result or the error code.
 	EventStep = "step"
-	// EventConfirm pede aprovação humana para uma ação que sai para fora ou destrói (§6.3). A
-	// execução PÁRA aqui até haver resposta — é deliberadamente incómodo, porque é o único ponto
-	// onde um humano vê o que vai realmente acontecer.
+	// EventConfirm asks for human approval for an action that goes outside or destroys something
+	// (§6.3). The run STOPS here until there's a response — it's deliberately inconvenient, because
+	// it's the only point where a human sees what's actually about to happen.
 	EventConfirm = "confirm"
-	// EventDone fecha a execução e leva o Run completo.
+	// EventDone closes the run and carries the complete Run.
 	EventDone = "done"
 )
 
-// Event é o que o motor emite enquanto trabalha.
+// Event is what the engine emits while it works.
 type Event struct {
 	Kind    string          `json:"kind"`
 	Text    string          `json:"text,omitempty"`
@@ -30,9 +30,10 @@ type Event struct {
 	Confirm *ConfirmRequest `json:"confirm,omitempty"`
 }
 
-// complete faz um passo do ciclo. Usa streaming quando o fornecedor o suporta E há quem escute;
-// caso contrário cai em Complete. A resposta é a mesma nos dois caminhos — o ciclo não sabe qual
-// correu, e é isso que impede o streaming de se tornar um segundo motor a manter em paralelo.
+// complete performs one step of the loop. It uses streaming when the provider supports it AND
+// there's someone listening; otherwise it falls back to Complete. The response is the same on
+// both paths — the loop doesn't know which one ran, and that's what keeps streaming from becoming
+// a second engine to maintain in parallel.
 func (e *Engine) complete(ctx context.Context, req ai.Request, emit func(Event)) (ai.Response, error) {
 	sp, ok := e.provider.(ai.StreamingProvider)
 	if !ok || emit == nil {
@@ -43,13 +44,13 @@ func (e *Engine) complete(ctx context.Context, req ai.Request, emit func(Event))
 	})
 }
 
-// historyMessages traduz o histórico persistido para o fio do modelo.
+// historyMessages translates the persisted history into the model's thread.
 //
-// Duas coisas ficam de fora de propósito: mensagens vazias (não dizem nada e gastam contexto) e
-// tudo o que não seja utilizador ou assistente. Em particular, os RESULTADOS DE FERRAMENTAS de
-// turnos anteriores não voltam ao modelo: são dados de terceiros de um momento que já passou, e
-// reinjetá-los a cada turno daria a um e-mail lido ontem uma segunda oportunidade de mandar no
-// modelo (§6.1). O que o assistente concluiu a partir deles está na sua própria resposta.
+// Two things are left out on purpose: empty messages (they say nothing and spend context) and
+// anything that isn't user or assistant. In particular, TOOL RESULTS from previous turns don't go
+// back to the model: they're third-party data from a moment that's already passed, and reinjecting
+// them on every turn would give an email read yesterday a second chance to control the model
+// (§6.1). What the assistant concluded from them is in its own reply.
 func historyMessages(history []Turn) []ai.Message {
 	out := make([]ai.Message, 0, len(history))
 	for _, t := range history {

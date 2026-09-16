@@ -22,11 +22,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
-// Os testes falam com o gateway usando um cliente S3 DE VERDADE (minio-go), que assina em SigV4
-// como o Stalwart assina. Escrever um cliente de teste que assinasse "à nossa maneira" provaria
-// apenas que o nosso verificador concorda consigo próprio.
+// The tests talk to the gateway using a REAL S3 client (minio-go), which signs with SigV4 the
+// way Stalwart signs. Writing a test client that signed "our own way" would only prove that our
+// verifier agrees with itself.
 //
-// Precisam do MinIO local, como os do internal/storage:
+// They need a local MinIO, like the internal/storage ones:
 //
 //	STORAGE_TEST_ENDPOINT=minio:9000 STORAGE_TEST_KEY=… STORAGE_TEST_SECRET=… \
 //	STORAGE_TEST_BUCKET=mailin go test ./cmd/blobgw -v
@@ -47,7 +47,7 @@ func build(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 	st, err := storage.New(endpoint, os.Getenv("STORAGE_TEST_KEY"), os.Getenv("STORAGE_TEST_SECRET"),
 		bucket, "", false)
 	if err != nil {
-		t.Fatalf("armazenamento: %v", err)
+		t.Fatalf("storage: %v", err)
 	}
 	kek := make([]byte, filecrypt.KeySize)
 	if _, err := rand.Read(kek); err != nil {
@@ -61,9 +61,9 @@ func build(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 		st: st, bucket: bucket, prefixes: []string{"mail/"},
 		cred: credential{access: testAccess, secret: testSecret, region: "auto"},
 	}
-	// Servidor TLS de propósito: sobre HTTP simples o minio-go assina o corpo EM FLUXO
-	// (`aws-chunked`), que o Stalwart não usa e este gateway recusa. Sobre TLS ele assina como o
-	// rust-s3 — que é o caminho que interessa exercitar.
+	// TLS server on purpose: over plain HTTP, minio-go signs the body IN STREAM
+	// (`aws-chunked`), which Stalwart does not use and this gateway rejects. Over TLS it signs
+	// like rust-s3 — which is the path worth exercising.
 	srv := httptest.NewTLSServer(g)
 	t.Cleanup(srv.Close)
 
@@ -73,7 +73,7 @@ func build(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 		Secure:       true,
 		Transport:    srv.Client().Transport,
 		Region:       "auto",
-		BucketLookup: minio.BucketLookupPath, // como o Stalwart: with_path_style()
+		BucketLookup: minio.BucketLookupPath, // like Stalwart: with_path_style()
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -81,10 +81,10 @@ func build(t *testing.T) (*gateway, *httptest.Server, *minio.Client) {
 	return g, srv, cli
 }
 
-// TestIntegrationGatewayComoORustS3 exercita exatamente o que o Stalwart envia: o resumo REAL do
-// corpo no X-Amz-Content-Sha256, em vez do UNSIGNED-PAYLOAD que o minio-go usa. A assinatura é
-// feita pelo assinador do minio — independente do nosso verificador, senão o teste provaria apenas
-// que o nosso código concorda consigo próprio.
+// TestIntegrationGatewayLikeRustS3 exercises exactly what Stalwart sends: the REAL digest of the
+// body in X-Amz-Content-Sha256, instead of the UNSIGNED-PAYLOAD that minio-go uses. The signature
+// is done by minio's signer — independent of our verifier, otherwise the test would only prove
+// that our own code agrees with itself.
 func TestIntegrationGatewayLikeRustS3(t *testing.T) {
 	g, srv, _ := build(t)
 	plain := []byte("mensagem crua, assinada com o resumo do corpo")
@@ -102,14 +102,14 @@ func TestIntegrationGatewayLikeRustS3(t *testing.T) {
 	}
 }
 
-// TestIntegrationGatewayCorpoTrocado: a assinatura cobre o resumo DECLARADO, não o corpo. Se os
-// dois não baterem certo, o objeto não pode ficar no armazenamento.
+// TestIntegrationGatewaySwappedBody: the signature covers the DECLARED digest, not the body. If
+// the two do not match, the object must not stay in storage.
 func TestIntegrationGatewaySwappedBody(t *testing.T) {
 	g, srv, _ := build(t)
 	key := "mail/" + randomHex(t)
 	t.Cleanup(func() { _ = g.st.Remove(context.Background(), key) })
 
-	// Assina o resumo de um conteúdo e envia outro.
+	// Signs the digest of one content and sends another.
 	resp := byRustS3(t, srv, key, []byte("o corpo que vai"), hexSHA256([]byte("o corpo assinado")))
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusBadRequest {
@@ -120,7 +120,7 @@ func TestIntegrationGatewaySwappedBody(t *testing.T) {
 	}
 }
 
-// porRustS3 monta e assina um PUT como o cliente do Stalwart o faz.
+// byRustS3 builds and signs a PUT the way Stalwart's client does.
 func byRustS3(t *testing.T, srv *httptest.Server, key string, body []byte, summary string) *http.Response {
 	t.Helper()
 	u, _ := url.Parse(srv.URL)
@@ -146,7 +146,7 @@ func TestIntegrationGatewayRoundTrip(t *testing.T) {
 	g, _, cli := build(t)
 	ctx := context.Background()
 
-	// Maior do que um bloco: obriga a cifra a partir em pedaços de verdade.
+	// Larger than one block: forces encryption to actually split into chunks.
 	plain := bytes.Repeat([]byte("mensagem de correio com anexo. "), 50_000)
 	key := "mail/" + randomHex(t)
 	t.Cleanup(func() { _ = g.st.Remove(context.Background(), key) })
@@ -157,7 +157,7 @@ func TestIntegrationGatewayRoundTrip(t *testing.T) {
 		t.Fatalf("PutObject: %v", err)
 	}
 
-	// 1. O que ficou no balde não é o que foi enviado.
+	// 1. What ended up in the bucket is not what was sent.
 	raw := readRaw(t, g, key)
 	if bytes.Contains(raw, []byte("mensagem de correio")) {
 		t.Fatal("the object in the bucket holds the mail text in the clear")
@@ -166,7 +166,7 @@ func TestIntegrationGatewayRoundTrip(t *testing.T) {
 		t.Fatalf("the object in the bucket is not encrypted, it starts with %q", raw[:4])
 	}
 
-	// 2. E o cliente recebe-o de volta inteiro, sem saber de nada disto.
+	// 2. And the client gets it back whole, none the wiser about any of this.
 	obj, err := cli.GetObject(ctx, g.bucket, key, minio.GetObjectOptions{})
 	if err != nil {
 		t.Fatal(err)
@@ -181,8 +181,8 @@ func TestIntegrationGatewayRoundTrip(t *testing.T) {
 	}
 }
 
-// TestIntegrationGatewayRange é a razão de o formato ser em blocos: o Stalwart pede pedaços de uma
-// mensagem para servir uma parte MIME, e não pode ter de decifrar o anexo todo para isso.
+// TestIntegrationGatewayRange is the reason the format is chunked: Stalwart requests pieces of a
+// message to serve one MIME part, and must not have to decrypt the whole attachment for that.
 func TestIntegrationGatewayRange(t *testing.T) {
 	g, _, cli := build(t)
 	ctx := context.Background()
@@ -200,9 +200,9 @@ func TestIntegrationGatewayRange(t *testing.T) {
 	}
 
 	for _, caso := range []struct{ from, until int64 }{
-		{0, 99},                     // início
-		{1<<20 + 500, 1<<20 + 1499}, // a cavalo entre dois blocos
-		{int64(len(plain)) - 10, int64(len(plain)) - 1}, // o fim
+		{0, 99},                     // start
+		{1<<20 + 500, 1<<20 + 1499}, // straddling two blocks
+		{int64(len(plain)) - 10, int64(len(plain)) - 1}, // the end
 	} {
 		opts := minio.GetObjectOptions{}
 		if err := opts.SetRange(caso.from, caso.until); err != nil {
@@ -223,8 +223,8 @@ func TestIntegrationGatewayRange(t *testing.T) {
 	}
 }
 
-// TestIntegrationGatewayHeadDepoisDoPut cobre o verify_after_write do Stalwart: ele faz HEAD logo a
-// seguir a cada escrita para se defender de armazenamentos que confirmam antes de tornar visível.
+// TestIntegrationGatewayHeadAfterPut covers Stalwart's verify_after_write: it does a HEAD right
+// after every write to defend against storage backends that confirm before making it visible.
 func TestIntegrationGatewayHeadAfterPut(t *testing.T) {
 	g, _, cli := build(t)
 	ctx := context.Background()
@@ -242,10 +242,10 @@ func TestIntegrationGatewayHeadAfterPut(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StatObject: %v", err)
 	}
-	// O tamanho tem de ser o do texto em claro. Devolver o do cifrado faria o cliente pedir bytes
-	// que não existem.
+	// The size must be that of the plaintext. Returning the ciphertext's would make the client
+	// request bytes that do not exist.
 	if info.Size != int64(len(plain)) {
-		t.Fatalf("HEAD diz %d bytes, o claro tem %d", info.Size, len(plain))
+		t.Fatalf("HEAD says %d bytes, plaintext has %d", info.Size, len(plain))
 	}
 
 	if err := cli.RemoveObject(ctx, g.bucket, key, minio.RemoveObjectOptions{}); err != nil {
@@ -256,14 +256,14 @@ func TestIntegrationGatewayHeadAfterPut(t *testing.T) {
 	}
 }
 
-// TestIntegrationGatewayNaoExiste: o 404 tem de passar como 404. O Stalwart distingue "não existe"
-// (resposta legítima, devolve None) de "avariou" (que ele repete com recuo) — trocar os dois faria
-// uma caixa vazia parecer uma avaria, ou pior.
+// TestIntegrationGatewayNotFound: 404 must pass through as 404. Stalwart distinguishes "does not
+// exist" (a legitimate response, returns None) from "it broke" (which it retries with backoff) —
+// swapping the two would make an empty mailbox look like a failure, or worse.
 func TestIntegrationGatewayNotFound(t *testing.T) {
 	g, _, cli := build(t)
 	_, err := cli.GetObject(context.Background(), g.bucket, "mail/"+randomHex(t), minio.GetObjectOptions{})
 	if err == nil {
-		// o minio-go só falha na primeira leitura
+		// minio-go only fails on the first read
 		obj, _ := cli.GetObject(context.Background(), g.bucket, "mail/nao-existe", minio.GetObjectOptions{})
 		if _, err = io.ReadAll(obj); err == nil {
 			t.Fatal("reading an object that does not exist should fail")
@@ -274,7 +274,7 @@ func TestIntegrationGatewayNotFound(t *testing.T) {
 	}
 }
 
-// TestGatewayRecusaSemAssinatura e os seguintes não precisam de armazenamento: param antes.
+// TestGatewayRejectsUnsignedRequest and the ones after it need no storage: they stop before that.
 func TestGatewayRejectsUnsignedRequest(t *testing.T) {
 	g := &gateway{bucket: "b", prefixes: []string{"mail/"},
 		cred: credential{access: testAccess, secret: testSecret, region: "auto"}}
@@ -299,7 +299,7 @@ func TestGatewayRejectsOutsidePrefix(t *testing.T) {
 
 func TestGatewayRejectsUnsupportedOperation(t *testing.T) {
 	g, _, cli := build(t)
-	// ListObjects é das operações que este gateway NÃO implementa, de propósito.
+	// ListObjects is one of the operations this gateway does NOT implement, on purpose.
 	for obj := range cli.ListObjects(context.Background(), g.bucket, minio.ListObjectsOptions{Prefix: "mail/"}) {
 		if obj.Err == nil {
 			t.Fatal("listing should be rejected")
@@ -318,11 +318,11 @@ func TestReadRange(t *testing.T) {
 		{"bytes=0-99", 1000, 0, 99, false},
 		{"bytes=100-", 1000, 100, 999, false},
 		{"bytes=-100", 1000, 900, 999, false},
-		{"bytes=-5000", 1000, 0, 999, false},   // sufixo maior do que o objeto
-		{"bytes=0-5000", 1000, 0, 999, false},  // fim além do objeto: corta-se
-		{"bytes=1000-", 1000, 0, 0, true},      // início além do fim
-		{"bytes=50-10", 1000, 0, 0, true},      // invertido
-		{"bytes=0-10,20-30", 1000, 0, 0, true}, // múltiplos
+		{"bytes=-5000", 1000, 0, 999, false},   // suffix larger than the object
+		{"bytes=0-5000", 1000, 0, 999, false},  // end past the object: gets clamped
+		{"bytes=1000-", 1000, 0, 0, true},      // start past the end
+		{"bytes=50-10", 1000, 0, 0, true},      // reversed
+		{"bytes=0-10,20-30", 1000, 0, 0, true}, // multiple ranges
 		{"itens=0-10", 1000, 0, 0, true},
 	}
 	for _, c := range cases {
@@ -361,9 +361,9 @@ func TestCheckerCatchesSwappedBody(t *testing.T) {
 	}
 }
 
-// lerCru vai buscar os bytes DIRETAMENTE ao armazenamento, sem passar pelo gateway — é o que a
-// Cloudflare tem. Não serve um Service sem cifra: esse recusa-se a servir um objeto cifrado, e ainda
-// bem.
+// readRaw fetches the bytes DIRECTLY from storage, without going through the gateway — which is
+// what Cloudflare has. Does not work with a Service without encryption: that one refuses to serve
+// an encrypted object, and rightly so.
 func readRaw(t *testing.T, g *gateway, key string) []byte {
 	t.Helper()
 	cli, err := minio.New(os.Getenv("STORAGE_TEST_ENDPOINT"), &minio.Options{

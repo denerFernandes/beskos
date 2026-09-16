@@ -26,8 +26,8 @@ import (
 
 const (
 	watchdogInterval = time.Minute
-	// Só se queixa depois de falhar seguidas: um pico de rede não é uma avaria, e um alarme que
-	// dispara sozinho de vez em quando deixa de ser lido.
+	// Only complains after failing consecutively: a network blip is not an outage, and an alarm
+	// that fires on its own every now and then stops being read.
 	failuresBeforeAlarm = 3
 )
 
@@ -55,8 +55,8 @@ func startWatchdog(stalwartURL string) {
 			}
 
 			consecutive++
-			// O primeiro aviso é o que interessa: diz o que falhou e, sobretudo, distingue-o do
-			// healthcheck do contentor, que continuará a dizer `healthy`.
+			// The first warning is what matters: it says what failed and, above all, distinguishes
+			// it from the container's healthcheck, which will keep saying `healthy`.
 			if consecutive == failuresBeforeAlarm {
 				log.Printf("stalwart sentinel: UNREACHABLE by service name for %d checks: %v "+
 					"(the container healthcheck may still report healthy — it probes loopback, "+
@@ -83,8 +83,8 @@ func peek(cli *http.Client, target string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	// Qualquer resposta HTTP serve: o que se está a verificar é que a ligação chega ao fim e é
-	// atendida, não o que o Stalwart acha da saúde dele.
+	// Any HTTP response will do: what is being checked is that the connection reaches the end
+	// and gets answered, not what Stalwart thinks of its own health.
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("answered %s", resp.Status)
 	}

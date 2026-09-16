@@ -6,26 +6,28 @@ import (
 	"fmt"
 )
 
-// ContactHit é um contacto encontrado, o mínimo para o assistente decidir/desambiguar um destinatário.
+// ContactHit is a matched contact, the minimum for the assistant to decide/disambiguate a
+// recipient.
 type ContactHit struct {
 	Name    string `json:"name"`
 	Email   string `json:"email"`
 	Company string `json:"company,omitempty"`
 }
 
-// ContactShare partilha um contacto do utilizador com um COLEGA do mesmo tenant: copia-o para a
-// agenda do colega. Os dois são resolvidos por e-mail; o colega tem de ser do tenant (§6.2).
+// ContactShare shares one of the user's contacts with a COLLEAGUE in the same tenant: copies it
+// to the colleague's address book. Both are resolved by e-mail; the colleague must be in the
+// tenant (§6.2).
 type ContactShare func(ctx context.Context, id Identity, contactEmail, toEmail string) (ContactShareResult, error)
 
 type ContactShareResult struct {
-	Contact string `json:"contact"` // nome do contacto partilhado
-	To      string `json:"to"`      // nome/e-mail do colega que o recebeu
+	Contact string `json:"contact"` // name of the shared contact
+	To      string `json:"to"`      // name/e-mail of the colleague who received it
 }
 
-// ContactSearch pesquisa nos contactos do utilizador AUTENTICADO. Só da Identity (§6.2).
+// ContactSearch searches the AUTHENTICATED user's contacts. Only from the Identity (§6.2).
 type ContactSearch func(ctx context.Context, id Identity, query string, limit int) ([]ContactHit, error)
 
-// NewContact é um contacto a criar na agenda do utilizador.
+// NewContact is a contact to create in the user's address book.
 type NewContact struct {
 	Name    string `json:"name"`
 	Email   string `json:"email"`
@@ -33,7 +35,7 @@ type NewContact struct {
 	Company string `json:"company"`
 }
 
-// ContactCreate cria um contacto com as MESMAS consultas da interface (§5: sem SQL novo).
+// ContactCreate creates a contact with the SAME queries as the interface (§5: no new SQL).
 type ContactCreate func(ctx context.Context, id Identity, c NewContact) (ContactHit, error)
 
 type contactSearchArgs struct {
@@ -95,7 +97,7 @@ func contactShareTools(share ContactShare) []Tool {
 				"required": ["contact_email", "to_email"]
 			}`),
 			Writes:  true,
-			Confirm: true, // partilha dados de uma pessoa com outra → pede aprovação
+			Confirm: true, // shares one person's data with another → needs approval
 			Handler: func(ctx context.Context, id Identity, raw json.RawMessage) (Result, error) {
 				var a struct {
 					ContactEmail string `json:"contact_email"`
@@ -145,8 +147,8 @@ func contactTools(search ContactSearch) []Tool {
 					return Result{}, fmt.Errorf("contact search failed: %w", err)
 				}
 				res := Result{Summary: fmt.Sprintf("%d contacts", len(hits)), Data: hits}
-				// Vários candidatos → botões para o utilizador escolher, em vez de escrever. O Value
-				// leva nome+e-mail para o modelo não ter dúvidas de qual foi escolhido.
+				// Several candidates → buttons for the user to pick from, instead of typing. Value
+				// carries name+e-mail so the model has no doubt which one was chosen.
 				if len(hits) > 1 {
 					for _, h := range hits {
 						label := h.Name

@@ -1,5 +1,5 @@
-// cmd/worker: roda a máquina de estados de provisionamento (§7), sempre retomando do
-// último estado salvo, de forma idempotente. Ver internal/provisioning.
+// cmd/worker: runs the provisioning state machine (§7), always resuming from the
+// last saved state, idempotently. See internal/provisioning.
 package main
 
 import (
@@ -35,8 +35,9 @@ import (
 
 type vapidKeys struct{ public, private, subject string }
 
-// scanReminders dispara os lembretes de evento cujo momento chegou: notificação no sino + Web Push
-// para o dono, e marca reminded para não repetir. O texto é em pt-BR como as demais notificações.
+// scanReminders fires the event reminders whose moment has arrived: bell notification + Web Push
+// for the owner, and marks reminded so it does not repeat. The text is in pt-BR like the other
+// notifications.
 func scanReminders(ctx context.Context, q *db.Queries, v vapidKeys) {
 	rows, err := q.EventsToRemind(ctx)
 	if err != nil {
@@ -61,8 +62,9 @@ func scanReminders(ctx context.Context, q *db.Queries, v vapidKeys) {
 	}
 }
 
-// scanScheduledMessages envia as mensagens de chat cujo horário chegou: cria a mensagem e publica no
-// hub (mesmo caminho do envio normal), para quem está no canal ver em tempo real; depois remove.
+// scanScheduledMessages sends the chat messages whose time has arrived: creates the message and
+// publishes it on the hub (same path as a normal send), so whoever is in the channel sees it live;
+// then removes it.
 func scanScheduledMessages(ctx context.Context, q *db.Queries, hub *chat.Hub) {
 	rows, err := q.DueScheduledMessages(ctx)
 	if err != nil {
@@ -95,7 +97,7 @@ func scanScheduledMessages(ctx context.Context, q *db.Queries, hub *chat.Hub) {
 	}
 }
 
-// scanMessageReminders dispara os lembretes de mensagem: notificação no sino + Web Push, depois remove.
+// scanMessageReminders fires the message reminders: bell notification + Web Push, then removes them.
 func scanMessageReminders(ctx context.Context, q *db.Queries, v vapidKeys) {
 	rows, err := q.DueMessageReminders(ctx)
 	if err != nil {
@@ -123,7 +125,7 @@ func scanMessageReminders(ctx context.Context, q *db.Queries, v vapidKeys) {
 	}
 }
 
-// sendPushToUser entrega um Web Push a todas as subscrições do utilizador. Poda subscrições mortas.
+// sendPushToUser delivers a Web Push to all of the user's subscriptions. Prunes dead subscriptions.
 func sendPushToUser(ctx context.Context, q *db.Queries, v vapidKeys, userID uuid.UUID, payload map[string]string) {
 	if v.private == "" {
 		return
@@ -147,8 +149,9 @@ func sendPushToUser(ctx context.Context, q *db.Queries, v vapidKeys, userID uuid
 	}
 }
 
-// pollNewMail verifica a caixa de cada utilizador com push e notifica os e-mails novos (chegados
-// depois de mail_seen_at). Primeira verificação só estabelece a base — evita uma enxurrada inicial.
+// pollNewMail checks each user's mailbox that has push enabled and notifies about new emails
+// (arrived after mail_seen_at). The first check only establishes the baseline — avoids an initial
+// flood.
 func pollNewMail(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwartURL string, v vapidKeys) {
 	rows, err := q.UsersForMailPush(ctx)
 	if err != nil {
@@ -165,7 +168,7 @@ func pollNewMail(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwar
 		if merr != nil || len(msgs) == 0 {
 			continue
 		}
-		newest := msgs[0].ReceivedAt // ordenado do mais novo para o mais antigo
+		newest := msgs[0].ReceivedAt // sorted newest to oldest
 		if !u.MailSeenAt.Valid {
 			_ = q.UpdateMailSeen(ctx, db.UpdateMailSeenParams{ID: u.ID, MailSeenAt: pgtype.Timestamptz{Time: newest, Valid: true}})
 			continue
@@ -174,9 +177,9 @@ func pollNewMail(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwar
 		sent := 0
 		for _, m := range msgs {
 			if !m.ReceivedAt.After(seen) {
-				break // lista desc: o primeiro <= seen encerra
+				break // descending list: the first <= seen ends it
 			}
-			if sent < 5 { // teto por ciclo: não estourar o serviço de push numa rajada
+			if sent < 5 { // cap per cycle: don't burst the push service
 				title := m.From
 				if title == "" {
 					title = "Novo e-mail"
@@ -199,8 +202,8 @@ func pollNewMail(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwar
 	}
 }
 
-// scanSnoozes devolve à Caixa de entrada os e-mails cujo prazo de snooze venceu. Usa a credencial
-// JMAP cifrada de cada dono (decifrada com a MFA_ENC_KEY) para agir na caixa dele via JMAP.
+// scanSnoozes returns to the Inbox the emails whose snooze deadline has passed. Uses each owner's
+// encrypted JMAP credential (decrypted with MFA_ENC_KEY) to act on their mailbox via JMAP.
 func scanSnoozes(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwartURL string) {
 	rows, err := q.DueSnoozes(ctx)
 	if err != nil {
@@ -211,7 +214,7 @@ func scanSnoozes(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwar
 		basic, derr := box.Decrypt(s.JmapCred)
 		if derr != nil || basic == "" {
 			log.Printf("snooze-scan: cannot decrypt cred for snooze %s: %v", s.ID, derr)
-			continue // sem cred não dá para mover; deixa para uma próxima (ou re-login regrava a cred)
+			continue // no cred means it cannot be moved; leave it for a later pass (or re-login rewrites the cred)
 		}
 		uc := mailbox.NewUserClient(stalwartURL, basic)
 		if err := uc.MoveToInbox(ctx, s.EmailID); err != nil {
@@ -233,13 +236,13 @@ func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartU
 	ctx := context.Background()
 	const safetyCap = 60 * time.Second
 
-	// Conexão dedicada para LISTEN. Se falhar, seguimos só com o timer (degrada para polling lento de
-	// 60s em vez de parar de enviar).
+	// Dedicated connection for LISTEN. If it fails, we carry on with just the timer (degrades to
+	// slow 60s polling instead of stopping sending).
 	notify := make(chan struct{}, 1)
 	if lc, err := pool.Acquire(ctx); err != nil {
 		log.Printf("outbox: LISTEN unavailable (%v); falling back to the timer", err)
 	} else if _, err := lc.Exec(ctx, "LISTEN outbox_new"); err != nil {
-		log.Printf("outbox: LISTEN falhou (%v); a usar apenas timer", err)
+		log.Printf("outbox: LISTEN failed (%v); using timer only", err)
 		lc.Release()
 	} else {
 		go func() {
@@ -251,7 +254,7 @@ func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartU
 				}
 				select {
 				case notify <- struct{}{}:
-				default: // já há um sinal pendente
+				default: // a signal is already pending
 				}
 			}
 		}()
@@ -262,7 +265,7 @@ func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartU
 
 		wait := safetyCap
 		if next, err := q.NextOutboxDue(ctx); err == nil {
-			// Há algo em fila: dorme até lá (piso de 100ms para não rodar em vazio), no máx. o cap.
+			// Something is queued: sleep until then (100ms floor so it does not spin idle), capped.
 			d := time.Until(next)
 			if d < 100*time.Millisecond {
 				d = 100 * time.Millisecond
@@ -271,7 +274,7 @@ func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartU
 				wait = d
 			}
 		}
-		// err != nil normalmente = MIN(send_at) NULL (fila vazia): dorme o cap à espera de NOTIFY.
+		// err != nil usually = MIN(send_at) NULL (empty queue): sleep the cap waiting for NOTIFY.
 
 		t := time.NewTimer(wait)
 		select {
@@ -282,9 +285,9 @@ func outboxLoop(pool *pgxpool.Pool, q *db.Queries, box *secretbox.Box, stalwartU
 	}
 }
 
-// scanOutbox submete os e-mails da outbox cujo send_at venceu (undo-send e agendados). Usa a
-// credencial JMAP cifrada do dono para o EmailSubmission/set. Chamada pelo outboxLoop (orientado a
-// eventos). Idempotente por status: só toca em 'pending'.
+// scanOutbox submits the outbox emails whose send_at has passed (undo-send and scheduled ones).
+// Uses the owner's encrypted JMAP credential for the EmailSubmission/set. Called by outboxLoop
+// (event-driven). Idempotent by status: only touches 'pending'.
 func scanOutbox(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwartURL string) {
 	rows, err := q.DueOutbox(ctx)
 	if err != nil {
@@ -305,7 +308,7 @@ func scanOutbox(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwart
 		basic, derr := box.Decrypt(o.JmapCred)
 		if derr != nil || basic == "" {
 			log.Printf("outbox-scan: cannot decrypt cred for outbox %s: %v", o.ID, derr)
-			continue // sem cred não dá para enviar; re-login regrava a cred e a próxima varredura tenta
+			continue // no cred means it cannot be sent; re-login rewrites the cred and the next sweep retries
 		}
 		uc := mailbox.NewUserClient(stalwartURL, basic)
 		if err := uc.SubmitEmail(ctx, o.EmailID, o.IdentityID, o.FromEmail, o.Rcpts); err != nil {
@@ -314,7 +317,7 @@ func scanOutbox(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwart
 			continue
 		}
 		_ = q.MarkOutboxSent(ctx, o.ID)
-		// Medição (tenant_mail_sent): conta destinatários no envio REAL (como o SES cobra).
+		// Metering (tenant_mail_sent): counts recipients on the ACTUAL send (how SES bills).
 		_ = q.IncrementMailSent(ctx, db.IncrementMailSentParams{TenantID: o.TenantID, N: int32(len(o.Rcpts))})
 		sent++
 	}
@@ -323,11 +326,12 @@ func scanOutbox(ctx context.Context, q *db.Queries, box *secretbox.Box, stalwart
 	}
 }
 
-// scanDueCards avisa o responsável de cards vencendo (até amanhã) ou já vencidos, uma vez por valor
-// de prazo (due_notified_for). Datas são 'YYYY-MM-DD' (comparação lexicográfica = cronológica).
+// scanDueCards notifies the assignee of cards coming due (by tomorrow) or already overdue, once
+// per deadline value (due_notified_for). Dates are 'YYYY-MM-DD' (lexicographic comparison =
+// chronological).
 func scanDueCards(ctx context.Context, q *db.Queries) {
 	today := time.Now().Format("2006-01-02")
-	limit := time.Now().AddDate(0, 0, 1).Format("2006-01-02") // inclui o que vence até amanhã
+	limit := time.Now().AddDate(0, 0, 1).Format("2006-01-02") // includes what's due by tomorrow
 	cards, err := q.CardsDueForNotify(ctx, limit)
 	if err != nil {
 		log.Printf("due-scan: query failed: %v", err)
@@ -367,8 +371,8 @@ func main() {
 	q := db.New(pool)
 	sw := stalwart.New(cfg.StalwartURL, cfg.StalwartAdminID, cfg.StalwartAdminPwd)
 
-	// Verificação de DNS real por padrão; em dev/local domínios de teste não resolvem, então
-	// PROVISION_SKIP_DNS_VERIFY=true pula a checagem. Nunca ligar isso em produção.
+	// Real DNS verification by default; in dev/local, test domains do not resolve, so
+	// PROVISION_SKIP_DNS_VERIFY=true skips the check. Never turn this on in production.
 	var verifier provisioning.DNSVerifier = provisioning.NewNetDNSVerifier()
 	if os.Getenv("PROVISION_SKIP_DNS_VERIFY") == "true" {
 		verifier = provisioning.AlwaysVerified{}
@@ -376,9 +380,10 @@ func main() {
 	}
 
 	machine := provisioning.NewMachine(sw, verifier, q)
-	// Relay SES (produção, white-label): com SES_REGION + credenciais AWS, cada domínio novo é
-	// registado no SES com BYODKIM (chave nossa) e a zona reportada esconde o Amazon (`_spf.<brand>`,
-	// DKIM com a nossa chave, sem MAIL FROM). brand = MAIL_BRAND_DOMAIN (default STALWART_DEFAULT_DOMAIN).
+	// SES relay (production, white-label): with SES_REGION + AWS credentials, every new domain is
+	// registered in SES with BYODKIM (our own key) and the zone reported hides Amazon
+	// (`_spf.<brand>`, DKIM with our key, no MAIL FROM). brand = MAIL_BRAND_DOMAIN (default
+	// STALWART_DEFAULT_DOMAIN).
 	// The customer's zone must name hosts that exist on the public internet. Stalwart writes its own
 	// container hostname into every MX and CNAME, so without this the MX handed to a customer points
 	// at a container id and no mail is delivered -- with nothing in the instructions looking wrong.
@@ -395,18 +400,19 @@ func main() {
 		}
 		machine.WithRelay(relay, brand)
 		log.Printf("SES relay enabled (white-label BYODKIM; brand=%s)", brand)
-		// Vigia de reputação: suspende um cliente antes que a AWS suspenda todos.
+		// Reputation sentinel: suspends one customer before AWS suspends everyone.
 		startReputation(q, relay)
 	}
 	runner := provisioning.NewRunner(machine, q)
 
 	log.Printf("provisioning worker started")
 
-	// Prazos do Kanban + snoozes de e-mail num ticker próprio (1 min): independem do provisionamento.
-	// O box decifra a credencial JMAP dos donos para o worker devolver e-mails "snoozed" à inbox.
+	// Kanban deadlines + email snoozes on their own ticker (1 min): independent of provisioning.
+	// The box decrypts the owners' JMAP credential so the worker can return "snoozed" emails to
+	// the inbox.
 	box := secretbox.New(cfg.MFAEncKey)
 	vapid := vapidKeys{public: cfg.VAPIDPublicKey, private: cfg.VAPIDPrivateKey, subject: cfg.VAPIDSubject}
-	// Hub p/ publicar mensagens agendadas em tempo real (mesmo canal Redis do chat). nil = sem Redis.
+	// Hub to publish scheduled messages live (same Redis channel as chat). nil = no Redis.
 	var hub *chat.Hub
 	if cfg.RedisURL != "" {
 		if opt, rerr := redis.ParseURL(cfg.RedisURL); rerr == nil {
@@ -415,8 +421,8 @@ func main() {
 			log.Printf("worker: redis url invalid, scheduled messages won't broadcast live: %v", rerr)
 		}
 	}
-	// Outbox (undo-send/agendados) num ticker rápido (10s): o undo-send precisa sair logo após a
-	// janela curta; 1 min seria lento demais para o utilizador.
+	// Outbox (undo-send/scheduled) on a fast ticker (10s): undo-send needs to go out right after
+	// the short window; 1 min would be too slow for the user.
 	// The outbox send is EVENT-DRIVEN rather than polled at a fixed interval: the worker sleeps
 	// EXACTLY until the next send_at, and the API wakes it with pg_notify('outbox_new') when it
 	// enqueues. Email goes out almost right after the "undo" window, with no constant polling. The
@@ -425,7 +431,7 @@ func main() {
 	go func() {
 		due := time.NewTicker(time.Minute)
 		defer due.Stop()
-		scanDueCards(context.Background(), q) // uma vez ao subir, não só depois de 1 min
+		scanDueCards(context.Background(), q) // once at startup, not only after 1 min
 		scanSnoozes(context.Background(), q, box, cfg.StalwartURL)
 		scanReminders(context.Background(), q, vapid)
 		scanScheduledMessages(context.Background(), q, hub)
@@ -444,8 +450,8 @@ func main() {
 	// Manager metering: daily usage rollup plus recording retention per plan.
 	startMetering(q)
 
-	// Montagem offline das gravações (track egress → MP4 via ffmpeg; fila por prioridade).
-	// A montagem das gravações e a selagem partilham o mesmo serviço de storage.
+	// Offline recording assembly (track egress → MP4 via ffmpeg; priority queue).
+	// Recording assembly and sealing share the same storage service.
 	stWorker := meteringStorage(q)
 	startAssembly(q, stWorker)
 	startSealing(stWorker)
@@ -455,13 +461,13 @@ func main() {
 	// stWorker is the same storage service the recording assembly and sealing already use.
 	startMigrationWorker(q, cfg.MFAEncKey, cfg.StalwartURL, stWorker)
 
-	// Tarefas em fundo do assistente (§7.5 do desenho do assistente). O executor é montado a
-	// partir de um httpapi.Server porque precisa exatamente das mesmas dependências do motor
-	// síncrono — ter duas montagens do mesmo motor seria ter duas superfícies de risco a divergir.
+	// Background assistant tasks (§7.5 of the assistant design). The executor is built from an
+	// httpapi.Server because it needs exactly the same dependencies as the synchronous engine —
+	// having two builds of the same engine would mean two risk surfaces free to diverge.
 	startAssistantTasks(cfg, q, sw)
 
-	// (Re)embedding da wiki para o RAG (docs/wiki-features.md §7.2): idempotente, roda a cada 30s e
-	// processa páginas published desatualizadas. Sem EMBEDDINGS_API_KEY o RAG fica desligado.
+	// Wiki (re)embedding for the RAG (docs/wiki-features.md §7.2): idempotent, runs every 30s and
+	// processes stale published pages. Without EMBEDDINGS_API_KEY the RAG stays off.
 	if emb := ai.NewEmbedderFromEnv(); emb != nil {
 		wikiSvc := wiki.New(q)
 		go func() {
@@ -485,16 +491,16 @@ func main() {
 	}
 }
 
-// startAssistantTasks arranca o consumidor da fila de tarefas do assistente. Sem IA configurada,
-// não faz nada — e dizê-lo no log é melhor do que ficar em silêncio a não consumir nada.
+// startAssistantTasks starts the consumer of the assistant's task queue. Without AI configured,
+// it does nothing — and saying so in the log is better than silently consuming nothing.
 func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client) {
 	aiProvider, err := ai.New(ai.FromEnv())
 	if err != nil || aiProvider == nil {
 		log.Printf("assistant tasks disabled (no AI provider configured)")
 		return
 	}
-	// Storage opcional: sem MinIO, docs.create em tarefas de fundo devolve um erro traduzível em
-	// vez de gravar num vazio. É o mesmo comportamento do servidor síncrono.
+	// Optional storage: without MinIO, docs.create in background tasks returns a translatable
+	// error instead of writing into a void. Same behavior as the synchronous server.
 	var st *storage.Service
 	if ep := os.Getenv("MINIO_ENDPOINT"); ep != "" {
 		if s, serr := storage.New(ep, os.Getenv("MINIO_ACCESS_KEY"), os.Getenv("MINIO_SECRET_KEY"),
@@ -514,13 +520,13 @@ func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client)
 	srv := httpapi.NewServer(q, sw, aiProvider, nil, st, nil, billing.Settings{}, ed)
 	srv.SetPublicURL(cfg.PublicURL)         // absolute links in the alert e-mails the worker sends
 	srv.SetBrandURL(cfg.BrandURL)           // fallback for those links when PUBLIC_URL is unset
-	srv.EnableTOTPEncryption(cfg.MFAEncKey) // decifra a credencial JMAP das caixas
+	srv.EnableTOTPEncryption(cfg.MFAEncKey) // decrypts the mailboxes' JMAP credential
 	worker := httpapi.NewAssistantTaskWorker(srv)
 
 	go func() {
-		// Sondagem rápida quando há trabalho, lenta quando não há: uma tarefa que acaba de ser
-		// pedida não deve esperar segundos para arrancar, mas uma fila vazia não precisa de ser
-		// consultada dez vezes por segundo.
+		// Fast polling when there is work, slow when there is not: a task that was just
+		// requested should not wait seconds to start, but an empty queue does not need to be
+		// checked ten times a second.
 		for {
 			if !worker.Tick(context.Background()) {
 				time.Sleep(3 * time.Second)
