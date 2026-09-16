@@ -741,6 +741,7 @@
   },
   "server": {
     "chat.cannot_delete_general": "The default channel cannot be deleted.",
+    "branding.edition_required": "This feature needs a Pro license.",
     "notif": {
       "meeting_invite": {
         "t": "{{actor}} invited you: {{title}}",
@@ -1214,6 +1215,11 @@
     "previewLight": "light",
     "previewDark": "dark",
     "logoWhiteDarkHint": "Useful for dark logos that vanish on the dark background — becomes a white silhouette."
+  },
+  "pro": {
+    "upsellTitle": "Available in the Pro edition",
+    "upsellBody": "{{feature}} requires a Pro license for this installation.",
+    "upsellCta": "Learn more"
   },
   "domainsSection": {
     "desc": "Your organization's email domains.",

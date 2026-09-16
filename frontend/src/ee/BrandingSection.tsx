@@ -3,11 +3,14 @@ import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
 import { backend } from "../webmail/backend";
 import { BRAND_COLORS, applyBrandColor } from "../webmail/branding";
-import { toast } from "./ui";
+import { toast } from "../panel/ui";
 import { Switch } from "../webmail/Switch";
 
-// Aparência da organização (só admin/owner — RBAC org.settings): cor principal + logo. O logo
-// aparece no topo do app e no ecrã de login. Como o Google Workspace.
+// Organization appearance (admin/owner only -- RBAC org.branding): primary color + logo. The
+// logo appears at the top of the app and on the login screen, the same idea as Google Workspace.
+// Pro only: mounted by ../panel/BrandingSectionGate.tsx behind the branding capability. The
+// backend enforces the same boundary independently (ee/branding_pro.go) -- this gate is UX, not
+// the security line.
 export function BrandingSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();

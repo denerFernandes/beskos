@@ -741,6 +741,7 @@
   },
   "server": {
     "chat.cannot_delete_general": "O canal por defeito não pode ser apagado.",
+    "branding.edition_required": "Esta funcionalidade exige uma licença Pro.",
     "notif": {
       "meeting_invite": {
         "t": "{{actor}} convidou você: {{title}}",
@@ -1214,6 +1215,11 @@
     "previewLight": "claro",
     "previewDark": "escuro",
     "logoWhiteDarkHint": "Útil para logos escuros que desaparecem sobre o fundo escuro — vira silhueta branca."
+  },
+  "pro": {
+    "upsellTitle": "Disponível na edição Pro",
+    "upsellBody": "{{feature}} exige uma licença Pro para esta instalação.",
+    "upsellCta": "Saiba mais"
   },
   "domainsSection": {
     "desc": "Domínios de email da organização.",
