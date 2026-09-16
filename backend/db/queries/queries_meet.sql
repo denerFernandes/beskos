@@ -125,3 +125,9 @@ WHERE m.tenant_id = sqlc.arg(tenant_id) AND (m.owner_user_id = sqlc.arg(owner_us
 ORDER BY CASE WHEN sqlc.arg(bucket)::text = 'upcoming' THEN COALESCE(m.scheduled_start, m.created_at) END ASC,
          COALESCE(m.scheduled_start, m.created_at) DESC
 LIMIT sqlc.arg(lim) OFFSET sqlc.arg(off);
+
+-- name: GetKnockInTenant :one
+-- Tenant-scoped lookup for the host-facing admit/deny path (law 5.1): unlike GetKnock, which the
+-- unauthenticated guest poll uses keyed by its own opaque UUID, this never returns a row belonging
+-- to another tenant, closing off any cross-tenant lookup before the ownership check even runs.
+SELECT * FROM meeting_lobby WHERE id = @id AND tenant_id = @tenant_id;

@@ -225,6 +225,34 @@ func (q *Queries) GetBreakout(ctx context.Context, arg GetBreakoutParams) (Meeti
 	return i, err
 }
 
+const getKnockInTenant = `-- name: GetKnockInTenant :one
+SELECT id, meeting_id, tenant_id, room_name, name, identity, status, created_at FROM meeting_lobby WHERE id = $1 AND tenant_id = $2
+`
+
+type GetKnockInTenantParams struct {
+	ID       uuid.UUID `json:"id"`
+	TenantID uuid.UUID `json:"tenant_id"`
+}
+
+// Tenant-scoped lookup for the host-facing admit/deny path (law 5.1): unlike GetKnock, which the
+// unauthenticated guest poll uses keyed by its own opaque UUID, this never returns a row belonging
+// to another tenant, closing off any cross-tenant lookup before the ownership check even runs.
+func (q *Queries) GetKnockInTenant(ctx context.Context, arg GetKnockInTenantParams) (MeetingLobby, error) {
+	row := q.db.QueryRow(ctx, getKnockInTenant, arg.ID, arg.TenantID)
+	var i MeetingLobby
+	err := row.Scan(
+		&i.ID,
+		&i.MeetingID,
+		&i.TenantID,
+		&i.RoomName,
+		&i.Name,
+		&i.Identity,
+		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getMeetingByRoom = `-- name: GetMeetingByRoom :one
 SELECT id, tenant_id, owner_user_id, title, room_name, scheduled_start, scheduled_end, actual_start, actual_end, status, event_id, created_at, access, allow_mic, allow_cam, allow_share, allow_chat, lock_until_host, locked FROM meetings WHERE room_name = $1
 `
