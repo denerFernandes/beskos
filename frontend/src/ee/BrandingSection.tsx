@@ -65,7 +65,7 @@ export function BrandingSection() {
           <div className="pnl-card-b">
             <div className="brand-swatches">
               {BRAND_COLORS.map((c) => (
-                <button key={c.id} type="button" title={c.name}
+                <button key={c.id} type="button" title={t(c.name)}
                   className={"brand-swatch" + (color.toLowerCase() === c.hex.toLowerCase() ? " on" : "")}
                   style={{ background: c.hex }} onClick={() => setColor(c.hex)}>
                   {color.toLowerCase() === c.hex.toLowerCase() && <span>✓</span>}
