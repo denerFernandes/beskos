@@ -98,7 +98,7 @@ func (s *Server) handlePublicWikiSpace(w http.ResponseWriter, r *http.Request) {
 		writeWikiErr(w, err)
 		return
 	}
-	// Plano sem links públicos: links existentes deixam de servir (fail-closed no read também).
+	// Plan without public links: existing links stop serving (fail-closed on read too).
 	if !s.tenantPlanByID(r.Context(), sp.TenantID).WikiPublicLinks {
 		writeErr(w, http.StatusNotFound, "wiki.not_found")
 		return

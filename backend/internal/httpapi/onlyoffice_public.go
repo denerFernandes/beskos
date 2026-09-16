@@ -49,8 +49,8 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	// Marca da organização (nome/cor/logo) para a barra do visualizador público: quem abre é anónimo
-	// e de fora, e a barra diz de quem é o ficheiro. Sem marca configurada, vai vazio (marca padrão).
+	// Organization brand (name/color/logo) for the public viewer's bar: whoever opens it is
+	// anonymous and external, and the bar says whose file it is. With no brand configured, it goes empty (default brand).
 	brand := map[string]any{}
 	if tn, terr := s.q.GetTenant(r.Context(), f.TenantID); terr == nil {
 		brand = map[string]any{"name": tn.Name, "color": tn.BrandColor, "logo": tn.BrandLogo}
@@ -58,7 +58,7 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 
 	ext := extOf(f.Name)
 	if !officeExts[ext] {
-		// Não é office: o cliente mostra descarga (se permitida) ou "sem pré-visualização".
+		// Not an office file: the client shows a download (if allowed) or "no preview available".
 		writeJSON(w, http.StatusOK, map[string]any{
 			"kind": "file", "name": f.Name, "allow_download": f.AllowDownload, "brand": brand,
 		})
@@ -66,7 +66,7 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 	}
 
 	canWrite := f.Permission == "edit"
-	// Token do doc com utilizador ANÓNIMO (UserID nulo). CanWrite decide se o callback grava.
+	// Doc token with an ANONYMOUS user (null UserID). CanWrite decides whether the callback saves.
 	docToken := s.office.mintToken(docClaims{
 		FileID: f.ID, UserID: uuid.Nil, TenantID: f.TenantID, CanWrite: canWrite,
 		Exp: time.Now().Add(docTokenTTL),
@@ -74,7 +74,7 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 	base := s.office.filesHostURL
 	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Version)))).String(), "-", "")
 
-	// Nome do convidado: o cliente passa-o já traduzido/aleatório (?guest=). Sem isso, um neutro.
+	// Guest name: the client passes it already translated/random (?guest=). Without that, a neutral one.
 	guestName := strings.TrimSpace(r.URL.Query().Get("guest"))
 	if guestName == "" || len(guestName) > 40 {
 		guestName = randomGuestName()
@@ -85,9 +85,9 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 	}
 	darkTheme := r.URL.Query().Get("theme") == "dark"
 
-	// Mesma marca do editor autenticado — quem abre um link público vê o Beskos, não o ONLYOFFICE.
-	// A atribuição à Ascensio System SIA acompanha, no "Sobre" (ver onlyoffice_branding.go).
-	// Sem plugins: quem abre um link público é anónimo e de fora.
+	// Same brand as the authenticated editor — whoever opens a public link sees Beskos, not ONLYOFFICE.
+	// The attribution to Ascensio System SIA comes along, in "About" (see onlyoffice_branding.go).
+	// No plugins: whoever opens a public link is anonymous and external.
 	customization := officeChrome(darkTheme, false)
 	s.office.applyBranding(customization)
 
@@ -98,7 +98,7 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 			"title":    f.Name,
 			"url":      base + "/doc/files/" + f.ID.String() + "/download?token=" + docToken,
 			"permissions": map[string]any{
-				// Descarga/impressão seguem o toggle do link; edição segue a permissão.
+				// Download/print follow the link's toggle; editing follows the permission.
 				"edit": canWrite, "download": f.AllowDownload, "print": f.AllowDownload,
 			},
 		},
@@ -129,8 +129,8 @@ func (s *Server) handlePublicDocSession(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-// randomGuestName gera um nome de convidado neutro e imprevisível ("Guest 4821"). O cliente costuma
-// passar um já traduzido; isto é só o recurso quando não o faz.
+// randomGuestName generates a neutral, unpredictable guest name ("Guest 4821"). The client
+// usually passes one already translated; this is only the fallback for when it doesn't.
 func randomGuestName() string {
 	b := make([]byte, 2)
 	_, _ = rand.Read(b)

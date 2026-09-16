@@ -23,17 +23,17 @@ import (
 type timeOffReq struct {
 	Kind         string `json:"kind"`      // dayoff | vacation
 	Start        string `json:"start"`     // YYYY-MM-DD
-	End          string `json:"end"`       // YYYY-MM-DD (vacation; dayoff ignora)
-	StartMin     *int   `json:"start_min"` // dayoff parcial: minutos desde 00:00 (nil = dia inteiro)
+	End          string `json:"end"`       // YYYY-MM-DD (vacation; ignored for dayoff)
+	StartMin     *int   `json:"start_min"` // partial dayoff: minutes since 00:00 (nil = full day)
 	EndMin       *int   `json:"end_min"`
 	AutoReply    bool   `json:"auto_reply"`
 	ReplySubject string `json:"reply_subject"`
 	ReplyBody    string `json:"reply_body"`
-	// on_conflict: "" pergunta (devolve os conflitos), "cancel" cancela os eventos, "keep" mantém.
+	// on_conflict: "" asks (returns the conflicts), "cancel" cancels the events, "keep" keeps them.
 	OnConflict string `json:"on_conflict"`
 }
 
-// POST /api/timeoff — cria a ausência no calendário do próprio utilizador.
+// POST /api/timeoff — creates the absence in the user's own calendar.
 func (s *Server) handleCreateTimeOff(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req timeOffReq
@@ -58,7 +58,7 @@ func (s *Server) handleCreateTimeOff(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// Folga parcial: intervalo de horas dentro do dia (meio dia, consulta, etc.).
+	// Partial time off: an hour range within the day (half day, appointment, etc.).
 	allDay := true
 	evStart, evEnd := start, end.Add(24*time.Hour-time.Second)
 	if req.Kind == "dayoff" && req.StartMin != nil && req.EndMin != nil {
@@ -72,8 +72,8 @@ func (s *Server) handleCreateTimeOff(w http.ResponseWriter, r *http.Request) {
 		evEnd = start.Add(time.Duration(em) * time.Minute)
 	}
 
-	// Conflitos com a agenda: eventos próprios e convites no intervalo. Sem decisão do utilizador,
-	// devolve a lista e NÃO cria nada — a UI pergunta se quer cancelar.
+	// Conflicts with the calendar: own events and invites in the range. Without the user's
+	// decision, return the list and create NOTHING — the UI asks whether to cancel.
 	conflicts, _ := s.q.TimeOffConflicts(r.Context(), db.TimeOffConflictsParams{
 		OwnerID: pgUUID(mu.ID), TenantID: mu.TenantID, InviteeID: mu.ID, FromTs: evStart, ToTs: evEnd,
 	})
@@ -85,7 +85,7 @@ func (s *Server) handleCreateTimeOff(w http.ResponseWriter, r *http.Request) {
 		s.cancelForTimeOff(r, mu, conflicts)
 	}
 
-	// Título fallback em inglês (lei 4.6); a UI mostra a etiqueta traduzida pelo kind.
+	// Fallback title in English (law 4.6); the UI shows the label translated by kind.
 	title, color := "Day off", "#9AA0A6"
 	if req.Kind == "vacation" {
 		title, color = "Vacation", "#53C08B"
@@ -103,8 +103,8 @@ func (s *Server) handleCreateTimeOff(w http.ResponseWriter, r *http.Request) {
 	_ = s.q.SetEventKind(r.Context(), db.SetEventKindParams{ID: ev.ID, Kind: req.Kind, TenantID: mu.TenantID})
 
 	out := map[string]any{"status": "ok", "event_id": ev.ID}
-	// Resposta automática das férias — best-effort: a ausência fica criada mesmo se o JMAP falhar,
-	// e o cliente é avisado para tentar de novo nas definições.
+	// Vacation auto-reply — best-effort: the absence is still created even if JMAP fails, and the
+	// customer is told to try again in settings.
 	if req.Kind == "vacation" && req.AutoReply {
 		if err := s.setVacationResponse(r, mu, start, end.Add(24*time.Hour-time.Second), req.ReplySubject, req.ReplyBody); err != nil {
 			log.Printf("timeoff: vacation response for %s: %v", mu.Email, err)
@@ -116,9 +116,10 @@ func (s *Server) handleCreateTimeOff(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, out)
 }
 
-// cancelForTimeOff resolve os conflitos quando o utilizador escolheu "cancelar": os eventos
-// PRÓPRIOS são apagados (soft-delete) e todos os participantes avisados — convidados internos por
-// notificação (+push) e externos por e-mail. Nos eventos de OUTROS, recusa o convite e avisa o dono.
+// cancelForTimeOff resolves the conflicts when the user chose "cancel": the user's OWN events are
+// deleted (soft-delete) and every participant is notified — internal guests via notification
+// (+push) and external ones via e-mail. For events owned by OTHERS, it declines the invite and
+// notifies the owner.
 func (s *Server) cancelForTimeOff(r *http.Request, mu db.MailUser, conflicts []db.TimeOffConflictsRow) {
 	ctx := r.Context()
 	actor := mu.Name
@@ -128,7 +129,7 @@ func (s *Server) cancelForTimeOff(r *http.Request, mu db.MailUser, conflicts []d
 	for _, c := range conflicts {
 		when := c.StartsAt.UTC().Format(time.RFC3339)
 		if !c.Own {
-			// Convite de outra pessoa: recusa e avisa o organizador.
+			// Someone else's invite: decline it and notify the organizer.
 			_ = s.q.SetInviteStatus(ctx, db.SetInviteStatusParams{EventID: c.ID, UserID: mu.ID, Status: "declined"})
 			if ev, err := s.q.GetEventInTenant(ctx, db.GetEventInTenantParams{ID: c.ID, TenantID: mu.TenantID}); err == nil && ev.OwnerUserID.Valid {
 				s.notifyUser(ctx, mu.TenantID, uuid.UUID(ev.OwnerUserID.Bytes), "event_rsvp",
@@ -137,7 +138,7 @@ func (s *Server) cancelForTimeOff(r *http.Request, mu db.MailUser, conflicts []d
 			}
 			continue
 		}
-		// Evento próprio: convidados primeiro (a lista some com o delete em cascata lógica).
+		// Own event: guests first (the list disappears with the logical cascade delete).
 		invites, _ := s.q.ListEventInvites(ctx, c.ID)
 		externals, _ := s.q.ListEventExternals(ctx, c.ID)
 		if err := s.q.DeleteEvent(ctx, db.DeleteEventParams{ID: c.ID, TenantID: mu.TenantID, OwnerUserID: pgUUID(mu.ID)}); err != nil {
@@ -161,9 +162,9 @@ func (s *Server) cancelForTimeOff(r *http.Request, mu db.MailUser, conflicts []d
 	}
 }
 
-// setVacationResponse liga a resposta automática no Stalwart via JMAP, autenticado com a credencial
-// da PRÓPRIA caixa (brokering H11 — nunca credencial de admin). from/until limitam o período: o
-// Stalwart ativa e desativa sozinho nas datas.
+// setVacationResponse turns on the auto-reply in Stalwart via JMAP, authenticated with the OWN
+// mailbox's credential (H11 brokering — never an admin credential). from/until bound the period:
+// Stalwart enables and disables it on its own on those dates.
 func (s *Server) setVacationResponse(r *http.Request, mu db.MailUser, from, until time.Time, subject, body string) error {
 	cred, ok := s.decryptCred(mu.JmapCred)
 	if !ok {
@@ -227,7 +228,7 @@ func (s *Server) setVacationResponse(r *http.Request, mu db.MailUser, from, unti
 	if vresp.StatusCode != http.StatusOK {
 		return fmt.Errorf("jmap set: HTTP %d: %s", vresp.StatusCode, raw)
 	}
-	// Falha do método vem no corpo (notUpdated/error) com HTTP 200 — verifica.
+	// A method failure comes back in the body (notUpdated/error) with HTTP 200 — check for it.
 	if bytes.Contains(raw, []byte("notUpdated")) || bytes.Contains(raw, []byte(`"error"`)) {
 		return fmt.Errorf("jmap set rejected: %s", raw)
 	}

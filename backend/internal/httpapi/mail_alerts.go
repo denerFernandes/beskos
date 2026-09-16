@@ -15,14 +15,14 @@ import (
 // subscription active, billing, and new login. All best-effort and off the critical path
 // (goroutine): a slow email server must not delay a login or fail a signup.
 
-// sendMsg entrega um aviso já montado. Sem SMTP configurado é um no-op silencioso.
+// sendMsg delivers an already-built alert. It's a silent no-op without SMTP configured.
 func (s *Server) sendMsg(to string, m notify.Msg) {
 	if s.email == nil || to == "" {
 		return
 	}
 	go func() {
 		if err := s.email.SendHTML(to, m.Subject, m.HTML, m.Text); err != nil {
-			log.Printf("notify: %q para %s: %v", m.Subject, to, err)
+			log.Printf("notify: %q to %s: %v", m.Subject, to, err)
 		}
 	}()
 }
@@ -37,8 +37,9 @@ func (s *Server) appURL(path string) string {
 	return base + path
 }
 
-// clientLocation devolve o país de quem faz o pedido, quando a rede o diz. Atrás da Cloudflare vem
-// no CF-IPCountry; sem ela ficamos sem localização — melhor dizer "desconhecida" do que adivinhar.
+// clientLocation returns the requester's country, when the network provides it. Behind Cloudflare
+// it comes in CF-IPCountry; without it we're left with no location — better to say "unknown" than
+// to guess.
 func clientLocation(r *http.Request) string {
 	for _, h := range []string{"CF-IPCountry", "X-Vercel-IP-Country", "X-Country-Code"} {
 		if v := strings.TrimSpace(r.Header.Get(h)); v != "" && v != "XX" {
@@ -51,7 +52,7 @@ func clientLocation(r *http.Request) string {
 	return ""
 }
 
-// clientDevice resume o User-Agent no que uma pessoa reconhece: navegador + sistema.
+// clientDevice summarizes the User-Agent into what a person recognizes: browser + system.
 func clientDevice(r *http.Request) string {
 	ua := r.Header.Get("User-Agent")
 	if ua == "" {
@@ -59,7 +60,7 @@ func clientDevice(r *http.Request) string {
 	}
 	browser := "—"
 	switch {
-	case strings.Contains(ua, "Beskos"): // app de desktop (Tauri)
+	case strings.Contains(ua, "Beskos"): // desktop app (Tauri)
 		browser = "Beskos"
 	case strings.Contains(ua, "Edg/"):
 		browser = "Edge"
@@ -96,31 +97,31 @@ func (s *Server) alertNewLogin(r *http.Request, u db.MailUser) {
 		clientDevice(r), time.Now().UTC(), s.appURL("/mail/profile/security")))
 }
 
-// alertAccountCreated dá as boas-vindas com o endereço criado e o que falta (DNS).
+// alertAccountCreated welcomes the user with the created address and what's still missing (DNS).
 func (s *Server) alertAccountCreated(lang, email, domain string) {
 	s.sendMsg(email, notify.AccountCreated(lang, email, domain, s.appURL("/mail")))
 }
 
-// alertTrialStarted confirma o teste e diz quando (e quanto) começa a pagar — a informação que
-// evita a surpresa desagradável no fim do mês.
+// alertTrialStarted confirms the trial and says when (and how much) billing starts — the
+// information that avoids the unpleasant surprise at the end of the month.
 func (s *Server) alertTrialStarted(lang, email, plan string, days int, amount string) {
 	s.sendMsg(email, notify.TrialStarted(lang, plan, days, time.Now().AddDate(0, 0, days), amount, s.appURL("/mail")))
 }
 
-// alertSubscription avisa quem gere a faturação (e o dono) de que a subscrição ficou ativa.
+// alertSubscription notifies whoever manages billing (and the owner) that the subscription is active.
 func (s *Server) alertSubscription(ctx context.Context, tid [16]byte, plan, cycle, amount string) {
 	to, lang := s.billingContact(ctx, tid)
 	s.sendMsg(to, notify.SubscriptionActive(lang, plan, cycle, amount, s.appURL("/mail/admin/billing")))
 }
 
-// alertCharge avisa da cobrança (fim do teste ou renovação), com o link da fatura.
+// alertCharge notifies about the charge (end of trial or renewal), with the invoice link.
 func (s *Server) alertCharge(ctx context.Context, tid [16]byte, plan, amount, invoiceURL string) {
 	to, lang := s.billingContact(ctx, tid)
 	s.sendMsg(to, notify.ChargeStarted(lang, plan, amount, invoiceURL, s.appURL("/mail/admin/billing")))
 }
 
-// billingContact devolve para onde vão os avisos de dinheiro: o e-mail de faturação indicado no
-// registo e, na falta dele, o dono da organização (que é sempre alguém).
+// billingContact returns where the money alerts go: the billing e-mail set on the record and,
+// failing that, the organization's owner (who is always someone).
 func (s *Server) billingContact(ctx context.Context, tid [16]byte) (email, lang string) {
 	if p, err := s.q.GetBillingProfile(ctx, tid); err == nil && p.InvoiceEmail != "" {
 		email = p.InvoiceEmail
@@ -134,12 +135,14 @@ func (s *Server) billingContact(ctx context.Context, tid [16]byte) (email, lang 
 	return email, lang
 }
 
-// shareWithOutsider trata a partilha com alguém de FORA da organização: garante um link público do
-// ficheiro e manda-o por e-mail. Sem isto, partilhar com um cliente ou fornecedor não fazia nada —
-// a pessoa não tem conta para receber a notificação nem "Partilhado comigo" onde procurar.
+// shareWithOutsider handles sharing with someone OUTSIDE the organization: it ensures a public
+// link for the file and sends it by e-mail. Without this, sharing with a customer or supplier
+// would do nothing — the person has no account to receive the notification, nor a "Shared with me"
+// place to look.
 //
-// Devolve o link público e se o e-mail chegou a ser enviado. O LINK é criado mesmo sem SMTP: é o
-// que a pessoa copia e manda à mão — sem ele, partilhar com alguém de fora não produzia nada.
+// Returns the public link and whether the e-mail was actually sent. The LINK is created even
+// without SMTP: it's what the person copies and sends by hand — without it, sharing with someone
+// outside would produce nothing.
 func (s *Server) shareWithOutsider(r *http.Request, f db.StorageFile, actor db.MailUser, email string) (link string, emailed bool) {
 	token := s.ensureFileLink(r, f, actor)
 	if token == "" {
@@ -158,8 +161,8 @@ func (s *Server) shareWithOutsider(r *http.Request, f db.StorageFile, actor db.M
 	return link, true
 }
 
-// ensureFileLink devolve o token do link público do ficheiro, criando um se ainda não existe. O
-// link herda a validade por omissão (30 dias) — quem quiser outra coisa muda-a na app.
+// ensureFileLink returns the file's public link token, creating one if it doesn't exist yet. The
+// link inherits the default validity (30 days) — whoever wants something else changes it in the app.
 func (s *Server) ensureFileLink(r *http.Request, f db.StorageFile, actor db.MailUser) string {
 	if existing, err := s.q.GetFileLinkByFile(r.Context(), f.ID); err == nil {
 		return existing.Token

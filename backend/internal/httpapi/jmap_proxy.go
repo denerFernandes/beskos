@@ -22,21 +22,21 @@ func (s *Server) newJMAPProxy() http.Handler {
 		log.Fatalf("jmap proxy: invalid Stalwart URL %q: %v", s.sw.BaseURL(), err)
 	}
 	rp := httputil.NewSingleHostReverseProxy(target)
-	rp.FlushInterval = -1 // flush em tempo real (necessário para o eventsource SSE)
+	rp.FlushInterval = -1 // real-time flush (required for the SSE eventsource)
 	base := rp.Director
 	rp.Director = func(r *http.Request) {
 		base(r)
-		r.Host = target.Host // Stalwart roteia por Host; usa o do upstream, não o público
+		r.Host = target.Host // Stalwart routes by Host; use the upstream one, not the public one
 	}
 	return rp
 }
 
-// mountJMAPProxy liga o proxy JMAP (com brokering de credencial) nas rotas do webmail. Montado
-// SEMPRE — o brokering exige que o proxy esteja no caminho tanto na web quanto no app nativo.
+// mountJMAPProxy wires the JMAP proxy (with credential brokering) into the webmail routes. Always
+// mounted — brokering requires the proxy to sit in the path for both the web and the native app.
 func (s *Server) mountJMAPProxy(r interface {
 	Handle(pattern string, h http.Handler)
 }) {
-	// broker (auth) → quota de envio do plano (EmailSubmission/set) → proxy para o Stalwart.
+	// broker (auth) → plan's sending quota (EmailSubmission/set) → proxy to Stalwart.
 	p := s.jmapBrokerAuth(s.jmapMailQuota(s.newJMAPProxy()))
 	r.Handle("/jmap/*", p)
 	r.Handle("/auth/*", p)
@@ -65,10 +65,10 @@ func (s *Server) jmapBrokerAuth(next http.Handler) http.Handler {
 			http.Error(w, "no mailbox credential", http.StatusUnauthorized)
 			return
 		}
-		// Substitui qualquer Authorization do cliente pela credencial da caixa (server-to-server).
+		// Replaces any client Authorization with the mailbox's credential (server-to-server).
 		r.Header.Set("Authorization", "Basic "+cred)
-		// Injeta o utilizador no contexto: o middleware de quota de envio (mail_quota.go) precisa
-		// do tenant para aplicar o limite diário do plano.
+		// Injects the user into the context: the sending-quota middleware (mail_quota.go) needs
+		// the tenant to apply the plan's daily limit.
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxMailUser, row.MailUser)))
 	})
 }

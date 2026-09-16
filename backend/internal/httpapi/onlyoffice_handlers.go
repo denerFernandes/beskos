@@ -22,7 +22,7 @@ import (
 
 const docTokenTTL = 10 * time.Hour
 
-// aiPluginGUID é o plugin de IA nativo do Document Server (autostart no editor autenticado).
+// aiPluginGUID is the Document Server's native AI plugin (autostart in the authenticated editor).
 const aiPluginGUID = "asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}"
 
 var errStorageDisabled = errors.New("storage disabled")
@@ -56,23 +56,23 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	if lang == "" {
 		lang = "pt-BR"
 	}
-	// Tema da UI do editor combinando com o Beskos (claro/escuro). Params grátis (standard branding).
+	// Editor UI theme matching Beskos (light/dark). Free params (standard branding).
 	darkTheme := r.URL.Query().Get("theme") == "dark"
 	token := s.office.mintToken(docClaims{
 		FileID: f.ID, UserID: mu.ID, TenantID: mu.TenantID, CanWrite: canWrite,
 		Exp: time.Now().Add(docTokenTTL),
 	})
 	base := s.office.filesHostURL
-	// key: único por versão (alfanumérico) — muda a cada nova versão para o DS recarregar.
+	// key: unique per version (alphanumeric) — changes on every new version so the DS reloads.
 	key := strings.ReplaceAll(uuid.NewSHA1(f.ID, []byte(strconv.Itoa(int(f.Version)))).String(), "-", "")
 
 	// Strips the chrome down to integrate with Beskos. The header branding is ours (applyBranding),
 	// which requires the branding patch on the Document Server; attribution to Ascensio System SIA
 	// stays in "About". See onlyoffice_branding.go.
 	customization := officeChrome(darkTheme, true)
-	// Botão de fechar NO cabeçalho do editor (dispensa uma barra nossa por cima). Só aparece se
-	// o cliente registar o evento onRequestClose — é ele que decide para onde voltar. Sem `text`:
-	// o Document Server usa a sua própria string, já traduzida pelo `lang` (lei §4.6).
+	// Close button IN the editor's header (avoids needing our own bar on top). Only shows up if
+	// the client registers the onRequestClose event — it decides where to go back to. No `text`:
+	// the Document Server uses its own string, already translated via `lang` (law §4.6).
 	customization["close"] = map[string]any{"visible": true}
 	s.office.applyBranding(customization)
 
@@ -92,7 +92,7 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 			"lang":        lang,
 			"user":        map[string]any{"id": mu.ID.String(), "name": mu.Name},
 			"callbackUrl": base + "/doc/callback/" + f.ID.String() + "?token=" + token,
-			// Plugins LIGADOS no editor autenticado (o de IA usa-se aqui; o público fica sem plugins).
+			// Plugins ENABLED in the authenticated editor (the AI one is used here; the public one has no plugins).
 			"plugins": map[string]any{
 				"autostart": []string{aiPluginGUID},
 			},
@@ -114,9 +114,9 @@ func (s *Server) handleEditSession(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// resolveDocAccess decide se o usuário pode abrir o arquivo e se pode escrever. Dono do arquivo
-// escreve; compartilhado como "editor" escreve; "leitor" abre só para ver; sem vínculo → 403.
-// Sempre isolado por tenant (lei §5.1) e checando posse/compartilhamento (lei §5.2).
+// resolveDocAccess decides whether the user can open the file and whether they can write. File
+// owner can write; shared as "editor" can write; "reader" opens for viewing only; no link → 403.
+// Always isolated by tenant (law §5.1) and checking ownership/sharing (law §5.2).
 func (s *Server) resolveDocAccess(w http.ResponseWriter, r *http.Request, mu db.MailUser) (db.StorageFile, bool, bool) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -129,7 +129,7 @@ func (s *Server) resolveDocAccess(w http.ResponseWriter, r *http.Request, mu db.
 		return db.StorageFile{}, false, false
 	}
 	if f.OwnerUserID.Valid && f.OwnerUserID.Bytes == mu.ID {
-		return f, true, true // dono escreve
+		return f, true, true // owner can write
 	}
 	shares, _ := s.q.ListSharesByFile(r.Context(), db.ListSharesByFileParams{FileID: id, TenantID: mu.TenantID})
 	if canWrite, has := shareAccess(shares, mu.Email); has {
@@ -139,13 +139,13 @@ func (s *Server) resolveDocAccess(w http.ResponseWriter, r *http.Request, mu db.
 	return db.StorageFile{}, false, false
 }
 
-// orgSharePrincipal é o "principal" sentinela de uma partilha ao NÍVEL DA ORGANIZAÇÃO: qualquer
-// membro autenticado do tenant tem o acesso concedido (leitor/editor). Não é um e-mail — o "@" à
-// frente garante que nunca colide com um endereço real.
+// orgSharePrincipal is the sentinel "principal" for an ORGANIZATION-LEVEL share: any authenticated
+// tenant member gets the granted access (reader/editor). It's not an email — the leading "@"
+// guarantees it never collides with a real address.
 const orgSharePrincipal = "@org"
 
-// shareAccess calcula o acesso de um utilizador a um ficheiro a partir das partilhas: o MELHOR entre
-// a partilha direta (pelo e-mail) e a partilha de organização. Editor vence leitor. (canWrite, has).
+// shareAccess computes a user's access to a file from the shares: the BEST of the direct share
+// (by email) and the organization share. Editor beats reader. (canWrite, has).
 func shareAccess(shares []db.StorageShare, email string) (canWrite, has bool) {
 	for _, sh := range shares {
 		if sh.Principal == email || sh.Principal == orgSharePrincipal {
@@ -158,7 +158,7 @@ func shareAccess(shares []db.StorageShare, email string) (canWrite, has bool) {
 	return
 }
 
-// docAuth valida o token HMAC da query e carrega o arquivo (isolado por tenant, lei §5.1).
+// docAuth validates the query's HMAC token and loads the file (isolated by tenant, law §5.1).
 func (s *Server) docAuth(w http.ResponseWriter, r *http.Request) (docClaims, db.StorageFile, bool) {
 	var cl docClaims
 	if s.office == nil {
@@ -183,7 +183,7 @@ func (s *Server) docAuth(w http.ResponseWriter, r *http.Request) (docClaims, db.
 	return cl, f, true
 }
 
-// handleDocDownload: o Document Server busca o conteúdo do arquivo aqui.
+// handleDocDownload: the Document Server fetches the file's content here.
 func (s *Server) handleDocDownload(w http.ResponseWriter, r *http.Request) {
 	_, f, ok := s.docAuth(w, r)
 	if !ok {
@@ -202,15 +202,15 @@ func (s *Server) handleDocDownload(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, obj)
 }
 
-// ooCallback é o corpo que o Document Server envia ao salvar.
+// ooCallback is the body the Document Server sends when saving.
 type ooCallback struct {
-	Status int    `json:"status"` // 2/6 = pronto para salvar
-	URL    string `json:"url"`    // de onde baixar o arquivo editado
-	Token  string `json:"token"`  // JWT do corpo (quando JWT ligado)
+	Status int    `json:"status"` // 2/6 = ready to save
+	URL    string `json:"url"`    // where to download the edited file from
+	Token  string `json:"token"`  // JWT from the body (when JWT is enabled)
 }
 
-// handleDocCallback: o Document Server avisa que o documento foi salvo; buscamos o arquivo
-// editado e gravamos como NOVA versão no MinIO. Fase A (view) nunca dispara save.
+// handleDocCallback: the Document Server notifies that the document was saved; we fetch the
+// edited file and write it as a NEW version in MinIO. Phase A (view) never triggers a save.
 func (s *Server) handleDocCallback(w http.ResponseWriter, r *http.Request) {
 	cl, f, ok := s.docAuth(w, r)
 	if !ok {
@@ -221,14 +221,15 @@ func (s *Server) handleDocCallback(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]int{"error": 1})
 		return
 	}
-	// JWT do corpo é OBRIGATÓRIO: é a prova server-to-server de que o callback veio do Document
-	// Server (assinado com o segredo compartilhado). Não pode ser opcional — senão basta omitir o
-	// token e o HMAC da query (que vaza em logs/Referer) seria a única barreira (auditoria H2).
+	// JWT from the body is MANDATORY: it's the server-to-server proof that the callback came from
+	// the Document Server (signed with the shared secret). It can't be optional — otherwise all it
+	// would take is omitting the token and the query's HMAC (which leaks in logs/Referer) would be
+	// the only barrier (audit H2).
 	if _, valid := s.office.jwtVerify(cb.Token); !valid {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-	// Só status 2 (MustSave) e 6 (ForceSave) exigem gravar; e só com permissão de escrita.
+	// Only status 2 (MustSave) and 6 (ForceSave) require saving; and only with write permission.
 	if (cb.Status == 2 || cb.Status == 6) && cl.CanWrite && cb.URL != "" {
 		if err := s.saveEditedFile(r, f, cb.URL); err != nil {
 			log.Printf("onlyoffice save failed (file=%s url=%s): %v", f.ID, cb.URL, err)
@@ -240,7 +241,7 @@ func (s *Server) handleDocCallback(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"error": 0})
 }
 
-// saveEditedFile baixa o arquivo editado do Document Server e grava como nova versão.
+// saveEditedFile downloads the edited file from the Document Server and saves it as a new version.
 func (s *Server) saveEditedFile(r *http.Request, f db.StorageFile, url string) error {
 	if s.storage == nil {
 		return errStorageDisabled
@@ -253,7 +254,7 @@ func (s *Server) saveEditedFile(r *http.Request, f db.StorageFile, url string) e
 	if err != nil {
 		return err
 	}
-	// Sem seguir redirects (um 3xx poderia saltar para um host interno) e com timeout.
+	// Not following redirects (a 3xx could jump to an internal host) and with a timeout.
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
@@ -277,12 +278,13 @@ func (s *Server) saveEditedFile(r *http.Request, f db.StorageFile, url string) e
 			return err
 		}
 	}
-	// Conteúdo igual ao atual (mesmo hash) → nada mudou; não cria versão nem bumpa. Evita lixo de
-	// "versões" idênticas quando o Document Server dispara callbacks sem edição real.
+	// Content identical to the current one (same hash) → nothing changed; doesn't create a version
+	// or bump it. Avoids clutter from identical "versions" when the Document Server fires callbacks
+	// without a real edit.
 	if hash == f.Hash {
 		return nil
 	}
-	// Histórico: fotografa a versão CORRENTE antes de sobrescrever, para poder listar/restaurar.
+	// History: snapshots the CURRENT version before overwriting, so it can be listed/restored.
 	_ = s.q.SnapshotFileVersion(r.Context(), db.SnapshotFileVersionParams{
 		FileID: f.ID, TenantID: f.TenantID, BlobKey: f.BlobKey, Hash: f.Hash, Size: f.Size, Version: f.Version,
 	})

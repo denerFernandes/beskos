@@ -11,10 +11,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Acesso público às reuniões: convidados externos (sem login) entram por link. Sala pública =
-// entra direto; sala por aprovação = fica no lobby até o dono (host) admitir.
+// Public access to meetings: external guests (without login) join via link. A public room means
+// joining directly; an approval room means staying in the lobby until the owner (host) admits them.
 
-// handlePublicMeetInfo devolve dados públicos da sala (título, tipo de acesso) para a tela de entrada.
+// handlePublicMeetInfo returns the room's public data (title, access type) for the entry screen.
 func (s *Server) handlePublicMeetInfo(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -37,8 +37,8 @@ type guestJoinReq struct {
 	Name string `json:"name"`
 }
 
-// handlePublicMeetJoin: convidado entra. Sala pública → token na hora; aprovação → cria pedido
-// no lobby e devolve o id p/ o convidado ficar esperando.
+// handlePublicMeetJoin: a guest joins. Public room → token right away; approval → creates a
+// lobby request and returns the id so the guest can keep waiting.
 func (s *Server) handlePublicMeetJoin(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -61,7 +61,7 @@ func (s *Server) handlePublicMeetJoin(w http.ResponseWriter, r *http.Request) {
 	}
 	identity := "guest-" + uuid.NewString()[:8]
 
-	// Sala trancada: nenhum convidado novo entra (nem pelo lobby). Só reabrindo a tranca.
+	// Locked room: no new guest joins (not even via the lobby). Only unlocking it changes that.
 	if m.Locked {
 		writeJSON(w, http.StatusOK, map[string]any{"mode": "locked"})
 		return
@@ -75,14 +75,14 @@ func (s *Server) handlePublicMeetJoin(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusInternalServerError, "meet.knock_failed")
 			return
 		}
-		// Avisa o organizador (in-app + push): alguém está à porta à espera de aprovação.
+		// Notifies the organizer (in-app + push): someone is at the door waiting for approval.
 		s.notifyUser(r.Context(), m.TenantID, m.OwnerUserID, "meet_knock",
-			name+" quer entrar", name+" está à espera de aprovação para entrar em "+m.Title,
+			name+" wants to join", name+" is waiting for approval to join "+m.Title,
 			"/mail/meet/"+room, m.ID, map[string]string{"name": name, "title": m.Title})
 		writeJSON(w, http.StatusOK, map[string]any{"mode": "lobby", "lobby_id": k.ID})
 		return
 	}
-	// Pública: entra direto. Convidado nunca é organizador → recebe a política da sala.
+	// Public: joins directly. A guest is never the organizer → gets the room's policy.
 	tok, err := s.meet.token(identity, name, room, meetTokenTTL, meetingPolicy(m))
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "meet.token_failed")
@@ -91,7 +91,7 @@ func (s *Server) handlePublicMeetJoin(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, guestSession(s.meet.url, tok, room, identity, name))
 }
 
-// handlePublicLobbyPoll: o convidado consulta se já foi admitido. Se sim, devolve o token.
+// handlePublicLobbyPoll: the guest checks whether they've been admitted yet. If so, returns the token.
 func (s *Server) handlePublicLobbyPoll(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -111,7 +111,7 @@ func (s *Server) handlePublicLobbyPoll(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": k.Status})
 		return
 	}
-	// Admitido pelo host: também entra com a política da sala (nunca grants de organizador).
+	// Admitted by the host: also joins with the room's policy (never organizer grants).
 	policy := fullPolicy()
 	if mm, merr := s.q.GetMeetingByRoom(r.Context(), k.RoomName); merr == nil {
 		policy = meetingPolicy(mm)
@@ -130,7 +130,7 @@ func guestSession(url, tok, room, identity, name string) map[string]any {
 	return map[string]any{"mode": "joined", "url": url, "token": tok, "room": room, "identity": identity, "name": name}
 }
 
-// --- host: gerencia o lobby (só o dono da reunião) ---
+// --- host: manages the lobby (meeting owner only) ---
 
 func (s *Server) ownedMeeting(w http.ResponseWriter, r *http.Request, meetingID uuid.UUID) (db.Meeting, bool) {
 	mu := mailUserFrom(r.Context())
@@ -146,7 +146,7 @@ func (s *Server) ownedMeeting(w http.ResponseWriter, r *http.Request, meetingID 
 	return m, true
 }
 
-// handleListLobby: pedidos pendentes de convidados (o host aprova).
+// handleListLobby: pending guest requests (the host approves).
 func (s *Server) handleListLobby(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -168,7 +168,7 @@ func (s *Server) handleListLobby(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"pending": out})
 }
 
-// handleLobbyDecision: host admite ou nega um convidado.
+// handleLobbyDecision: the host admits or denies a guest.
 func (s *Server) handleLobbyDecision(w http.ResponseWriter, r *http.Request, status string) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

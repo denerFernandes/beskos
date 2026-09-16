@@ -18,9 +18,9 @@ import (
 // bills). Three send paths go through here: outbox (creation + worker), the assistant
 // (SendEmail), and direct JMAP EmailSubmission/set (intercepted in the proxy).
 
-// mailSendAllowed diz se o tenant ainda pode enviar para n destinatários hoje. Limite 0 = sem
-// teto. Erro de leitura NÃO bloqueia (fail-open: quota comercial, não barreira de segurança —
-// mesmo racional da quota de IA).
+// mailSendAllowed reports whether the tenant can still send to n recipients today. Limit 0 = no
+// cap. A read error does NOT block (fail-open: a commercial quota, not a security barrier — the
+// same rationale as the AI quota).
 func (s *Server) mailSendAllowed(ctx context.Context, tenantID uuid.UUID, n int) bool {
 	limit := s.tenantPlanByID(ctx, tenantID).MaxDailySend
 	if limit <= 0 {
@@ -34,7 +34,7 @@ func (s *Server) mailSendAllowed(ctx context.Context, tenantID uuid.UUID, n int)
 	return int(sent)+n <= limit
 }
 
-// recordMailSent soma n destinatários ao contador de hoje (best-effort).
+// recordMailSent adds n recipients to today's counter (best-effort).
 func (s *Server) recordMailSent(ctx context.Context, tenantID uuid.UUID, n int) {
 	if n <= 0 {
 		return
@@ -44,8 +44,9 @@ func (s *Server) recordMailSent(ctx context.Context, tenantID uuid.UUID, n int) 
 	}
 }
 
-// jmapSubmissionRcpts conta os destinatários dos EmailSubmission/set de um corpo JMAP. 0 = o
-// pedido não submete e-mail. Submissão sem envelope explícito conta 1 (o Stalwart deriva do Email).
+// jmapSubmissionRcpts counts the recipients of the EmailSubmission/set calls in a JMAP body. 0 =
+// the request doesn't submit any e-mail. A submission with no explicit envelope counts as 1 (Stalwart
+// derives it from the Email).
 func jmapSubmissionRcpts(body []byte) int {
 	var req struct {
 		MethodCalls []json.RawMessage `json:"methodCalls"`
@@ -84,9 +85,10 @@ func jmapSubmissionRcpts(body []byte) int {
 	return total
 }
 
-// jmapMailQuota intercepta POSTs JMAP: um pedido com EmailSubmission/set acima do limite diário
-// leva 429 antes de chegar ao Stalwart; abaixo, conta e segue. A contagem é otimista (regista na
-// entrada; uma submissão recusada pelo Stalwart fica contada) — aproximação aceite e registada.
+// jmapMailQuota intercepts JMAP POSTs: a request with EmailSubmission/set above the daily limit
+// gets a 429 before reaching Stalwart; below it, it counts and proceeds. The count is optimistic
+// (recorded on entry; a submission rejected by Stalwart still counts) — an accepted and documented
+// approximation.
 func (s *Server) jmapMailQuota(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || !strings.Contains(r.Header.Get("Content-Type"), "json") {

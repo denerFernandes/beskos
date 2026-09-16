@@ -3,21 +3,21 @@ package httpapi
 import (
 	"image"
 	"image/color"
-	_ "image/gif" // registra o decoder GIF
+	_ "image/gif" // registers the GIF decoder
 	"image/jpeg"
-	_ "image/png" // registra o decoder PNG
+	_ "image/png" // registers the PNG decoder
 	"net/http"
 	"strings"
 
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Favoritos e miniaturas (thumbnails) de imagens. As miniaturas usam só a stdlib (image/*) — sem
-// dependência nova (CLAUDE.md §2.5): decodifica, reduz por média de caixa e reencoda em JPEG.
+// Favorites and image thumbnails. Thumbnails use only the stdlib (image/*) — no new
+// dependency (CLAUDE.md §2.5): decode, downscale by box average, and re-encode as JPEG.
 
-const thumbMax = 256 // maior lado da miniatura, em pixels
+const thumbMax = 256 // longest thumbnail side, in pixels
 
-// handleStarFile marca/desmarca um ficheiro como favorito do dono.
+// handleStarFile marks/unmarks a file as a favorite of its owner.
 func (s *Server) handleStarFile(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
@@ -38,7 +38,7 @@ func (s *Server) handleStarFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, rec)
 }
 
-// isThumbable diz se o nome tem extensão de imagem que a stdlib decodifica (jpeg/png/gif).
+// isThumbable reports whether the name has an image extension the stdlib can decode (jpeg/png/gif).
 func isThumbable(name string) bool {
 	switch {
 	case strings.HasSuffix(strings.ToLower(name), ".jpg"),
@@ -50,8 +50,9 @@ func isThumbable(name string) bool {
 	return false
 }
 
-// handleThumbnail serve uma miniatura JPEG de um ficheiro de imagem. Não-imagens → 415 (o frontend
-// cai no ícone por tipo). A miniatura é imutável por blob, então marca Cache-Control longo.
+// handleThumbnail serves a JPEG thumbnail of an image file. Non-images → 415 (the frontend
+// falls back to the icon by type). The thumbnail is immutable per blob, so it sets a long
+// Cache-Control.
 func (s *Server) handleThumbnail(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -81,8 +82,9 @@ func (s *Server) handleThumbnail(w http.ResponseWriter, r *http.Request) {
 	_ = jpeg.Encode(w, thumb, &jpeg.Options{Quality: 80})
 }
 
-// downscale reduz a imagem para caber em `max` no maior lado, por média de caixa (cada pixel de
-// destino é a média da região correspondente na origem). Cada pixel de origem é visitado uma vez.
+// downscale shrinks the image to fit within `max` on its longest side, by box averaging (each
+// destination pixel is the average of the corresponding region in the source). Each source pixel
+// is visited once.
 func downscale(src image.Image, max int) image.Image {
 	b := src.Bounds()
 	w, h := b.Dx(), b.Dy()

@@ -9,12 +9,13 @@ import (
 	"time"
 )
 
-// convertToPDF pede ao Document Server (OnlyOffice) que converta um ficheiro de office (pptx/ppt/odp/
-// …) para PDF. sourceURL tem de ser alcançável PELO DS (filesHostURL + rota assinada). Devolve a URL
-// do PDF gerado (no próprio DS, temporária) — o chamador baixa-a via reachable() e guarda no MinIO.
+// convertToPDF asks the Document Server (OnlyOffice) to convert an office file (pptx/ppt/odp/…)
+// to PDF. sourceURL must be reachable BY THE DS (filesHostURL + signed route). Returns the URL of
+// the generated PDF (on the DS itself, temporary) — the caller downloads it via reachable() and
+// stores it in MinIO.
 //
-// O ConvertService pode ser assíncrono; com async:false o DS ainda pode responder "a converter"
-// (percent<100) para ficheiros grandes, então fazemos um curto polling com a MESMA key.
+// ConvertService can be asynchronous; with async:false the DS can still respond "converting"
+// (percent<100) for large files, so we do a short poll with the SAME key.
 func (o *onlyoffice) convertToPDF(ctx context.Context, sourceURL, filetype, key, title string) (string, error) {
 	deadline := time.Now().Add(45 * time.Second)
 	for {

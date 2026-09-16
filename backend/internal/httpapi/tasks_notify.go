@@ -13,18 +13,19 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Notificação de tarefas: quem recebe o quê, e por que motivo.
+// Task notifications: who gets notified of what, and why.
 //
-// Regras (decididas com o cliente, 2026-07-15):
-//   - quem @menciona alguém → o mencionado é avisado;
-//   - quem responde a um comentário → o autor do comentário respondido é avisado;
-//   - quem comentou antes na tarefa → é avisado dos comentários seguintes (é a conversa dele);
-//   - quem CRIOU a tarefa → avisado quando ela muda ou recebe comentário;
-//   - quem VAI FAZER a tarefa (responsável) → avisado das mudanças e dos comentários.
+// Rules (decided with the customer, 2026-07-15):
+//   - whoever @mentions someone → the mentioned person is notified;
+//   - whoever replies to a comment → the author of the replied-to comment is notified;
+//   - whoever commented before on the task → is notified of the following comments (it's their
+//     conversation);
+//   - whoever CREATED the task → notified when it changes or gets a comment;
+//   - whoever IS GOING TO DO the task (assignee) → notified of changes and comments.
 //
-// Duas regras que valem mais que a lista: (1) NUNCA avisar quem fez a ação — receber e-mail do
-// que você mesmo acabou de escrever é ruído que ensina a ignorar o resto; (2) uma pessoa recebe
-// UM aviso por evento, mesmo que se encaixe em cinco motivos acima.
+// Two rules that outrank the list: (1) NEVER notify whoever performed the action — getting an
+// e-mail about what you just wrote yourself is noise that teaches people to ignore the rest;
+// (2) a person gets ONE notification per event, even if it matches five of the reasons above.
 
 type notifyKind string
 
@@ -36,14 +37,14 @@ const (
 	kindTaskChanged  notifyKind = "task_changed"
 )
 
-// notifyTarget é uma pessoa + o motivo pelo qual ela está a ser avisada. O motivo mais forte
-// ganha: ser mencionado é mais relevante que "eu também comentei aqui".
+// notifyTarget is a person + the reason they're being notified. The strongest reason wins: being
+// mentioned is more relevant than "I also commented here".
 type notifyTarget struct {
 	userID uuid.UUID
 	kind   notifyKind
 }
 
-// rank ordena os motivos: quanto maior, mais específico.
+// rank orders the reasons: the higher, the more specific.
 func (k notifyKind) rank() int {
 	switch k {
 	case kindTaskMention:
@@ -57,13 +58,13 @@ func (k notifyKind) rank() int {
 	}
 }
 
-// audience junta os motivos e devolve um aviso por pessoa, com o motivo mais forte, já sem o autor
-// da ação.
+// audience merges the reasons and returns one notification per person, with the strongest
+// reason, already excluding the actor.
 func audience(actor uuid.UUID, targets []notifyTarget) []notifyTarget {
 	best := map[uuid.UUID]notifyKind{}
 	for _, t := range targets {
 		if t.userID == uuid.Nil || t.userID == actor {
-			continue // nunca avisar quem fez a ação
+			continue // never notify whoever performed the action
 		}
 		if cur, ok := best[t.userID]; !ok || t.kind.rank() > cur.rank() {
 			best[t.userID] = t.kind
@@ -76,8 +77,8 @@ func audience(actor uuid.UUID, targets []notifyTarget) []notifyTarget {
 	return out
 }
 
-// resolveUser só aceita um responsável do MESMO tenant. Id inválido ou de fora → sem responsável,
-// nunca um e-mail para o utilizador errado.
+// resolveUser only accepts an assignee from the SAME tenant. An invalid or foreign id → no
+// assignee, never an e-mail to the wrong user.
 func (s *Server) resolveUser(ctx context.Context, mu db.MailUser, raw string) pgtype.UUID {
 	if raw == "" {
 		return pgtype.UUID{}
@@ -92,7 +93,7 @@ func (s *Server) resolveUser(ctx context.Context, mu db.MailUser, raw string) pg
 	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
-// taskWatchers são os interessados fixos de uma tarefa: quem a criou e quem vai fazê-la.
+// taskWatchers are a task's fixed stakeholders: whoever created it and whoever is going to do it.
 func taskWatchers(card db.Card) []notifyTarget {
 	var out []notifyTarget
 	if card.CreatedBy.Valid {
@@ -104,23 +105,23 @@ func taskWatchers(card db.Card) []notifyTarget {
 	return out
 }
 
-// notifyTask grava o aviso no sino e manda e-mail a quem não desligou. Best-effort de propósito:
-// falhar um e-mail não pode derrubar o comentário que a pessoa acabou de escrever.
+// notifyTask records the bell notification and sends e-mail to whoever hasn't turned it off.
+// Best-effort on purpose: an e-mail failing can't take down the comment the person just wrote.
 func (s *Server) notifyTask(ctx context.Context, actor db.MailUser, card db.Card, targets []notifyTarget, title, body string) {
-	// Mesmo endereço que a UI usa e que o botão "copiar link" produz. Com ?card= o quadro abria
-	// mas a tarefa não — o link do e-mail tem de cair na tarefa.
+	// Same address the UI uses and that the "copy link" button produces. With ?card= the board
+	// would open but not the task — the e-mail link has to land on the task.
 	link := fmt.Sprintf("/mail/kanban/%s/%s", card.BoardID, card.ID)
 	who := actor.Name
 	if who == "" {
 		who = actor.Email
 	}
-	// Dados estruturados p/ o frontend traduzir por server.notif.<kind> (CLAUDE.md §4.6). O `body`
-	// (comentário/nome da tarefa) é conteúdo do usuário e segue exibido cru como fallback.
+	// Structured data for the frontend to translate via server.notif.<kind> (CLAUDE.md §4.6). The
+	// `body` (comment/task name) is user content and stays shown raw as a fallback.
 	args := notifArgs(map[string]string{"actor": who, "card": card.Title})
 	for _, t := range audience(actor.ID, targets) {
 		u, err := s.q.GetMailUserInTenant(ctx, db.GetMailUserInTenantParams{ID: t.userID, TenantID: actor.TenantID})
 		if err != nil {
-			continue // de outro tenant ou apagado: não existe para nós
+			continue // from another tenant or deleted: doesn't exist for us
 		}
 		if _, err := s.q.CreateNotification(ctx, db.CreateNotificationParams{
 			TenantID: actor.TenantID, UserID: u.ID, Kind: string(t.kind),
@@ -133,14 +134,14 @@ func (s *Server) notifyTask(ctx context.Context, actor db.MailUser, card db.Card
 		}
 		subject, text := emailFor(t.kind, actor, card, title, body)
 		if err := s.email.Send(u.Email, subject, text); err != nil {
-			// Não falha o pedido: o aviso no sino já está lá, e o e-mail é o extra.
+			// Doesn't fail the request: the bell notification is already there, and the e-mail is extra.
 			slog.Error("notification email failed", "to", u.Email, "kind", t.kind, "err", err)
 		}
 	}
 }
 
-// emailFor monta o texto. O assunto diz o MOTIVO — "mencionou você" e "comentou" pedem atenções
-// diferentes, e quem lê a caixa decide pelo assunto.
+// emailFor builds the text. The subject states the REASON — "mentioned you" and "commented" call
+// for different attention, and whoever reads the inbox decides from the subject.
 func emailFor(k notifyKind, actor db.MailUser, card db.Card, title, body string) (string, string) {
 	who := actor.Name
 	if who == "" {
@@ -164,8 +165,9 @@ func emailFor(k notifyKind, actor db.MailUser, card db.Card, title, body string)
 	return fmt.Sprintf("[%s] %s", card.Title, title), text
 }
 
-// parseMentions extrai @mencionados do texto e devolve os ids dos COLEGAS que casarem. Casa por
-// e-mail (@ana@acme.com) ou pelo local-part (@ana) — nunca por nome, que se repete e muda.
+// parseMentions extracts @mentions from the text and returns the ids of the COLLEAGUES that
+// match. It matches by e-mail (@ana@acme.com) or by local-part (@ana) — never by name, which
+// repeats and changes.
 func (s *Server) parseMentions(ctx context.Context, tenantID uuid.UUID, body string) []uuid.UUID {
 	raw := mentionRe.FindAllStringSubmatch(body, -1)
 	if len(raw) == 0 {
@@ -192,5 +194,5 @@ func (s *Server) parseMentions(ctx context.Context, tenantID uuid.UUID, body str
 	return out
 }
 
-// @ana ou @ana@acme.com — o local-part pode ter ponto, hífen e underscore.
+// @ana or @ana@acme.com — the local-part can have a dot, hyphen, and underscore.
 var mentionRe = regexp.MustCompile(`@([A-Za-z0-9._%+-]+(?:@[A-Za-z0-9.-]+\.[A-Za-z]{2,})?)`)

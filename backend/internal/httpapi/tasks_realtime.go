@@ -14,12 +14,12 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Tempo real do quadro + arquivar card/quadro + editar comentário.
+// Board real-time + archive card/board + edit comment.
 //
-// O tempo real reusa o mesmo hub (Redis pub/sub) e WebSocket do chat — o mesmo caminho que as notas
-// da reunião já usam. Um evento "board" é publicado a todos os utilizadores do tenant após cada
-// mutação; o frontend, ao recebê-lo, revalida o quadro. É invalidação grossa (não incremental): o
-// quadro muda com muito menos frequência que um canal movimentado, então basta.
+// Real-time reuses the same hub (Redis pub/sub) and WebSocket as chat — the same path meeting
+// notes already use. A "board" event is published to every user in the tenant after each
+// mutation; the frontend, on receiving it, revalidates the board. It's coarse invalidation (not
+// incremental): a board changes far less often than a busy channel, so this is enough.
 
 func (s *Server) publishBoard(ctx context.Context, tenantID, boardID uuid.UUID) {
 	if s.hub == nil {
@@ -40,7 +40,7 @@ func (s *Server) publishBoard(ctx context.Context, tenantID, boardID uuid.UUID) 
 	s.hub.Publish(ctx, chat.Event{Type: "board", ChannelID: boardID.String(), Recipients: rcpt, Payload: payload})
 }
 
-// handleArchiveCard arquiva/restaura um card. Arquivado sai do quadro (mas é recuperável).
+// handleArchiveCard archives/restores a card. Archived means off the board (but recoverable).
 func (s *Server) handleArchiveCard(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -71,7 +71,7 @@ func (s *Server) handleArchiveCard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, card)
 }
 
-// handleListArchivedCards lista os cards arquivados de um quadro (para restaurar).
+// handleListArchivedCards lists a board's archived cards (for restoring).
 func (s *Server) handleListArchivedCards(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	boardID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -90,8 +90,8 @@ func (s *Server) handleListArchivedCards(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, cards)
 }
 
-// handleSearchCards procura tarefas por chave (QUA-12), número ou título — só nas que a pessoa
-// pode ver. Serve o `/task` do chat: referenciar uma tarefa sem sair da conversa.
+// handleSearchCards searches tasks by key (QUA-12), number, or title — only among the ones the
+// person can see. Powers chat's `/task`: referencing a task without leaving the conversation.
 func (s *Server) handleSearchCards(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
@@ -112,7 +112,7 @@ func (s *Server) handleSearchCards(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"cards": cards})
 }
 
-// handleArchiveBoard arquiva/restaura um quadro inteiro.
+// handleArchiveBoard archives/restores an entire board.
 func (s *Server) handleArchiveBoard(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -137,7 +137,7 @@ func (s *Server) handleArchiveBoard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, board)
 }
 
-// handleListArchivedBoards lista os quadros arquivados do tenant.
+// handleListArchivedBoards lists the tenant's archived boards.
 func (s *Server) handleListArchivedBoards(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	boards, err := s.q.ListArchivedBoards(r.Context(), mu.TenantID)
@@ -151,7 +151,7 @@ func (s *Server) handleListArchivedBoards(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, boards)
 }
 
-// handlePatchCardComment edita o corpo de um comentário (só o autor).
+// handlePatchCardComment edits a comment's body (author only).
 func (s *Server) handlePatchCardComment(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	cid, err := uuid.Parse(chi.URLParam(r, "cid"))
@@ -171,7 +171,7 @@ func (s *Server) handlePatchCardComment(w http.ResponseWriter, r *http.Request) 
 	}
 	c, err := s.q.EditCardComment(r.Context(), db.EditCardCommentParams{ID: cid, AuthorID: mu.ID, Body: req.Body})
 	if err != nil {
-		writeErr(w, http.StatusNotFound, "comments.not_found") // não é o autor ou não existe
+		writeErr(w, http.StatusNotFound, "comments.not_found") // not the author or doesn't exist
 		return
 	}
 	writeJSON(w, http.StatusOK, c)
