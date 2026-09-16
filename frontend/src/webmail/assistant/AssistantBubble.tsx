@@ -4,21 +4,21 @@ import { AssistantPanel } from "./AssistantPanel";
 import { useAssistant } from "./useAssistant";
 import { useAssistantTasks } from "./TasksPanel";
 
-// Bolha do assistente: botão redondo fixo em baixo à direita, acima de tudo o resto (§3.1).
+// Assistant bubble: round button fixed to the bottom right, above everything else (§3.1).
 //
-// Montada UMA VEZ no App, fora do <main>: o estado sobrevive à navegação, portanto mudar de área a
-// meio de uma pergunta não perde a conversa. A regra de visibilidade é de quem a monta — este
-// componente não sabe em que página está, e não devia saber.
+// Mounted ONCE in App, outside <main>: state survives navigation, so switching pages mid-question
+// doesn't lose the conversation. The visibility rule belongs to whoever mounts it — this
+// component doesn't know what page it's on, and shouldn't.
 export function AssistantBubble({ hidden = false }: { hidden?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const chat = useAssistant();
-  // Trabalho em fundo conta como trabalho em curso: a bolha mostra-o em TODA a aplicação, mesmo
-  // fechada e mesmo depois de recarregar a página (§3.6).
+  // Background work counts as work in progress: the bubble shows it across the WHOLE application,
+  // even closed and even after reloading the page (§3.6).
   const { active } = useAssistantTasks();
 
-  // Escondida ≠ desmontada: quem monta decide onde não aparece, mas a conversa sobrevive à visita
-  // às Definições. Os hooks correm sempre — a saída antecipada vem depois deles, de propósito.
+  // Hidden ≠ unmounted: whoever mounts it decides where it doesn't appear, but the conversation
+  // survives a visit to Settings. The hooks always run — the early return comes after them, on purpose.
   if (hidden) return null;
 
   return (
@@ -31,11 +31,11 @@ export function AssistantBubble({ hidden = false }: { hidden?: boolean }) {
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
-        {/* Com trabalho em curso a bolha mostra-o mesmo fechada (§3.1). */}
+        {/* With work in progress the bubble shows it even closed (§3.1). */}
         {chat.busy || active > 0 ? <span className="as-bubble-work" /> : "✦"}
         {!open && active > 0 && <span className="as-bubble-count">{active}</span>}
-        {/* Sessão minimizada (há conversa a decorrer, sem tarefas em fundo): um ponto discreto a
-            dizer que há uma sessão ativa para retomar. */}
+        {/* Minimized session (a conversation in progress, no background tasks): a discreet dot
+            saying there's an active session to resume. */}
         {!open && active === 0 && chat.messages.length > 0 && <span className="as-bubble-session" />}
       </button>
     </>

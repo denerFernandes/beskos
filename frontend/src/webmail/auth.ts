@@ -21,7 +21,7 @@ function read(): Stored | null {
   return raw ? (JSON.parse(raw) as Stored) : null;
 }
 
-// Store mínimo para o useSyncExternalStore reagir a login/logout.
+// Minimal store so useSyncExternalStore reacts to login/logout.
 const listeners = new Set<() => void>();
 function emit() { listeners.forEach((l) => l()); }
 function subscribe(l: () => void) { listeners.add(l); return () => listeners.delete(l); }
@@ -29,7 +29,7 @@ function subscribe(l: () => void) { listeners.add(l); return () => listeners.del
 // An invalid session on ANY call clears local state; useSyncExternalStore then re-renders into
 // the login screen. (Registered at module scope: runs once, without depending on a mounted component.)
 setUnauthorizedHandler(() => {
-  if (!localStorage.getItem(KEY)) return; // já deslogado — evita loops
+  if (!localStorage.getItem(KEY)) return; // already logged out — avoids loops
   setSessionToken("");
   localStorage.removeItem(KEY);
   emit();
@@ -76,9 +76,9 @@ export interface MfaChallenge { challenge: string; methods: string[] }
 // validates the JMAP session through our proxy, and persists the account. Shared by both the
 // no-MFA and post-MFA paths.
 async function establishSession(email: string, token: string): Promise<void> {
-  setSessionToken(token); // memória (web) / localStorage (app nativo) — token opaco, não a senha
+  setSessionToken(token); // memory (web) / localStorage (native app) — opaque token, not the password
   const client = new JmapClient(API_BASE, { bearer: getSessionToken() });
-  const session = await client.session(); // autenticado pela sessão; o proxy injeta a Basic da caixa
+  const session = await client.session(); // authenticated via the session; the proxy injects the mailbox's Basic auth
   const stored: Stored = { email, accountId: session.accountId };
   localStorage.setItem(KEY, JSON.stringify(stored));
   emit();
@@ -90,13 +90,13 @@ async function establishSession(email: string, token: string): Promise<void> {
 // matters, since an empty token would otherwise make the JMAP session fail with a 401. Without
 // MFA, it signs in right away.
 export async function login(email: string, password: string): Promise<MfaChallenge | null> {
-  const resp = await backend.login(email, password); // 401 → lança e não persiste
+  const resp = await backend.login(email, password); // 401 → throws and doesn't persist
   if (resp.mfa_required) return { challenge: resp.challenge ?? "", methods: resp.methods ?? [] };
   await establishSession(email, resp.token ?? "");
   return null;
 }
 
-// verifyMfa troca o desafio + código pelo token e completa o login.
+// verifyMfa exchanges the challenge + code for the token and completes login.
 export async function verifyMfa(email: string, challenge: string, code: string): Promise<void> {
   const resp = await backend.mfaVerify(challenge, code);
   await establishSession(email, resp.token);

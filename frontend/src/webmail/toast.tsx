@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 
-// Toast global simples (feedback de ações). Sem dependências.
-// Suporta uma ação opcional (ex.: "Desfazer") com o seu próprio tempo de vida — usada pelo
-// "desfazer envio", em que a janela para cancelar é maior que a de um aviso normal.
+// Simple global toast (action feedback). No dependencies.
+// Supports an optional action (e.g. "Undo") with its own lifetime — used by
+// "undo send", where the cancellation window is longer than a regular alert's.
 interface ToastState {
   message: string;
   action?: { label: string; onClick: () => void };
@@ -23,12 +23,12 @@ export function toast(message: string) {
   show({ message }, 2600);
 }
 
-// Toast com botão de ação. Fica visível `ms` (default 5s) para dar tempo de reagir.
+// Toast with an action button. Stays visible for `ms` (default 5s) to give time to react.
 export function toastAction(message: string, label: string, onClick: () => void, ms = 5000) {
   show({ message, action: { label, onClick } }, ms);
 }
 
-// Fecha o toast já (ex.: depois de a ação ser usada).
+// Closes the toast immediately (e.g. after the action is used).
 export function dismissToast() {
   if (timer) clearTimeout(timer);
   state = { message: "" };

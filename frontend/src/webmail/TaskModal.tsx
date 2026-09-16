@@ -18,15 +18,15 @@ import { ShareCardChatDrawer } from "./ShareCardChatDrawer";
 const COLORS = ["#B4785F", "#3B6FB0", "#8257C7", "#B44D3A", "#2E7D5B", "#C0692F", "#C9871F"];
 const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 
-// Modal de criar/editar tarefa (card). Responsável via autocomplete de contatos; label com cor;
-// prazo por data; escolha da coluna. Botão excluir no modo edição. Sem prompt/alert.
-// Modal da tarefa em duas colunas: à esquerda a tarefa, à direita os comentários (com scroll
-// próprio). Abre em LEITURA — editar é um clique no lápis. Antes era um formulário gigante, e a
-// conversa ficava empurrada para baixo do fim do mundo.
+// Create/edit task (card) modal. Assignee via contact autocomplete; label with color;
+// due date; column choice. Delete button in edit mode. No prompt/alert.
+// Task modal in two columns: the task on the left, the comments on the right (with their own
+// scroll). Opens in READ mode — editing is one click on the pencil. It used to be a giant form,
+// and the conversation ended up pushed way below the fold.
 //
-// `card == null` (tarefa nova) → abre já em edição e sem coluna de comentários: não há o que
-// comentar numa tarefa que ainda não existe.
-// Tintas suaves (contraste garantido: texto escuro fixo sobre qualquer uma delas).
+// `card == null` (new task) → opens already in edit mode and with no comments column: there is
+// nothing to comment on in a task that does not exist yet.
+// Soft tints (guaranteed contrast: fixed dark text over any of them).
 const CARD_COLORS = ["#fde2dd", "#fcecc5", "#d8f0d3", "#d7e9f7", "#e6def3", "#fbdaeb", "#e0f0ee", "#efe9df"];
 
 export function TaskModal({ boardId, columns, card, columnId, initialTitle, boardCards = [], assignees = [], deps = [], onChanged, onClose, onSaved }: {
@@ -34,19 +34,19 @@ export function TaskModal({ boardId, columns, card, columnId, initialTitle, boar
   columns: Column[];
   card?: Card | null;
   columnId?: string;
-  initialTitle?: string; // ex.: trecho selecionado nas notas da reunião
-  boardCards?: Card[]; // p/ o seletor de dependências
-  assignees?: { card_id: string; user_id: string; name: string }[]; // responsáveis adicionais (todos os cards)
+  initialTitle?: string; // e.g. a selected snippet from the meeting notes
+  boardCards?: Card[]; // for the dependency picker
+  assignees?: { card_id: string; user_id: string; name: string }[]; // additional assignees (all cards)
   deps?: { card_id: string; depends_on_id: string; dep_title: string; dep_column: string }[];
-  onChanged?: () => void; // recarrega o quadro após mexer em responsáveis/dependências
+  onChanged?: () => void; // reloads the board after touching assignees/dependencies
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false }).data;
   const [editing, setEditing] = useState(!card);
-  // ESC fecha — o mesmo gesto do container-gaveta padrão (Drawer). A tarefa mantém o seu layout de
-  // duas colunas, por isso reusa as classes .drawer em vez do componente, mas o comportamento é igual.
+  // ESC closes — the same gesture as the standard drawer container (Drawer). The task keeps its
+  // two-column layout, so it reuses the .drawer classes instead of the component, but the behavior is the same.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
@@ -67,12 +67,12 @@ export function TaskModal({ boardId, columns, card, columnId, initialTitle, boar
 
   const people = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false });
   const contacts = useQuery({ queryKey: ["contacts"], queryFn: () => contactsApi.list(), retry: false });
-  // Catálogo de etiquetas do tenant (nome + cor): as etiquetas do card ligam-se a ele.
+  // Tenant's label catalog (name + color): the card's labels link to it.
   const labelsCat = useQuery({ queryKey: ["labels"], queryFn: () => backend.labels(), retry: false });
   const labelColor = (name: string) => labelsCat.data?.find((l) => l.name === name)?.color;
 
-  // IA: expande uma ideia curta em título + descrição objetivos. Se o campo de ideia estiver
-  // vazio, usa o próprio Título como base (evita "botão não faz nada" quando só há título).
+  // AI: expands a short idea into a title + objective description. If the idea field is
+  // empty, uses the Title itself as the seed (avoids a "button does nothing" feel when there's only a title).
   const aiSeed = idea.trim() || title.trim();
   const plan = useMutation({
     mutationFn: () => backend.planTask(aiSeed),
@@ -90,7 +90,7 @@ export function TaskModal({ boardId, columns, card, columnId, initialTitle, boar
         await backend.createCard(boardId, { column_id: col, ...fields });
       }
     },
-    // Guardar numa tarefa que já existe volta à leitura; numa nova, fecha (o card já está no quadro).
+    // Saving an existing task goes back to read mode; for a new one, it closes (the card is already on the board).
     onSuccess: () => { toast(t(card ? "webmail.kanban.saved" : "webmail.kanban.created")); if (card) { setEditing(false); onSaved(); } else onSaved(); },
     onError: (e) => toast((e as Error).message),
   });
@@ -99,21 +99,21 @@ export function TaskModal({ boardId, columns, card, columnId, initialTitle, boar
     onSuccess: () => { toast(t("webmail.kanban.deleted")); onSaved(); },
     onError: (e) => toast((e as Error).message),
   });
-  // Arquivar tira do quadro sem apagar; toast com "desfazer" restaura pelo id.
+  // Archiving removes it from the board without deleting; the "undo" toast restores it by id.
   const archive = useMutation({
     mutationFn: () => backend.archiveCard(card!.id, true),
     onSuccess: () => { const id = card!.id; toastAction(t("webmail.kanban.cardArchived"), t("common.undo"), () => backend.archiveCard(id, false).then(() => onSaved())); onSaved(); },
     onError: (e) => toast((e as Error).message),
   });
 
-  // O link da tarefa é o próprio endereço dela — o mesmo que o e-mail de notificação usa.
+  // The task's link is its own address — the same one the notification email uses.
   const copyLink = async () => {
     const url = publicUrl(`/mail/kanban/${boardId}/${card!.id}`);
     try {
       await navigator.clipboard.writeText(url);
       toast(t("webmail.kanban.linkCopied"));
     } catch {
-      // clipboard exige contexto seguro (https/localhost); sem ele, mostra o link para copiar à mão.
+      // clipboard requires a secure context (https/localhost); without it, show the link to copy by hand.
       toast(url);
     }
   };
@@ -184,7 +184,7 @@ export function TaskModal({ boardId, columns, card, columnId, initialTitle, boar
                     {assigneeName
                       ? <span className="tk-who"><span className="av" style={{ background: hueFor(assigneeName.email) }}>{initials(assigneeName.name || assigneeName.email)}</span>{assigneeName.name || assigneeName.email}</span>
                       : card?.assignee
-                        // Texto legado: quem nunca foi utilizador (migração 00026). Não é notificável.
+                        // Legacy text: someone who was never a user (migration 00026). Cannot be notified.
                         ? <span className="tk-who muted" title={t("webmail.kanban.legacyAssignee")}>{card.assignee}</span>
                         : <span className="muted">{t("webmail.kanban.noAssignee")}</span>}
                   </Row>
@@ -267,7 +267,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (<><dt>{label}</dt><dd>{children}</dd></>);
 }
 
-// Anexos do card: liga ficheiros do Files (busca por nome) e baixa/remove. Download é tenant-scoped.
+// Card attachments: links files from Files (search by name) and downloads/removes. Download is tenant-scoped.
 function Attachments({ cardId }: { cardId: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -308,7 +308,7 @@ function Attachments({ cardId }: { cardId: string }) {
   );
 }
 
-// Histórico/atividade do card: quem criou/moveu/editou e quando. Read-only, mais recente primeiro.
+// Card history/activity: who created/moved/edited it and when. Read-only, most recent first.
 function CardActivityLog({ cardId, columns, locale }: { cardId: string; columns: Column[]; locale: string }) {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["card-activity", cardId], queryFn: () => cardActivityApi.list(cardId), retry: false });
@@ -335,7 +335,7 @@ function CardActivityLog({ cardId, columns, locale }: { cardId: string; columns:
   );
 }
 
-// Checklist/subtarefas do card: itens marcáveis com uma barra de progresso "2/5".
+// Card checklist/subtasks: checkable items with a "2/5" progress bar.
 function Checklist({ cardId }: { cardId: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -374,8 +374,8 @@ function Checklist({ cardId }: { cardId: string }) {
   );
 }
 
-// Seletor de responsável: picker com busca + avatar (iniciais) + nome/e-mail, como o de adicionar
-// membros no chat. Inclui "Atribuir a mim". Escolhe uma PESSOA (colega) para poder notificá-la.
+// Assignee picker: search + avatar (initials) + name/email, like the one used to add
+// chat members. Includes "Assign to me". Picks a PERSON (colleague) so they can be notified.
 function AssigneePicker({ value, onChange, meId }: { value: string; onChange: (v: string) => void; meId?: string }) {
   const { t } = useTranslation();
   const people = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false });
@@ -418,9 +418,9 @@ function AssigneePicker({ value, onChange, meId }: { value: string; onChange: (v
   );
 }
 
-// Picker "+ Adicionar" com BUSCA — reutiliza o visual do AssigneePicker (input + lista com avatar/
-// subtítulo). Serve para adicionar responsáveis (colegas) e dependências (issues), onde pode haver
-// muitos e o <select> nativo não escala. Fecha ao escolher.
+// "+ Add" picker with SEARCH — reuses the AssigneePicker look (input + list with avatar/
+// subtitle). Used to add assignees (colleagues) and dependencies (issues), where there can be
+// many and the native <select> doesn't scale. Closes on pick.
 type AddOption = { id: string; title: string; subtitle?: string; hueKey?: string; avatar?: boolean };
 function SearchAddPicker({ triggerLabel, searchPlaceholder, emptyLabel, options, onPick }: {
   triggerLabel: string; searchPlaceholder: string; emptyLabel: string; options: AddOption[]; onPick: (id: string) => void;
@@ -456,7 +456,7 @@ function SearchAddPicker({ triggerLabel, searchPlaceholder, emptyLabel, options,
 
 export { COLORS as TASK_COLORS };
 
-// Etiqueta do card ligada ao catálogo do tenant: escolhe uma existente (com cor) ou cria uma nova.
+// Card label linked to the tenant's catalog: pick an existing one (with color) or create a new one.
 function LabelPicker({ value, onChange, labels }: { value: string; onChange: (v: string) => void; labels: LabelType[] }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -485,7 +485,7 @@ function LabelPicker({ value, onChange, labels }: { value: string; onChange: (v:
         <SearchSelect value={value} onChange={onChange}
           placeholder={t("webmail.kanban.noLabel")} searchPlaceholder={t("webmail.kanban.searchLabel")} emptyLabel={t("webmail.kanban.noLabel")}
           options={[
-            // etiqueta atual fora do catálogo (texto legado): mantém-se selecionável
+            // current label outside the catalog (legacy text): stays selectable
             ...(value && !cur ? [{ id: value, label: value }] : []),
             ...labels.map((l) => ({ id: l.name, label: l.name, dot: l.color })),
           ]}
@@ -495,9 +495,9 @@ function LabelPicker({ value, onChange, labels }: { value: string; onChange: (v:
   );
 }
 
-// Seletor de valor único com BUSCA (reutiliza o visual do AssigneePicker). Para campos que podem ter
-// muitas opções (contactos, etiquetas), onde o <select> nativo não escala. `footer` permite ações
-// extra na lista (ex.: "+ nova etiqueta").
+// Single-value picker with SEARCH (reuses the AssigneePicker look). For fields that can have
+// many options (contacts, labels), where the native <select> doesn't scale. `footer` allows extra
+// actions in the list (e.g. "+ new label").
 type SelOption = { id: string; label: string; sub?: string; dot?: string };
 function SearchSelect({ value, options, onChange, placeholder, searchPlaceholder, emptyLabel, footer }: {
   value: string; options: SelOption[]; onChange: (id: string) => void;
@@ -535,7 +535,7 @@ function SearchSelect({ value, options, onChange, placeholder, searchPlaceholder
   );
 }
 
-// Liga a tarefa a um contato — BUSCA (pode haver milhares). O backend revalida (só contato visível).
+// Links the task to a contact — SEARCH (there can be thousands). The backend revalidates (only visible contacts).
 function ContactPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["contacts"], queryFn: () => contactsApi.list(), retry: false });

@@ -9,9 +9,9 @@ import { AgentPicker, AgentBadge } from "./AgentPicker";
 import { TasksPanel, useAssistantTasks } from "./TasksPanel";
 import type { useAssistant } from "./useAssistant";
 
-// Painel lateral do assistente: conversa, cartões de ação e caixa de escrita.
+// Assistant side panel: conversation, action cards, and composer.
 //
-// Três vistas: a conversa, o histórico e as Tarefas em fundo (§3.6).
+// Three views: the conversation, the history, and background Tasks (§3.6).
 export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useAssistant>; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -20,7 +20,7 @@ export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useA
   const { active } = useAssistantTasks();
   const endRef = useRef<HTMLDivElement>(null);
 
-  // Segue a conversa enquanto o texto chega — sem isto, a resposta cresce fora do ecrã.
+  // Follows the conversation as text arrives — without this, the response grows off-screen.
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [chat.messages]);
 
   const history = useQuery({
@@ -36,14 +36,14 @@ export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useA
     void chat.send(text).then(() => qc.invalidateQueries({ queryKey: ["assistant-conversations"] }));
   };
 
-  // choose envia uma resposta rápida (clique num botão de escolha) como se fosse a mensagem escrita.
+  // choose sends a quick reply (clicking a choice button) as if it were the typed message.
   const choose = (value: string) => {
     if (chat.busy) return;
     void chat.send(value).then(() => qc.invalidateQueries({ queryKey: ["assistant-conversations"] }));
   };
 
-  // Correr em fundo é escolha EXPLÍCITA de quem pede. Adivinhar o que é "longo" seria adivinhar, e
-  // mandar para fundo o que a pessoa esperava ver de imediato muda o que ela vê a seguir.
+  // Running in the background is an EXPLICIT choice by whoever asks. Guessing what counts as
+  // "long" would just be guessing, and backgrounding what the person expected to see right away changes what they see next.
   const submitBackground = () => {
     const text = draft.trim();
     if (!text) return;
@@ -67,9 +67,9 @@ export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useA
         </button>
         <button className={"ib" + (tab === "history" ? " on" : "")} title={t("assistant.history")}
           onClick={() => setTab((v) => (v === "history" ? "chat" : "history"))}>☰</button>
-        {/* Minimizar: esconde o painel (a conversa fica; a bolha mostra que há sessão ativa). */}
+        {/* Minimize: hides the panel (the conversation stays; the bubble shows an active session). */}
         <button className="ib" title={t("assistant.minimize")} onClick={onClose}>—</button>
-        {/* Fechar: esconde E limpa a conversa (recomeça na próxima). */}
+        {/* Close: hides AND clears the conversation (starts fresh next time). */}
         <button className="ib" title={t("assistant.close")} onClick={() => { chat.reset(); onClose(); }}>✕</button>
       </header>
 
@@ -95,8 +95,8 @@ export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useA
               {m.role === "assistant" && <AgentBadge agent={m.agent} />}
               {m.steps.map((s, j) => <ToolCard key={j} step={s} />)}
               {m.content && <div className="as-bubble">{m.content}</div>}
-              {/* Respostas rápidas: se a última mensagem ofereceu escolhas (ex.: qual "Bob"), mostra
-                  BOTÕES em vez de obrigar a escrever. Só na última, para não deixar botões velhos. */}
+              {/* Quick replies: if the last message offered choices (e.g. which "Bob"), show
+                  BUTTONS instead of forcing typing. Only on the last message, so old buttons don't linger. */}
               {i === chat.messages.length - 1 && !chat.busy && (() => {
                 const cs = m.steps.flatMap((s) => s.choices ?? []);
                 return cs.length > 0 ? (
@@ -105,7 +105,7 @@ export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useA
                   </div>
                 ) : null;
               })()}
-              {/* Um turno que parou no teto de passos não é uma resposta — dizê-lo é obrigatório. */}
+              {/* A turn that stopped at the step ceiling isn't an answer — saying so is mandatory. */}
               {m.savedFacts?.map((f, k) => <p key={"s" + k} className="as-note">✓ {t("assistant.memory.saved", { fact: f.fact })}</p>)}
               {m.refusedFacts?.map((f, k) => <p key={"r" + k} className="as-note">{t(`server.${f.reason}`, { defaultValue: t("assistant.memory.refusedGeneric") })}</p>)}
               {m.stopped && <p className="as-note">{t(`server.assistant.${m.stopped}`, { defaultValue: t("assistant.genericError") })}</p>}
@@ -113,8 +113,8 @@ export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useA
               {chat.busy && i === chat.messages.length - 1 && !m.content && m.steps.length === 0 && <Spinner size={14} />}
             </div>
           ))}
-          {/* A execução está parada no servidor à espera desta decisão (§6.3). */}
-          {chat.pending && <ConfirmAction req={chat.pending} onDecided={() => { /* o fio continua e manda um cartão de ação */ }} />}
+          {/* Execution is paused on the server waiting for this decision (§6.3). */}
+          {chat.pending && <ConfirmAction req={chat.pending} onDecided={() => { /* the thread continues and sends an action card */ }} />}
           <div ref={endRef} />
         </div>
       )}
@@ -145,15 +145,15 @@ export function AssistantPanel({ chat, onClose }: { chat: ReturnType<typeof useA
   );
 }
 
-// QuotaBar mostra quanto resta da janela de 6h e avisa ao aproximar-se do fim (§9.3): um aviso
-// perto do limite vale mais do que uma parede sem pré-aviso.
+// QuotaBar shows how much is left of the 6h window and warns as the end approaches (§9.3): a
+// warning near the limit is worth more than a wall with no notice.
 function QuotaBar() {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["assistant-usage"], queryFn: () => assistantApi.usage(), retry: false, refetchInterval: 60000 });
   const d = q.data;
   if (!d || d.limit <= 0) return null;
   const pct = Math.min(100, Math.round((d.used / d.limit) * 100));
-  // Só se mostra quando começa a importar: uma barra a 3% seria ruído. Perto do fim, avisa.
+  // Only shows once it starts to matter: a bar at 3% would be noise. Near the end, it warns.
   if (pct < 75) return null;
   return (
     <div className={"as-quota" + (pct >= 100 ? " full" : "")}>

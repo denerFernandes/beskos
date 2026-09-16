@@ -1,12 +1,12 @@
-// Aplicação da marca da organização em tempo de execução: a cor principal sobrepõe as variáveis
-// --accent (e derivadas) via um <style> injetado com !important, para ganhar às regras de tema.
-// O logo é usado diretamente nos componentes (topo do app e login).
+// Applying the organization's brand at runtime: the primary colour overrides the
+// --accent variables (and derivatives) via a <style> tag injected with !important, so it wins
+// over the theme rules. The logo is used directly in the components (app top bar and login).
 
-/** Marca Beskos: o que se mostra quando o cliente não tem logótipo próprio. */
+/** Beskos mark: shown when the customer has no logo of their own. */
 export const BESKOS_MARK = "/beskos-mark.svg";
 
-// Paleta de cores oferecida ao admin (nome + hex). "fornecer algumas cores" — sem color picker
-// livre, para garantir contraste e coerência.
+// Colour palette offered to the admin (name + hex). "provide a few colours" — no free-form
+// colour picker, to guarantee contrast and coherence.
 export const BRAND_COLORS: { id: string; name: string; hex: string }[] = [
   // The muted family comes first: these four are built for the warm paper the product now runs on,
   // and terracotta is the accent the product ships with. The saturated entries below them are the
@@ -60,7 +60,7 @@ export function applyBrandColor(color: string): void {
     `--accent-solid:color-mix(in srgb, ${color} 85%, #fff)!important;` +
     `--accent-ink:#ECEAE5!important;` +
     `--accent-tint:rgba(255,255,255,.09)!important;`;
-  // Mesma cascata do tema (webmail.css): media query como base, data-theme explícito ganha.
+  // Same cascade as the theme (webmail.css): media query as the base, explicit data-theme wins.
   const scope = ".wm,.pnl,.sg";
   el.textContent =
     `${scope}{${light}}` +
@@ -69,10 +69,10 @@ export function applyBrandColor(color: string): void {
     `:root[data-theme="light"] ${scope}{${light}}`;
 }
 
-// Cache local da marca (para o login mostrar de imediato ao voltar, sem esperar a rede).
+// Local cache of the brand (so login shows it immediately on return, without waiting on the network).
 const LS_BRAND = "mailin.brand";
 export function cacheBrand(b: { name: string; color: string; logo: string; logo_white_dark?: boolean }): void {
-  try { localStorage.setItem(LS_BRAND, JSON.stringify(b)); } catch { /* modo privado */ }
+  try { localStorage.setItem(LS_BRAND, JSON.stringify(b)); } catch { /* private mode */ }
 }
 export function cachedBrand(): { name: string; color: string; logo: string; logo_white_dark?: boolean } | null {
   try { const r = localStorage.getItem(LS_BRAND); return r ? JSON.parse(r) : null; } catch { return null; }

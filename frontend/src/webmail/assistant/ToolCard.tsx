@@ -1,13 +1,13 @@
 import { useTranslation } from "react-i18next";
 import type { ToolStep } from "./api";
 
-// Cartão de uma chamada de ferramenta: o que fez, sobre o quê, e o resultado (§3.3 do desenho).
-// Nunca uma frase do modelo a dizer que fez — o registo da chamada real. É o que impede a confiança
-// a mais: quem lê vê a ação, não a afirmação.
+// Card for one tool call: what it did, on what, and the result (§3.3 of the design). Never a
+// sentence from the model claiming what it did — the record of the actual call. This is what
+// prevents overtrust: whoever reads it sees the action, not the assertion.
 export function ToolCard({ step }: { step: ToolStep }) {
   const { t } = useTranslation();
-  // O nome da ferramenta é uma chave de i18n. Sem tradução, mostra-se o nome técnico em vez de
-  // inventar texto — é honesto e diz a quem reporta um problema qual a ferramenta.
+  // The tool's name is an i18n key. Without a translation, the technical name is shown instead of
+  // inventing text — it's honest, and it tells whoever reports a problem which tool was involved.
   const label = t(`assistant.tools.${step.tool}`, { defaultValue: step.tool });
   const failed = !!step.error_code;
 
@@ -25,8 +25,8 @@ export function ToolCard({ step }: { step: ToolStep }) {
   );
 }
 
-// summarizeArgs mostra os argumentos como o modelo os produziu, em texto curto. Não se esconde nada:
-// o que a ferramenta recebeu é parte do que se está a mostrar.
+// summarizeArgs shows the arguments as the model produced them, in short text. Nothing is hidden:
+// what the tool received is part of what's being shown.
 function summarizeArgs(args: unknown): string {
   if (!args || typeof args !== "object") return "";
   return Object.entries(args as Record<string, unknown>)
