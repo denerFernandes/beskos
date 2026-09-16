@@ -8,7 +8,7 @@ import { UsersSection } from "../panel/UsersSection";
 import { OrgSecuritySection } from "../panel/OrgSecuritySection";
 import { hostedBilling, hostedPages } from "../edition";
 import { GroupsSection } from "../panel/GroupsSection";
-import { BrandingSection } from "../panel/BrandingSection";
+import { BrandingSectionGate } from "../panel/BrandingSectionGate";
 import { AppsSection } from "../panel/AppsSection";
 import { AssistantAgentsSection } from "../panel/AssistantAgentsSection";
 import { IcHome, IcGlobe, IcUsers, IcShield, IcCard, IcColumns, IcStar, IcSparkle } from "../panel/icons";
@@ -67,7 +67,7 @@ export function AdminView({ section: param, detail, onSection, onDetail }: {
           {shown === "users" && <UsersSection me={d} />}
           {shown === "groups" && <GroupsSection me={d} />}
           {shown === "billing" && hostedPages.billing && <hostedPages.billing me={d} detail={detail} onDetail={(id) => onDetail("billing", id)} />}
-          {shown === "branding" && <BrandingSection />}
+          {shown === "branding" && <BrandingSectionGate />}
           {shown === "apps" && <AppsSection />}
           {shown === "agents" && <AssistantAgentsSection />}
           {shown === "security" && <OrgSecuritySection />}

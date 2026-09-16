@@ -6,6 +6,7 @@ import { useParams } from "react-router-dom";
 import { apiUrl } from "../apiBase";
 import { hueFor, initials } from "../webmail/util";
 import { applyBrandColor } from "../webmail/branding";
+import { useBrandingCapability } from "../useEdition";
 
 // PUBLIC scheduling page (/b/:org/:user -- Calendly-style): whoever has the link picks a free day
 // and time slot and fills in their details; the backend creates the event and the Meet room,
@@ -172,7 +173,8 @@ function LangSwitch() {
   );
 }
 
-// Assinatura do produto na página pública — sempre presente, com link.
+// Product signature on the public page -- hidden when the instance has the Pro branding capability.
 function PoweredBy() {
+  if (useBrandingCapability()) return null;
   return <a className="bkp-powered" href="https://beskos.com" target="_blank" rel="noreferrer">Powered by <b>Beskos</b></a>;
 }

@@ -12,10 +12,12 @@ import { PresentationLayer } from "../webmail/MeetPresentation";
 import { applyBrandColor } from "../webmail/branding";
 import { ToastHost, toast } from "../webmail/toast";
 import { IcVideo } from "../panel/icons";
+import { useBrandingCapability } from "../useEdition";
 
-// Página pública de entrada em reunião (convidado externo, SEM login). Sala pública entra direto;
-// sala por aprovação fica aguardando o anfitrião admitir. Veste a marca da organização, deteta o
-// idioma do browser (i18next LanguageDetector) e deixa trocá-lo; assina com "Powered by Beskos".
+// Public meeting entry page (external guest, no login). A public room joins right away; an
+// approval room waits for the host to admit them. Wears the organization's branding, detects the
+// browser's language (i18next LanguageDetector) and lets it be switched; signs with "Powered by
+// Beskos" unless the instance has the Pro branding capability.
 export function GuestPage() {
   const { t, i18n } = useTranslation();
   const { room } = useParams<{ room: string }>();
@@ -27,6 +29,7 @@ export function GuestPage() {
   const poll = useRef<number | null>(null);
 
   const info = useQuery({ queryKey: ["public-meet", room], queryFn: () => backend.publicMeetInfo(room!), retry: false, enabled: !!room });
+  const branded = useBrandingCapability(); // Pro: no "Powered by" signature
   // Marca da organização (cor) aplicada à página; volta ao default ao sair.
   useEffect(() => { if (info.data?.brand?.color) applyBrandColor(info.data.brand.color); return () => applyBrandColor(""); }, [info.data?.brand?.color]);
 
@@ -101,9 +104,11 @@ export function GuestPage() {
               </button>
             </>
           )}
-          <a className="gp-powered" href="https://beskos.com" target="_blank" rel="noreferrer">
-            Powered by <b>Beskos</b>
-          </a>
+          {!branded && (
+            <a className="gp-powered" href="https://beskos.com" target="_blank" rel="noreferrer">
+              Powered by <b>Beskos</b>
+            </a>
+          )}
         </div>
       </div>
       <ToastHost />
