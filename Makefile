@@ -1,14 +1,14 @@
-# Beskos — build das apps (desktop, Android, iOS) via Tauri 2.
-# A app é o frontend (webmail): src em `frontend/`, projeto nativo em `frontend/src-tauri`.
-# Pré-requisitos móveis e assinatura: ver frontend/src-tauri/MOBILE.md.
+# Beskos -- builds the apps (desktop, Android, iOS) via Tauri 2.
+# The app is the frontend (webmail): source in `frontend/`, the native project in `frontend/src-tauri`.
+# Mobile prerequisites and signing: see frontend/src-tauri/MOBILE.md.
 
 FRONTEND := frontend
 TAURI    := ./node_modules/.bin/tauri
-# ARGS repassa flags ao Tauri, ex.: make android ARGS="--apk --target aarch64"
+# ARGS forwards flags to Tauri, e.g.: make android ARGS="--apk --target aarch64"
 ARGS     ?=
 
-# URLs embutidas na app (VITE_*), por modo. Produção = SaaS público; dev = backend local.
-# (São embutidas em texto claro no pacote — só URLs públicas, nunca segredos.)
+# URLs embedded in the app (VITE_*), per mode. Production = the public SaaS; dev = local backend.
+# (Embedded in plain text in the package -- public URLs only, never secrets.)
 PROD_API := https://app.beskos.com
 PROD_ENV := VITE_API_BASE=$(PROD_API) VITE_PUBLIC_BASE=$(PROD_API)
 DEV_ENV  := VITE_API_BASE=http://localhost:8000 VITE_PUBLIC_BASE=http://localhost:5173
@@ -16,63 +16,63 @@ DEV_ENV  := VITE_API_BASE=http://localhost:8000 VITE_PUBLIC_BASE=http://localhos
 .DEFAULT_GOAL := help
 .PHONY: help deps web web-dev desktop desktop-prod desktop-dev desktop-run android ios android-dev ios-dev icons doctor clean mobile
 
-help: ## Mostra os alvos disponíveis
+help: ## Shows the available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
-	@echo "\n  Ex.: make desktop-prod   make desktop-dev   make android ARGS=\"--apk\""
+	@echo "\n  E.g.: make desktop-prod   make desktop-dev   make android ARGS=\"--apk\""
 
-deps: ## Instala as dependências do frontend (npm --legacy-peer-deps)
+deps: ## Installs the frontend dependencies (npm --legacy-peer-deps)
 	cd $(FRONTEND) && npm install --legacy-peer-deps
 
-web: ## Build só do frontend web (dist/) — sem empacotar
+web: ## Builds only the web frontend (dist/) -- no packaging
 	cd $(FRONTEND) && npm run build
 
-web-dev: ## Frontend local contra a API de PRODUÇÃO (localhost:5173, dados reais)
-	@echo "  frontend em http://localhost:5173 · API: $(PROD_API)"
-	@echo "  ATENÇÃO: dados REAIS. Apagar, remover ou enviar daqui acontece mesmo."
+web-dev: ## Local frontend against the PRODUCTION API (localhost:5173, real data)
+	@echo "  frontend at http://localhost:5173 - API: $(PROD_API)"
+	@echo "  WARNING: REAL data. Deleting, removing, or sending from here actually happens."
 	@echo
 	cd $(FRONTEND) && env -u VITE_API_BASE API_URL=$(PROD_API) npm run dev
 
-## ─── Desktop (macOS/Windows/Linux, conforme a máquina que corre) ───
-desktop: desktop-prod ## Atalho para desktop-prod (build de produção)
+## --- Desktop (macOS/Windows/Linux, matching the machine that runs it) ---
+desktop: desktop-prod ## Shortcut for desktop-prod (production build)
 
-desktop-prod: ## Build desktop de PRODUÇÃO — aponta para app.beskos.com (.dmg/.msi/.deb…)
+desktop-prod: ## PRODUCTION desktop build -- points at app.beskos.com (.dmg/.msi/.deb...)
 	cd $(FRONTEND) && $(PROD_ENV) $(TAURI) build $(ARGS)
 
-desktop-dev: ## Build desktop de DESENVOLVIMENTO — aponta para o backend local (localhost)
+desktop-dev: ## DEVELOPMENT desktop build -- points at the local backend (localhost)
 	cd $(FRONTEND) && $(DEV_ENV) $(TAURI) build $(ARGS)
 
-desktop-run: ## Corre a app desktop em modo dev (hot-reload, backend local)
+desktop-run: ## Runs the desktop app in dev mode (hot-reload, local backend)
 	cd $(FRONTEND) && $(TAURI) dev $(ARGS)
 
-## ─── Android (precisa de ANDROID_HOME + NDK_HOME — ver MOBILE.md) ───
-android: ## Compila o APK/AAB Android (produção)
+## --- Android (needs ANDROID_HOME + NDK_HOME -- see MOBILE.md) ---
+android: ## Builds the Android APK/AAB (production)
 	cd $(FRONTEND) && $(PROD_ENV) $(TAURI) android build $(ARGS)
 
-android-dev: ## Corre no emulador/dispositivo Android (hot-reload)
+android-dev: ## Runs on the Android emulator/device (hot-reload)
 	cd $(FRONTEND) && $(TAURI) android dev $(ARGS)
 
-## ─── iOS (só macOS; assinatura exige conta Apple Developer) ───
-ios: ## Compila o IPA iOS (produção)
+## --- iOS (macOS only; signing needs an Apple Developer account) ---
+ios: ## Builds the iOS IPA (production)
 	cd $(FRONTEND) && $(PROD_ENV) $(TAURI) ios build $(ARGS)
 
-ios-dev: ## Corre no simulador/dispositivo iOS (hot-reload)
+ios-dev: ## Runs on the iOS simulator/device (hot-reload)
 	cd $(FRONTEND) && $(TAURI) ios dev $(ARGS)
 
-icons: ## Regenera os ícones a partir de src-tauri/icons/icon.png
+icons: ## Regenerates the icons from src-tauri/icons/icon.png
 	cd $(FRONTEND) && $(TAURI) icon src-tauri/icons/icon.png
 
-mobile: android ios ## Compila Android e iOS (iOS ignorado fora de macOS)
+mobile: android ios ## Builds Android and iOS (iOS skipped outside macOS)
 
-doctor: ## Verifica pré-requisitos (tauri info)
+doctor: ## Checks prerequisites (tauri info)
 	cd $(FRONTEND) && $(TAURI) info
 
-clean: ## Limpa artefactos de build (dist + target Rust)
+clean: ## Cleans build artifacts (dist + the Rust target dir)
 	rm -rf $(FRONTEND)/dist
 	cd $(FRONTEND)/src-tauri && cargo clean
 
-check: ## Verifica as leis do CLAUDE.md nas linhas novas (idioma e tamanho de ficheiro)
-	@python3 scripts/check_laws.py && echo "leis: ok"
+check: ## Checks CLAUDE.md's laws on new lines (language and file size)
+	@python3 scripts/check_laws.py && echo "laws: ok"
 	@python3 scripts/check_docs.py
 	@python3 scripts/check_register.py
 	@python3 scripts/comment_audit.py || echo "comment_audit: report-only, not a merge gate yet"

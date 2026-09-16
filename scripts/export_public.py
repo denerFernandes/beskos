@@ -119,6 +119,7 @@ EXCLUDE = [
 OVERRIDES = {
     "README.md": "docs/README-oss.md",
     "deploy/docker-compose.yml": "deploy/docker-compose.community.yml",
+    "backend/Dockerfile": "scripts/public/Dockerfile",
     "backend/cmd/worker/edition_workers.go": "scripts/public/edition_workers.go",
     "backend/internal/httpapi/billing_routes.go": "scripts/public/billing_routes.go",
     "backend/internal/httpapi/billing_routes_test.go": "scripts/public/billing_routes_test.go",
@@ -151,6 +152,14 @@ RESIDUE = [
 
 TEXT_SUFFIXES = {".go", ".ts", ".tsx", ".js", ".mjs", ".rs", ".py", ".sh", ".sql", ".yml", ".yaml",
                  ".json", ".toml", ".md", ".css", ".html", ".conf", ".txt", ".env", ".example"}
+# Extension-less files that still carry residue-worthy text (a build recipe listing binaries, a
+# reverse-proxy config): a bare filename check, since Path.suffix is empty for all of these and
+# they would otherwise never be scanned.
+TEXT_BASENAMES = {"Dockerfile", "Makefile", "Caddyfile"}
+
+
+def is_text_file(p: pathlib.Path) -> bool:
+    return p.suffix in TEXT_SUFFIXES or p.name in TEXT_BASENAMES or p.name.startswith("Dockerfile.")
 
 
 def tracked_files() -> list[str]:
@@ -169,7 +178,7 @@ def residue(paths: list[str], root: pathlib.Path = ROOT) -> dict[str, list[str]]
     hits: dict[str, list[str]] = {name: [] for name, _, _ in RESIDUE}
     entries = [(rel, root / rel) for rel in paths]
     for rel, p in entries:
-        if p.suffix not in TEXT_SUFFIXES or not p.is_file():
+        if not is_text_file(p) or not p.is_file():
             continue
         try:
             text = p.read_text(encoding="utf-8")
