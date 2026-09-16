@@ -1,16 +1,16 @@
 import { useEffect } from "react";
 
-// Tooltip GLOBAL, instantâneo e estilizado. Em vez de editar cada botão, intercepta QUALQUER
-// elemento com `title` (ou `data-tip`) no hover/focus, mostra uma bolha bonita e suprime o tooltip
-// nativo do SO (lento e inconsistente). Regra do projeto: todo botão só-de-ícone tem `title` — este
-// gestor transforma-os todos num tooltip coerente. `data-tip-side` (right/left/top/bottom) força o
-// lado; por omissão fica em baixo e vira para cima se não couber.
+// GLOBAL, instant, styled tooltip. Instead of editing every button, it intercepts ANY element
+// with `title` (or `data-tip`) on hover/focus, shows a nice bubble, and suppresses the OS's
+// native tooltip (slow and inconsistent). Project rule: every icon-only button has a `title` —
+// this manager turns all of them into one coherent tooltip. `data-tip-side` (right/left/top/
+// bottom) forces the side; by default it sits below and flips up if it doesn't fit.
 
-const DELAY = 180; // ms — curto, mas evita "piscar" ao varrer o ecrã com o rato
+const DELAY = 180; // ms — short, but avoids "flickering" while sweeping the mouse across the screen
 
 export function GlobalTooltip() {
   useEffect(() => {
-    // Sem hover (toque): não faz sentido; evita bolhas presas em telemóveis/tablets.
+    // No hover (touch): doesn't make sense; avoids bubbles stuck on phones/tablets.
     if (matchMedia("(hover: none)").matches) return;
 
     const bubble = document.createElement("div");
@@ -24,7 +24,7 @@ export function GlobalTooltip() {
     const textOf = (el: HTMLElement) =>
       (el.getAttribute("data-tip") || el.getAttribute("data-tiptext") || el.getAttribute("title") || "").trim();
 
-    // Sobe na árvore até um elemento com dica (o alvo do rato pode ser o <svg> dentro do botão).
+    // Walks up the tree to an element with a hint (the mouse target can be the <svg> inside the button).
     const findTarget = (node: EventTarget | null): HTMLElement | null => {
       let el = node as HTMLElement | null;
       for (let i = 0; el && i < 6; i++) {
@@ -38,7 +38,7 @@ export function GlobalTooltip() {
       const side = el.getAttribute("data-tip-side") || "bottom";
       const r = el.getBoundingClientRect();
       const gap = 8;
-      // Mede primeiro (a bolha já tem o texto e está visível mas fora de vista).
+      // Measures first (the bubble already has the text and is visible but off-screen).
       const bw = bubble.offsetWidth, bh = bubble.offsetHeight;
       let left: number, top: number, resolved = side;
       const centerX = r.left + r.width / 2 - bw / 2;
@@ -47,10 +47,10 @@ export function GlobalTooltip() {
       else if (side === "left") { left = r.left - gap - bw; top = centerY; }
       else if (side === "top") { left = centerX; top = r.top - gap - bh; }
       else { left = centerX; top = r.bottom + gap; } // bottom
-      // Vira baixo↔cima se não couber verticalmente.
+      // Flips bottom↔top if it doesn't fit vertically.
       if (resolved === "bottom" && top + bh > innerHeight - 4) { top = r.top - gap - bh; resolved = "top"; }
       else if (resolved === "top" && top < 4) { top = r.bottom + gap; resolved = "bottom"; }
-      // Nunca sai do ecrã.
+      // Never leaves the screen.
       left = Math.max(6, Math.min(left, innerWidth - bw - 6));
       top = Math.max(6, Math.min(top, innerHeight - bh - 6));
       bubble.style.left = `${Math.round(left)}px`;
@@ -60,7 +60,7 @@ export function GlobalTooltip() {
     const show = (el: HTMLElement) => {
       const text = textOf(el);
       if (!text) return;
-      // Suprime o nativo: guarda o title em data-tiptext e remove-o enquanto a bolha está visível.
+      // Suppresses the native one: stores the title in data-tiptext and removes it while the bubble is visible.
       if (el.hasAttribute("title")) {
         el.setAttribute("data-tiptext", el.getAttribute("title") || "");
         el.removeAttribute("title");
@@ -100,7 +100,7 @@ export function GlobalTooltip() {
     document.addEventListener("mouseout", onOut);
     document.addEventListener("focusin", onFocus);
     document.addEventListener("focusout", onBlur);
-    // Some ao clicar/rolar/teclar — senão fica pendurada.
+    // Disappears on click/scroll/keypress — otherwise it stays hanging around.
     document.addEventListener("click", hide, true);
     window.addEventListener("scroll", hide, true);
     window.addEventListener("keydown", hide, true);

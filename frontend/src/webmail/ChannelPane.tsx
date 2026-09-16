@@ -15,7 +15,7 @@ import { MessageRow } from "./ChatMessage";
 import { ChannelPanel, CanvasTab, PinsTab, FilesLinksTab, MemberProfile } from "./ChatPanel";
 import { ScheduledModal, ForwardModal } from "./ChatModals";
 
-// ---- Painel de um canal: mensagens + composer ----
+// ---- Channel pane: messages + composer ----
 export function ChannelPane({ channel, channels, session, locale, typingAuthor, onTyping, onOpenThread, onOpenDM, onSearch, onToggleRail, focusMsg, onFocusConsumed }: {
   channel: ChatChannel; channels: ChatChannel[]; session: WebmailSession; locale: string; typingAuthor?: string; onTyping: () => void;
   onOpenThread: (m: ChatMessage) => void; onOpenDM: (email: string) => void; onSearch?: (v: string) => void; onToggleRail?: () => void;
@@ -29,33 +29,33 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
   const [showSched, setShowSched] = useState(false);
   const [notifPref, setNotifPref] = useState(channel.notif_pref ?? "all");
   const [profile, setProfile] = useState<ChatMember | null>(null);
-  // Volta a Mensagens ao trocar de canal.
+  // Goes back to Messages when the channel changes.
   useEffect(() => { setTab("messages"); setNotifPref(channel.notif_pref ?? "all"); }, [channel.id]);
   const setPref = async (p: "all" | "mentions" | "none") => { setNotifPref(p); setNotifOpen(false); try { await backend.chatSetNotifPref(channel.id, p); qc.invalidateQueries({ queryKey: ["chat-channels"] }); } catch (e) { toast((e as Error).message); } };
   const msgsQ = useQuery({ queryKey: ["chat-messages", channel.id], queryFn: () => backend.chatMessages(channel.id) });
   const membersQ = useQuery({ queryKey: ["chat-members", channel.id], queryFn: () => backend.chatMembers(channel.id), refetchInterval: 25000 });
   const scroller = useRef<HTMLDivElement>(null);
 
-  // Paginação do histórico: a base é a página mais recente (msgsQ); `older` acumula as páginas
-  // anteriores carregadas sob demanda. Combinadas e deduplicadas por id.
+  // History pagination: the base is the most recent page (msgsQ); `older` accumulates the
+  // previous pages loaded on demand. Combined and deduplicated by id.
   const [older, setOlder] = useState<ChatMessage[]>([]);
   const [moreOlder, setMoreOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
-  useEffect(() => { setOlder([]); setMoreOlder(false); }, [channel.id]); // reset ao trocar de canal
+  useEffect(() => { setOlder([]); setMoreOlder(false); }, [channel.id]); // reset when the channel changes
   const base = useMemo(() => msgsQ.data?.messages ?? [], [msgsQ.data]);
   const messages = useMemo(() => {
     const seen = new Set(base.map((m) => m.id));
     const combined = [...older.filter((m) => !seen.has(m.id)), ...base];
-    // Ordena por data: robusto quando a janela de "saltar para a mensagem" é fundida ao histórico.
+    // Sorts by date: robust when the "jump to message" window gets merged into the history.
     combined.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     return combined;
   }, [older, base]);
-  // Há mais antigas? Antes de carregar qualquer página, é o has_more da base; depois, o da última página.
+  // More older ones? Before loading any page, it's the base's has_more; afterwards, the last page's.
   const hasMore = older.length > 0 ? moreOlder : (msgsQ.data?.has_more ?? false);
 
   const canManage = channel.my_role === "owner" || channel.my_role === "manager";
-  // Fronteira de "não-lidas": captura o last_read_at no momento em que o canal foi aberto (antes do
-  // mark-read automático) — assim a divisória "novas mensagens" mostra onde a pessoa parou.
+  // "Unread" boundary: captures last_read_at at the moment the channel was opened (before the
+  // automatic mark-read) — so the "new messages" divider shows where the person left off.
   const [unreadBoundary, setUnreadBoundary] = useState<string | null>(null);
   useEffect(() => { setUnreadBoundary(channel.last_read_at ?? null); }, [channel.id]);
   const firstUnreadIdx = useMemo(() => (unreadBoundary ? messages.findIndex((m) => m.created_at > unreadBoundary) : -1), [messages, unreadBoundary]);
@@ -64,10 +64,10 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
     catch (e) { toast((e as Error).message); }
   };
 
-  // Saltar para a mensagem (busca externa OU um pin do próprio canal): garante que o alvo está
-  // carregado (busca a janela em torno dele se preciso), rola até ele e o destaca por um instante.
+  // Jump to a message (external search OR a pin from the channel itself): ensures the target is
+  // loaded (fetches the window around it if needed), scrolls to it and highlights it briefly.
   const [highlight, setHighlight] = useState<string | null>(null);
-  const [localFocus, setLocalFocus] = useState<string | null>(null); // ex.: clique num pin
+  const [localFocus, setLocalFocus] = useState<string | null>(null); // e.g.: clicking a pin
   const target = focusMsg ?? localFocus;
   useEffect(() => {
     if (!target) return;
@@ -79,7 +79,7 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
           if (cancelled) return;
           const b = msgsQ.data?.messages ?? [];
           setOlder((prev) => { const have = new Set([...prev, ...b].map((m) => m.id)); return [...win.messages.filter((m) => !have.has(m.id)), ...prev]; });
-        } catch { /* se falhar, ao menos abre o canal */ }
+        } catch { /* if it fails, at least open the channel */ }
       }
       setTimeout(() => {
         if (cancelled) return;
@@ -94,10 +94,10 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, channel.id]);
   const jumpToPin = (msgId: string) => { setTab("messages"); setLocalFocus(msgId); };
-  const [forwarding, setForwarding] = useState<string | null>(null); // id da mensagem a encaminhar
-  const [extracting, setExtracting] = useState<ChatMessage | null>(null); // mensagem a virar tarefas
+  const [forwarding, setForwarding] = useState<string | null>(null); // id of the message to forward
+  const [extracting, setExtracting] = useState<ChatMessage | null>(null); // message to turn into tasks
 
-  // Preserva a posição do scroll ao prepender antigas (o conteúdo cresce por cima).
+  // Preserves the scroll position when prepending older messages (content grows on top).
   const prevH = useRef<number | null>(null);
   useLayoutEffect(() => {
     if (prevH.current != null && scroller.current) {
@@ -121,25 +121,26 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
     finally { setLoadingOlder(false); }
   };
 
-  // Inicia uma chamada (áudio/vídeo) reusando o Meet/LiveKit: posta o convite no canal e entra na sala.
+  // Starts a call (audio/video) reusing Meet/LiveKit: posts the invite in the channel and joins the room.
   const startCall = async (mode: "video" | "audio") => {
     const room = `chat-${channel.id}`;
-    try { await backend.chatSend(channel.id, callBody(mode, room)); } catch { /* segue mesmo assim */ }
+    try { await backend.chatSend(channel.id, callBody(mode, room)); } catch { /* proceeds anyway */ }
     openRoom(room, mode === "audio");
   };
 
-  // Marca lido ao abrir/receber e rola para o fim.
+  // Marks as read on open/receive and scrolls to the end.
   useEffect(() => { void backend.chatMarkRead(channel.id).then(() => qc.invalidateQueries({ queryKey: ["chat-channels"] })); }, [channel.id, base.length, qc]);
-  // Rola ao fim quando chega uma mensagem NOVA (última muda) ou ao abrir o canal — nunca ao carregar
-  // antigas (aí o id da última não muda e a posição é preservada pelo useLayoutEffect acima).
+  // Scrolls to the end when a NEW message arrives (the last one changes) or when opening the
+  // channel — never when loading older ones (there the last id doesn't change and the position is
+  // preserved by the useLayoutEffect above).
   const lastId = messages[messages.length - 1]?.id;
   useEffect(() => { scroller.current?.scrollTo({ top: scroller.current.scrollHeight }); }, [lastId, channel.id]);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["chat-messages", channel.id] });
-  // react/edit/delete não refazem o canal: o eco do WS aplica o patch incremental (p/ todos os membros).
+  // react/edit/delete don't refetch the channel: the WS echo applies the incremental patch (for all members).
   const react = async (mid: string, emoji: string, mine: boolean) => { await backend.chatReact(mid, emoji, mine); };
 
-  // Arrastar arquivos para qualquer ponto do canal → vira anexo no composer.
+  // Dragging files onto any point of the channel → becomes an attachment in the composer.
   const composerRef = useRef<ComposerHandle>(null);
   const { over, handlers } = useFileDrop((files) => composerRef.current?.addFiles(files));
 
@@ -177,7 +178,7 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
       </header>
       {showSched && <ScheduledModal onClose={() => setShowSched(false)} />}
       {profile && <MemberProfile member={profile} me={session.email} onClose={() => setProfile(null)} onOpenDM={(e) => { setProfile(null); onOpenDM(e); }} />}
-      {/* Extrair tarefas da mensagem: reaproveita o mesmo fluxo do e-mail (IA → escolher → quadro). */}
+      {/* Extract tasks from the message: reuses the same flow as email (AI → choose → board). */}
       {extracting && (
         <ExtractTasksModal subject={`#${channel.name} · ${extracting.author}`} body={extracting.body}
           sourceEmailId="" onClose={() => setExtracting(null)} />
@@ -219,7 +220,7 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
                 onOpenProfile={() => setProfile({ user_id: m.user_id, email: m.author_email, name: m.author, role: "" })} />
             </Fragment>
           ))}
-        {/* Recibo de leitura: quem já leu até a última mensagem (last_read_at ≥ created_at dela). */}
+        {/* Read receipt: who has already read up to the last message (last_read_at >= its created_at). */}
         {(() => {
           const last = messages[messages.length - 1];
           if (!last || last.deleted) return null;
@@ -243,7 +244,7 @@ export function ChannelPane({ channel, channels, session, locale, typingAuthor, 
   );
 }
 
-// Painel de thread (3ª coluna): mensagem-pai + respostas + composer que responde no parent_id.
+// Thread panel (3rd column): parent message + replies + composer that replies to the parent_id.
 export function ThreadPanel({ parent, channelId, session, locale, onClose }: {
   parent: ChatMessage; channelId: string; session: WebmailSession; locale: string; onClose: () => void;
 }) {
@@ -252,8 +253,8 @@ export function ThreadPanel({ parent, channelId, session, locale, onClose }: {
   const repliesQ = useQuery({ queryKey: ["chat-thread", parent.id], queryFn: () => backend.chatReplies(parent.id) });
   const membersQ = useQuery({ queryKey: ["chat-members", channelId], queryFn: () => backend.chatMembers(channelId) });
   const replies = repliesQ.data?.replies ?? [];
-  // Só revalida a thread (query pequena). A lista principal é atualizada incrementalmente pelo eco do
-  // WS (contador de respostas do pai, edições, reações) — não refaz o canal inteiro.
+  // Only revalidates the thread (small query). The main list is updated incrementally by the WS
+  // echo (parent's reply count, edits, reactions) — it doesn't refetch the whole channel.
   const refresh = () => { qc.invalidateQueries({ queryKey: ["chat-thread", parent.id] }); };
   const react = async (mid: string, emoji: string, mine: boolean) => { await backend.chatReact(mid, emoji, mine); refresh(); };
   const composerRef = useRef<ComposerHandle>(null);

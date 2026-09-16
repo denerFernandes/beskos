@@ -5,9 +5,9 @@ import { Spinner } from "./Spinner";
 import { toast } from "./toast";
 import { IcClock, IcTrash, IcX } from "../panel/icons";
 
-// Gestão de e-mails agendados (outbox server-side): lista os envios ainda pendentes e permite
-// cancelar. Undo-send de janela curta também aparece aqui por um instante — cancelar aqui equivale
-// ao "desfazer". O envio real é feito pelo worker; cancelar só afeta pendentes (409 = tarde demais).
+// Management of scheduled emails (server-side outbox): lists the sends still pending and allows
+// canceling. Short-window undo-send also appears here for a moment — canceling here is equivalent
+// to "undo". The actual send is done by the worker; canceling only affects pending ones (409 = too late).
 export function ScheduledModal({ onClose }: { onClose: () => void }) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();

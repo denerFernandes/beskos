@@ -22,7 +22,7 @@ import "./calendar.css";
 // CATEGORIES = tenant tags with a pastel palette). Default view: WEEK. Cards use a soft
 // category-colored background in every view.
 type View = "month" | "week" | "day" | "list";
-// Cores para a agenda de COLEGAS (free-busy) — distintas das dos meus calendários.
+// Colors for COLLEAGUES' agenda (free-busy) — distinct from my own calendars' colors.
 const COLLEAGUE_COLORS = ["#8257C7", "#3B6FB0", "#C0692F", "#0F766E", "#BE185D"];
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
@@ -30,7 +30,7 @@ const weekStart = (d: Date, startsOn = 1) => { const x = startOfDay(d); x.setDat
 
 export function CalendarView({ search, eventParam }: {
   search: string;
-  /** Evento a abrir (/mail/cal/<id>?d=<data>) — destino dos avisos de convite/RSVP/reserva. */
+  /** Event to open (/mail/cal/<id>?d=<date>) — destination for invite/RSVP/booking alerts. */
   eventParam?: string;
 }) {
   const { t, i18n } = useTranslation();
@@ -45,13 +45,13 @@ export function CalendarView({ search, eventParam }: {
   const [timeOff, setTimeOff] = useState(false);
   const mailEnabled = !useDisabledApps().includes("mail");
   const [agenda, setAgenda] = useState<string | null>(null);
-  // Busca local do header (ícone da lupa, como a referência) — soma-se à busca global do topo.
+  // Header's local search (magnifier icon, like the reference) — adds to the global top search.
   const [q2, setQ2] = useState("");
   const [qOpen, setQOpen] = useState(false);
 
   const settings = useUserSettings();
   const weekStartsOn = settings.calendar?.weekStart === "sunday" ? 0 : 1;
-  // Dias de trabalho (Definições → Calendário): fora deles a grade fica desabilitada para criar.
+  // Work days (Settings → Calendar): outside them the grid is disabled for creating events.
   const workDays = settings.calendar?.workDays ?? [0, 1, 2, 3, 4, 5, 6];
   const viewApplied = useRef(false);
   useEffect(() => {
@@ -67,8 +67,8 @@ export function CalendarView({ search, eventParam }: {
   })();
   const evQ = useQuery({ queryKey: ["events", range[0].toISOString(), view], queryFn: () => backend.events(range[0].toISOString(), range[1].toISOString()), retry: false });
 
-  // Deep link /mail/cal/<id>?d=<data>: veio de uma notificação. Primeiro leva a grade para a data do
-  // evento (a agenda só carrega o intervalo visível); quando esse intervalo chega, abre a ficha.
+  // Deep link /mail/cal/<id>?d=<date>: came from a notification. First moves the grid to the
+  // event's date (the agenda only loads the visible range); once that range arrives, opens the sheet.
   const day = urlParams.get("d");
   useEffect(() => {
     if (!eventParam || !day) return;
@@ -78,9 +78,9 @@ export function CalendarView({ search, eventParam }: {
   const openedEvent = useRef<string | null>(null);
   useEffect(() => {
     if (!eventParam || openedEvent.current === eventParam) return;
-    // Procura na resposta CRUA: um calendário escondido não deve engolir um link direto.
+    // Looks in the RAW response: a hidden calendar shouldn't swallow a direct link.
     const ev = (evQ.data ?? []).find((e) => e.id === eventParam);
-    if (!ev) return; // ainda a carregar (ou evento apagado): não faz nada
+    if (!ev) return; // still loading (or event deleted): does nothing
     openedEvent.current = eventParam;
     setModal({ event: ev });
   }, [eventParam, evQ.data]);
@@ -88,12 +88,12 @@ export function CalendarView({ search, eventParam }: {
   const cals = calsQ.data ?? [];
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const toggleCal = (id: string) => setHidden((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
-  // Categorias = tags partilhadas do tenant. Escondê-las filtra os eventos dessa categoria.
+  // Categories = tenant's shared tags. Hiding them filters out that category's events.
   const tagsQ = useQuery({ queryKey: ["tags"], queryFn: () => backend.tagsList(), retry: false });
   const cats = tagsQ.data ?? [];
   const [hiddenCats, setHiddenCats] = useState<Set<string>>(new Set());
   const toggleCat = (name: string) => setHiddenCats((s) => { const n = new Set(s); n.has(name) ? n.delete(name) : n.add(name); return n; });
-  // Free-busy: agenda de um colega sobreposta na grade.
+  // Free-busy: a colleague's agenda overlaid on the grid.
   const [fbUser, setFbUser] = useState("");
   const colleaguesQ = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false });
   const fbQ = useQuery({ queryKey: ["freebusy", fbUser, range[0].toISOString(), view], queryFn: () => backend.freeBusy(fbUser, range[0].toISOString(), range[1].toISOString()), enabled: !!fbUser, retry: false });
@@ -103,8 +103,8 @@ export function CalendarView({ search, eventParam }: {
   const fbIdx = (colleaguesQ.data ?? []).findIndex((p) => p.id === fbUser);
   const fbColor = fbIdx >= 0 ? COLLEAGUE_COLORS[fbIdx % COLLEAGUE_COLORS.length] : COLLEAGUE_COLORS[0];
 
-  // Cor do cartão: a CATEGORIA do evento (primeira tag no catálogo) manda; sem categoria, a cor do
-  // próprio evento. O pastel é derivado no CSS (color-mix com branco).
+  // Card color: the event's CATEGORY (first tag in the catalog) wins; with no category, the
+  // event's own color. The pastel shade is derived in CSS (color-mix with white).
   const catColor = useMemo(() => { const m = new Map<string, string>(); for (const c of cats) m.set(c.name, c.color); return m; }, [cats]);
   const colorOf = (e: CalEvent) => { for (const tg of e.tags ?? []) { const c = catColor.get(tg); if (c) return c; } return e.color; };
   const catOf = (e: CalEvent) => (e.tags ?? []).find((tg) => catColor.has(tg));
@@ -137,7 +137,7 @@ export function CalendarView({ search, eventParam }: {
   });
 
   const step = (dir: number) => setCursor((c) => view === "day" ? addDays(c, dir) : view === "week" ? addDays(c, dir * 7) : view === "list" ? addDays(c, dir * 30) : new Date(c.getFullYear(), c.getMonth() + dir, 1));
-  // Título como a referência: "January 2024" — mês + ano em todas as vistas.
+  // Title like the reference: "January 2024" — month + year in every view.
   const label = cursor.toLocaleDateString(i18n.language, { month: "long", year: "numeric" });
 
   const aiAgenda = useMutation({
@@ -145,7 +145,7 @@ export function CalendarView({ search, eventParam }: {
     onSuccess: (r) => setAgenda(r.agenda || t("cal.agendaEmpty")), onError: (e) => toast((e as Error).message),
   });
 
-  // "Próximo evento" flutuante (semana/dia, como a referência): o primeiro que ainda vai começar.
+  // Floating "next event" (week/day, like the reference): the first one that hasn't started yet.
   const upcoming = (view === "week" || view === "day")
     ? events.filter((e) => new Date(e.starts_at) > new Date()).sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0]
     : undefined;

@@ -3,14 +3,14 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { backend, type Board } from "./backend";
 
-// Lista de quadros do tenant (cache compartilhado com o Kanban).
+// List of the tenant's boards (cache shared with the Kanban).
 export function useBoards(): Board[] {
   const q = useQuery({ queryKey: ["boards"], queryFn: () => backend.boards(), retry: false });
   return q.data ?? [];
 }
 
-// Seletor de quadro para as ações de IA (extrair tarefas, criar tarefa). Com um único quadro não
-// pergunta nada — só seleciona sozinho; com dois ou mais, obriga a escolher onde criar.
+// Board selector for the AI actions (extract tasks, create task). With a single board it doesn't
+// ask anything — it just selects it automatically; with two or more, it forces a choice of where to create.
 export function BoardPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const { t } = useTranslation();
   const boards = useBoards();

@@ -8,7 +8,7 @@ import { IcVideo } from "../panel/icons";
 // Calendar grids (SyncWise replica): PASTEL cards — background is the category color mixed with
 // white, fixed dark text (same in both themes, matching the reference), guest avatars at the
 // bottom of the card, and a violet "now" line.
-export const ROW = 88; // px por hora — cartões altos como na referência
+export const ROW = 88; // px per hour — tall cards like the reference
 const DAY_START = 0, DAY_END = 24, BUSINESS_HOUR = 7;
 
 const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
@@ -23,10 +23,10 @@ type ColorOf = (e: CalEvent) => string;
 type Busy = { starts_at: string; ends_at: string }[];
 
 const fmtT = (d: Date, lang: string) => d.toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
-// Ausências guardam o título fallback em inglês; a UI mostra a etiqueta traduzida pelo kind.
+// Absences store the fallback title in English; the UI shows the label translated by kind.
 const evTitle = (e: CalEvent, t: (k: string) => string) => e.kind ? t("cal.kind_" + e.kind) : e.title;
 
-// Pilha de avatares do cartão: foto do colega ou inicial na cor da pessoa; tooltip nome/e-mail.
+// Card avatar stack: colleague's photo or initial in the person's color; name/email tooltip.
 function AvStack({ att, max = 4 }: { att: NonNullable<CalEvent["attendees"]>; max?: number }) {
   if (att.length === 0) return null;
   return (
@@ -96,7 +96,7 @@ export function MonthGrid({ cursor, events, busy = [], busyLabel = "", busyColor
   );
 }
 
-// Agenda/lista: próximos `days` dias com eventos, cartões pastel compactos.
+// Agenda/list: next `days` days with events, compact pastel cards.
 export function ListView({ from, days, events, colorOf, onEvent, lang }: {
   from: Date; days: number; events: CalEvent[]; colorOf: ColorOf; onEvent: (e: CalEvent) => void; lang: string;
 }) {
@@ -141,11 +141,11 @@ export function TimeGrid({ days, events, busy = [], busyLabel = "", busyColor, c
     const sc = gridRef.current?.closest(".cal2-body") as HTMLElement | null;
     if (sc) sc.scrollTop = (BUSINESS_HOUR - DAY_START) * ROW;
   }, [key]);
-  // Linha do "agora" (violeta, como a referência) — atualiza a cada minuto.
+  // The "now" line (violet, like the reference) — updates every minute.
   const [now, setNow] = useState(() => new Date());
   useEffect(() => { const id = setInterval(() => setNow(new Date()), 60000); return () => clearInterval(id); }, []);
 
-  // Arrastar (mover) e redimensionar — snap 15 min; horizontal muda o dia. Recorrentes/convites não.
+  // Drag (move) and resize — 15 min snap; horizontal changes the day. Recurring/invited events don't.
   const SNAP = 15 * 60000;
   const GUTTER = 74;
   const [drag, setDrag] = useState<null | { e: CalEvent; mode: "move" | "resize"; startX: number; startY: number; origS: number; origE: number; curS: number; curE: number; moved: boolean }>(null);
@@ -199,7 +199,7 @@ export function TimeGrid({ days, events, busy = [], busyLabel = "", busyColor, c
   });
   const spanning = events.filter(isSpanning);
   const cols = `${GUTTER}px repeat(${days.length}, 1fr)`;
-  // GMT+X no canto do cabeçalho, como a referência.
+  // GMT+X in the header corner, like the reference.
   const off = -new Date().getTimezoneOffset() / 60;
   const gmt = `GMT${off >= 0 ? "+" : ""}${off}`;
   const nowTop = (now.getHours() - DAY_START + now.getMinutes() / 60) * ROW;

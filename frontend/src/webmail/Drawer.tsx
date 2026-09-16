@@ -2,29 +2,31 @@ import { useEffect, type ReactNode } from "react";
 import { IcX } from "../panel/icons";
 import { overlayOpened } from "./overlay";
 
-// Drawer é o container PADRÃO de detalhe/edição de um item (evento, tarefa, contacto): um painel
-// encostado à direita, com o contexto (calendário/lista) à vista ao lado. Um só sítio para o
-// comportamento comum — fundo escurecido, fechar ao clicar fora, ESC, scroll do corpo, rodapé fixo,
-// largura opcional para conteúdo com painel lateral — para não haver dois padrões na app.
+// Drawer is the STANDARD container for viewing/editing an item (event, task, contact): a panel
+// docked to the right, with the context (calendar/list) still visible alongside it. One single
+// place for the shared behavior — dimmed background, click-outside-to-close, ESC, body scroll,
+// fixed footer, optional width for content with a side panel — so the app doesn't end up with
+// two different patterns.
 export function Drawer({ title, actions, footer, wide, onClose, children }: {
   title: ReactNode;
-  // actions são botões do cabeçalho à direita do título (ex.: o lápis de "editar"). O ✕ é sempre do
-  // Drawer, para o gesto de fechar ser igual em todo o lado.
+  // actions are header buttons to the right of the title (e.g. the "edit" pencil). The ✕ always
+  // belongs to the Drawer, so the close gesture is the same everywhere.
   actions?: ReactNode;
   footer?: ReactNode;
-  // wide alarga o painel para conteúdo com coluna lateral (ex.: a tarefa com atividade ao lado).
+  // wide widens the panel for content with a side column (e.g. a task with activity alongside it).
   wide?: boolean;
   onClose: () => void;
   children: ReactNode;
 }) {
-  // ESC fecha — o mesmo atalho em toda a app. Só o Drawer o trata: cada écran deixa de reinventar.
+  // ESC closes — the same shortcut across the whole app. Only the Drawer handles it: no screen
+  // needs to reinvent it.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // Sidecar aberto → a bolha do assistente esconde-se (regista/desregista no ciclo de vida).
+  // Sidecar open → the assistant bubble hides itself (registers/unregisters through the lifecycle).
   useEffect(() => overlayOpened(), []);
 
   return (

@@ -40,22 +40,22 @@ import { MigrationPrompt } from "../panel/MigrationPrompt";
 import { IcSun, IcMail, IcColumns, IcCalendar, IcFolder, IcUsers, IcSearch, IcMoon, IcLogout, IcVideo, IcChat, IcShield, IcGear, IcChevron, IcBook, IcPencilBox, IcDoc, IcDownload } from "../panel/icons";
 
 type View = "today" | "mail" | "chat" | "kanban" | "cal" | "files" | "docs" | "contacts" | "meet" | "notes" | "wiki" | "admin" | "settings" | "profile";
-// Áreas com o que buscar. "today" e "admin" ficam de fora: não têm lista para filtrar.
+// Areas with something to search. "today" and "admin" are left out: they have no list to filter.
 const SEARCHABLE: View[] = ["mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet"];
 const VIEWS: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet", "notes", "wiki", "admin", "settings", "profile"];
 
-// Shell do app de e-mail: barra superior + rail de apps + view ativa. A view ativa fica na URL
-// (/mail/<view>), então links são navegáveis e recarregáveis. "Hoje" é o padrão.
+// Mail app shell: top bar + app rail + active view. The active view lives in the URL
+// (/mail/<view>), so links are navigable and reloadable. "Today" is the default.
 export function App({ session }: { session: WebmailSession }) {
   const { t, i18n } = useTranslation();
   const nav = useNavigate();
-  // 2º segmento da URL: sala (Meet) ou seção (Admin). Todo item de menu fica na URL —
-  // links são compartilháveis e o refresh não perde o lugar.
+  // 2nd URL segment: room (Meet) or section (Admin). Every menu item lives in the URL —
+  // links are shareable and a refresh doesn't lose the place.
   const { view: viewParam, sub, sub2 } = useParams<{ view: string; sub: string; sub2: string }>();
   const view: View = VIEWS.includes(viewParam as View) ? (viewParam as View) : "today";
   const setView = (v: View) => nav(v === "today" ? "/mail" : `/mail/${v}`);
   const [search, setSearch] = useState("");
-  const [advOpen, setAdvOpen] = useState(false); // painel de filtros avançados do e-mail (Gmail-style)
+  const [advOpen, setAdvOpen] = useState(false); // advanced mail filters panel (Gmail-style)
   // Tells the tray menu who is signed in: the tray is built in Rust and has no access to the
   // session. On logout it must be cleared to `null`, or the tray would keep showing the email of
   // whoever just signed out.
@@ -64,24 +64,24 @@ export function App({ session }: { session: WebmailSession }) {
     void setTrayAccount(session.email);
     return () => { void setTrayAccount(null); };
   }, [session.email]);
-  const [mobSearch, setMobSearch] = useState(false); // no telemóvel a busca abre numa caixa abaixo
+  const [mobSearch, setMobSearch] = useState(false); // on mobile the search opens in a box below
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (mobSearch) setTimeout(() => searchRef.current?.focus(), 0); }, [mobSearch]);
   useEffect(() => { setMobSearch(false); }, [view]);
-  // Preenche a busca de cima E foca o input (ex.: o botão "in:canal" do chat). Move o cursor ao fim.
+  // Fills the search box above AND focuses the input (e.g. chat's "in:channel" button). Moves the cursor to the end.
   const fillSearch = (v: string) => {
     setSearch(v);
     setTimeout(() => { const el = searchRef.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
   };
 
-  // Tema com estado (para o ícone refletir e alternar) + persistência entre sessões.
+  // Theme as state (so the icon can reflect and toggle it) + persistence across sessions.
   const [theme, setTheme] = useState<"light" | "dark">(currentTheme);
   useEffect(() => { document.documentElement.setAttribute("data-theme", theme); }, [theme]);
   const toggleTheme = () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    try { localStorage.setItem("mailin.theme", next); } catch { /* modo privado */ }
-    // Segue o utilizador entre aparelhos (fire-and-forget; o localStorage já garante o local).
+    try { localStorage.setItem("mailin.theme", next); } catch { /* private mode */ }
+    // Follows the user across devices (fire-and-forget; localStorage already covers the local case).
     //
     // The whole section is sent, not just the theme. The merge on the server is `settings || patch`,
     // which is SHALLOW: a patch of {general:{theme}} replaces the entire general object and takes
@@ -91,43 +91,45 @@ export function App({ session }: { session: WebmailSession }) {
     settingsApi.patch({ general: { ...(settingsQ.data?.general ?? {}), theme: next } }).catch(() => {});
   };
 
-  // Preferências gerais vindas do servidor: ao autenticar, o servidor manda (o localStorage foi só
-  // o cache instantâneo até aqui). Reconcilia tema e idioma se divergirem do que está aplicado.
+  // General preferences coming from the server: once authenticated, the server takes over
+  // (localStorage was only the instant cache up to this point). Reconciles theme and language if
+  // they diverge from what is currently applied.
   const settingsQ = useQuery({ queryKey: ["settings"], queryFn: () => settingsApi.get(), retry: false });
   useEffect(() => {
     const g = settingsQ.data?.general;
     if (!g) return;
     if ((g.theme === "light" || g.theme === "dark") && g.theme !== theme) {
       setTheme(g.theme);
-      try { localStorage.setItem("mailin.theme", g.theme); } catch { /* modo privado */ }
+      try { localStorage.setItem("mailin.theme", g.theme); } catch { /* private mode */ }
     }
     if (g.language && g.language !== i18n.language) {
       void i18n.changeLanguage(g.language);
-      try { localStorage.setItem("mailin.lang", g.language); } catch { /* modo privado */ }
+      try { localStorage.setItem("mailin.lang", g.language); } catch { /* private mode */ }
     }
-    // Só reage a novos dados do servidor; theme/i18n fora das deps de propósito (evita re-loop).
+    // Only reacts to new server data; theme/i18n deliberately left out of the deps (avoids a re-loop).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsQ.data]);
 
-  // Vista inicial (settings.general.startView): ao abrir a app na raiz (/mail, sem vista explícita na
-  // URL), vai para a vista preferida. Uma única vez por carregamento — não pisa a navegação seguinte.
+  // Initial view (settings.general.startView): when opening the app at the root (/mail, with no
+  // explicit view in the URL), goes to the preferred view. Once per load only — doesn't step on
+  // subsequent navigation.
   const startApplied = useRef(false);
   useEffect(() => {
     if (startApplied.current) return;
     const sv = settingsQ.data?.general?.startView;
-    if (sv === undefined) return; // aguarda as definições carregarem
+    if (sv === undefined) return; // waits for settings to load
     startApplied.current = true;
     if (sv && sv !== "today" && viewParam === undefined && VIEWS.includes(sv as View)) setView(sv as View);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsQ.data, viewParam]);
 
-  // Trocar de área limpa a busca: um termo deixado para trás filtraria a área nova em silêncio —
-  // a pessoa veria uma lista vazia sem perceber porquê.
+  // Switching areas clears the search: a term left behind would silently filter the new area —
+  // the person would see an empty list without understanding why.
   useEffect(() => { setSearch(""); }, [view]);
 
-  // Clicar numa notificação desktop navega para o ITEM que a originou. Três origens, o mesmo
-  // destino: service worker (web push), app nativo (evento do Rust) e o construtor Notification
-  // (fallback web, cujo clique cai nesta aba).
+  // Clicking a desktop notification navigates to the ITEM that triggered it. Three sources, one
+  // destination: service worker (web push), native app (Rust event), and the Notification
+  // constructor (web fallback, whose click lands in this tab).
   // Desktop: "Import mail" under the File menu. The native menu is built in Rust and cannot
   // navigate, so it only emits -- the routes are known here.
   useEffect(() => onTauriEvent("menu-import-mail", () => nav("/mail/profile/migration")), [nav]);
@@ -152,12 +154,13 @@ export function App({ session }: { session: WebmailSession }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const canAdmin = useAdminEnabled();
-  // Primeiro acesso de quem se registou: define a senha da caixa, veste a casa (logo e cor) e chama
-  // a equipa. Só aparece a quem pode fazê-lo (o dono) e enquanto a flag não estiver nas definições.
+  // First access for someone who just signed up: sets the mailbox password, dresses up the house
+  // (logo and color), and invites the team. Only shown to whoever can do it (the owner) and while
+  // the flag isn't set in settings.
   const [obDone, setObDone] = useState(false);
   const needsOnboarding = !obDone && settingsQ.isSuccess && settingsQ.data?.general?.onboarded !== true && canAdmin;
-  // A IA escreveu na wiki (evento wiki_page do hub): se NÃO estás na wiki, oferece "Abrir" num toast;
-  // dentro da wiki o WikiView trata (navega para a página criada / refresca a aberta).
+  // The AI wrote to the wiki (hub's wiki_page event): if you're NOT in the wiki, offers "Open" in a
+  // toast; inside the wiki, WikiView handles it (navigates to the created page / refreshes the open one).
   useChatSocket((ev) => {
     if (ev.type !== "wiki_page" || view === "wiki") return;
     const p = ev.payload as { title?: string; link?: string };
@@ -166,8 +169,8 @@ export function App({ session }: { session: WebmailSession }) {
 
   const disabledApps = useDisabledApps();
   const assistantEnabled = useAssistantEnabled();
-  // A app atual foi desligada pela organização (ou por link direto): sai para a primeira app ainda
-  // ligada (o Correio já não é garantido — também se pode desligar).
+  // The current app was disabled by the organization (or via a direct link): leaves for the first
+  // still-enabled app (Mail is no longer guaranteed either — it too can be disabled).
   useEffect(() => {
     if (!disabledApps.includes(view)) return;
     const order: View[] = ["today", "mail", "chat", "kanban", "cal", "files", "docs", "contacts", "meet", "notes", "wiki"];
@@ -175,7 +178,7 @@ export function App({ session }: { session: WebmailSession }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabledApps, view]);
 
-  // Fontes das badges: e-mail não lido (JMAP) + notificações não lidas por tipo (reunião, arquivo).
+  // Badge sources: unread mail (JMAP) + unread notifications by type (meeting, file).
   const boxesQ = useQuery({ queryKey: ["mailboxes"], queryFn: () => session.service.mailboxes(), refetchInterval: 30000 });
   // refetchIntervalInBackground: TanStack Query stops an interval once the tab is hidden, and the
   // OS notification only fires WHILE the tab is hidden (see desktopNotify). The two rules cancelled
@@ -193,7 +196,7 @@ export function App({ session }: { session: WebmailSession }) {
   });
   const items = notifQ.data?.items ?? [];
 
-  // Marca da organização (cor + logo). Aplica a cor globalmente e guarda em cache para o login.
+  // Organization branding (color + logo). Applies the color globally and caches it for the login page.
   const brandingQ = useQuery({ queryKey: ["branding"], queryFn: () => backend.brandingGet(), retry: false, staleTime: 300000 });
   const brand = brandingQ.data;
   useEffect(() => {
@@ -201,14 +204,14 @@ export function App({ session }: { session: WebmailSession }) {
     if (brand) cacheBrand(brand);
   }, [brand?.color, brand?.logo, brand?.name]);
 
-  // Notificações desktop (aba aberta): e-mail via push JMAP, demais via diff das notificações.
+  // Desktop notifications (tab open): mail via JMAP push, the rest via a diff of notifications.
   const inboxId = boxesQ.data?.find((b) => b.role === "inbox")?.id ?? null;
   const notifyEmail = useDesktopNotifier({
     service: session.service, inboxId, notifItems: notifQ.data?.items,
   });
 
-  // Push JMAP global (fica ativo em qualquer aba): mantém a badge de e-mail viva mesmo fora do Mail
-  // e alimenta a notificação desktop de novo e-mail.
+  // Global JMAP push (stays active on any tab): keeps the mail badge alive even outside Mail
+  // and feeds the desktop notification for new mail.
   useJmapPush(session.service, () => {
     void qc.invalidateQueries({ queryKey: ["emails"] });
     void qc.invalidateQueries({ queryKey: ["mailboxes"] });
@@ -233,7 +236,7 @@ export function App({ session }: { session: WebmailSession }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, items.length]);
 
-  // Apps desligadas pela organização somem do rail para todos (mail é núcleo; admin é gated à parte).
+  // Apps disabled by the organization disappear from the rail for everyone (mail is core; admin is gated separately).
   const off = new Set(disabledApps);
   const allApps: { id: View; label: string; icon: JSX.Element }[] = [
     { id: "today", label: t("webmail.apps.today"), icon: <IcSun size={20} /> },
@@ -253,13 +256,13 @@ export function App({ session }: { session: WebmailSession }) {
   const apps = allApps.filter((a) => !off.has(a.id));
   if (canAdmin) apps.push({ id: "admin", label: t("webmail.apps.admin"), icon: <IcShield size={20} /> });
 
-  // Política da organização (admin/security): MFA obrigatório e ainda sem 2º fator → gate
-  // bloqueante em cima de tudo até concluir o enrollment (partilha o cache "me-presence").
+  // Organization policy (admin/security): mandatory MFA with no 2nd factor yet → blocking gate
+  // on top of everything until enrollment completes (shares the "me-presence" cache).
   const overlayUp = useOverlayOpen();
   const meGateQ = useQuery({
     queryKey: ["me-presence"], queryFn: () => backend.me(), retry: false,
-    // A política de MFA pode ligar-se a qualquer momento: revalida ao focar a janela e a cada 60s,
-    // para o gate aparecer sem exigir refresh manual.
+    // The MFA policy can be turned on at any moment: revalidates on window focus and every 60s,
+    // so the gate appears without requiring a manual refresh.
     refetchOnWindowFocus: true, refetchInterval: 60_000,
   });
   // Invalid/expired session detected in the startup check (and the 60s / focus refetches): clears
@@ -272,8 +275,8 @@ export function App({ session }: { session: WebmailSession }) {
     return <MFAGate method={meGateQ.data.mfa_required_method} email={session.email} onLogout={session.logout} />;
   }
 
-  // Dentro do .wm de propósito: as variáveis do design system (cores, bordas, tema) estão
-  // definidas nesse escopo. Fora dele, o cartão saía sem fundo nem contraste.
+  // Deliberately inside .wm: the design system variables (colors, borders, theme) are
+  // defined in that scope. Outside it, the card would render with no background or contrast.
   if (needsOnboarding) {
     return <div className="wm"><Onboarding email={session.email} onDone={() => setObDone(true)} /></div>;
   }
@@ -286,7 +289,7 @@ export function App({ session }: { session: WebmailSession }) {
       <div className="shell">
         <header className="topbar">
           <div className="brand">
-            {/* Sem logótipo do cliente, mostra a marca Beskos (antes era a inicial em texto). */}
+            {/* With no customer logo, shows the Beskos mark (used to be the initial as text). */}
             <img className={"brand-logo" + (brand?.logo && brand?.logo_white_dark ? " white-dark" : "")} src={brand?.logo || BESKOS_MARK} alt={brand?.name || "Beskos"} />
             <b>{brand?.name || "Beskos"}</b>
           </div>
@@ -321,8 +324,8 @@ export function App({ session }: { session: WebmailSession }) {
               </button>
             );
           })}
-          {/* Assistente de IA: item no FUNDO do menu (rail), não uma bolha a pairar sobre o conteúdo.
-              Fica montado mesmo escondido (a conversa sobrevive à navegação). */}
+          {/* AI assistant: an item at the BOTTOM of the menu (rail), not a bubble hovering over the
+              content. Stays mounted even when hidden (the conversation survives navigation). */}
           <AssistantBubble hidden={view === "settings" || !assistantEnabled || overlayUp} />
         </nav>
 
@@ -336,20 +339,20 @@ export function App({ session }: { session: WebmailSession }) {
           {view === "chat" && <ChatView search={search} onSearch={fillSearch} session={session} channelParam={sub} onChannel={(id) => nav(`/mail/chat/${id}`)} />}
           {view === "kanban" && <KanbanView search={search} boardParam={sub} cardParam={sub2} onBoard={(id) => nav(`/mail/kanban/${id}`)} onCard={(bid, cid) => nav(cid ? `/mail/kanban/${bid}/${cid}` : `/mail/kanban/${bid}`)} />}
           {view === "cal" && <CalendarView search={search} eventParam={sub} />}
-          {/* "file" e "m" são segmentos reservados: /mail/files/file/<id> abre o ficheiro e
-              /mail/meet/m/<id> a ficha da reunião (destinos das notificações). Os ids são UUID,
-              nunca colidem com estes nomes. */}
+          {/* "file" and "m" are reserved segments: /mail/files/file/<id> opens the file and
+              /mail/meet/m/<id> the meeting sheet (notification targets). The ids are UUIDs,
+              so they never collide with these names. */}
           {view === "files" && <FilesView search={search} folderParam={sub === "file" ? undefined : sub} fileParam={sub === "file" ? sub2 : undefined} onFolder={(id) => nav(id ? `/mail/files/${id}` : "/mail/files")} />}
           {view === "contacts" && <ContactsView search={search} sub={sub} sub2={sub2} />}
           {view === "meet" && <MeetView roomParam={sub === "m" ? undefined : sub} meetingParam={sub === "m" ? sub2 : undefined} />}
           {view === "docs" && <DocsView search={search} />}
           {view === "notes" && <NotesView noteParam={sub} onNote={(id) => nav(id ? `/mail/notes/${id}` : "/mail/notes")} />}
           {view === "wiki" && <WikiView sub={sub} sub2={sub2} onNav={(s, p) => nav(p ? `/mail/wiki/${s}/${p}` : s ? `/mail/wiki/${s}` : "/mail/wiki")} />}
-          {/* sec vazio = voltar à raiz (lista de secções no telemóvel); senão entra na secção. */}
+          {/* empty sec = back to the root (list of sections on mobile); otherwise enters the section. */}
           {view === "admin" && canAdmin && (
             <AdminView section={sub} detail={sub2}
               onSection={(sec) => nav(sec ? `/mail/admin/${sec}` : "/mail/admin")}
-              /* O detalhe (ex.: um domínio) vive na URL: o link é partilhável e o refresh não perde o sítio. */
+              /* The detail (e.g. a domain) lives in the URL: the link is shareable and a refresh doesn't lose the spot. */
               onDetail={(sec, id) => nav(id ? `/mail/admin/${sec}/${id}` : `/mail/admin/${sec}`)} />
           )}
           {view === "profile" && <ProfileView section={sub} onSection={(sec) => nav(sec ? `/mail/profile/${sec}` : "/mail/profile")} />}
@@ -363,7 +366,7 @@ export function App({ session }: { session: WebmailSession }) {
   );
 }
 
-// Status do utilizador (emoji + texto), estilo Slack. Clicar no avatar abre o editor com presets.
+// User status (emoji + text), Slack-style. Clicking the avatar opens the editor with presets.
 const STATUS_PRESETS = [
   { emoji: "💬", key: "available" }, { emoji: "📅", key: "meeting" }, { emoji: "🎧", key: "focus" },
   { emoji: "🍽️", key: "lunch" }, { emoji: "🏠", key: "remote" }, { emoji: "🌴", key: "vacation" }, { emoji: "🤒", key: "sick" },
@@ -375,13 +378,13 @@ function StatusControl({ email, onProfile, onImport, onLogout }: { email: string
   const q = useQuery({ queryKey: ["my-status"], queryFn: () => backend.userStatus(email), retry: false });
   const meQ = useQuery({ queryKey: ["me-presence"], queryFn: () => backend.me(), retry: false });
   const presence = meQ.data?.presence ?? "active";
-  const setPresence = async (p: "active" | "away" | "dnd") => { try { await backend.setPresence(p); qc.invalidateQueries({ queryKey: ["me-presence"] }); } catch { /* silencioso */ } };
+  const setPresence = async (p: "active" | "away" | "dnd") => { try { await backend.setPresence(p); qc.invalidateQueries({ queryKey: ["me-presence"] }); } catch { /* silent */ } };
   const [emoji, setEmoji] = useState("");
   const [text, setText] = useState("");
   useEffect(() => { if (q.data) { setEmoji(q.data.emoji); setText(q.data.text); } }, [q.data]);
   const save = async (e: string, tx: string) => {
     setOpen(false);
-    try { await backend.setMyStatus(e, tx); qc.invalidateQueries({ queryKey: ["my-status"] }); } catch { /* silencioso */ }
+    try { await backend.setMyStatus(e, tx); qc.invalidateQueries({ queryKey: ["my-status"] }); } catch { /* silent */ }
   };
   return (
     <div className="status-wrap">
@@ -445,12 +448,12 @@ function StatusControl({ email, onProfile, onImport, onLogout }: { email: string
   );
 }
 
-// Tema inicial: o guardado (se houver), senão o atributo já no <html>, senão a preferência do SO.
+// Initial theme: the saved one (if any), otherwise the attribute already on <html>, otherwise the OS preference.
 function currentTheme(): "light" | "dark" {
   try {
     const saved = localStorage.getItem("mailin.theme");
     if (saved === "light" || saved === "dark") return saved;
-  } catch { /* modo privado */ }
+  } catch { /* private mode */ }
   const attr = document.documentElement.getAttribute("data-theme");
   if (attr === "light" || attr === "dark") return attr;
   return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";

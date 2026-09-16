@@ -6,9 +6,9 @@ import { useLocalParticipant, useRoomContext } from "@livekit/components-react";
 import { ConnectionState, RoomEvent } from "livekit-client";
 import { IcHandRaise, IcEmoji } from "../panel/icons";
 
-// Reações e mão levantada pelo data channel do LiveKit (tópico "react"), separado do "pres" da
-// apresentação. Emojis sobem e somem; mãos levantadas ficam num painel até o dono baixar. Tudo é
-// efêmero e P2P — nada toca o backend. Padrão Meet: paleta de emoji + botão de mão na barra de ações.
+// Reactions and raised hand over the LiveKit data channel ("react" topic), separate from the
+// presentation's "pres". Emoji float up and disappear; raised hands stay in a panel until their
+// owner lowers them. Everything is ephemeral and P2P — nothing touches the backend. Meet pattern: emoji palette + hand button in the action bar.
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -35,14 +35,14 @@ export function MeetReactions() {
 
   const post = useCallback((m: RMsg, reliable = true) => {
     const room = roomCtx;
-    if (!room || room.state !== ConnectionState.Connected) return; // efêmero: fila não faz sentido
+    if (!room || room.state !== ConnectionState.Connected) return; // ephemeral: queuing doesn't make sense
     room.localParticipant.publishData(enc.encode(JSON.stringify(m)), { reliable, topic: "react" })
-      .catch(() => { /* frame perdido é aceitável para reação */ });
+      .catch(() => { /* a lost frame is acceptable for a reaction */ });
   }, [roomCtx]);
 
   const showEmoji = useCallback((e: string) => {
     const id = ++seq.current;
-    const left = 8 + Math.floor(Math.random() * 84); // 8%..92% da largura
+    const left = 8 + Math.floor(Math.random() * 84); // 8%..92% of the width
     setFlying((f) => [...f, { id, e, left }]);
     setTimeout(() => setFlying((f) => f.filter((x) => x.id !== id)), 3200);
   }, []);
@@ -62,10 +62,10 @@ export function MeetReactions() {
     post({ t: "hand", up, by: myId, name: myName });
   }, [myId, myName, post]);
 
-  // Recebe reações dos outros. Guarda em ref para o handler ver o estado atual sem reassinar.
+  // Receives reactions from others. Kept in a ref so the handler sees the current state without resubscribing.
   const onMsgRef = useRef<(m: RMsg) => void>(() => {});
   onMsgRef.current = (m) => {
-    if (m.by === myId) return; // já mostramos localmente
+    if (m.by === myId) return; // already shown locally
     if (m.t === "emoji") { showEmoji(m.e); return; }
     setHands((h) => {
       const rest = h.filter((x) => x.id !== m.by);
@@ -79,11 +79,11 @@ export function MeetReactions() {
     if (!roomCtx) return;
     const onData = (payload: Uint8Array, _p?: unknown, _k?: unknown, topic?: string) => {
       if (topic && topic !== "react") return;
-      try { onMsgRef.current(JSON.parse(dec.decode(payload)) as RMsg); } catch { /* inválido */ }
+      try { onMsgRef.current(JSON.parse(dec.decode(payload)) as RMsg); } catch { /* invalid */ }
     };
-    // Novato entrou: se estou com a mão levantada, reanuncio para ele ver.
+    // A newcomer joined: if my hand is raised, re-announce it so they see it.
     const onJoin = () => { if (handRef.current) setTimeout(() => post({ t: "hand", up: true, by: myId, name: myName }), 900); };
-    // Alguém saiu: baixa a mão dele localmente.
+    // Someone left: lower their hand locally.
     const onLeft = (p: { identity?: string }) => { if (p?.identity) setHands((h) => h.filter((x) => x.id !== p.identity)); };
     roomCtx.on(RoomEvent.DataReceived, onData);
     roomCtx.on(RoomEvent.ParticipantConnected, onJoin);

@@ -19,9 +19,9 @@ export function BookingDrawer({ onClose }: { onClose: () => void }) {
   const [cfg, setCfg] = useState<BookingCfg | null>(null);
   const c = cfg ?? q.data ?? null;
 
-  // Nomes dos dias no locale do utilizador (domingo = 0, convenção JS).
+  // Day names in the user's locale (Sunday = 0, JS convention).
   const weekdays = useMemo(() => Array.from({ length: 7 }, (_, d) =>
-    new Date(2026, 2, 1 + d).toLocaleDateString(i18n.language, { weekday: "short" })), [i18n.language]); // 01/03/2026 é domingo
+    new Date(2026, 2, 1 + d).toLocaleDateString(i18n.language, { weekday: "short" })), [i18n.language]); // March 1, 2026 is a Sunday
 
   const save = useMutation({
     mutationFn: (v: BookingCfg) => backend.bookingSave({ enabled: v.enabled, title: v.title, duration_min: v.duration_min, phone_field: v.phone_field, company_field: v.company_field, windows: v.windows }),

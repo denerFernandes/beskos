@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { IcMail, IcPhone, IcChat, IcCard } from "../panel/icons";
 
-// Peças partilhadas pelas fichas de cliente.
+// Pieces shared by customer record cards.
 
 export function StatCards({ items }: { items: { label: string; value: string | number; hint?: string }[] }) {
   return (
@@ -21,8 +21,8 @@ export function StatCards({ items }: { items: { label: string; value: string | n
 
 type Action = { icon: JSX.Element; label: string; href?: string; onClick?: () => void; blocked?: boolean };
 
-// ActionBar: o que o consentimento proíbe aparece desativado e diz porquê — nunca some, para
-// ficar claro que existe o dado mas não a permissão de usar.
+// ActionBar: whatever consent forbids shows up disabled and says why — it never disappears, so
+// it stays clear that the data exists but permission to use it doesn't.
 export function ActionBar({ actions }: { actions: Action[] }) {
   const { t } = useTranslation();
   return (
@@ -42,7 +42,7 @@ export function ActionBar({ actions }: { actions: Action[] }) {
   );
 }
 
-// contactActions monta e-mail/telefone/WhatsApp a partir dos dados + consentimento do contato.
+// contactActions builds email/phone/WhatsApp actions from the contact's data + consent.
 export function useContactActions(c: {
   id?: string; name?: string; email?: string; phone?: string; mobile?: string; is_whatsapp?: boolean;
   allow_email?: boolean; allow_phone?: boolean; extra_emails?: string[]; extra_phones?: string[];
@@ -56,15 +56,15 @@ export function useContactActions(c: {
       onClick: () => nav(`/mail/mail?to=${encodeURIComponent(c.email!)}`),
     });
   }
-  // Enviar ESTE contacto como cartão .vcf anexo — abre a escrita com o vCard já anexado. Não depende
-  // do consentimento de e-mail do contacto (o envio é para outra pessoa, não para ele).
+  // Send THIS contact as an attached .vcf card — opens compose with the vCard already attached. Doesn't
+  // depend on the contact's own email consent (it's sent to someone else, not to them).
   if (c.id) {
     out.push({
       icon: <IcCard size={15} />, label: t("crm.sendVcard"),
       onClick: () => nav(`/mail/mail?vcard=${encodeURIComponent(c.id!)}${c.name ? `&vname=${encodeURIComponent(c.name)}` : ""}`),
     });
   }
-  // E-mails secundários: um "escrever" por endereço (o rótulo mostra o próprio e-mail).
+  // Secondary emails: one "compose" per address (the label shows the email itself).
   for (const e of c.extra_emails ?? []) {
     out.push({ icon: <IcMail size={15} />, label: e, blocked: c.allow_email === false, onClick: () => nav(`/mail/mail?to=${encodeURIComponent(e)}`) });
   }

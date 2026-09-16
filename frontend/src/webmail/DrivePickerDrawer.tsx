@@ -7,16 +7,16 @@ import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 import { IcFolder, IcPaperclip, IcSearch, IcUpload, IcArrowLeft } from "../panel/icons";
 
-// DrivePickerDrawer: gestor de ficheiros integrado ao Drive para ESCOLHER um ficheiro ou fazer
-// upload no sítio onde se está — estilo Google. Reutilizado pelos anexos da wiki, pelo chat e por
-// quem mais precisar de "anexar do Drive". Sem diálogos nativos (o input file é o picker do SO).
+// DrivePickerDrawer: a Drive-integrated file manager for PICKING a file or uploading one right
+// where you are — Google style. Reused by wiki attachments, by chat, and by anything else that
+// needs "attach from Drive". No native dialogs (the file input is the OS's own picker).
 
 const fmtSize = (n: number) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 export function DrivePickerDrawer({ onPick, onClose, accept }: {
   onPick: (f: StorageFile) => void;
   onClose: () => void;
-  accept?: string; // filtro do input de upload (ex.: "image/*")
+  accept?: string; // filter for the upload input (e.g. "image/*")
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

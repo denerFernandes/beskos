@@ -6,7 +6,8 @@ import { Spinner, AiThinking } from "./Spinner";
 import { BoardPicker } from "./BoardPicker";
 import { toast } from "./toast";
 
-// Modal "Extrair tarefas": a IA lê o e-mail (backend.extractTasks) e permite mandar ao quadro real.
+// "Extract tasks" modal: the AI reads the email (backend.extractTasks) and lets them be sent to
+// the real board.
 export function ExtractTasksModal({
   subject, body, sourceEmailId, onClose,
 }: {
@@ -45,9 +46,10 @@ export function ExtractTasksModal({
     return starts.length === 1 ? starts[0].id : "";
   };
 
-  // Extração é uma AÇÃO (gera tarefas), não dado cacheável: não guardamos o resultado entre
-  // aberturas (gcTime 0) — senão um erro transitório (ex.: a API a reiniciar) ficava "colado" ao
-  // email e reabrir mostrava o erro sem nunca voltar a tentar. Assim reabrir/refazer corre de novo.
+  // Extraction is an ACTION (generates tasks), not cacheable data: we don't keep the result across
+  // openings (gcTime 0) — otherwise a transient error (e.g. the API restarting) would stay "stuck"
+  // to the email and reopening would show the error without ever retrying. This way reopening/
+  // redoing always runs again.
   const tasks = useQuery({
     queryKey: ["extract", subject, body],
     queryFn: async () => {
@@ -63,10 +65,10 @@ export function ExtractTasksModal({
 
   const add = useMutation({
     mutationFn: async (list: Task[]) => {
-      // Quadro escolhido no seletor; com um único quadro o seletor já o pré-seleciona.
+      // Board chosen in the picker; with a single board the picker already preselects it.
       const bid = boardId || (await backend.boards())[0].id;
       const board = await backend.board(bid);
-      const col = board.columns[0].column.id; // 1ª coluna ("A fazer")
+      const col = board.columns[0].column.id; // 1st column ("To do")
       for (const tk of list) {
         await backend.createCard(bid, {
           column_id: col, title: tk.title,

@@ -20,12 +20,12 @@ import { publicUrl } from "../apiBase";
 import { IcUsers, IcLink, IcGear, IcX, IcPencilBox, IcLogout, IcMicOff, IcStar } from "../panel/icons";
 import { Switch } from "./Switch";
 
-// openRoom abre a sala numa janela dedicada (/room/:room). O nome/label é por sala, então clicar de
-// novo foca a janela existente em vez de abrir outra. Na web usa window.open; no app nativo (Tauri)
-// o window.open não cria janela — é preciso a API nativa WebviewWindow.
+// openRoom opens the room in a dedicated window (/room/:room). The name/label is per room, so clicking
+// again focuses the existing window instead of opening another one. On the web it uses window.open; on the
+// native app (Tauri) window.open doesn't create a window — the native WebviewWindow API is needed.
 export function openRoom(room: string, audio = false) {
   const path = `/room/${encodeURIComponent(room)}${audio ? "?audio=1" : ""}`;
-  if (openInWindow(`room-${room}`, path, "Beskos — Sala")) return; // app nativo: janela dedicada
+  if (openInWindow(`room-${room}`, path, "Beskos — Sala")) return; // native app: dedicated window
   const w = Math.min(1280, screen.availWidth), h = Math.min(800, screen.availHeight);
   const feats = `popup=yes,width=${w},height=${h},left=${Math.max(0, (screen.availWidth - w) / 2)},top=${Math.max(0, (screen.availHeight - h) / 2)}`;
   const win = window.open(path, `mailin-room-${room}`, feats);
@@ -34,29 +34,29 @@ export function openRoom(room: string, audio = false) {
 
 type Panel = "notes" | "host" | null;
 
-// A chamada (janela dedicada /room/:room). Layout no padrão do Meet: os controles de mídia ficam
-// na barra do LiveKit (centro-inferior) e os nossos botões numa barra inferior-direita; os painéis
-// abrem ancorados na lateral direita, um de cada vez (por isso nada mais se sobrepõe).
+// The call (dedicated window /room/:room). Layout follows the Meet pattern: media controls stay
+// in the LiveKit bar (bottom-center) and our buttons in a bottom-right bar; the panels
+// open anchored to the right side, one at a time (so nothing else overlaps).
 export function MeetRoom({ session, audioOnly, onLeave }: {
   session: MeetSession; audioOnly?: boolean; onLeave: () => void;
 }) {
   const { t } = useTranslation();
-  const settings = useUserSettings(); // defaults de mic/câmara (settings.meet)
+  const settings = useUserSettings(); // mic/camera defaults (settings.meet)
   const [panel, setPanel] = useState<Panel>(null);
   const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
   const isHost = !!session.is_host && !!session.meeting_id;
-  // Chat desligado pelo host: esconde a UI de chat do LiveKit para não-hosts (o data channel segue
-  // aberto para apresentação/laser — a permissão nunca é cortada). Aplicado à entrada.
+  // Chat turned off by the host: hides the LiveKit chat UI for non-hosts (the data channel stays
+  // open for presentation/laser — the permission is never cut). Applied on entry.
   const chatOff = session.controls?.allow_chat === false && !isHost;
 
-  // Pré-join: tela de conferência de câmera/microfone antes de conectar. O usuário escolhe os
-  // dispositivos, vê o preview e o nível do mic, e só entra ao confirmar (padrão Meet). Enquanto
-  // `choices` é null, não conectamos à sala — nada de mídia enviada até o "Entrar".
+  // Pre-join: camera/microphone setup screen before connecting. The user picks the
+  // devices, sees the preview and the mic level, and only joins upon confirming (Meet pattern). While
+  // `choices` is null, we don't connect to the room — no media sent until "Join".
   const [choices, setChoices] = useState<LocalUserChoices | null>(null);
 
-  // Breakout: quando `bk` está setado, conectamos à sala do breakout em vez da principal (mesma
-  // reunião, sala LiveKit diferente). Trocar de sala remonta o LiveKitRoom (via key); o guard
-  // `switching` impede que o onDisconnected da remontagem feche a janela.
+  // Breakout: when `bk` is set, we connect to the breakout room instead of the main one (same
+  // meeting, different LiveKit room). Switching rooms remounts the LiveKitRoom (via key); the
+  // `switching` guard prevents the remount's onDisconnected from closing the window.
   const [bk, setBk] = useState<BreakoutSession | null>(null);
   const switching = useRef(false);
   const enterBreakout = useCallback((b: BreakoutSession) => { switching.current = true; setBk(b); }, []);
@@ -69,7 +69,7 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
         <PreJoin
           defaults={{
             username: session.name ?? "",
-            // Respeita "entrar com câmara/micro desligados" das Definições (settings.meet).
+            // Respects "join with camera/mic off" from Settings (settings.meet).
             videoEnabled: !audioOnly && settings.meet?.camOff !== true,
             audioEnabled: settings.meet?.enterMuted !== true,
           }}
@@ -98,16 +98,16 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
         <LeaveOnWindowClose />
         <RoomSounds />
 
-        {/* Barra de breakout (topo): entrar na tua sala / voltar à principal; some quando não há salas. */}
+        {/* Breakout bar (top): join your room / return to main; disappears when there are no rooms. */}
         {session.meeting_id && session.identity && (
           <BreakoutBar meetingId={session.meeting_id} myId={session.identity} inBreakout={bk}
             onJoin={enterBreakout} onReturn={returnToMain} />
         )}
 
-        {/* Pedidos de entrada (aprovação): cartão no canto superior esquerdo, longe dos painéis. */}
+        {/* Entry requests (approval): card in the top-left corner, away from the panels. */}
         {isHost && session.access === "approval" && <HostLobby meetingId={session.meeting_id!} />}
 
-        {/* Os nossos botões entram DENTRO da barra do LiveKit: uma só fila, um só estilo. */}
+        {/* Our buttons go INSIDE the LiveKit bar: one row, one style. */}
         <ControlBarSlot>
           <MeetEffects />
           {session.meeting_id && (
@@ -147,16 +147,16 @@ export function MeetRoom({ session, audioOnly, onLeave }: {
   );
 }
 
-// Fechar a janela = sair da reunião. No app de desktop nenhum dos dois caminhos corria o cleanup do
-// React, e a pessoa ficava na sala com a câmara congelada para os outros:
+// Closing the window = leaving the meeting. On the desktop app neither path ran React's cleanup,
+// and the person stayed in the room with a frozen camera for everyone else:
 //
-//  (a) Janela PRINCIPAL: fechar não fecha a app — esconde-a no tray e o webview segue ligado. O lado
-//      nativo avisa ("window-hidden").
-//  (b) Janela DEDICADA da sala (é assim que o Meet abre no desktop, ver openRoom): fechá-la destrói
-//      o webview de repente, sem despedida ao servidor. Travamos o fecho, saímos da sala e só então
-//      destruímos a janela — com teto de tempo, para nunca prender a janela do utilizador.
+//  (a) MAIN window: closing doesn't close the app — hides it in the tray and the webview stays alive. The
+//      native side notifies ("window-hidden").
+//  (b) The room's DEDICATED window (that's how Meet opens on desktop, see openRoom): closing it destroys
+//      the webview abruptly, with no goodbye to the server. We hold the close, leave the room, and only then
+//      destroy the window — with a time cap, so it never traps the user's window.
 //
-// Em ambos os casos o onDisconnected trata do resto (fecha a vista e encerra a apresentação).
+// In both cases onDisconnected handles the rest (closes the view and ends the presentation).
 function LeaveOnWindowClose() {
   const room = useRoomContext();
   useEffect(() => {
@@ -168,18 +168,18 @@ function LeaveOnWindowClose() {
         try {
           const { getCurrentWindow } = await import("@tauri-apps/api/window");
           const win = getCurrentWindow();
-          if (win.label === "main") return; // a principal é o caso (a)
-          // Registar um onCloseRequested faz o Tauri travar o fecho nativo e passar a decisão ao
-          // JS: a própria API destrói a janela quando este handler terminar sem preventDefault.
-          // Logo, nada de preventDefault aqui — só atrasamos o fecho o tempo de sair da sala (com
-          // teto, para nunca prender a janela) e deixamos a API fechá-la. Isto exige
-          // `core:window:allow-destroy` nas capabilities; sem ela o fecho era negado e a janela
-          // ficava presa (nenhum clique a fechava).
+          if (win.label === "main") return; // main is case (a)
+          // Registering an onCloseRequested makes Tauri hold the native close and pass the decision to
+          // JS: the API itself destroys the window when this handler finishes without preventDefault.
+          // So, no preventDefault here — we only delay the close for the time it takes to leave the room (with a
+          // cap, so it never traps the window) and let the API close it. This requires
+          // `core:window:allow-destroy` in the capabilities; without it the close was denied and the window
+          // stayed stuck (no click would close it).
           const un = await win.onCloseRequested(async () => {
             await Promise.race([room.disconnect().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
           });
           if (gone) un(); else offClose = un;
-        } catch { /* API indisponível: fica só o caminho (a) */ }
+        } catch { /* API unavailable: only path (a) remains */ }
       })();
     }
     return () => { offHidden(); gone = true; offClose?.(); };
@@ -187,15 +187,15 @@ function LeaveOnWindowClose() {
   return null;
 }
 
-// Sons da sala: onJoined, e alguém entrou.
+// Room sounds: onJoined, and someone joined.
 //
-// PORQUÊ POR EVENTOS DA SALA e não no onConnected do <LiveKitRoom>: trocar de breakout e voltar
-// remonta a sala, e o onConnected dispararia outra vez o som de entrada em cada salto. O evento
-// Connected do room é o mesmo em ambos os casos, mas aqui temos onde guardar que já tocou.
+// WHY VIA ROOM EVENTS and not <LiveKitRoom>'s onConnected: switching to a breakout and back
+// remounts the room, and onConnected would fire the join sound again on every hop. The room's
+// Connected event is the same in both cases, but here we have somewhere to store that it already played.
 //
-// O de entrada de outros toca uma vez POR PESSOA. Quem chega a uma reunião a decorrer recebe o
-// ParticipantConnected de quem já lá estava? Não — esse evento é só para quem chega DEPOIS de nós,
-// que é exatamente o que se quer anunciar.
+// The one for others joining plays once PER PERSON. Does someone arriving at an ongoing meeting get the
+// ParticipantConnected event for people already there? No — that event is only for whoever arrives AFTER us,
+// which is exactly what we want to announce.
 function RoomSounds() {
   const room = useRoomContext();
   // Entering plays ONCE. There are two ways to learn we are in -- being connected already when this
@@ -218,7 +218,7 @@ function RoomSounds() {
   return null;
 }
 
-// Botão redondo da barra de ações (mesma linguagem visual dos controles do LiveKit).
+// Round button in the action bar (same visual language as LiveKit's controls).
 function ActionBtn({ label, on, onClick, danger, children }: {
   label: string; on?: boolean; onClick: () => void; danger?: boolean; children: React.ReactNode;
 }) {
@@ -229,8 +229,8 @@ function ActionBtn({ label, on, onClick, danger, children }: {
   );
 }
 
-// Controles do organizador (conteúdo do painel). Só o dono vê — e o backend também exige o dono
-// (a query filtra owner_user_id), então esconder o botão não é a única defesa.
+// Organizer controls (panel content). Only the owner sees it — and the backend also requires the owner
+// (the query filters by owner_user_id), so hiding the button isn't the only defense.
 function HostPanel({ meetingId, initial, initialAccess, isOwner }: {
   meetingId: string; initial?: MeetControls; initialAccess: string; isOwner: boolean;
 }) {
@@ -294,8 +294,8 @@ function HostPanel({ meetingId, initial, initialAccess, isOwner }: {
   );
 }
 
-// Quem está NA SALA agora (o LiveKit é quem sabe) + expulsar. O host não aparece com botão de
-// expulsar: sair da própria sala com a tranca ligada deixaria toda a gente à porta.
+// Who is IN THE ROOM now (LiveKit is the one who knows) + kick. The host doesn't get a kick
+// button: leaving your own room with the lock on would leave everyone at the door.
 function Participants({ meetingId, isOwner }: { meetingId: string; isOwner: boolean }) {
   const { t } = useTranslation();
   const q = useQuery({
@@ -313,7 +313,7 @@ function Participants({ meetingId, isOwner }: { meetingId: string; isOwner: bool
     onSuccess: () => toast(t("meet.muted")),
     onError: (e) => toast((e as Error).message),
   });
-  // Promover/despromover co-host — só o dono. A identidade do LiveKit é o id do utilizador.
+  // Promote/demote co-host — owner only. The LiveKit identity is the user's id.
   const promote = useMutation({
     mutationFn: (identity: string) => backend.meetAddCohost(meetingId, identity),
     onSuccess: () => { void q.refetch(); toast(t("meet.cohostAdded")); },
@@ -347,9 +347,9 @@ function Participants({ meetingId, isOwner }: { meetingId: string; isOwner: bool
   );
 }
 
-// BreakoutBar: faixa no topo da chamada. Quem foi atribuído a uma sala vê "Entrar na tua sala";
-// quem já está num breakout vê "Voltar à sala principal". Se o host fechar tudo (lista vazia)
-// enquanto o utilizador está num breakout, volta sozinho à principal.
+// BreakoutBar: banner at the top of the call. Whoever was assigned to a room sees "Join your room";
+// whoever is already in a breakout sees "Return to main room". If the host closes everything (empty list)
+// while the user is in a breakout, they return to the main room automatically.
 function BreakoutBar({ meetingId, myId, inBreakout, onJoin, onReturn }: {
   meetingId: string; myId: string; inBreakout: BreakoutSession | null;
   onJoin: (b: BreakoutSession) => void; onReturn: () => void;
@@ -363,7 +363,7 @@ function BreakoutBar({ meetingId, myId, inBreakout, onJoin, onReturn }: {
   const rooms = q.data?.breakouts ?? [];
   const mine = rooms.find((b) => b.members.includes(myId));
 
-  // Host fechou os breakouts enquanto eu estava num → volto à principal automaticamente.
+  // Host closed the breakouts while I was in one -> I return to the main room automatically.
   useEffect(() => {
     if (inBreakout && rooms.length === 0 && q.isFetched) onReturn();
   }, [inBreakout, rooms.length, q.isFetched, onReturn]);
@@ -391,8 +391,8 @@ function BreakoutBar({ meetingId, myId, inBreakout, onJoin, onReturn }: {
   );
 }
 
-// BreakoutPanel (host): cria N salas (com auto-distribuição em rodízio dos presentes), lista as
-// salas + nº de membros, e fecha tudo. (A atribuição manual existe no backend; a UI usa auto.)
+// BreakoutPanel (host): creates N rooms (with round-robin auto-distribution of those present), lists the
+// rooms + member count, and closes everything. (Manual assignment exists in the backend; the UI uses auto.)
 function BreakoutPanel({ meetingId }: { meetingId: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -443,9 +443,9 @@ function BreakoutPanel({ meetingId }: { meetingId: string }) {
   );
 }
 
-// Gravar (toggle) — botão redondo com ponto vermelho quando gravando. A gravação usa o pipeline de
-// tracks (montagem offline em GRELHA); layouts de composição (orador) só existiriam no RoomComposite
-// ao vivo, que nenhum plano usa — por isso não se oferece um seletor de layout que não teria efeito.
+// Record (toggle) — round button with a red dot while recording. Recording uses the tracks
+// pipeline (offline GRID composition); composition layouts (speaker) would only exist in the live
+// RoomComposite, which no plan uses — so no layout selector is offered that would have no effect.
 function RecordButton({ room }: { room: string }) {
   const { t } = useTranslation();
   const [on, setOn] = useState(false);
@@ -468,9 +468,9 @@ function RecordButton({ room }: { room: string }) {
   );
 }
 
-// Picture-in-Picture: destaca o vídeo em foco (partilha de ecrã ou orador) numa janela flutuante do
-// SO, para seguir a reunião ao trocar de aba/app. Feature-detected: some onde o browser não suporta
-// (ex.: WKWebView do iOS). Escolhe o maior <video> a tocar dentro do palco do LiveKit.
+// Picture-in-Picture: pops the focused video (screen share or speaker) into a floating OS
+// window, to follow the meeting while switching tabs/apps. Feature-detected: disappears where the browser doesn't support it
+// (e.g. iOS's WKWebView). Picks the largest <video> playing inside the LiveKit stage.
 function PipButton() {
   const { t } = useTranslation();
   const [on, setOn] = useState(false);
@@ -480,7 +480,7 @@ function PipButton() {
   const pickVideo = (): HTMLVideoElement | null => {
     const vids = Array.from(document.querySelectorAll<HTMLVideoElement>(".lk-room-container video, .meet-room video"))
       .filter((v) => v.readyState >= 2 && v.videoWidth > 0 && !v.disablePictureInPicture);
-    // Maior área visível ≈ palco/partilha; sem candidatos, null (o clique vira no-op).
+    // Largest visible area ≈ stage/share; with no candidates, null (the click becomes a no-op).
     return vids.sort((a, b) => b.videoWidth * b.videoHeight - a.videoWidth * a.videoHeight)[0] ?? null;
   };
 
@@ -506,7 +506,7 @@ function PipButton() {
   );
 }
 
-// Copiar o link público da sala (para convidados externos).
+// Copy the room's public link (for external guests).
 function CopyLinkButton({ room }: { room: string }) {
   const { t } = useTranslation();
   const link = publicUrl(`/j/${room}`);
@@ -518,7 +518,7 @@ function CopyLinkButton({ room }: { room: string }) {
   );
 }
 
-// Sala de espera do host: convidados pendentes (aprovação). Poll + admitir/negar.
+// Host's waiting room: pending guests (approval). Polling + admit/deny.
 function HostLobby({ meetingId }: { meetingId: string }) {
   const { t } = useTranslation();
   // refetchIntervalInBackground: without it TanStack Query STOPS polling once the window loses
@@ -533,9 +533,9 @@ function HostLobby({ meetingId }: { meetingId: string }) {
   const deny = useMutation({ mutationFn: (id: string) => backend.meetDeny(id), onSuccess: () => q.refetch() });
   const pending = q.data?.pending ?? [];
 
-  // Bate à porta uma vez POR PESSOA. A lista é resondada de 3 em 3 segundos e devolve os mesmos
-  // pedidos enquanto ninguém os despachar — tocar a cada sondagem daria um alarme de 20 batidas
-  // por minuto até o anfitrião reagir, que é a melhor forma de o fazer desligar o som.
+  // Knocks once PER PERSON. The list is re-polled every 3 seconds and returns the same
+  // requests as long as no one dismisses them — playing on every poll would give an alarm of 20 knocks
+  // per minute until the host reacts, which is the surest way to make them mute the sound.
   const announced = useRef<Set<string>>(new Set());
   useEffect(() => {
     const fresh = pending.filter((k) => !announced.current.has(k.id));

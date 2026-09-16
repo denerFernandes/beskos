@@ -42,7 +42,7 @@ export function MessageRow({ m, prev, locale, mine, canManage, highlighted, onRe
           : call ? <CallCard call={call} author={m.author} />
           : editing ? (
             <div className="msg-edit">
-              {/* textarea (não input): mensagens têm markdown/multilinha. Enter salva, Shift+Enter quebra linha. */}
+              {/* textarea (not input): messages have markdown/multiline content. Enter saves, Shift+Enter breaks the line. */}
               <textarea autoFocus rows={1} value={draft}
                 onChange={(e) => { setDraft(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px"; }}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (draft.trim()) { onEdit(draft.trim()); setEditing(false); } } if (e.key === "Escape") setEditing(false); }} />
@@ -62,7 +62,7 @@ export function MessageRow({ m, prev, locale, mine, canManage, highlighted, onRe
                   <img src={backend.chatAttachmentUrl(a.file_id, true)} alt={a.name} loading="lazy" />
                 </button>
               ) : prev ? (
-                // Dados à vista: um CSV vira tabela e um txt/json mostra o princípio, sem sair da conversa.
+                // Data at a glance: a CSV becomes a table and a txt/json shows the start, without leaving the conversation.
                 <ChatAttachmentPreview key={a.file_id} att={a} kind={prev} onOpen={() => setViewAtt(a)} />
               ) : (
                 <button key={a.file_id} className="att-file" onClick={() => (kind ? setViewAtt(a) : window.open(backend.chatAttachmentUrl(a.file_id), "_blank"))}>
@@ -119,7 +119,7 @@ export function MessageRow({ m, prev, locale, mine, canManage, highlighted, onRe
             <button className="ib sm" title={t("webmail.ai.extractTasks")} onClick={onExtractTasks}><IcColumns size={13} /></button>
           )}
           {mine && <button className="ib sm" title={t("chat.edit")} onClick={() => { setDraft(m.body); setEditing(true); }}><IcPencil size={13} /></button>}
-          {/* Apaga: o autor a própria; um gestor/owner modera as de terceiros. */}
+          {/* Delete: the author deletes their own; a manager/owner moderates others'. */}
           {(mine || canManage) && <button className="ib sm" title={t("chat.delete")} onClick={onDelete}><IcTrash size={13} /></button>}
         </div>
       )}

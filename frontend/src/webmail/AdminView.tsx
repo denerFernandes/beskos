@@ -15,19 +15,19 @@ import { IcHome, IcGlobe, IcUsers, IcShield, IcCard, IcColumns, IcStar, IcSparkl
 
 type Section = "overview" | "domains" | "users" | "groups" | "billing" | "branding" | "apps" | "agents" | "security";
 
-// Administração dentro do webmail (o /app deixou de existir). Menu interno no mesmo padrão do
-// E-mail: rail de seções + conteúdo. O RBAC decide o que aparece — e a API recusa de qualquer
-// jeito, então esconder o item não é a única defesa.
+// Administration inside the webmail (/app no longer exists). Internal menu in the same pattern as
+// Mail: section rail + content. RBAC decides what shows up — and the API refuses either
+// way, so hiding the item isn't the only defense.
 const SECTIONS: Section[] = ["overview", "domains", "users", "groups", "billing", "branding", "apps", "agents", "security"];
 
-// A seção ativa vem da URL (/mail/admin/<seção>) — link navegável e recarregável.
+// The active section comes from the URL (/mail/admin/<section>) — navigable, reloadable link.
 export function AdminView({ section: param, detail, onSection, onDetail }: {
   section?: string; detail?: string; onSection: (s: string) => void; onDetail: (s: string, id: string) => void;
 }) {
   const { t } = useTranslation();
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false });
-  // Estilo iOS no telemóvel: sem secção na URL = lista; com secção = detalhe + voltar. `sel` nulo é
-  // "na lista". No desktop o rail lateral mostra sempre tudo, com a Visão geral por omissão.
+  // iOS-style on mobile: no section in the URL = list; with a section = detail + back. `sel` null
+  // means "on the list". On desktop the side rail always shows everything, defaulting to Overview.
   const sel: Section | null = SECTIONS.includes(param as Section) ? (param as Section) : null;
 
   if (me.isLoading) return <div className="loading">…</div>;
@@ -60,7 +60,7 @@ export function AdminView({ section: param, detail, onSection, onDetail }: {
         ))}
       </aside>
       <section className="adm-main">
-          {/* Voltar à lista (só telemóvel; escondido por CSS no desktop). */}
+          {/* Back to the list (mobile only; hidden by CSS on desktop). */}
           <button className="adm-back" onClick={() => onSection("")}>‹ {t("panel.adminConsole")}</button>
           {shown === "overview" && <OverviewSection me={d} onNavigate={(s) => onSection(s)} />}
           {shown === "domains" && <DomainsSection me={d} detail={detail} onOpen={(id) => onDetail("domains", id)} />}
@@ -76,8 +76,8 @@ export function AdminView({ section: param, detail, onSection, onDetail }: {
   );
 }
 
-// adminEnabled diz se o ícone de administração aparece no rail: quem não tem NENHUMA permissão
-// administrativa não vê a área.
+// adminEnabled says whether the admin icon shows up in the rail: whoever has NO
+// administrative permission at all doesn't see the area.
 export function useAdminEnabled(): boolean {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false });
   const d = me.data;
@@ -85,15 +85,15 @@ export function useAdminEnabled(): boolean {
   return ["domains.view", "members.view", "usage.view", "billing.manage", "mailboxes.manage"].some((p) => hasPerm(d, p));
 }
 
-// Apps desligadas pela organização (o admin geriu-as). O rail some com elas para todos.
+// Apps disabled by the organization (the admin managed them). The rail hides them for everyone.
 export function useDisabledApps(): string[] {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false });
   return me.data?.disabled_apps ?? [];
 }
 
-// Assistente ligado para a organização. Falso quando o admin o desligou (ou a IA não está
-// configurada): a bolha do assistente some para todos. Default true enquanto carrega, para a bolha
-// não piscar a aparecer/desaparecer nem sumir por uma resposta antiga sem o campo.
+// Assistant enabled for the organization. False when the admin disabled it (or the AI isn't
+// configured): the assistant bubble disappears for everyone. Defaults to true while loading, so
+// the bubble doesn't flicker in/out or vanish because of a stale response missing the field.
 export function useAssistantEnabled(): boolean {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me, retry: false });
   return me.data?.assistant_enabled ?? true;
