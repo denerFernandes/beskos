@@ -1,8 +1,9 @@
 -- +goose Up
--- Operador admin do Manager (pedido 22/07/2026): dener.php@gmail.com com senha inicial (bcrypt).
--- O TOTP obrigatório completa no primeiro login (o Manager não emite sessão antes disso).
--- Idempotente: se o e-mail já existir, não mexe. A senha inicial foi entregue fora do repositório;
--- aqui vive apenas o hash (segredo no código = bug, lei 2.6 — hash bcrypt não é segredo).
+-- Manager admin operator (requested 2026-07-22): dener.php@gmail.com with an initial password
+-- (bcrypt). Mandatory TOTP completes at first login (the Manager issues no session before that).
+-- Idempotent: does nothing if the email already exists. The initial password was delivered
+-- outside the repository; only the hash lives here (a secret in code is a bug, law 2.6 — a bcrypt
+-- hash is not a secret).
 INSERT INTO manager_users (email, name, password_hash, role)
 VALUES ('dener.php@gmail.com', 'Dener', '$2a$10$zMyaShaUZSOYZIYJRpPkGuR8qcqrlqzYlZ3BiOtkgCjWY5uG8YOAm', 'admin')
 ON CONFLICT (email) DO NOTHING;
