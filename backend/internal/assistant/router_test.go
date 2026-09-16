@@ -9,15 +9,15 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
-// failingProvider falha sempre — serve para provar que a dúvida cai no agente mais fraco.
+// failingProvider always fails — used to prove that doubt falls back to the weakest agent.
 type failingProvider struct{}
 
 func (failingProvider) Name() string { return "boom" }
 func (failingProvider) Complete(context.Context, ai.Request) (ai.Response, error) {
-	return ai.Response{}, errors.New("modelo indisponível")
+	return ai.Response{}, errors.New("model unavailable")
 }
 
-// allBuiltins são os agentes de origem como o encaminhamento os vê.
+// allBuiltins are the built-in agents as routing sees them.
 func allBuiltins() []AgentChoice {
 	out := make([]AgentChoice, 0, 3)
 	for _, k := range BuiltinKeys() {
@@ -30,133 +30,136 @@ func allBuiltins() []AgentChoice {
 func TestRouterPicksTheNamedAgent(t *testing.T) {
 	for _, want := range []string{AgentInbox, AgentDocs, AgentGeneral} {
 		r := NewRouter(&fakeProvider{script: []ai.Response{textResp(want)}})
-		if got := r.Pick(context.Background(), "faz qualquer coisa", allBuiltins()); got != want {
-			t.Errorf("Pick = %q, quero %q", got, want)
+		if got := r.Pick(context.Background(), "do something", allBuiltins()); got != want {
+			t.Errorf("Pick = %q, want %q", got, want)
 		}
 	}
 }
 
-// O modelo é desarrumado: devolve pontuação, maiúsculas, aspas. Isso não pode virar um fallback
-// silencioso, senão o encaminhamento nunca funcionaria e ninguém daria por isso.
+// The model is messy: it returns punctuation, uppercase, quotes. That can't turn into a silent
+// fallback, or routing would never work and nobody would notice.
 func TestRouterToleratesUntidyAnswers(t *testing.T) {
 	for _, raw := range []string{"Inbox", " inbox ", "inbox.", `"inbox"`} {
 		r := NewRouter(&fakeProvider{script: []ai.Response{textResp(raw)}})
-		if got := r.Pick(context.Background(), "resume os e-mails de ontem", allBuiltins()); got != AgentInbox {
-			t.Errorf("Pick(%q) = %q, quero %q", raw, got, AgentInbox)
+		if got := r.Pick(context.Background(), "summarize yesterday's emails", allBuiltins()); got != AgentInbox {
+			t.Errorf("Pick(%q) = %q, want %q", raw, got, AgentInbox)
 		}
 	}
 }
 
-// EM CASO DE DÚVIDA, o de menor poder de escrita (§3.2). Erro do modelo, resposta inventada,
-// resposta vazia, mensagem vazia: tudo cai no assistente geral, nunca no mais capaz.
+// WHEN IN DOUBT, the one with the LEAST write power (§3.2). Model error, made-up response, empty
+// response, empty message: everything falls back to the general assistant, never to the most
+// capable one.
 func TestRouterFallsBackToTheWeakestAgent(t *testing.T) {
 	cases := map[string]*Router{
-		"erro do modelo":   NewRouter(failingProvider{}),
-		"agente inventado": NewRouter(&fakeProvider{script: []ai.Response{textResp("superagente")}}),
-		"resposta vazia":   NewRouter(&fakeProvider{script: []ai.Response{textResp("")}}),
-		"sem provider":     NewRouter(nil),
-		"router nulo":      func() *Router { var r *Router; return r }(),
+		"model error":    NewRouter(failingProvider{}),
+		"made-up agent":  NewRouter(&fakeProvider{script: []ai.Response{textResp("superagent")}}),
+		"empty response": NewRouter(&fakeProvider{script: []ai.Response{textResp("")}}),
+		"no provider":    NewRouter(nil),
+		"nil router":     func() *Router { var r *Router; return r }(),
 	}
 	for name, r := range cases {
-		if got := r.Pick(context.Background(), "algo ambíguo", allBuiltins()); got != AgentGeneral {
-			t.Errorf("%s: Pick = %q, quero %q", name, got, AgentGeneral)
+		if got := r.Pick(context.Background(), "something ambiguous", allBuiltins()); got != AgentGeneral {
+			t.Errorf("%s: Pick = %q, want %q", name, got, AgentGeneral)
 		}
 	}
-	// Mensagem vazia não vale a pena gastar uma chamada ao modelo.
+	// An empty message isn't worth spending a model call on.
 	r := NewRouter(&fakeProvider{script: []ai.Response{textResp(AgentDocs)}})
 	if got := r.Pick(context.Background(), "   ", allBuiltins()); got != AgentGeneral {
-		t.Errorf("mensagem vazia: Pick = %q, quero %q", got, AgentGeneral)
+		t.Errorf("empty message: Pick = %q, want %q", got, AgentGeneral)
 	}
 }
 
-// INVARIANTE (§3.2): o encaminhamento SELECIONA de entre o que já era permitido — nunca acrescenta
-// um agente fora da lista. Um modelo que devolva "docs" quando "docs" não está disponível não pode
-// conceder acesso a ele.
+// INVARIANT (§3.2): routing SELECTS from among what was already allowed — it never adds an agent
+// outside the list. A model that returns "docs" when "docs" is not available can't grant access
+// to it.
 func TestRouterNeverPicksAnUnavailableAgent(t *testing.T) {
 	r := NewRouter(&fakeProvider{script: []ai.Response{textResp(AgentDocs)}})
 	only := []AgentChoice{{Key: AgentGeneral}, {Key: AgentInbox}}
-	if got := r.Pick(context.Background(), "faz uma apresentação", only); got != AgentGeneral {
-		t.Errorf("Pick = %q — escolheu um agente que não estava disponível", got)
+	if got := r.Pick(context.Background(), "make a presentation", only); got != AgentGeneral {
+		t.Errorf("Pick = %q — picked an agent that wasn't available", got)
 	}
 }
 
-// INVARIANTE (§3.2): a decisão sai SÓ da mensagem do utilizador. O Router não recebe resultados de
-// ferramentas — nem tem por onde os receber —, e não expõe ferramentas ao modelo no passo de
-// encaminhamento. Se um dia alguém lhe acrescentar um parâmetro, este teste é o que dá o alerta.
+// INVARIANT (§3.2): the decision comes ONLY from the user message. The Router doesn't receive tool
+// results — it has no way to — and doesn't expose tools to the model in the routing step. If
+// someone ever adds a parameter to it, this test is what raises the alarm.
 func TestRouterSeesOnlyTheUserMessage(t *testing.T) {
 	p := &fakeProvider{script: []ai.Response{textResp(AgentInbox)}}
 	r := NewRouter(p)
-	msg := "resume os e-mails de ontem"
+	msg := "summarize yesterday's emails"
 	r.Pick(context.Background(), msg, allBuiltins())
 
 	if len(p.lastTools) != 0 {
-		t.Errorf("o passo de encaminhamento ofereceu ferramentas ao modelo: %v", p.lastTools)
+		t.Errorf("the routing step offered tools to the model: %v", p.lastTools)
 	}
 	if len(p.lastMsgs) != 2 {
-		t.Fatalf("mensagens = %d, quero só o sistema e a mensagem do utilizador", len(p.lastMsgs))
+		t.Fatalf("messages = %d, want only the system message and the user message", len(p.lastMsgs))
 	}
 	if p.lastMsgs[1].Role != ai.RoleUser || p.lastMsgs[1].Content != msg {
-		t.Errorf("o que foi encaminhado não é a mensagem do utilizador: %+v", p.lastMsgs[1])
+		t.Errorf("what was routed is not the user message: %+v", p.lastMsgs[1])
 	}
-	// A assinatura é a defesa: um parâmetro a mais aqui seria uma porta para conteúdo lido.
+	// The signature is the defense: an extra parameter here would be a door for content read
+	// from elsewhere.
 	pick := reflect.TypeOf(r.Pick)
 	if pick.NumIn() != 3 || pick.In(1).Kind() != reflect.String || pick.In(2) != reflect.TypeOf([]AgentChoice{}) {
-		t.Errorf("Pick mudou de assinatura (%v) — só pode receber contexto, a mensagem e a lista de agentes", pick)
+		t.Errorf("Pick's signature changed (%v) — it can only receive the context, the message and the agent list", pick)
 	}
-	// E um AgentChoice só leva a chave e a finalidade: as instruções e as ferramentas não entram no
-	// prompt de encaminhamento, portanto também não há por aí uma porta para conteúdo lido.
+	// And an AgentChoice only carries the key and the purpose: the instructions and the tools don't
+	// enter the routing prompt, so there's no door there either for content read from elsewhere.
 	if n := reflect.TypeOf(AgentChoice{}).NumField(); n != 2 {
-		t.Errorf("AgentChoice tem %d campos — só pode levar a chave e a finalidade", n)
+		t.Errorf("AgentChoice has %d fields — it can only carry the key and the purpose", n)
 	}
 }
 
-// O CRITÉRIO DA FASE: o agente de correio não consegue tocar no Drive. Não é uma instrução do
-// prompt — é a lista de permissões, validada no servidor a cada chamada.
+// THE PHASE'S CRITERION: the mail agent can't touch Drive. It's not a prompt instruction — it's the
+// permission list, validated server-side on every call.
 func TestInboxAgentCannotTouchDrive(t *testing.T) {
 	inbox, ok := Builtin(AgentInbox)
 	if !ok {
-		t.Fatal("o agente de correio não existe")
+		t.Fatal("the mail agent doesn't exist")
 	}
 	if allows(inbox, ToolDriveSearch) {
-		t.Error("o agente de correio tem drive.search na lista de permissões")
+		t.Error("the mail agent has drive.search in its permission list")
 	}
-	// E o simétrico: o de documentos não lê a caixa.
+	// And the symmetric case: the docs agent doesn't read the inbox.
 	docs, _ := Builtin(AgentDocs)
 	for _, mailTool := range []string{ToolMailSearch, ToolMailRead, ToolMailDraft, ToolMailSend} {
 		if allows(docs, mailTool) {
-			t.Errorf("o agente de documentos tem %s na lista de permissões", mailTool)
+			t.Errorf("the docs agent has %s in its permission list", mailTool)
 		}
 	}
 }
 
-// Nenhum agente de origem tem mais ferramentas do que o geral: o encaminhamento nunca leva a
-// pessoa a um perfil com mais poder do que o de partida.
+// No built-in agent has more tools than the general one: routing never takes a person to a
+// profile with more power than the one they started with.
 func TestNoBuiltinExceedsTheGeneralAgent(t *testing.T) {
 	general, _ := Builtin(AgentGeneral)
 	for _, key := range BuiltinKeys() {
 		ag, _ := Builtin(key)
 		for _, tool := range ag.Tools {
 			if !allows(general, tool) {
-				t.Errorf("o agente %s tem %s, que o geral não tem", key, tool)
+				t.Errorf("agent %s has %s, which the general one doesn't", key, tool)
 			}
 		}
 	}
 }
 
-// A execução recebe o agente JÁ escolhido. Não há troca a meio: o motor não conhece o Router, e é
-// isso que impede uma escalada desencadeada por conteúdo lido a meio de uma execução (§3.2).
+// A run receives the agent ALREADY chosen. There's no switching mid-run: the engine doesn't know
+// about the Router, and that's what prevents an escalation triggered by content read mid-run (§3.2).
 func TestEngineDoesNotKnowTheRouter(t *testing.T) {
 	eng := NewEngine(&fakeProvider{script: []ai.Response{textResp("ok")}}, mailRegistry(stubBox{}), nil, 0)
 	et := reflect.TypeOf(*eng)
 	for i := 0; i < et.NumField(); i++ {
 		if et.Field(i).Type == reflect.TypeOf(&Router{}) {
-			t.Error("o motor tem um Router — o encaminhamento tem de ficar fora do ciclo")
+			t.Error("the engine has a Router — routing has to stay out of the loop")
 		}
 	}
 }
 
-// O modelo às vezes troca separadores no nome da ferramenta ("wiki.edit.page"). A correção resolve
-// para o canónico SÓ dentro da lista do agente — nunca dá acesso a ferramenta de fora da lista.
+// The model sometimes swaps separators in the tool name ("wiki.edit.page"). The correction resolves
+// to the canonical name ONLY within the agent's own list — it never grants access to a tool
+// outside that list.
 func TestCanonicalToolNameToleratesSeparators(t *testing.T) {
 	ag := Agent{Tools: []string{"wiki.edit_page", "mail.send"}}
 	if got := canonicalToolName(ag, "wiki.edit.page"); got != "wiki.edit_page" {
@@ -169,6 +172,6 @@ func TestCanonicalToolNameToleratesSeparators(t *testing.T) {
 		t.Errorf("exact name must pass through, got %q", got)
 	}
 	if got := canonicalToolName(ag, "drive.search"); got != "drive.search" {
-		t.Errorf("tool fora da lista não pode ser 'corrigida': got %q", got)
+		t.Errorf("a tool outside the list can't be 'corrected': got %q", got)
 	}
 }

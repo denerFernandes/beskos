@@ -8,29 +8,29 @@ import (
 	"sort"
 )
 
-// EffectLog dá IDEMPOTÊNCIA às ferramentas de escrita (lei 5.3, §7.5).
+// EffectLog gives write tools IDEMPOTENCY (law 5.3, §7.5).
 //
-// Uma tarefa em fundo que reinicia — porque o servidor foi abaixo a meio — reexecuta o ciclo desde
-// o princípio. Sem esta guarda, um e-mail já enviado sairia outra vez. Com ela, a segunda tentativa
-// reconhece o efeito e devolve o resumo do primeiro, sem tocar em nada.
+// A background task that restarts — because the server went down midway — replays the cycle from
+// the start. Without this guard, an e-mail that was already sent would go out again. With it, the
+// second attempt recognizes the effect and returns the summary from the first, without touching anything.
 //
-// Só vale para ferramentas de ESCRITA: repetir uma pesquisa é barato e inofensivo, e guardar cada
-// leitura só encheria a tabela.
+// Only applies to WRITE tools: repeating a search is cheap and harmless, and recording every read
+// would just fill up the table.
 type EffectLog interface {
-	// Seen devolve o resumo de um efeito já produzido, se já tiver acontecido.
+	// Seen returns the summary of an effect already produced, if it has already happened.
 	Seen(ctx context.Context, fingerprint string) (string, bool, error)
-	// Record marca o efeito como feito.
+	// Record marks the effect as done.
 	Record(ctx context.Context, fingerprint, summary string) error
 }
 
-// effectFingerprint identifica um efeito por (ferramenta + argumentos).
+// effectFingerprint identifies an effect by (tool + arguments).
 //
-// Os argumentos são NORMALIZADOS antes de serem resumidos: o modelo pode emitir as mesmas chaves
-// por outra ordem ou com outros espaços entre execuções, e duas formas do mesmo pedido têm de dar a
-// mesma impressão digital — senão a guarda não guardava nada.
+// The arguments are NORMALIZED before being summarized: the model can emit the same keys in a
+// different order or with different spacing between runs, and two forms of the same request have
+// to yield the same fingerprint — otherwise the guard wouldn't guard anything.
 //
-// Consequência deliberada: dois envios DIFERENTES na mesma tarefa saem os dois, como devem. A
-// guarda impede a repetição, não a pluralidade.
+// Deliberate consequence: two DIFFERENT sends within the same task both go out, as they should.
+// The guard prevents repetition, not plurality.
 func effectFingerprint(tool string, args json.RawMessage) string {
 	h := sha256.New()
 	h.Write([]byte(tool))
@@ -39,8 +39,8 @@ func effectFingerprint(tool string, args json.RawMessage) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// canonicalJSON reescreve o JSON com as chaves por ordem e sem espaços supérfluos. Um valor que não
-// desserialize volta tal e qual: é melhor uma impressão digital menos estável do que nenhuma.
+// canonicalJSON rewrites the JSON with keys in order and without extra whitespace. A value that
+// fails to deserialize comes back unchanged: a less stable fingerprint is better than none at all.
 func canonicalJSON(raw json.RawMessage) string {
 	var v any
 	if err := json.Unmarshal(raw, &v); err != nil {
@@ -53,8 +53,8 @@ func canonicalJSON(raw json.RawMessage) string {
 	return string(out)
 }
 
-// sortKeys reconstrói mapas com as chaves ordenadas. O encoding/json já serializa mapas por ordem
-// de chave, portanto basta garantir que tudo o que é objeto passa por map[string]any.
+// sortKeys rebuilds maps with keys in order. encoding/json already serializes maps in key order,
+// so it's enough to ensure everything that's an object goes through map[string]any.
 func sortKeys(v any) any {
 	switch t := v.(type) {
 	case map[string]any:

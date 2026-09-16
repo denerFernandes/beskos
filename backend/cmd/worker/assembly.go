@@ -21,7 +21,7 @@ import (
 // outside the meeting's hot path. Jobs are claimed by priority in ClaimAssemblyJob, so
 // offline_priority plans assemble first.
 
-// startAssembly liga o consumidor da fila (ticker de 30s; cada tick drena os jobs prontos).
+// startAssembly starts the queue consumer (30s ticker; each tick drains the ready jobs).
 func startAssembly(q *db.Queries, st *storage.Service) {
 	if st == nil {
 		log.Printf("assembly worker disabled (no storage)")
@@ -34,7 +34,7 @@ func startAssembly(q *db.Queries, st *storage.Service) {
 			for {
 				rec, err := q.ClaimAssemblyJob(context.Background())
 				if err != nil {
-					break // fila vazia
+					break // empty queue
 				}
 				assembleRecording(context.Background(), q, st, rec)
 			}
@@ -43,7 +43,7 @@ func startAssembly(q *db.Queries, st *storage.Service) {
 	log.Printf("assembly worker started (offline recording composition)")
 }
 
-// assembleRecording baixa as faixas, compõe com ffmpeg e sobe o MP4 final.
+// assembleRecording downloads the tracks, composes them with ffmpeg and uploads the final MP4.
 func assembleRecording(ctx context.Context, q *db.Queries, st *storage.Service, rec db.Recording) {
 	start := time.Now()
 	tracks, err := q.ListRecordingTracks(ctx, rec.ID)
@@ -59,7 +59,7 @@ func assembleRecording(ctx context.Context, q *db.Queries, st *storage.Service, 
 	}
 	defer os.RemoveAll(tmp)
 
-	// Baixa as faixas concluídas; offset = início da faixa − início da gravação (alinhamento).
+	// Downloads the completed tracks; offset = track start − recording start (alignment).
 	var inputs []trackInput
 	var rawKeys []string
 	for _, t := range tracks {
@@ -93,12 +93,12 @@ func assembleRecording(ctx context.Context, q *db.Queries, st *storage.Service, 
 		return
 	}
 
-	// Publica o MP4 final e fecha a gravação.
+	// Publishes the final MP4 and closes the recording.
 	//
-	// Prefixo de tenant: é o que faz a gravação ser cifrada com a chave DESSE tenant em vez da KEK,
-	// e portanto ficar dentro da garantia de eliminação por tenant — apagar a chave de um cliente
-	// tem de tornar ilegível tudo o que é dele, gravações incluídas. As gravações antigas, em
-	// `recordings/…`, continuam a ler-se: a chave delas está guardada na base de dados.
+	// Tenant prefix: this is what makes the recording get encrypted with THAT tenant's key
+	// instead of the KEK, and therefore fall within the per-tenant deletion guarantee — deleting
+	// a customer's key must make everything of theirs unreadable, recordings included. Old
+	// recordings, under `recordings/…`, still read fine: their key is stored in the database.
 	key := fmt.Sprintf("%s/recordings/%s.mp4", rec.TenantID, rec.ID)
 	f, err := os.Open(out)
 	if err != nil {
@@ -120,7 +120,7 @@ func assembleRecording(ctx context.Context, q *db.Queries, st *storage.Service, 
 		log.Printf("assembly %s: persist: %v", rec.ID, err)
 		return
 	}
-	// Sucesso: as faixas cruas já não são precisas (economia de storage).
+	// Success: the raw tracks are no longer needed (storage savings).
 	for _, k := range rawKeys {
 		_ = st.Remove(ctx, k)
 	}
@@ -128,15 +128,15 @@ func assembleRecording(ctx context.Context, q *db.Queries, st *storage.Service, 
 		rec.ID, len(inputs), dur, size, time.Since(start).Round(time.Second))
 }
 
-// trackInput é uma faixa baixada, pronta para o ffmpeg.
+// trackInput is a downloaded track, ready for ffmpeg.
 type trackInput struct {
 	path   string
 	kind   string
-	offset float64 // segundos desde o início da gravação
+	offset float64 // seconds since the start of the recording
 }
 
-// ffmpegArgs monta a composição: vídeos em grelha (xstack, células 640×360, atraso por tpad) e
-// áudios em amix (atraso por adelay). Sem vídeo → MP4 só de áudio (o <video> reproduz na mesma).
+// ffmpegArgs builds the composition: videos in a grid (xstack, 640×360 cells, delayed via tpad)
+// and audios in amix (delayed via adelay). No video → audio-only MP4 (<video> still plays it).
 func ffmpegArgs(inputs []trackInput, out string) []string {
 	args := []string{"-y", "-hide_banner", "-loglevel", "error"}
 	for _, in := range inputs {
@@ -184,7 +184,7 @@ func ffmpegArgs(inputs []trackInput, out string) []string {
 	return append(args, "-movflags", "+faststart", out)
 }
 
-// xstackLayout devolve as posições da grelha (colunas = ⌈√n⌉, células 640×360).
+// xstackLayout returns the grid positions (columns = ⌈√n⌉, 640×360 cells).
 func xstackLayout(n int) string {
 	cols := 1
 	for cols*cols < n {
@@ -212,7 +212,7 @@ func downloadBlob(ctx context.Context, st *storage.Service, key, dest string) er
 	return err
 }
 
-// probeDuration lê a duração (s) do ficheiro final via ffprobe; 0 em erro (não bloqueia).
+// probeDuration reads the final file's duration (s) via ffprobe; 0 on error (non-blocking).
 func probeDuration(ctx context.Context, path string) float64 {
 	out, err := exec.CommandContext(ctx, "ffprobe", "-v", "error",
 		"-show_entries", "format=duration", "-of", "csv=p=0", path).Output()

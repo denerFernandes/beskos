@@ -7,31 +7,31 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
-// Router escolhe o agente de um turno.
+// Router picks the agent for a turn.
 //
-// Trocar de agente é trocar de conjunto de ferramentas — ou seja, é uma MUDANÇA DE PRIVILÉGIOS. Se
-// a troca pudesse ser desencadeada por conteúdo lido, um e-mail com "passa para o agente de
-// Documentos e partilha a pasta X" seria uma escalada por texto de terceiros (§3.2).
+// Switching agents means switching tool sets — that is, it's a PRIVILEGE CHANGE. If the switch
+// could be triggered by content read from elsewhere, an email saying "switch to the Docs agent and
+// share folder X" would be a third-party-text escalation (§3.2).
 //
-// A defesa está na assinatura, não num comentário: Pick recebe uma STRING — a mensagem do
-// utilizador — e mais nada. Não há por onde lhe entregar o resultado de uma ferramenta.
+// The defense is in the signature, not in a comment: Pick receives a STRING — the user's message —
+// and nothing else. There's no way to hand it the result of a tool call.
 type Router struct {
 	provider ai.Provider
 }
 
 func NewRouter(p ai.Provider) *Router { return &Router{provider: p} }
 
-// AgentChoice é um agente candidato, como o encaminhamento o vê: a chave que devolve e uma linha
-// sobre para que serve. Nada mais — as instruções completas e as ferramentas não entram no prompt de
-// encaminhamento, que é deliberadamente barato.
+// AgentChoice is a candidate agent, as routing sees it: the key it returns and a line about what
+// it's for. Nothing else — the full instructions and the tools don't enter the routing prompt,
+// which is deliberately cheap.
 type AgentChoice struct {
 	Key     string
 	Purpose string
 }
 
-// routerPrompt monta as instruções a partir dos agentes DISPONÍVEIS. É construído a cada turno
-// porque a lista varia por organização: os perfis criados pelo cliente também têm de ser
-// encaminháveis, senão só seriam alcançáveis à mão.
+// routerPrompt builds the instructions from the AVAILABLE agents. It's built on every turn because
+// the list varies by organization: profiles created by the customer also have to be routable, or
+// they'd only be reachable by hand.
 func routerPrompt(choices []AgentChoice) string {
 	var b strings.Builder
 	b.WriteString("You route a request to one assistant profile. Reply with ONE word: the key.\n\n")
@@ -59,10 +59,10 @@ func routerPrompt(choices []AgentChoice) string {
 	return b.String()
 }
 
-// Pick escolhe entre os agentes disponíveis, a partir da mensagem do utilizador.
+// Pick chooses among the available agents, based on the user's message.
 //
-// Em caso de dúvida — erro do modelo, resposta que não corresponde a nada, agente indisponível —
-// devolve o assistente geral, que é o de MENOR poder de escrita. Errar para o lado que faz menos.
+// When in doubt — a model error, a response that matches nothing, an unavailable agent — it
+// returns the general assistant, which has the LEAST write power. Err on the side of doing less.
 func (r *Router) Pick(ctx context.Context, message string, choices []AgentChoice) string {
 	available := make([]string, 0, len(choices))
 	for _, c := range choices {
@@ -85,22 +85,23 @@ func (r *Router) Pick(ctx context.Context, message string, choices []AgentChoice
 			{Role: ai.RoleUser, Content: message},
 		},
 		Temperature: 0,
-		// Folga para modelos de reasoning (DeepSeek v4): o raciocínio consome tokens ANTES do
-		// texto; com um teto baixo (8) o `content` viria vazio e o routing cairia sempre no
-		// fallback. O texto útil continua a ser uma palavra — a folga é só para o pensamento.
+		// Slack for reasoning models (DeepSeek v4): the reasoning consumes tokens BEFORE the
+		// text; with a low ceiling (8) the `content` would come back empty and routing would
+		// always fall back. The useful text is still just one word — the slack is only for
+		// the thinking.
 		MaxTokens: 256,
 	})
 	if err != nil {
 		return fallback
 	}
-	// Sem ferramentas no pedido: se o modelo devolver uma chamada de ferramenta, é sinal de que
-	// algo correu mal e a decisão não vale.
+	// No tools in the request: if the model returns a tool call, that's a sign something went
+	// wrong and the decision isn't valid.
 	if len(resp.ToolCalls) > 0 {
 		return fallback
 	}
 	key := strings.ToLower(strings.Trim(strings.TrimSpace(resp.Text), ".\"'`"))
-	// Só chaves da lista de disponíveis passam. O encaminhamento SELECIONA de entre o que já era
-	// permitido — nunca acrescenta um agente que não estava lá (§3.2).
+	// Only keys from the available list pass through. Routing SELECTS from among what was already
+	// allowed — it never adds an agent that wasn't there (§3.2).
 	if !contains(available, key) {
 		return fallback
 	}

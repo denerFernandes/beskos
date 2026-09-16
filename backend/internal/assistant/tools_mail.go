@@ -8,14 +8,15 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/mailbox"
 )
 
-// MailBox é o mínimo que as ferramentas de correio precisam. *mailbox.UserClient satisfá-lo; os
-// testes passam um duplo. O motor nunca constrói um: não sabe decifrar a credencial JMAP nem deve.
+// MailBox is the minimum the mail tools need. *mailbox.UserClient satisfies it; tests pass a
+// double. The engine never builds one itself: it neither knows how to decrypt the JMAP
+// credential nor should it.
 type MailBox interface {
 	SearchEmails(ctx context.Context, query string, limit int) ([]mailbox.EmailHeader, error)
 	ReadEmail(ctx context.Context, id string) (mailbox.EmailBody, error)
-	// CreateDraft grava sem enviar; SendEmail envia. São métodos distintos porque a diferença entre
-	// os dois é a fronteira da confirmação humana (§6.3), e uma flag num só método tornaria essa
-	// fronteira invisível na assinatura.
+	// CreateDraft saves without sending; SendEmail sends. They are distinct methods because the
+	// difference between the two IS the human-confirmation boundary (§6.3), and a flag on a single
+	// method would make that boundary invisible in the signature.
 	CreateDraft(ctx context.Context, d mailbox.Draft) (string, error)
 	SendEmail(ctx context.Context, d mailbox.Draft) (string, error)
 }
@@ -26,7 +27,7 @@ type MailBox interface {
 // user's.
 type MailAccess func(ctx context.Context, id Identity) (MailBox, error)
 
-// mailSearchArgs — repare que não há tenant_id nem user_id, e nunca haverá (§6.2).
+// mailSearchArgs — note there is no tenant_id or user_id, and there never will be (§6.2).
 type mailSearchArgs struct {
 	Query string `json:"query"`
 	Limit int    `json:"limit"`

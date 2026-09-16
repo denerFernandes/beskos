@@ -9,12 +9,12 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/mailbox"
 )
 
-// draftArgs são os campos que o modelo preenche para escrever uma mensagem.
+// draftArgs are the fields the model fills in to write a message.
 //
-// Não há campo "from", e nunca haverá: o assistente envia como o utilizador autenticado e mais
-// ninguém (§6.2). Os DESTINATÁRIOS vêm do utilizador ou dos seus contactos — se um endereço
-// aparecer só dentro do corpo de um e-mail lido, o modelo foi instruído a não o usar (§6.1,
-// defesa 5), e a confirmação humana é o que o apanha se tentar.
+// There is no "from" field, and there never will be: the assistant sends as the authenticated
+// user and no one else (§6.2). RECIPIENTS come from the user or their contacts — if an address
+// only appears inside the body of a message that was read, the model has been instructed not to
+// use it (§6.1, defense 5), and human confirmation is what catches it if it tries.
 type draftArgs struct {
 	To      []string `json:"to"`
 	Cc      []string `json:"cc"`
@@ -37,8 +37,9 @@ func (a draftArgs) validate() (mailbox.Draft, error) {
 	}, nil
 }
 
-// cleanAddrs limpa espaços e deita fora vazios. Não valida o formato do endereço: quem sabe se um
-// destinatário existe é o servidor de correio, e uma segunda validação nossa só divergiria da dele.
+// cleanAddrs trims whitespace and drops empties. It doesn't validate the address format: the mail
+// server is the one that knows whether a recipient exists, and a second validation of our own
+// would only diverge from it.
 func cleanAddrs(in []string) []string {
 	out := make([]string, 0, len(in))
 	for _, a := range in {
@@ -94,7 +95,7 @@ func mailWriteTools(access MailAccess) []Tool {
 				"call this directly — do NOT ask \"can I send?\" in text first; the card asks for you.",
 			Parameters: json.RawMessage(draftSchema),
 			Writes:     true,
-			// Sai para fora: confirmação individual, sempre (§6.3). Não há caminho que a dispense.
+			// It goes out: individual confirmation, always (§6.3). No path waives it.
 			Confirm: true,
 			Handler: func(ctx context.Context, id Identity, raw json.RawMessage) (Result, error) {
 				d, box, err := prepareDraft(ctx, id, access, raw)
@@ -114,8 +115,8 @@ func mailWriteTools(access MailAccess) []Tool {
 	}
 }
 
-// prepareDraft valida os argumentos e abre a caixa. Partilhado pelas duas ferramentas de propósito:
-// o que o utilizador vê ao confirmar um envio tem de ser exatamente o que um rascunho gravaria.
+// prepareDraft validates the arguments and opens the mailbox. Shared by the two tools on purpose:
+// what the user sees when confirming a send has to be exactly what a draft would save.
 func prepareDraft(ctx context.Context, id Identity, access MailAccess, raw json.RawMessage) (mailbox.Draft, MailBox, error) {
 	var a draftArgs
 	if err := decodeArgs(raw, &a); err != nil {

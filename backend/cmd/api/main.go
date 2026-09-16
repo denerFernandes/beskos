@@ -1,4 +1,4 @@
-// cmd/api: a API REST/JSON do control plane (painel do cliente + admin interno).
+// cmd/api: the control plane's REST/JSON API (customer panel + internal admin).
 package main
 
 import (
@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	_ "time/tzdata" // embute a base IANA de fusos no binário (containers slim não têm tzdata)
+	_ "time/tzdata" // embeds the IANA timezone database in the binary (slim containers lack tzdata)
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -49,7 +49,7 @@ func main() {
 
 	sw := stalwart.New(cfg.StalwartURL, cfg.StalwartAdminID, cfg.StalwartAdminPwd)
 
-	// IA: opcional. Sem AI_API_KEY, os endpoints de IA respondem 503 (feature desligada).
+	// AI: optional. Without AI_API_KEY, the AI endpoints respond 503 (feature disabled).
 	var aiProvider ai.Provider
 	if p, err := ai.New(ai.FromEnv()); err != nil {
 		log.Printf("AI disabled: %v", err)
@@ -57,18 +57,18 @@ func main() {
 		aiProvider = p
 		log.Printf("AI enabled (provider=%s)", p.Name())
 	}
-	aiCfg := ai.FromEnv() // endpoint/chave/modelo em cru para o proxy de IA do editor OnlyOffice
+	aiCfg := ai.FromEnv() // raw endpoint/key/model for the OnlyOffice editor's AI proxy
 
-	// SMS para MFA. Default "log" (dev). Provedor real (Twilio) via SMS_PROVIDER.
+	// SMS for MFA. Default "log" (dev). Real provider (Twilio) via SMS_PROVIDER.
 	smsSender, err := sms.New(sms.FromEnv())
 	if err != nil {
 		log.Fatalf("sms: %v", err)
 	}
 
-	// O mesmo *db.Queries serve o servidor e as chaves da cifra dos ficheiros.
+	// The same *db.Queries serves the server and the file encryption keys.
 	q := db.New(pool)
 
-	// Storage (MinIO) opcional. Sem MINIO_ENDPOINT, os endpoints de arquivos respondem 503.
+	// Storage (MinIO) optional. Without MINIO_ENDPOINT, the file endpoints respond 503.
 	var st *storage.Service
 	if ep := os.Getenv("MINIO_ENDPOINT"); ep != "" {
 		bucket := os.Getenv("MINIO_BUCKET")
@@ -80,9 +80,9 @@ func main() {
 		if err != nil {
 			log.Fatalf("storage: %v", err)
 		}
-		// Cifra de envelope: sem FILE_ENC_KEYS o serviço escreve em claro, como antes. Uma chave
-		// malformada é fatal de propósito — arrancar com ela seria escrever objetos que ninguém
-		// mais consegue abrir. Ver docs/cifra-ficheiros.md.
+		// Envelope encryption: without FILE_ENC_KEYS the service writes in plaintext, as before. A
+		// malformed key is fatal on purpose — starting up with it would write objects that nobody
+		// could open again. See the file-encryption design doc under docs/.
 		if err := st.EnableEncryption(q, os.Getenv("FILE_ENC_KEYS")); err != nil {
 			log.Fatalf("storage encryption: %v", err)
 		}
@@ -95,7 +95,7 @@ func main() {
 		log.Printf("storage disabled (set MINIO_ENDPOINT)")
 	}
 
-	// Billing. Default "manual" (dev/self-serve). Produção: BILLING_PROVIDER=stripe + chaves.
+	// Billing. Default "manual" (dev/self-serve). Production: BILLING_PROVIDER=stripe + keys.
 	billingCfg := billing.FromEnv()
 	billingProvider, err := billing.New(billingCfg)
 	if err != nil {
@@ -112,22 +112,22 @@ func main() {
 
 	srv := httpapi.NewServer(q, sw, aiProvider, smsSender, st, billingProvider, bset, ed)
 
-	// Prontidão (/readyz): pinga o Postgres. O orquestrador só encaminha tráfego quando a base responde.
+	// Readiness (/readyz): pings Postgres. The orchestrator only forwards traffic once the database responds.
 	srv.SetReadiness(pool.Ping)
 
-	// SES (opcional): usado só para limpar a identidade ao apagar um domínio.
+	// SES (optional): used only to clean up the identity when deleting a domain.
 	if c := ses.NewFromEnv(); c != nil {
 		srv.EnableSES(c)
 		log.Printf("SES identity cleanup enabled")
 	}
 
-	// Cifra do segredo TOTP em repouso (opcional; sem MFA_ENC_KEY guarda em claro — só dev).
+	// Encryption of the TOTP secret at rest (optional; without MFA_ENC_KEY it stores in plaintext — dev only).
 	srv.EnableTOTPEncryption(cfg.MFAEncKey)
 	if cfg.MFAEncKey != "" {
 		log.Printf("TOTP secret encryption enabled")
 	}
 
-	// Edição de office via OnlyOffice Document Server (opcional). Sem URLs/segredos, fica desligado.
+	// Office editing via OnlyOffice Document Server (optional). Without URLs/secrets, it stays off.
 	srv.EnableOnlyOffice(cfg.OnlyOfficeURL, cfg.OnlyOfficeInternalURL, cfg.FilesHostURL, cfg.OnlyOfficeJWTSecret, cfg.DocTokenSecret)
 	// Brand shown in the editor's "about" panel. sourceURL is the modified-source offer AGPL §13
 	// requires -- config already refuses to start without it in production; in dev, "about" ships
@@ -145,15 +145,15 @@ func main() {
 		}
 	}
 
-	// URL pública da app: usada para links absolutos que saem em e-mails (ex.: sala de reunião).
+	// Public app URL: used for absolute links that go out in emails (e.g. a meeting room).
 	srv.SetPublicURL(cfg.PublicURL)
-	// Host público do correio: é o que mostramos a quem liga um cliente externo (IMAP/SMTP).
+	// Public mail host: what we show whoever connects an external client (IMAP/SMTP).
 	srv.SetMailHost(cfg.StalwartHostname)
 	// The host serving MTA-STS policies. The API needs it because it corrects the zone ON READ: a
 	// domain provisioned before that substitution existed would name the container forever.
 	srv.SetMTASTSHost(provisioning.MTASTSHost(cfg.StalwartHostname, os.Getenv("MTA_STS_HOSTNAME")))
 
-	// Proxy de IA para o plugin do OnlyOffice: reencaminha ao DeepSeek com a chave server-side.
+	// AI proxy for the OnlyOffice plugin: forwards to DeepSeek with the server-side key.
 	if aiProvider != nil {
 		srv.EnableAIProxy(aiCfg.BaseURL, aiCfg.APIKey, aiCfg.Model)
 	}
@@ -163,16 +163,16 @@ func main() {
 	if cfg.LiveKitURL != "" {
 		log.Printf("meet enabled (LiveKit %s)", cfg.LiveKitURL)
 	}
-	// Gravação via Egress (opcional) — usa a API Twirp do LiveKit + MinIO como destino.
+	// Recording via Egress (optional) — uses LiveKit's Twirp API with MinIO as the destination.
 	if cfg.LiveKitHTTPURL != "" && os.Getenv("MINIO_ENDPOINT") != "" {
 		srv.EnableMeetRecording(cfg.LiveKitHTTPURL, os.Getenv("MINIO_ENDPOINT"),
 			os.Getenv("MINIO_ACCESS_KEY"), os.Getenv("MINIO_SECRET_KEY"), os.Getenv("MINIO_BUCKET"))
 		log.Printf("meet recording enabled (Egress → MinIO)")
 	}
 
-	// E-mail de notificação (opcional). Desligado, tudo o que é aviso ao cliente — conta criada,
-	// teste, cobrança, novo login, convites e partilhas a gente de fora — deixa de sair, e sem este
-	// aviso no arranque ninguém percebe porquê.
+	// Notification email (optional). Off, every customer-facing alert — account created,
+	// trial, billing, new login, invitations and shares with outside people — stops going out,
+	// and without this warning at startup nobody notices why.
 	if em := notify.NewEmail(cfg.NotifySMTPHost, cfg.NotifySMTPPort, cfg.NotifyFrom, cfg.NotifySMTPUser, cfg.NotifySMTPPassword, cfg.NotifySMTPInsecure); em != nil {
 		srv.EnableEmail(em)
 		log.Printf("email notifications enabled (from %s via %s)", cfg.NotifyFrom, cfg.NotifySMTPHost)
@@ -190,23 +190,23 @@ func main() {
 		log.Printf("self-service signups CLOSED (SIGNUPS_OPEN=false) — /signup shows the coming-soon page")
 	}
 
-	// Teto por ficheiro no Files (configurável; default 100 GiB).
+	// Per-file cap in Files (configurable; default 100 GiB).
 	srv.SetFileUploadLimit(cfg.FilesMaxUploadBytes)
 
-	// CORS + cookie cross-site para o app nativo (Tauri). Sem APP_ORIGINS, fica desligado.
+	// CORS + cross-site cookie for the native app (Tauri). Without APP_ORIGINS, it stays off.
 	srv.SetAppOrigins(cfg.AppOrigins, cfg.CookieSecure)
 	if len(cfg.AppOrigins) > 0 {
 		log.Printf("CORS enabled for app origins: %v (cookie secure=%v)", cfg.AppOrigins, cfg.CookieSecure)
 	}
 
-	// Web Push (opcional). Sem VAPID_PRIVATE_KEY, o push desktop com o app fechado fica desligado
-	// (as notificações com aba aberta continuam a funcionar no cliente).
+	// Web Push (optional). Without VAPID_PRIVATE_KEY, desktop push with the app closed stays off
+	// (notifications with an open tab keep working client-side).
 	if cfg.VAPIDPrivateKey != "" && cfg.VAPIDPublicKey != "" {
 		srv.EnablePush(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDSubject)
 		log.Printf("web push enabled")
 	}
 
-	// Chat em tempo real via Redis pub/sub (opcional). Sem REDIS_URL, o chat fica só REST.
+	// Realtime chat via Redis pub/sub (optional). Without REDIS_URL, chat stays REST-only.
 	if cfg.RedisURL != "" {
 		opt, rerr := redis.ParseURL(cfg.RedisURL)
 		if rerr != nil {

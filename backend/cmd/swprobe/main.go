@@ -1,10 +1,10 @@
-// swprobe diz o que o Stalwart está a fazer na porta HTTP dele.
+// swprobe says what Stalwart is doing on its HTTP port.
 //
-// PORQUÊ. Depois de um `ReloadSettings`, o `POST /jmap/` passou a ser fechado com reset enquanto o
-// TCP continuava a aceitar. Isso tem várias causas possíveis e uma delas é decisiva: o listener ter
-// passado a esperar TLS. Adivinhar custa um reinício de cada vez; perguntar custa um pedido.
+// WHY. After a `ReloadSettings`, `POST /jmap/` started being closed with a reset while TCP kept
+// accepting. That has several possible causes and one of them is decisive: the listener having
+// switched to expecting TLS. Guessing costs a restart each time; asking costs one request.
 //
-// Tenta, pela ordem: ligar, falar HTTP simples, e falar TLS. O que responder diz o que ele espera.
+// Tries, in order: connect, speak plain HTTP, and speak TLS. Whichever answers says what it expects.
 package main
 
 import (
@@ -22,21 +22,22 @@ import (
 func main() {
 	log.SetFlags(0)
 	target := envOr("SW_ADDR", "stalwart:8080")
-	log.Printf("=== sonda %s a %s ===", time.Now().UTC().Format(time.RFC3339), target)
+	log.Printf("=== probe %s at %s ===", time.Now().UTC().Format(time.RFC3339), target)
 
-	// 1. O TCP aceita?
+	// 1. Does TCP accept?
 	c, err := net.DialTimeout("tcp", target, 10*time.Second)
 	if err != nil {
 		log.Fatalf("1. TCP: %v", err)
 	}
 	c.Close()
-	log.Printf("1. TCP: aceita")
+	log.Printf("1. TCP: accepts")
 
-	// 2. HTTP simples.
-	log.Printf("2. HTTP simples: %s", attempt(func() (string, error) { return request("http://" + target + "/") }))
+	// 2. Plain HTTP.
+	log.Printf("2. Plain HTTP: %s", attempt(func() (string, error) { return request("http://" + target + "/") }))
 
-	// 3. TLS. Se ele responder aqui e não em 2, o listener passou a ser HTTPS — e todo o resto da
-	//    infraestrutura que lhe fala em HTTP simples deixa de funcionar sem mudar nada nela.
+	// 3. TLS. If it answers here and not in 2, the listener switched to HTTPS — and the rest of
+	//    the infrastructure that talks to it in plain HTTP stops working without changing
+	//    anything on its own side.
 	log.Printf("3. TLS: %s", attempt(func() (string, error) {
 		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", target,
 			&tls.Config{InsecureSkipVerify: true})
@@ -45,7 +46,7 @@ func main() {
 		}
 		defer conn.Close()
 		e := conn.ConnectionState()
-		names := "sem certificado"
+		names := "no certificate"
 		if len(e.PeerCertificates) > 0 {
 			names = e.PeerCertificates[0].Subject.CommonName
 		}
@@ -54,11 +55,11 @@ func main() {
 		if err != nil {
 			return "", err
 		}
-		return fmt.Sprintf("handshake OK (certificado %s) → %s", names, strings.TrimSpace(line)), nil
+		return fmt.Sprintf("handshake OK (certificate %s) → %s", names, strings.TrimSpace(line)), nil
 	}))
 
-	// 4. O caminho que a aplicação usa mesmo.
-	log.Printf("4. POST /jmap/ em HTTP simples: %s", attempt(func() (string, error) {
+	// 4. The path the application actually uses.
+	log.Printf("4. POST /jmap/ over plain HTTP: %s", attempt(func() (string, error) {
 		resp, err := (&http.Client{Timeout: 15 * time.Second}).Post("http://"+target+"/jmap/",
 			"application/json", strings.NewReader(`{"using":[],"methodCalls":[]}`))
 		if err != nil {
@@ -77,7 +78,7 @@ func main() {
 func attempt(f func() (string, error)) string {
 	s, err := f()
 	if err != nil {
-		return "FALHOU: " + err.Error()
+		return "FAILED: " + err.Error()
 	}
 	return s
 }

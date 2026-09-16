@@ -8,23 +8,24 @@ import (
 	"time"
 )
 
-// NewEvent é um evento a criar na agenda do utilizador AUTENTICADO. Sem dono nem tenant nos campos:
-// vêm da Identity, nunca dos args do modelo (§6.2).
+// NewEvent is an event to create on the AUTHENTICATED user's calendar. No owner or tenant in the
+// fields: they come from the Identity, never from the model's args (§6.2).
 type NewEvent struct {
 	Title       string
 	Description string
 	Location    string
 	StartsAt    time.Time
 	EndsAt      time.Time
-	// CreateMeet liga uma sala de vídeo (Meet) ao evento e devolve o seu caminho.
+	// CreateMeet attaches a video-call room (Meet) to the event and returns its path.
 	CreateMeet bool
-	// Invitees são endereços de e-mail de COLEGAS a convidar (RSVP). O handler resolve cada um para
-	// um utilizador do MESMO tenant; endereços externos não são convidáveis na agenda (avisa-se por
-	// e-mail). Convidar avisa outra pessoa: a ferramenta confirma quando esta lista não é vazia.
+	// Invitees are e-mail addresses of COLLEAGUES to invite (RSVP). The handler resolves each one
+	// to a user in the SAME tenant; external addresses cannot be invited on the calendar (they
+	// are notified by e-mail instead). Inviting notifies another person: the tool confirms when
+	// this list isn't empty.
 	Invitees []string
 }
 
-// EventRef é o evento criado, tal como o cartão de ação o mostra.
+// EventRef is the created event, as the action card shows it.
 type EventRef struct {
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -32,11 +33,11 @@ type EventRef struct {
 	MeetURL  string `json:"meet_url,omitempty"`
 }
 
-// EventCreate cria o evento com as MESMAS consultas do handler da interface (§5: sem SQL novo).
+// EventCreate creates the event with the SAME queries as the interface's handler (§5: no new SQL).
 type EventCreate func(ctx context.Context, id Identity, ev NewEvent) (EventRef, error)
 
-// calendarEventArgs são os campos que o modelo preenche. Os tempos são RFC3339 — o prompt do sistema
-// dá-lhe o presente para resolver datas relativas ("amanhã às 10h").
+// calendarEventArgs are the fields the model fills in. Times are RFC3339 — the system prompt
+// gives it the present time to resolve relative dates ("tomorrow at 10am").
 type calendarEventArgs struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
@@ -47,8 +48,8 @@ type calendarEventArgs struct {
 	Invitees    []string `json:"invitees"`
 }
 
-// hasInvitees diz se estes args pedem para convidar alguém. Decide a confirmação da ferramenta
-// (§6.3): convidar avisa outra pessoa. Args ilegíveis → true (fail-closed).
+// hasInvitees reports whether these args ask to invite someone. Decides the tool's confirmation
+// (§6.3): inviting notifies another person. Unreadable args → true (fail-closed).
 func hasInvitees(raw json.RawMessage) bool {
 	var a calendarEventArgs
 	if err := decodeArgs(raw, &a); err != nil {
@@ -86,8 +87,9 @@ func calendarTools(create EventCreate) []Tool {
 				"required": ["title", "starts_at"]
 			}`),
 			Writes: true,
-			// A solo, o evento é interno (sem confirmação). COM convidados, avisa outra pessoa —
-			// convidar → §6.3 — por isso confirma o conteúdo à vista. ConfirmWhen decide por chamada.
+			// Solo, the event is internal (no confirmation). WITH guests, it notifies another
+			// person — inviting → §6.3 — so it confirms the content in view. ConfirmWhen decides
+			// per call.
 			ConfirmWhen: hasInvitees,
 			Handler: func(ctx context.Context, id Identity, raw json.RawMessage) (Result, error) {
 				var a calendarEventArgs
@@ -102,7 +104,8 @@ func calendarTools(create EventCreate) []Tool {
 				if err != nil {
 					return Result{}, fmt.Errorf("starts_at must be an RFC3339 time: %w", err)
 				}
-				// Sem fim explícito, uma hora — o default da interface para eventos sem duração.
+				// Without an explicit end, one hour — the interface's default for events with no
+				// set duration.
 				ends := starts.Add(time.Hour)
 				if s := strings.TrimSpace(a.EndsAt); s != "" {
 					ends, err = time.Parse(time.RFC3339, s)
