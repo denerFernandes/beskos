@@ -80,17 +80,43 @@ the download/callback URLs themselves (`DOC_TOKEN_SECRET`). **Attacker:** someth
 our own configured Document Server instance, claiming to be delivering a saved document.
 **Control:** the JWT is verified before any callback is trusted; production refuses to boot
 without both secrets set to a real (non-default, ≥16-char) value (`config.validateProduction`).
-**Residual risk:** not yet verified that the callback handler checks the JWT's claims (which
-document, which action) match the request, rather than only checking the signature is valid for
-*some* JWT issued with the shared secret -- worth a close read before F9.
+**Residual risk (confirmed, 2026-09-16 P5 audit):** the callback handler (`handleDocCallback`,
+`internal/httpapi/onlyoffice_handlers.go`) verifies the JWT's signature but discards its decoded
+payload -- `cb.URL`/`cb.Status` are read straight from the callback's unauthenticated JSON body,
+never cross-checked against the verified JWT's own claims. Since `jwtSecret` also signs the
+editor **config** handed to any user's browser on every `/edit-session` call, any user who can
+open a document they have at least view access to walks away with a syntactically valid
+`jwtSecret`-signed JWT they fully control. That JWT replays as `cb.Token` on a hand-crafted
+`POST /doc/callback/{id}` with a forged body, and `jwtVerify` accepts it -- the signature check
+only proves "some token signed with our secret," not "this token's claims describe THIS
+callback." **Blast radius today is bounded**, not open: `fetchURLAllowed` still restricts the
+fetched `url` to the internal Document Server's own host (closes SSRF to arbitrary hosts), and
+`docAuth`'s separate HMAC token still ties the request to the caller's own `FileID`/`TenantID`
+(closes cross-tenant/cross-file overwrite) -- so this cannot escalate into external SSRF or a
+cross-tenant write by itself. The remaining exposure is narrower: fetching an arbitrary *path* on
+the Document Server's own host and storing it as a new version of a file the caller already has
+write access to, which would only matter if the DS serves other sessions' cached content at
+guessable unauthenticated paths (not confirmed either way -- depends on the deployed DS version's
+internals, not this codebase). **Fix path, deliberately not applied blind:** bind the callback to
+the verified JWT payload instead of the outer body (either read `url`/`status`/`key` exclusively
+from the JWT's own claims, or assert equality between the two and reject on mismatch). Doing this
+requires knowing the exact claim shape the deployed Document Server actually sends
+(`JwtInBody`-dependent: some configurations sign the whole callback body as the JWT's claims,
+others nest it under a `payload` key) -- verify against a real callback from the running
+self-hosted Document Server before changing the parsing, since guessing the shape wrong would
+silently break legitimate document saving in production. Tracked for before F9.
 
 ## 5. Webhooks (Stripe, SES/SNS)
 
 **Boundary:** external services push events into the API without an interactive session.
 **Control:** Stripe's webhook signature is verified (`internal/billing/stripe.go`) and events are
 deduplicated by `event_id` (idempotency, law 5.3); SES/SNS events go through
-`internal/ses.SNSVerifier`. **Residual risk:** neither path has an automated test that sends a
-tampered signature and asserts rejection -- same gap as blobgw, same fix.
+`internal/ses.SNSVerifier`. **Residual risk: closed (2026-09-16).** `FuzzVerifyStripeSignature`
+(`internal/billing/stripe_test.go`) and `FuzzSNSVerify`/`FuzzValidCertURL`
+(`internal/ses/sns_fuzz_test.go`) now fuzz both signature parsers directly against adversarial
+input -- untrusted bytes, malformed headers, forged/tampered signatures -- and assert the parser
+never panics and never reports a forged/unfetchable message as valid. Neither fuzz run found a
+crash in 30s/millions of executions.
 
 ## 6. Encrypted file storage
 
