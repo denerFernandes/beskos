@@ -49,6 +49,22 @@ func (m *meet) twirp(ctx context.Context, method string, req any) ([]byte, error
 	return out, nil
 }
 
+// effectiveRecordingMode resolves what recording a tenant actually gets, from two independent
+// sources: the hosted billing plan's Recording tier, and a self-hosted Pro license's Recording
+// capability.
+//
+// A self-hosted install has no hosted plan tier to grant this from -- its catalog is the single
+// self_hosted row, permanently "none" -- so the capability is the second, independent way in: a
+// valid Pro license upgrades "none" to the standard tracks pipeline, the same one a hosted
+// "offline" plan gets. Without this, buying a self-hosted Pro key could never actually turn
+// recording on, since nothing ever read the capability it grants.
+func effectiveRecordingMode(planRecording string, hasProCapability bool) string {
+	if planRecording == "none" && hasProCapability {
+		return "offline"
+	}
+	return planRecording
+}
+
 // handleStartRecording starts the room's recording and registers it.
 func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 	if !s.meet.recordingEnabled() {
@@ -79,7 +95,7 @@ func (s *Server) handleStartRecording(w http.ResponseWriter, r *http.Request) {
 	// Recording per plan: the entry plan doesn't record; "offline"/"offline_priority" use the
 	// TRACKS PIPELINE (default — cheap live, MP4 assembled offline by the worker); any
 	// other value falls back to the legacy RoomComposite.
-	recording := s.tenantPlanByID(r.Context(), mu.TenantID).Recording
+	recording := effectiveRecordingMode(s.tenantPlanByID(r.Context(), mu.TenantID).Recording, s.edition.Recording)
 	if recording == "none" {
 		writeErr(w, http.StatusForbidden, "meet.recording_not_in_plan")
 		return
