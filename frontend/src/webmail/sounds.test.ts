@@ -1,14 +1,16 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 
-// Um som que não toca é um defeito invisível: ninguém abre um bug por "não ouvi nada", assume que
-// desligou sem querer. Por isso o que se testa aqui é o que decide se toca ou não.
+// A sound that doesn't play is an invisible defect: nobody files a bug for "I didn't hear
+// anything," they assume they muted it by accident. That's why what's tested here is what decides
+// whether it plays or not.
 //
-// Cada teste reimporta o módulo (vi.resetModules) porque ele guarda o AudioContext em cache — um só
-// contexto por página, que é o correto em produção mas faria um teste herdar o áudio falso do outro.
+// Each test reimports the module (vi.resetModules) because it caches the AudioContext — a single
+// context per page, which is correct in production but would make a test inherit the fake audio
+// from another.
 
-// O ambiente do vitest aqui é node, sem DOM. Simulamos o mínimo em vez de puxar o jsdom só para
-// isto: são quatro métodos de localStorage e um addEventListener, contra uma dependência inteira
-// para o mesmo efeito (lei 2.5).
+// The vitest environment here is node, with no DOM. We simulate the minimum instead of pulling in
+// jsdom just for this: it's four localStorage methods and an addEventListener, versus a whole
+// dependency for the same effect (law 2.5).
 function memoryStorage(): Storage {
   const m = new Map<string, string>();
   return {
@@ -19,7 +21,7 @@ function memoryStorage(): Storage {
   } as unknown as Storage;
 }
 
-// AudioContext falso que regista quando cada oscilador arranca — é isso que prova que houve som.
+// Fake AudioContext that records when each oscillator starts — that's what proves a sound was made.
 function stage() {
   const started: number[] = [];
   const wire = { connect: (n: unknown) => n };
@@ -40,7 +42,8 @@ function stage() {
   return { started, AudioContext: function () { return ctx; } as unknown as typeof AudioContext };
 }
 
-// Monta o ambiente e devolve o módulo fresco. `withAudio: false` simula um ambiente sem Web Audio.
+// Sets up the environment and returns the fresh module. `withAudio: false` simulates an
+// environment without Web Audio.
 async function setup(withAudio = true) {
   const p = stage();
   const listeners: string[] = [];

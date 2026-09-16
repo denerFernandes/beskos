@@ -1,19 +1,19 @@
-// Cliente da nossa API para o assistente agêntico. Vive à parte do `backend.ts` por duas razões:
-// o `backend.ts` já passa das 600 linhas (lei 1.4), e o chat não é JSON — é um fio SSE, que precisa
-// de um caminho próprio. Os componentes continuam sem fazer `fetch` cru (lei 3.4).
+// API client for the agentic assistant. Lives apart from `backend.ts` for two reasons:
+// `backend.ts` is already past 600 lines (law 1.4), and chat isn't JSON — it's an SSE stream,
+// which needs its own path. Components still don't do raw `fetch` (law 3.4).
 
 import { apiUrl, authHeaders } from "../../apiBase";
 import { translateError } from "../backend";
 
-// Um cartão de ação: o registo da chamada real, não uma frase a dizer que fez (§3.3 do desenho).
+// An action card: the record of the actual call, not a sentence claiming what was done (§3.3 of the design).
 export interface ToolStep {
   tool: string;
   args: unknown;
   summary?: string;
-  // error_code é uma CHAVE de i18n; nunca se mostra texto cru do servidor (lei 4.6).
+  // error_code is an i18n KEY; raw server text is never shown (law 4.6).
   error_code?: string;
-  // choices são respostas rápidas (botões) que a ferramenta ofereceu — ex.: qual contacto "Bob".
-  // Clicar num envia value como mensagem. Poupa ao utilizador escrever a resposta.
+  // choices are quick replies (buttons) the tool offered — e.g. which contact "Bob".
+  // Clicking one sends value as the message. Saves the user from typing the answer.
   choices?: { label: string; value: string }[];
 }
 
@@ -34,8 +34,8 @@ export interface ConversationSummary {
 
 export interface AgentProfile {
   key: string;
-  // name só existe nos perfis do cliente: o nome de um agente de origem é texto de interface e vem
-  // do i18n pela chave (lei 4.1).
+  // name only exists on customer profiles: a built-in agent's name is interface text and comes
+  // from i18n via the key (law 4.1).
   name?: string;
   purpose?: string;
   instructions?: string;
@@ -44,14 +44,14 @@ export interface AgentProfile {
   tools: string[];
 }
 
-// O que se envia ao criar ou alterar um perfil do cliente.
+// What's sent when creating or changing a customer profile.
 export interface AgentDraft {
   name: string;
   purpose: string;
   instructions: string;
   tools: string[];
-  // duplicate_of parte de um agente de ORIGEM. A cópia é independente: não recebe as nossas
-  // atualizações, e isso é dito a quem duplica (§3.2).
+  // duplicate_of starts from a BUILT-IN agent. The copy is independent: it doesn't receive our
+  // updates, and that's disclosed to whoever duplicates it (§3.2).
   duplicate_of?: string;
 }
 
@@ -67,7 +67,7 @@ export interface StoredMessage {
   created_at: string;
 }
 
-// Estado da quota da janela de 6h (§9.2).
+// Status of the 6h window quota (§9.2).
 export interface QuotaStatus {
   limit: number;
   used: number;
@@ -75,7 +75,7 @@ export interface QuotaStatus {
   renews_at?: string;
 }
 
-// Uma chamada de ferramenta registada (§6.4). O registo da chamada real, legível pelo utilizador.
+// A recorded tool call (§6.4). The record of the actual call, readable by the user.
 export interface AuditEntry {
   id: string;
   agent: string;
@@ -87,8 +87,8 @@ export interface AuditEntry {
   created_at: string;
 }
 
-// Um facto guardado na memória (§8). Texto legível, não um vetor opaco: o utilizador tem de
-// conseguir ler o que a app sabe sobre si (§8.1).
+// A fact stored in memory (§8). Readable text, not an opaque vector: the user has to be able to
+// read what the app knows about them (§8.1).
 export interface MemoryFact {
   id: string;
   fact: string;
@@ -97,14 +97,14 @@ export interface MemoryFact {
   last_used_at?: string;
 }
 
-// O que a extração guardou e recusou num turno (§6.5). As recusas trazem uma chave de i18n.
+// What extraction saved and refused in a turn (§6.5). Refusals carry an i18n key.
 export interface MemoryEvent {
   saved: { fact: string; category: string }[];
   refused: { fact: string; reason: string }[];
 }
 
-// Uma tarefa em segundo plano (§3.6). Sobrevive a recarregar a página e a reiniciar o servidor:
-// o estado vive na base, não neste separador.
+// A background task (§3.6). Survives reloading the page and restarting the server: the state
+// lives in the database, not in this tab.
 export interface AssistantTask {
   id: string;
   conversation_id: string;
@@ -120,7 +120,7 @@ export interface AssistantTask {
   updated_at: string;
 }
 
-// Uma ação de tarefa à espera de decisão. Igual a uma confirmação síncrona, mas durável.
+// A task action awaiting a decision. Same as a synchronous confirmation, but durable.
 export interface PendingAction {
   id: string;
   task_id: string;
@@ -128,16 +128,16 @@ export interface PendingAction {
   args: Record<string, unknown>;
 }
 
-// Uma ação que espera aprovação humana (§6.3). `args` são os argumentos EXATOS que vão correr —
-// o painel mostra-os tal e qual, não uma versão resumida.
+// An action awaiting human approval (§6.3). `args` are the EXACT arguments that will run —
+// the panel shows them as-is, not a summarized version.
 export interface ConfirmRequest {
   id: string;
   tool: string;
   args: Record<string, unknown>;
 }
 
-// Eventos do fio. `conversation` chega primeiro para que uma conversa nova tenha id logo no início:
-// quem feche o painel a meio não perde o fio que já está gravado no servidor.
+// Thread events. `conversation` arrives first so a new conversation has an id right from the start:
+// whoever closes the panel midway doesn't lose the thread, which is already recorded on the server.
 export type ChatEvent =
   | { kind: "conversation"; conversation_id: string; title: string; agent: string; pinned_agent: string }
   | { kind: "delta"; text: string }
@@ -168,8 +168,8 @@ export const assistantApi = {
     req<AgentProfile>(`/api/assistant/agents/${key}`, { method: "PUT", body: JSON.stringify(a) }),
   agentDelete: (key: string) =>
     req<{ status: string }>(`/api/assistant/agents/${key}`, { method: "DELETE" }),
-  // Liga ou desliga um agente de ORIGEM. Controla a disponibilidade, nunca o comportamento (§3.2).
-  // Ferramentas desligadas pela organização (teto fino sobre TODOS os agentes).
+  // Turns a BUILT-IN agent on or off. Controls availability, never behavior (§3.2).
+  // Tools disabled by the organization (a fine-grained ceiling over ALL agents).
   tools: () => req<{ tools: string[]; disabled: string[] }>("/api/assistant/tools"),
   toolEnable: (tool: string, enabled: boolean) =>
     req<{ tool: string; enabled: boolean }>(`/api/assistant/tools/${encodeURIComponent(tool)}`, { method: "POST", body: JSON.stringify({ enabled }) }),
@@ -196,20 +196,20 @@ export const assistantApi = {
     ),
   remove: (id: string) => req<{ status: string }>(`/api/assistant/conversations/${id}`, { method: "DELETE" }),
 
-  // confirm aprova ou rejeita UMA ação. Uma por pedido: não há aprovação em bloco (§6.3).
+  // confirm approves or rejects ONE action. One per request: there's no batch approval (§6.3).
   confirm: (id: string, approve: boolean) =>
     req<{ status: string; approved: boolean }>(`/api/assistant/confirm/${id}`, {
       method: "POST",
       body: JSON.stringify({ approve }),
     }),
 
-  // chat abre o fio SSE. Não dá para usar EventSource: o pedido é POST e leva corpo. `signal`
-  // permite cancelar — fechar o painel a meio corta a ligação, e o servidor grava na mesma o que
-  // já correu.
+  // chat opens the SSE stream. EventSource can't be used: the request is POST and carries a body.
+  // `signal` allows cancellation — closing the panel midway cuts the connection, and the server
+  // still records whatever already ran.
   chat: streamChat,
 
-  // background enfileira o pedido em vez de o correr no pedido HTTP. Devolve logo o cartão de
-  // tarefa; o progresso vê-se no separador de Tarefas (§3.6).
+  // background queues the request instead of running it within the HTTP request. Returns the
+  // task card right away; progress shows up in the Tasks tab (§3.6).
   background: (body: { message: string; agent?: string; conversation_id?: string }) =>
     req<{ conversation_id: string; agent: string; task: AssistantTask }>("/api/assistant/chat", {
       method: "POST",
@@ -241,8 +241,8 @@ async function streamChat(
     const { done, value } = await reader.read();
     if (done) break;
     buffer += decoder.decode(value, { stream: true });
-    // Eventos SSE separam-se por linha em branco. O último pedaço fica no buffer até estar completo:
-    // processar meio evento daria um JSON truncado a cada leitura.
+    // SSE events are separated by a blank line. The last chunk stays in the buffer until complete:
+    // processing half an event would produce truncated JSON on every read.
     let sep = buffer.indexOf("\n\n");
     while (sep !== -1) {
       const raw = buffer.slice(0, sep);
@@ -260,6 +260,6 @@ function parseEvent(raw: string): ChatEvent | null {
   try {
     return JSON.parse(line.slice(5).trim()) as ChatEvent;
   } catch {
-    return null; // um evento estragado não deita fora o fio
+    return null; // a broken event doesn't throw out the whole thread
   }
 }

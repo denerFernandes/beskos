@@ -8,8 +8,8 @@ import { triggerDownload } from "../apiBase";
 import { DrivePickerDrawer } from "./DrivePickerDrawer";
 import { IcPaperclip, IcDownload, IcX, IcPlus } from "../panel/icons";
 
-// Anexos de uma página: reúsa o Files. Buscar por nome nos ficheiros do próprio utilizador e ligar por
-// file_id (nunca upload novo). Descarregar disponível a quem vê; anexar/remover só a quem edita.
+// Attachments of a page: reuses Files. Search by name in the user's own files and link by
+// file_id (never a new upload). Download available to anyone who can view; attach/remove only to whoever can edit.
 
 const fmtSize = (n: number) => (n >= 1 << 20 ? `${(n / (1 << 20)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 

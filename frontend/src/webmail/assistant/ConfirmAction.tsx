@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { assistantApi, type ConfirmRequest, type PendingAction } from "./api";
 
-// Diálogo de confirmação de uma ação que sai para fora ou destrói (§6.3 do desenho).
+// Confirmation dialog for an action that goes outbound or is destructive (§6.3 of the design).
 //
-// Mostra o CONTEÚDO EXATO que vai acontecer, não um resumo — é o único ponto onde um humano vê o
-// que vai realmente ser feito, e um resumo que divergisse do que corre daria confiança sem a
-// merecer. É deliberadamente incómodo: uma ação, uma decisão.
+// Shows the EXACT CONTENT that will happen, not a summary — it's the only point where a human
+// sees what will actually be done, and a summary that diverged from what runs would grant
+// confidence it hasn't earned. It's deliberately inconvenient: one action, one decision.
 export function ConfirmAction({ req, onDecided }: { req: ConfirmRequest | PendingAction; onDecided: () => void }) {
   const { t } = useTranslation();
   const [sending, setSending] = useState(false);
@@ -19,7 +19,7 @@ export function ConfirmAction({ req, onDecided }: { req: ConfirmRequest | Pendin
       await assistantApi.confirm(req.id, approve);
       onDecided();
     } catch {
-      // Falhar a entregar a decisão não é aprovar: o painel volta a mostrar os botões.
+      // Failing to deliver the decision is not the same as approving: the panel shows the buttons again.
       setFailed(true);
       setSending(false);
     }

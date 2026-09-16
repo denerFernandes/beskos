@@ -7,24 +7,24 @@ import { playSound } from "./sounds";
 import { notifText } from "./notifText";
 import i18n from "../i18n";
 
-// Mapeia o `kind` de uma notificação in-app para o domínio de notificação desktop. Sem domínio não
-// há aviso do SO — por isso o calendário (convites, RSVP, reservas) e o "estão à porta" do Meet
-// também entram aqui.
+// Maps the `kind` of an in-app notification to the desktop notification domain. Without a domain
+// there is no OS alert — that is why the calendar (invites, RSVP, bookings) and Meet's "someone is
+// at the door" also fall in here.
 function domainOfKind(kind: string): NotifDomain | null {
   if (kind.startsWith("chat")) return "chat";
-  if (kind.startsWith("meet")) return "meet"; // meeting_invite e meet_knock
+  if (kind.startsWith("meet")) return "meet"; // meeting_invite and meet_knock
   if (kind.startsWith("event") || kind === "booking_new") return "cal";
   if (kind.startsWith("file")) return "files";
   if (kind.startsWith("task")) return "tasks";
   return null;
 }
 
-// Dispara notificações desktop a partir de duas fontes:
-//  1. E-mail: o push JMAP não traz o conteúdo, então ao mudar de estado buscamos a mensagem mais
-//     recente da caixa de entrada e comparamos com a última vista (só notifica o que é novo).
-//  2. Demais domínios (chat menção, reunião, ficheiro, task): diferença da lista de notificações
-//     in-app — cada linha nova e não-lida vira uma notificação do SO.
-// Em ambos os casos, a primeira leitura só regista o baseline (não notifica o que já existia).
+// Triggers desktop notifications from two sources:
+//  1. E-mail: JMAP push does not carry the content, so on a state change we fetch the most
+//     recent message from the inbox and compare it with the last one seen (only what is new gets notified).
+//  2. Other domains (chat mention, meeting, file, task): diff against the in-app notification
+//     list — every new, unread row becomes an OS notification.
+// In both cases, the first read only records the baseline (it does not notify about what already existed).
 export function useDesktopNotifier(opts: {
   service: MailService;
   inboxId: string | null;
@@ -52,19 +52,19 @@ export function useDesktopNotifier(opts: {
             title: from || top.subject || "Novo e-mail",
             body: from ? (top.subject || "") : top.preview,
             tag: `mail-${top.id}`,
-            // Abre a MENSAGEM, não só a caixa: /mail/mail/<pasta>/<id> é a rota do leitor.
+            // Opens the MESSAGE, not just the mailbox: /mail/mail/<folder>/<id> is the reader's route.
             link: `/mail/mail/inbox/${top.id}`,
           });
-          // SÓ NO APP DE DESKTOP. Na web o e-mail não toca: quem tem o webmail aberto o dia inteiro
-          // recebe dezenas de mensagens e um som a cada uma leva a desligar o som todo — incluindo
-          // os avisos que importam. No app nativo o aviso é do sistema e é isso que se espera dele.
+          // DESKTOP APP ONLY. On the web e-mail stays silent: someone with the webmail open all day
+          // gets dozens of messages, and a sound for each one leads to muting the sound entirely —
+          // including the alerts that matter. In the native app the alert comes from the system, which is expected.
           if (isTauri()) playSound("email");
         }
       }
-    } catch { /* rede: ignora, o polling recupera */ }
+    } catch { /* network: ignore, polling recovers */ }
   };
 
-  // --- Notificações in-app (chat/meet/files/tasks) ---
+  // --- In-app notifications (chat/meet/files/tasks) ---
   const seenNotif = useRef<Set<string>>(new Set());
   const notifReady = useRef(false);
   useEffect(() => {
@@ -81,18 +81,18 @@ export function useDesktopNotifier(opts: {
       const dom = domainOfKind(n.kind);
       if (!dom || !isDomain(dom)) continue;
       const txt = notifText(n, i18n.t.bind(i18n), i18n.language);
-      // `n.link` aponta para o elemento (a conversa, o ficheiro, o evento) — o mesmo destino que o
-      // sino usa. Clicar na notificação do SO abre exatamente o que abre clicar no sino.
+      // `n.link` points to the element (the conversation, the file, the event) — the same target the
+      // bell uses. Clicking the OS notification opens exactly what clicking the bell opens.
       showDesktopNotification(dom, {
         title: txt.title, body: txt.body, tag: `notif-${n.id}`, link: n.link,
       });
-      // O som toca INDEPENDENTEMENTE de a aba estar visível, ao contrário da notificação do SO. É
-      // precisamente para isso que serve: um segundo monitor conta como "visível" para o browser,
-      // mas quem está a olhar para o outro ecrã não vê nada — ouve.
+      // The sound plays REGARDLESS of the tab being visible, unlike the OS notification. That is
+      // precisely what it is for: a second monitor counts as "visible" to the browser, but whoever
+      // is looking at the other screen sees nothing — they hear it.
       playSound("notify");
     }
   }, [notifItems]);
 
-  // Devolve o gatilho de e-mail para o App chamar dentro do callback do push JMAP.
+  // Returns the e-mail trigger for the App to call inside the JMAP push callback.
   return () => checkEmail.current();
 }

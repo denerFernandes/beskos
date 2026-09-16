@@ -9,12 +9,12 @@ import { IcCalendar, IcColumns, IcMail } from "../panel/icons";
 
 type View = "today" | "mail" | "kanban" | "cal";
 
-// Período do dia: molda o briefing (manhã antecipa, tarde retoma, noite fecha + antecipa amanhã).
+// Time of day: shapes the briefing (morning looks ahead, afternoon picks back up, night wraps up + previews tomorrow).
 function dayPeriod(h: number): "morning" | "afternoon" | "night" {
   return h < 12 ? "morning" : h < 18 ? "afternoon" : "night";
 }
 
-// Tela "Hoje": briefing do dia por IA (cacheado por dia+período) + mural de avisos da organização.
+// "Today" screen: AI-generated daily briefing (cached per day+period) + the organization's announcements board.
 export function TodayView({ session, onNavigate }: { session: WebmailSession; onNavigate: (v: View) => void }) {
   const { t, i18n } = useTranslation();
   const svc = session.service;
@@ -24,8 +24,8 @@ export function TodayView({ session, onNavigate }: { session: WebmailSession; on
   const dayEnd = new Date(today); dayEnd.setHours(23, 59, 59, 0);
   const period = dayPeriod(today.getHours());
   const dateStr = today.toLocaleDateString(i18n.language, { weekday: "long", day: "numeric", month: "long" });
-  // Idioma na chave: se o utilizador troca a língua da UI, o resumo é regenerado nesse idioma em vez
-  // de servir o cache antigo (a IA responde sempre no idioma da página).
+  // Language in the key: if the user switches the UI language, the summary is regenerated in that
+  // language instead of serving the old cache (the AI always answers in the page's language).
   const cacheKey = `mailin.briefing.${today.toISOString().slice(0, 10)}.${period}.${i18n.language}`;
 
   const boxesQ = useQuery({ queryKey: ["mailboxes"], queryFn: () => svc.mailboxes() });
@@ -36,7 +36,7 @@ export function TodayView({ session, onNavigate }: { session: WebmailSession; on
     queryKey: ["today-board"],
     queryFn: async () => { const bs = await backend.boards(); return backend.board(bs[0].id); },
   });
-  // À noite, também a agenda de amanhã (para o briefing antecipar o dia seguinte).
+  // At night, also tomorrow's agenda (so the briefing can preview the next day).
   const tomStart = new Date(dayStart); tomStart.setDate(tomStart.getDate() + 1);
   const tomEnd = new Date(dayEnd); tomEnd.setDate(tomEnd.getDate() + 1);
   const tomorrowQ = useQuery({ queryKey: ["tomorrow-events"], queryFn: () => backend.events(tomStart.toISOString(), tomEnd.toISOString()), enabled: period === "night" });
@@ -47,7 +47,7 @@ export function TodayView({ session, onNavigate }: { session: WebmailSession; on
   const tomorrow = (tomorrowQ.data ?? []).map((e) => `${fmtTime(e.starts_at, i18n.language)} ${e.title}`);
   const ready = boxesQ.isSuccess && eventsQ.isSuccess && boardQ.isSuccess && (period !== "night" || tomorrowQ.isSuccess);
 
-  // Briefing cacheado por dia+período em localStorage: gera uma vez de manhã/tarde/noite e reusa.
+  // Briefing cached per day+period in localStorage: generates once per morning/afternoon/night and reuses it.
   const [brief, setBrief] = useState<string>(() => { try { return localStorage.getItem(cacheKey) ?? ""; } catch { return ""; } });
   const [genLoading, setGenLoading] = useState(false);
   const generate = async (force = false) => {
@@ -57,10 +57,10 @@ export function TodayView({ session, onNavigate }: { session: WebmailSession; on
       const r = await backend.briefing({ date: dateStr, events, tasks, emails, period, tomorrow: period === "night" ? tomorrow : undefined });
       setBrief(r.briefing);
       try { localStorage.setItem(cacheKey, r.briefing); } catch { /* quota */ }
-    } catch { /* IA off */ }
+    } catch { /* AI off */ }
     finally { setGenLoading(false); }
   };
-  // Gera automaticamente só se ainda não há cache para este dia+período.
+  // Generates automatically only if there is no cache yet for this day+period.
   useEffect(() => { if (ready && !brief) void generate(); /* eslint-disable-next-line */ }, [ready]);
 
   return (

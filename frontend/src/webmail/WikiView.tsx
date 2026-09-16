@@ -17,12 +17,12 @@ import { WikiAttachments } from "./WikiAttachments";
 import { IcBook, IcPlus, IcTrash, IcPencil, IcShare, IcClock, IcGear, IcPrinter } from "../panel/icons";
 import { useChatSocket } from "./useChatSocket";
 
-// WikiView é a app de base de conhecimento (Confluence-style): à esquerda a lista de wikis (espaços)
-// e a árvore de páginas; à direita o leitor da página e o editor rico. A seleção vive no URL
-// (/mail/wiki/:spaceId/:pageId) — deep-links partilháveis e navegação pelo assistente (B6). Criação
-// de wiki por sidecar (Drawer); nova página e confirmações por UI inline — nada de diálogos nativos.
+// WikiView is the knowledge base app (Confluence-style): the list of wikis (spaces) on the left
+// and the page tree; the page reader and the rich editor on the right. Selection lives in the URL
+// (/mail/wiki/:spaceId/:pageId) — shareable deep links and navigation from the assistant (B6). Wiki
+// creation via sidecar (Drawer); new page and confirmations via inline UI — no native dialogs.
 
-const EMPTY_DOC: unknown[] = []; // BlockNote: documento vazio = array vazio
+const EMPTY_DOC: unknown[] = []; // BlockNote: empty document = empty array
 
 
 export function WikiView({ sub, sub2, onNav }: {
@@ -37,8 +37,8 @@ export function WikiView({ sub, sub2, onNav }: {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newPageOpen, setNewPageOpen] = useState(false);
 
-  // B6: quando o ASSISTENTE cria/edita uma página, o backend publica "wiki_page" no hub para este
-  // utilizador — criamos navega para a página; editamos refresca a que está aberta (ver a acontecer).
+  // B6: when the ASSISTANT creates/edits a page, the backend publishes "wiki_page" on the hub for this
+  // user — on create we navigate to the page; on edit we refresh the one that's open (see it happen).
   useChatSocket((ev) => {
     if (ev.type !== "wiki_page") return;
     const p = ev.payload as { action?: string; space_id?: string; page_id?: string };
@@ -119,13 +119,13 @@ function WikiTree({ nodes, activeId, onSelect }: { nodes: WikiTreeNode[]; active
   );
 }
 
-// ConfirmButton evita window.confirm: o 1º clique revela "confirmar / cancelar" inline.
+// ConfirmButton avoids window.confirm: the 1st click reveals "confirm / cancel" inline.
 function ConfirmButton({ label, confirmLabel, onConfirm, className, icon, title }: {
   label: string; confirmLabel: string; onConfirm: () => void; className?: string; icon?: JSX.Element; title?: string;
 }) {
   const { t } = useTranslation();
   const [armed, setArmed] = useState(false);
-  // Sem label (só ícone) precisa de tooltip: usa `title` (ou o próprio label quando existe).
+  // With no label (icon only) it needs a tooltip: uses `title` (or the label itself when it exists).
   if (!armed) return <button className={className} title={title || label || undefined} onClick={() => setArmed(true)}>{icon} {label}</button>;
   return (
     <span className="wiki-confirm">
@@ -173,7 +173,7 @@ function NewSpaceDrawer({ onClose, onCreated }: { onClose: () => void; onCreated
   );
 }
 
-// flattenTree lineariza a árvore em {id,label} para o picker de [[página]] do editor.
+// flattenTree linearizes the tree into {id,label} for the editor's [[page]] picker.
 function flattenTree(nodes: WikiTreeNode[]): { id: string; label: string }[] {
   const out: { id: string; label: string }[] = [];
   const walk = (ns: WikiTreeNode[]) => ns.forEach((n) => { out.push({ id: n.id, label: n.title || "—" }); walk(n.children); });

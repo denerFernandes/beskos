@@ -13,8 +13,8 @@ export function initials(name: string): string {
   return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-// Logo de empresa a partir do domínio: favicon do próprio site (sem provedor externo/broker de dados).
-// Sanitiza o domínio para evitar injeção de caminho/esquema; devolve "" se inválido.
+// Company logo from the domain: the site's own favicon (no external provider/data broker).
+// Sanitizes the domain to avoid path/scheme injection; returns "" if invalid.
 export function faviconOf(domain: string): string {
   const d = domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
   if (!/^[a-z0-9.-]+\.[a-z]{2,}$/.test(d)) return "";
@@ -27,9 +27,9 @@ export function hueFor(key: string): string {
   return HUES[h % HUES.length];
 }
 
-// Formata a data relativa/curta conforme o locale (lei §4.5 — Intl, não à mão).
-// Data completa por extenso, com fuso — é o que se quer no "mostrar detalhes" e ao imprimir.
-// Ex.: "quinta-feira, 16 de julho de 2026 às 07:49 (GMT-3)".
+// Formats the relative/short date per the locale (law §4.5 — Intl, not by hand).
+// Full spelled-out date, with timezone — what is wanted in "show details" and when printing.
+// E.g.: "Thursday, July 16, 2026 at 07:49 (GMT-3)".
 export function fullDateTime(iso: string, locale: string): string {
   return new Date(iso).toLocaleString(locale, {
     weekday: "long", day: "2-digit", month: "long", year: "numeric",
@@ -37,7 +37,7 @@ export function fullDateTime(iso: string, locale: string): string {
   });
 }
 
-// "há 1 hora", "há 3 dias" — o relativo que aparece ao lado da hora, como no Gmail.
+// "1 hour ago", "3 days ago" — the relative label shown next to the time, like in Gmail.
 export function relativeTime(iso: string, locale: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });

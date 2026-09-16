@@ -9,8 +9,8 @@ import { renderRich } from "./richtext";
 import { MdToolbar, MdEditor, wrapSelection } from "./MdEditor";
 import { IcTrash, IcReply, IcPencil } from "../panel/icons";
 
-// Comentários da tarefa. Quem é avisado (menção, resposta, responsável, criador) é decidido no
-// backend — aqui só se escreve. O @ sugere COLEGAS: mencionar quem não tem conta não avisa ninguém.
+// Comments on the task. Who gets notified (mention, reply, assignee, creator) is decided in the
+// backend — this only writes. The @ suggests COLLEAGUES: mentioning someone without an account notifies no one.
 export function TaskComments({ cardId, meId }: { cardId: string; meId?: string }) {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
@@ -19,7 +19,7 @@ export function TaskComments({ cardId, meId }: { cardId: string; meId?: string }
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["card-comments", cardId] });
-    qc.invalidateQueries({ queryKey: ["board"] });      // muda a contagem no card
+    qc.invalidateQueries({ queryKey: ["board"] });      // changes the count on the card
     qc.invalidateQueries({ queryKey: ["notifications"] });
   };
   const del = useMutation({
@@ -104,7 +104,7 @@ function Composer({ cardId, replyTo, onCancelReply, onSent }: {
     const m = v.slice(0, ref.current?.selectionStart ?? v.length).match(/@([\w.\-+]*)$/);
     setMentionQ(m ? m[1] : null);
   };
-  // Escreve o local-part (@ana): é assim que o backend casa a menção — por e-mail, nunca por nome.
+  // Writes the local part (@ana): this is how the backend matches the mention — by email, never by name.
   const pick = (email: string) => {
     const local = email.split("@")[0];
     setBody((b) => b.replace(/@([\w.\-+]*)$/, `@${local} `));
@@ -121,7 +121,7 @@ function Composer({ cardId, replyTo, onCancelReply, onSent }: {
         </div>
       )}
       <div style={{ position: "relative" }}>
-        {/* Mesma barra de formatação do resto (descrição, notas). O textarea mantém a lógica de @menções. */}
+        {/* Same formatting toolbar as the rest (description, notes). The textarea keeps the @mention logic. */}
         <MdToolbar onWrap={(b, a) => wrapSelection(ref.current, body, b, a, onChange)} />
         <textarea ref={ref} value={body} placeholder={t("comments.placeholder")}
           onChange={(e) => onChange(e.target.value)}

@@ -1,29 +1,29 @@
-// Força da palavra-passe, do lado do cliente.
+// Client-side password strength.
 //
-// O servidor de correio (Stalwart) mede com o zxcvbn e RECUSA abaixo do mínimo configurado — foi
-// isso que devolvia "Bad gateway" ao criar caixas. Esta função existe para a pessoa saber ANTES de
-// submeter, e é de propósito mais exigente do que o servidor: melhor recusar aqui, com explicação,
-// do que deixar passar e apanhar a recusa dele.
+// The mail server (Stalwart) measures with zxcvbn and REJECTS below the configured minimum — that
+// was what returned "Bad gateway" when creating mailboxes. This function exists so the person
+// knows BEFORE submitting, and it is intentionally stricter than the server: better to reject
+// here, with an explanation, than to let it through and get its rejection instead.
 //
-// Não trazemos o zxcvbn (≈800 KB com dicionários) para uma caixa de texto: replicamos os sinais que
-// pesam de facto — comprimento, variedade, repetições, sequências, palavras comuns e o próprio
-// endereço de quem escolhe a senha.
+// We don't bring zxcvbn (~800 KB with dictionaries) into a text field: we replicate the signals
+// that actually matter — length, variety, repetitions, sequences, common words, and the address of
+// whoever is choosing the password.
 
 export type Score = 0 | 1 | 2 | 3 | 4;
 
 export interface Strength {
   score: Score;
-  /** Aceitável para submeter (o servidor recusa abaixo disto). */
+  /** Acceptable for submission (the server rejects below this). */
   ok: boolean;
-  /** Chave i18n do que falta melhorar ("" quando está bem). */
+  /** i18n key for what needs improving ("" when it's fine). */
   hint: string;
 }
 
-/** Mínimo aceite: abaixo de 12 caracteres nem vale a pena medir o resto. */
+/** Accepted minimum: below 12 characters, it isn't even worth measuring the rest. */
 export const MIN_LENGTH = 12;
 
-// As mais usadas do mundo + as óbvias em português. Lista curta de propósito: é para apanhar o
-// descuido ("password123"), não para fazer de dicionário.
+// The world's most used passwords + the obvious ones in Portuguese. Deliberately short list: it's
+// meant to catch carelessness ("password123"), not to act as a dictionary.
 const COMMON = [
   "password", "passwd", "senha", "palavra-passe", "qwerty", "azerty", "letmein", "welcome",
   "admin", "administrator", "iloveyou", "sunshine", "princess", "dragon", "monkey", "football",
@@ -32,19 +32,19 @@ const COMMON = [
 
 const SEQUENCES = ["abcdefghijklmnopqrstuvwxyz", "0123456789", "qwertyuiop", "asdfghjkl", "zxcvbnm"];
 
-// Repetição de bloco: "abcabcabc", "ha-ha-ha". É o caso que o Stalwart citou na recusa.
+// Block repetition: "abcabcabc", "ha-ha-ha". This is the case Stalwart cited in its rejection.
 function hasRepeatedBlock(s: string): boolean {
-  // Metade e não um terço: "noreply2026noreply2026" é o bloco repetido DUAS vezes, e uma senha
-  // assim é tão fraca como o bloco sozinho — foi o caso que passou no primeiro teste.
+  // Half, not a third: "noreply2026noreply2026" is the block repeated TWICE, and a password like
+  // that is as weak as the block alone — this was the case that slipped through the first test.
   for (let len = 1; len <= Math.floor(s.length / 2); len++) {
     const block = s.slice(0, len);
     if (block.repeat(Math.ceil(s.length / len)).slice(0, s.length) === s) return true;
   }
-  // Também apanha repetições no meio ("xyzabcabcabc").
+  // Also catches repetitions in the middle ("xyzabcabcabc").
   return /(.{2,8})\1{1,}/.test(s);
 }
 
-// Corrida sequencial de 4+ (crescente ou decrescente) no teclado ou no alfabeto.
+// Sequential run of 4+ (ascending or descending) on the keyboard or the alphabet.
 function hasSequence(s: string): boolean {
   const low = s.toLowerCase();
   for (const seq of SEQUENCES) {
@@ -57,8 +57,8 @@ function hasSequence(s: string): boolean {
 }
 
 /**
- * measure avalia a senha. `userInputs` são dados de quem escolhe (e-mail, nome, domínio): o zxcvbn
- * penaliza-os e o Stalwart passa-lhos, por isso penalizamos também.
+ * measure evaluates the password. `userInputs` are data from whoever is choosing it (email, name,
+ * domain): zxcvbn penalizes them and Stalwart passes them along, so we penalize them too.
  */
 export function measure(password: string, userInputs: string[] = []): Strength {
   const pw = password ?? "";
@@ -66,7 +66,7 @@ export function measure(password: string, userInputs: string[] = []): Strength {
   if (pw.length < MIN_LENGTH) return { score: pw.length < 8 ? 0 : 1, ok: false, hint: "pwHintShort" };
 
   const low = pw.toLowerCase();
-  // Pedaços do endereço/nome: "dener", "beskos", "com"… Palavras de 3+ letras contam.
+  // Fragments of the address/name: "dener", "beskos", the domain... Words of 3+ letters count.
   const parts = userInputs
     .flatMap((s) => (s ?? "").toLowerCase().split(/[^a-z0-9]+/i))
     .filter((s) => s.length >= 3);
@@ -75,8 +75,8 @@ export function measure(password: string, userInputs: string[] = []): Strength {
   if (hasRepeatedBlock(pw)) return { score: 1, ok: false, hint: "pwHintRepeat" };
   if (hasSequence(pw)) return { score: 1, ok: false, hint: "pwHintSequence" };
 
-  // Variedade + comprimento. Uma frase longa vale tanto como um esparguete curto com símbolos —
-  // é o que o zxcvbn também conclui.
+  // Variety + length. A long passphrase counts as much as a short mess of symbols — that's what
+  // zxcvbn concludes too.
   const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((re) => re.test(pw)).length;
   const words = pw.trim().split(/[\s._-]+/).filter((w) => w.length >= 3).length;
   let score: Score = 2;

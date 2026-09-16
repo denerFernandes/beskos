@@ -1,20 +1,20 @@
-// Adaptador de notificações NATIVAS do Tauri (desktop/mobile). O WKWebView do macOS não suporta a
-// Web Notifications API — por isso, no app empacotado, as notificações web não funcionam e a app
-// nem aparece nas definições de notificações do SO. O plugin nativo do Tauri resolve ambos: usa o
-// centro de notificações do SO e regista o bundle da app lá.
+// Adapter for Tauri's NATIVE notifications (desktop/mobile). macOS's WKWebView does not support
+// the Web Notifications API — so, in the packaged app, web notifications do not work and the app
+// does not even show up in the OS notification settings. Tauri's native plugin solves both: it
+// uses the OS notification center and registers the app's bundle there.
 //
-// Import dinâmico: o pacote `@tauri-apps/plugin-notification` só existe/funciona dentro do Tauri;
-// na web nunca é carregado (isTauri() é false), então o build web não depende dele em runtime.
+// Dynamic import: the `@tauri-apps/plugin-notification` package only exists/works inside Tauri;
+// on the web it is never loaded (isTauri() is false), so the web build has no runtime dependency on it.
 
-// isTauri deteta o runtime nativo. O Tauri 2 injeta window.isTauri; __TAURI_INTERNALS__ é o backup.
+// isTauri detects the native runtime. Tauri 2 injects window.isTauri; __TAURI_INTERNALS__ is the backup.
 export function isTauri(): boolean {
   if (typeof window === "undefined") return false;
   const w = window as unknown as { isTauri?: boolean; __TAURI_INTERNALS__?: unknown };
   return w.isTauri === true || typeof w.__TAURI_INTERNALS__ !== "undefined";
 }
 
-// Cache síncrona da permissão: a UI (SettingsView) lê o estado de forma síncrona, mas o plugin é
-// async. Inicializamos no arranque (initTauriNotify) e atualizamos após pedir permissão.
+// Synchronous cache of the permission: the UI (SettingsView) reads the state synchronously, but
+// the plugin is async. We initialize it at startup (initTauriNotify) and update it after requesting permission.
 let cachedPerm: NotificationPermission = "default";
 export function tauriPermission(): NotificationPermission { return cachedPerm; }
 
@@ -23,12 +23,12 @@ async function plugin(): Promise<NotifPlugin> {
   return import("@tauri-apps/plugin-notification");
 }
 
-// initTauriNotify lê a permissão atual para a cache (chamar uma vez no arranque, dentro do Tauri).
+// initTauriNotify reads the current permission into the cache (call once at startup, inside Tauri).
 export async function initTauriNotify(): Promise<void> {
   try {
     const p = await plugin();
     cachedPerm = (await p.isPermissionGranted()) ? "granted" : "default";
-  } catch { /* fora do Tauri ou plugin indisponível */ }
+  } catch { /* outside Tauri or plugin unavailable */ }
 }
 
 export async function tauriRequestPermission(): Promise<NotificationPermission> {
@@ -41,9 +41,9 @@ export async function tauriRequestPermission(): Promise<NotificationPermission> 
   } catch { return "denied"; }
 }
 
-// onTauriEvent escuta um evento emitido pelo lado nativo (ex.: "window-hidden", quando fechar a
-// janela a esconde no tray). Na web é um no-op. Devolve a função que cancela a escuta — o registo
-// é assíncrono, por isso guardamos o "cancelado" para não deixar listeners órfãos.
+// onTauriEvent listens for an event emitted by the native side (e.g. "window-hidden", when closing
+// the window hides it in the tray). On the web it is a no-op. Returns the function that cancels the
+// listener — the registration is asynchronous, so we track "cancelled" to avoid orphaned listeners.
 export function onTauriEvent(name: string, fn: () => void): () => void {
   if (!isTauri()) return () => {};
   let off: (() => void) | null = null;
@@ -53,17 +53,18 @@ export function onTauriEvent(name: string, fn: () => void): () => void {
       const { listen } = await import("@tauri-apps/api/event");
       const un = await listen(name, () => fn());
       if (cancelled) un(); else off = un;
-    } catch { /* API indisponível: ignora */ }
+    } catch { /* API unavailable: ignore */ }
   })();
   return () => { cancelled = true; off?.(); };
 }
 
-// Mostra a notificação nativa. `link` é a rota a abrir quando a pessoa clica no aviso.
+// Shows the native notification. `link` is the route to open when the person clicks the alert.
 //
-// O caminho normal é o comando `notify_show` (Rust): é o único que sabe esperar pelo clique e
-// devolvê-lo à app — o plugin de notificações entrega o aviso e esquece-o no desktop. Se o comando
-// não existir (versão antiga do app, ou mobile, onde o módulo é só desktop), cai no plugin: a
-// notificação aparece na mesma, só não abre nada ao ser clicada.
+// The normal path is the `notify_show` (Rust) command: it is the only one that knows how to wait
+// for the click and hand it back to the app — the notification plugin delivers the alert and
+// forgets about it on desktop. If the command does not exist (old app version, or mobile, where
+// the module is desktop-only), it falls back to the plugin: the notification still shows up, it
+// just does not open anything when clicked.
 export async function tauriShow(title: string, body?: string, link?: string): Promise<boolean> {
   try {
     const p = await plugin();
@@ -72,14 +73,15 @@ export async function tauriShow(title: string, body?: string, link?: string): Pr
       const { invoke } = await import("@tauri-apps/api/core");
       await invoke("notify_show", { title, body: body ?? "", link: link ?? "" });
       return true;
-    } catch { /* sem o comando nativo: segue para o plugin */ }
+    } catch { /* no native command: fall through to the plugin */ }
     p.sendNotification({ title, body });
     return true;
   } catch { return false; }
 }
 
-// onNotifOpen escuta o clique numa notificação nativa (evento `notif-open`, emitido pelo Rust com
-// o link) e entrega o link a quem navega. Na web é um no-op — lá o clique chega pelo service worker.
+// onNotifOpen listens for a click on a native notification (`notif-open` event, emitted by Rust
+// with the link) and hands the link to the navigator. On the web it is a no-op — there the click
+// arrives through the service worker.
 export function onNotifOpen(fn: (link: string) => void): () => void {
   if (!isTauri()) return () => {};
   let off: (() => void) | null = null;
@@ -89,7 +91,7 @@ export function onNotifOpen(fn: (link: string) => void): () => void {
       const { listen } = await import("@tauri-apps/api/event");
       const un = await listen<string>("notif-open", (e) => { if (e.payload) fn(e.payload); });
       if (cancelled) un(); else off = un;
-    } catch { /* API indisponível: ignora */ }
+    } catch { /* API unavailable: ignore */ }
   })();
   return () => { cancelled = true; off?.(); };
 }

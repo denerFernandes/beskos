@@ -18,10 +18,10 @@ import { toast } from "./toast";
 import { WikiCollabProvider } from "./WikiCollabProvider";
 import { IcSparkle } from "../panel/icons";
 
-// WikiEditor é o editor rico da wiki — BlockNote (core MPL-2.0; B2). body_json é o ARRAY de blocos
-// (fonte da verdade); o backend deriva body_text/body_html. A IA entra por itens custom do slash-menu
-// (nosso /api/ai/wiki-write — nunca o pacote AGPL xl-ai). Com pageId, liga a COLABORAÇÃO em tempo
-// real (B10): Y.Doc + relay Go; peers===0 no hello → semeia do body_json; senão sincroniza dos pares.
+// WikiEditor is the wiki's rich editor — BlockNote (core MPL-2.0; B2). body_json is the ARRAY of blocks
+// (source of truth); the backend derives body_text/body_html. AI comes in via custom slash-menu items
+// (our own /api/ai/wiki-write — never the AGPL xl-ai package). With pageId, it wires up real-time
+// COLLABORATION (B10): Y.Doc + Go relay; peers===0 on the hello → seeds from body_json; otherwise syncs from the peers.
 
 function textToBlocks(text: string): PartialBlock[] {
   const paras = text.split(/\n+/).map((p) => p.trim()).filter(Boolean);
@@ -29,7 +29,7 @@ function textToBlocks(text: string): PartialBlock[] {
   return paras.map((p) => ({ type: "paragraph", content: p }));
 }
 
-// Cor estável por nome para o cursor colaborativo.
+// Stable color per name for the collaborative cursor.
 const CURSOR_COLORS = ["#e07a5f", "#3d84a8", "#81b29a", "#f2a154", "#9b5de5", "#00afb9", "#ef476f", "#118ab2"];
 function colorFor(name: string): string {
   let h = 0;
@@ -37,8 +37,8 @@ function colorFor(name: string): string {
   return CURSOR_COLORS[Math.abs(h) % CURSOR_COLORS.length];
 }
 
-// Menções @pessoa e links [[página]] (pendência do B2): inline content custom serializado como
-// {type:"mention"|"pageLink", props:{id,label}} — o render_blocknote.go trata ambos com escape.
+// @person mentions and [[page]] links (B2 leftover): custom inline content serialized as
+// {type:"mention"|"pageLink", props:{id,label}} — render_blocknote.go handles both with escaping.
 const MentionSpec = createReactInlineContentSpec(
   { type: "mention", propSchema: { id: { default: "" }, label: { default: "" } }, content: "none" },
   { render: (p) => <span className="wiki-mention">@{p.inlineContent.props.label}</span> },
@@ -52,32 +52,32 @@ const wikiSchema = BlockNoteSchema.create({
 });
 
 export function WikiEditor({ value, bodyText, onChange, pageId, pages }: {
-  value: unknown;                 // body_json atual (array BlockNote, ou legado)
-  bodyText?: string;              // texto puro, para semear/migrar conteúdo legado
+  value: unknown;                 // current body_json (BlockNote array, or legacy)
+  bodyText?: string;              // plain text, to seed/migrate legacy content
   onChange: (json: unknown) => void;
-  pageId?: string;                // com pageId liga a colaboração em tempo real (B10)
-  pages?: { id: string; label: string }[]; // páginas do espaço para o picker de [[página]]
+  pageId?: string;                // with pageId, wires up real-time collaboration (B10)
+  pages?: { id: string; label: string }[]; // space's pages for the [[page]] picker
 }) {
   const { t, i18n } = useTranslation();
   const me = useQuery({ queryKey: ["me"], queryFn: () => backend.me(), retry: false, staleTime: 60_000 });
   const colleagues = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false, staleTime: 60_000 });
 
-  // Doc + provider criados UMA vez por montagem (o WikiPagePane monta o editor keyed por página).
+  // Doc + provider created ONCE per mount (WikiPagePane mounts the editor keyed by page).
   const [collab] = useState(() => {
     if (!pageId) return null;
     const doc = new Y.Doc();
     return { doc, provider: new WikiCollabProvider(pageId, doc) };
   });
   useEffect(() => {
-    // StrictMode (dev) desmonta e remonta: o provider é partilhado pelo estado, por isso revive-se
-    // no mount em vez de criar outro — e destrói-se no cleanup real.
+    // StrictMode (dev) unmounts and remounts: the provider is shared via state, so it is revived
+    // on mount instead of creating another one — and destroyed on the real cleanup.
     collab?.provider.ensureConnected();
     return () => collab?.provider.scheduleDestroy();
   }, [collab]);
 
   const seedBlocks = (): PartialBlock[] => {
     let v: unknown = value;
-    // Defesa: respostas antigas (pré-fix) traziam body_json como string base64/JSON — tenta parse.
+    // Defense: old responses (pre-fix) carried body_json as a base64/JSON string — try to parse it.
     if (typeof v === "string") {
       const raw: string = v;
       try { v = JSON.parse(raw); } catch { try { v = JSON.parse(atob(raw)); } catch { v = null; } }
@@ -87,9 +87,9 @@ export function WikiEditor({ value, bodyText, onChange, pageId, pages }: {
   };
 
   const dictionary = i18n.language.toLowerCase().startsWith("pt") ? locales.pt : locales.en;
-  // Imagens/ficheiros inseridos na página: upload para o DRIVE + link público do ficheiro (o leitor
-  // da página — incluindo a rota pública — precisa de um URL alcançável). O aviso de que estes links
-  // são públicos vive no toggle de acesso público (WikiShareDrawer).
+  // Images/files inserted into the page: upload to DRIVE + a public link for the file (the page's
+  // reader — including the public route — needs a reachable URL). The warning that these links
+  // are public lives in the public-access toggle (WikiShareDrawer).
   const uploadFile = async (file: File): Promise<string> => {
     const sf = await backend.uploadFile(file);
     const link = await backend.fileLink(sf.id, { allow_download: true });
@@ -103,16 +103,16 @@ export function WikiEditor({ value, bodyText, onChange, pageId, pages }: {
           uploadFile,
           collaboration: {
             provider: collab.provider,
-            fragment: collab.doc.get("document-store") as never, // v14 RC: get(nome) devolve o tipo partilhado
+            fragment: collab.doc.get("document-store") as never, // v14 RC: get(name) returns the shared type
             user: { name: "…", color: CURSOR_COLORS[0] },
           },
         }
       : { schema: wikiSchema, dictionary, uploadFile, initialContent: seedBlocks() },
   );
 
-  // Regra de seed (B10): só o PRIMEIRO na sala carrega o body_json; os restantes sincronizam.
-  // Rede de segurança: se o hello não chegar (WS bloqueado/offline), semeia na mesma após um
-  // instante — editar sozinho nunca pode abrir em branco; o 409 otimista protege o resto.
+  // Seed rule (B10): only the FIRST one in the room loads the body_json; the rest sync up.
+  // Safety net: if the hello doesn't arrive (WS blocked/offline), seed anyway after a
+  // moment — editing alone must never open blank; the optimistic 409 protects the rest.
   const seeded = useRef(false);
   useEffect(() => {
     if (!collab) return;
@@ -125,15 +125,15 @@ export function WikiEditor({ value, bodyText, onChange, pageId, pages }: {
     };
     collab.provider.onHello = (peers) => {
       if (peers === 0) seed();
-      // peers>0: o conteúdo vem do sync dos pares; o fallback abaixo cobre ligações fantasma.
+      // peers>0: the content comes from syncing with peers; the fallback below covers phantom connections.
     };
-    // 600ms: o hello local chega em ~10ms; se o WS estiver em baixo, o conteúdo não pode esperar.
+    // 600ms: the local hello arrives in ~10ms; if the WS is down, the content can't wait.
     const fallback = setTimeout(() => { if (docEmpty()) seed(); }, 600);
     return () => clearTimeout(fallback);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collab, editor]);
 
-  // Nome/cor reais do cursor chegam depois (query me): atualiza via awareness (o BlockNote lê de lá).
+  // The cursor's real name/color arrive later (query me): updates via awareness (BlockNote reads from there).
   useEffect(() => {
     if (!collab || !me.data) return;
     const name = me.data.name || me.data.email || "?";

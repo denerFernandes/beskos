@@ -5,22 +5,22 @@ import { backend, ApiError, type Branding } from "./backend";
 import { applyBrandColor, cachedBrand, BESKOS_MARK } from "./branding";
 import { ForgotPassword } from "./PasswordRecovery";
 
-// Login do webmail: autentica o USUÁRIO FINAL no Stalwart (Basic atrás do proxy, §D7).
-// Distinto do login do painel (nossa API). Aqui a credencial é a da caixa de email.
+// Webmail login: authenticates the END USER against Stalwart (Basic behind the proxy, §D7).
+// Distinct from the panel login (our API). Here the credential is the mailbox's own.
 export function WebmailLogin() {
   const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  // 2º fator: quando o login devolve um desafio, mostra-se o passo do código em vez de e-mail/senha.
+  // Second factor: when login returns a challenge, the code step is shown instead of email/password.
   const [mfa, setMfa] = useState<MfaChallenge | null>(null);
   const [code, setCode] = useState("");
   // Locked out: a separate screen rather than a modal, because somebody who cannot get in has
   // one thing to do and should not be looking at the form that just refused them.
   const [forgot, setForgot] = useState(false);
-  // Marca no login: começa pela última guardada (aparece de imediato ao voltar) e resolve pela
-  // organização do e-mail digitado (estilo Google), quando o e-mail parece completo.
+  // Brand on the login: starts from the last saved one (shows up immediately on return) and resolves by
+  // the organization of the typed email (Google-style), once the email looks complete.
   const [brand, setBrand] = useState<Branding | null>(() => cachedBrand());
   useEffect(() => { applyBrandColor(brand?.color ?? ""); }, [brand?.color]);
   useEffect(() => {
@@ -34,11 +34,11 @@ export function WebmailLogin() {
     setErr(""); setBusy(true);
     try {
       const challenge = await login(email, pwd);
-      if (challenge) { setMfa(challenge); setCode(""); } // conta com 2º fator → pede o código
+      if (challenge) { setMfa(challenge); setCode(""); } // account has a second factor → ask for the code
     } catch (e) {
-      // 401 = credencial errada; qualquer outra falha = servidor indisponível (não confundir
-      // "senha errada" com "backend fora do ar", lei §4.4). Classifica-se pelo STATUS do ApiError,
-      // não por regex à mensagem: a mensagem vem traduzida e um 401 traduzido não contém "401".
+      // 401 = wrong credential; any other failure = server unreachable (don't conflate
+      // "wrong password" with "backend is down", law §4.4). Classified by the ApiError's STATUS,
+      // not by regex on the message: the message comes back translated, and a translated 401 doesn't contain "401".
       const status = (e as ApiError)?.status;
       setErr(status === 401 ? t("webmail.login.failed") : t("webmail.login.unreachable"));
     } finally {

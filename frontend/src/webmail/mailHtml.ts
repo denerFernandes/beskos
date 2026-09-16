@@ -1,43 +1,43 @@
 import DOMPurify from "dompurify";
 
-// Sanitização do HTML de e-mails. NÃO se faz à mão: o corpo vem de um remetente hostil por
-// definição, e um filtro caseiro deixa sempre passar um vetor (svg onload, javascript: em href,
-// css expression, …). DOMPurify é a escolha responsável — esta é uma dependência de segurança,
-// não de conveniência (lei §2.5).
+// Sanitization of email HTML. This is NOT done by hand: the body comes from a hostile sender by
+// definition, and a homemade filter always lets a vector through (svg onload, javascript: in href,
+// css expression, …). DOMPurify is the responsible choice — this is a security dependency,
+// not a convenience one (law §2.5).
 
 export interface SanitizedMail {
   html: string;
-  blockedImages: number; // quantas imagens externas foram removidas (para oferecer "mostrar")
+  blockedImages: number; // how many external images were removed (to offer "show")
 }
 
-// Hook único: neutraliza links e imagens ANTES de o DOMPurify devolver o resultado.
+// Single hook: neutralizes links and images BEFORE DOMPurify returns the result.
 let hookInstalled = false;
 function installHook() {
   if (hookInstalled) return;
   hookInstalled = true;
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    // Todo link abre em nova aba e sem passar o referer/opener — um e-mail não controla a nossa aba.
+    // Every link opens in a new tab without passing the referer/opener — an email doesn't control our tab.
     if (node.tagName === "A") {
       node.setAttribute("target", "_blank");
       node.setAttribute("rel", "noopener noreferrer nofollow");
     }
-    // Imagens externas são rastreadores até prova em contrário (o "pixel" que confirma a abertura).
-    // Guardo o src original em data-src e removo o real; a UI decide se as carrega.
+    // External images are trackers until proven otherwise (the "pixel" that confirms the open).
+    // We keep the original src in data-src and remove the real one; the UI decides whether to load them.
     if (node.tagName === "IMG") {
       const src = node.getAttribute("src") ?? "";
       if (/^https?:/i.test(src)) {
         node.setAttribute("data-blocked-src", src);
         node.removeAttribute("src");
       } else if (!src.startsWith("cid:") && !src.startsWith("data:")) {
-        node.removeAttribute("src"); // esquemas estranhos: fora
+        node.removeAttribute("src"); // odd schemes: out
       }
     }
   });
 }
 
 const CONFIG = {
-  // Allow-list: só o que faz sentido num e-mail. Sem <script>, <iframe>, <object>, <form>, <style>
-  // com seletores globais, etc. FORBID_TAGS é redundante com a allow-list, mas deixa a intenção clara.
+  // Allow-list: only what makes sense in an email. No <script>, <iframe>, <object>, <form>, <style>
+  // with global selectors, etc. FORBID_TAGS is redundant with the allow-list, but makes the intent clear.
   ALLOWED_TAGS: [
     "a", "b", "strong", "i", "em", "u", "s", "strike", "sub", "sup", "br", "hr", "p", "div", "span",
     "blockquote", "pre", "code", "ul", "ol", "li", "dl", "dt", "dd",
@@ -52,11 +52,11 @@ const CONFIG = {
   FORBID_ATTR: ["srcset", "onerror", "onload", "onclick", "formaction"],
   ALLOW_DATA_ATTR: false,
   ADD_ATTR: ["target", "data-blocked-src"],
-  // Sem javascript:/vbscript:/data:text-html em href — DOMPurify já bloqueia, mas explícito é melhor.
+  // No javascript:/vbscript:/data:text-html in href — DOMPurify already blocks it, but being explicit is better.
   ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel|cid):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
 };
 
-// sanitize devolve o HTML seguro e quantas imagens externas foram bloqueadas.
+// sanitize returns the safe HTML and how many external images were blocked.
 export function sanitize(html: string): SanitizedMail {
   installHook();
   const clean = DOMPurify.sanitize(html, CONFIG as Parameters<typeof DOMPurify.sanitize>[1]) as unknown as string;
@@ -64,10 +64,11 @@ export function sanitize(html: string): SanitizedMail {
   return { html: clean, blockedImages };
 }
 
-// sanitizeRich limpa HTML de conteúdo colaborativo interno antes de o injetar via innerHTML (canvas
-// do chat, assinaturas). O autor é um colega, não um remetente anónimo, então mantemos formatação e
-// imagens/links inline — mas NUNCA confiamos em HTML de terceiros: DOMPurify remove <script>, SVG
-// hostil e handlers de evento (onerror/onload/…), que é o vetor real de stored XSS aqui.
+// sanitizeRich cleans up internal collaborative-content HTML before injecting it via innerHTML
+// (chat canvas, signatures). The author is a colleague, not an anonymous sender, so we keep
+// formatting and inline images/links — but we NEVER trust third-party HTML: DOMPurify removes
+// <script>, hostile SVG, and event handlers (onerror/onload/…), which is the real stored-XSS
+// vector here.
 export function sanitizeRich(html: string): string {
   return DOMPurify.sanitize(html, {
     FORBID_TAGS: ["script", "iframe", "object", "embed", "form", "input", "button", "style", "link", "meta", "base"],
@@ -76,8 +77,8 @@ export function sanitizeRich(html: string): string {
   }) as unknown as string;
 }
 
-// unblockImages devolve o mesmo HTML com as imagens externas restauradas — chamado só quando a
-// pessoa clica em "mostrar imagens", uma decisão consciente de aceitar o rastreio daquele e-mail.
+// unblockImages returns the same HTML with the external images restored — called only when the
+// person clicks "show images", a conscious decision to accept the tracking on that email.
 export function unblockImages(html: string): string {
   return html.replace(/data-blocked-src="([^"]*)"/g, (_m, src) => `src="${src}"`);
 }

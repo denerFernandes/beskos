@@ -1,11 +1,12 @@
-// Regras de e-mail: modelo visual ⇄ script Sieve.
+// Email rules: visual model ⇄ Sieve script.
 //
-// O Sieve é a fonte única: o script guardado no Stalwart carrega a própria definição num
-// comentário `# mailin:rules {...}`. Sem tabela nossa, sem sincronização, sem desvio — e funciona
-// de qualquer dispositivo, mesmo depois de um restauro da nossa base.
+// Sieve is the single source of truth: the script stored in Stalwart carries its own definition in
+// a `# mailin:rules {...}` comment. No table of our own, no sync, no drift — and it works from any
+// device, even after a restore of our database.
 //
-// LIMITE DECLARADO: Sieve corre na ENTREGA. Regras de saída ("quando envio") não são Sieve; são
-// aplicadas pelo webmail no momento do envio, e por isso NÃO valem se enviar por outro cliente.
+// DECLARED LIMIT: Sieve runs at DELIVERY. Outbound rules ("when I send") are not Sieve; they are
+// applied by the webmail at send time, and therefore do NOT apply when sending from another
+// client.
 
 export type Trigger = "receive" | "send";
 export type Field = "from" | "to" | "subject" | "body" | "cc";
@@ -20,21 +21,21 @@ export interface Rule {
   name: string;
   enabled: boolean;
   trigger: Trigger;
-  match: "all" | "any";   // E / OU entre as condições
+  match: "all" | "any";   // AND / OR between the conditions
   conditions: Condition[];
   actions: Action[];
 }
 
-// Resposta de férias (vacation): auto-resposta com janela de datas e escopo. Vive no MESMO script
-// Sieve das regras (comentário próprio), para coexistir com elas sem uma segunda fonte de verdade.
+// Vacation reply: auto-response with a date window and scope. Lives in the SAME Sieve script as
+// the rules (its own comment), to coexist with them without a second source of truth.
 export interface VacationConfig {
   enabled: boolean;
   subject: string;
   message: string;
-  start?: string;          // YYYY-MM-DD (opcional)
-  end?: string;            // YYYY-MM-DD (opcional)
-  scope: "all" | "internal"; // internal = só responde a remetentes do próprio domínio
-  domain?: string;         // domínio do utilizador (para o escopo interno)
+  start?: string;          // YYYY-MM-DD (optional)
+  end?: string;            // YYYY-MM-DD (optional)
+  scope: "all" | "internal"; // internal = only replies to senders from the user's own domain
+  domain?: string;         // the user's domain (for the internal scope)
 }
 
 export const emptyVacation = (): VacationConfig => ({ enabled: false, subject: "", message: "", scope: "all" });
@@ -49,16 +50,16 @@ export const newRule = (): Rule => ({
   actions: [{ kind: "move", value: "" }],
 });
 
-// --- Sieve: escapar strings -------------------------------------------------
+// --- Sieve: escaping strings -------------------------------------------------
 
-// Numa string Sieve só \ e " são especiais. Sem isto, um assunto com aspas partia o script inteiro
-// — e o utilizador via um erro do Stalwart em vez do seu erro de digitação.
+// In a Sieve string only \ and " are special. Without this, a subject with quotes would break the
+// entire script — and the user would see a Stalwart error instead of their own typing mistake.
 const q = (s: string) => `"${s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
 
 const HEADER: Record<Field, string> = { from: "from", to: "to", cc: "cc", subject: "subject", body: "" };
 
-// testFor traduz uma condição. `address :domain` compara só o domínio do endereço — é o que faz
-// "de qualquer um da acme.com" funcionar sem depender do texto do nome.
+// testFor translates a condition. `address :domain` compares only the address's domain — that's
+// what makes "from anyone at acme.com" work without depending on the name's text.
 function testFor(c: Condition): string {
   const v = q(c.value);
   if (c.field === "body") return `body :text :contains ${v}`;
@@ -72,11 +73,11 @@ function testFor(c: Condition): string {
   }
 }
 
-// Em :matches, * e ? são curingas. Quem escreve "50% *promoção*" quer o literal.
+// In :matches, * and ? are wildcards. Whoever writes "50% *promo*" wants the literal.
 const escapeGlob = (s: string) => s.replace(/([*?\\])/g, "\\$1");
 
-// requiresFor: só as extensões usadas. Pedir tudo faria o Stalwart recusar o script se alguma
-// extensão não estivesse compilada nele.
+// requiresFor: only the extensions actually used. Requesting everything would make Stalwart reject
+// the script if any extension weren't compiled into it.
 function requiresFor(rules: Rule[]): string[] {
   const need = new Set<string>();
   for (const r of rules) {
@@ -90,8 +91,9 @@ function requiresFor(rules: Rule[]): string[] {
   return [...need].sort();
 }
 
-// actionsFor: a ORDEM não é estética. As marcas (addflag/setflag) têm de vir ANTES do fileinto —
-// depois de arquivar, a mensagem já foi e a marca não pega. Medido contra o Stalwart 0.16.4.
+// actionsFor: the ORDER is not cosmetic. Flags (addflag/setflag) must come BEFORE fileinto — after
+// filing, the message is already gone and the flag doesn't stick. Verified against Stalwart
+// 0.16.4.
 function actionsFor(actions: Action[]): string[] {
   const out: string[] = [];
   const flags = actions.filter((a) => a.kind === "flag" || a.kind === "read" || a.kind === "keyword");
@@ -107,8 +109,8 @@ function actionsFor(actions: Action[]): string[] {
       case "move": if (a.value) out.push(`fileinto ${q(a.value)};`); break;
       case "forward": if (a.value) out.push(`redirect ${q(a.value)};`); break;
       case "reply":
-        // :days 1 evita responder à mesma pessoa em loop no mesmo dia — auto-resposta sem isto é
-        // como se cria uma tempestade de e-mails entre dois autorresponders.
+        // :days 1 avoids replying to the same person in a loop on the same day — an auto-response
+        // without this is how a storm of emails between two autoresponders gets created.
         out.push(`vacation :days 1 ${a.extra ? `:subject ${q(a.extra)} ` : ""}${q(a.value ?? "")};`);
         break;
       case "delete": out.push("discard;"); break;
@@ -118,7 +120,7 @@ function actionsFor(actions: Action[]): string[] {
   return out;
 }
 
-// compile: fluxo visual → script Sieve. O JSON vai num comentário para podermos reabrir o editor.
+// compile: visual flow → Sieve script. The JSON goes in a comment so we can reopen the editor.
 export function compile(rules: Rule[], vacation?: VacationConfig): string {
   const inbound = rules.filter((r) => r.trigger === "receive" && r.enabled);
   const req = new Set(requiresFor(inbound));
@@ -127,21 +129,21 @@ export function compile(rules: Rule[], vacation?: VacationConfig): string {
     if (vacation.start || vacation.end) { req.add("date"); req.add("relational"); }
   }
   const lines: string[] = [
-    "# Gerado pelo Beskos — não edite à mão: o editor reescreve este ficheiro.",
+    "# Generated by Beskos — do not edit by hand: the editor rewrites this file.",
     `# mailin:rules ${JSON.stringify(rules)}`,
   ];
   if (vacation) lines.push(`# mailin:vacation ${JSON.stringify(vacation)}`);
   lines.push("");
   if (req.size) lines.push(`require [${[...req].sort().map(q).join(", ")}];`, "");
 
-  // Vacation primeiro: responde independentemente do que as regras façam com a mensagem.
+  // Vacation first: replies regardless of what the rules do with the message.
   if (vacation?.enabled) {
     const guards: string[] = [];
     if (vacation.start) guards.push(`currentdate :value "ge" "date" ${q(vacation.start)}`);
     if (vacation.end) guards.push(`currentdate :value "le" "date" ${q(vacation.end)}`);
     if (vacation.scope === "internal" && vacation.domain) guards.push(`address :domain :is "from" ${q(vacation.domain)}`);
     const vac = `vacation :days 1 ${vacation.subject ? `:subject ${q(vacation.subject)} ` : ""}${q(vacation.message)};`;
-    lines.push("# Resposta de férias (Beskos)");
+    lines.push("# Vacation reply (Beskos)");
     if (guards.length) {
       const cond = guards.length === 1 ? guards[0] : `allof(${guards.join(", ")})`;
       lines.push(`if ${cond} {`, "  " + vac, "}", "");
@@ -152,10 +154,10 @@ export function compile(rules: Rule[], vacation?: VacationConfig): string {
 
   for (const r of inbound) {
     const tests = r.conditions.filter((c) => c.value.trim()).map(testFor);
-    lines.push(`# ${r.name || "(sem nome)"}`);
+    lines.push(`# ${r.name || "(unnamed)"}`);
     if (tests.length === 0) {
-      // Sem condição, a regra vale para tudo — dizê-lo no script, não escondê-lo.
-      lines.push("# (sem condições: vale para todas as mensagens)");
+      // With no condition, the rule applies to everything — say so in the script, don't hide it.
+      lines.push("# (no conditions: applies to all messages)");
       lines.push(...actionsFor(r.actions).map((a) => a));
     } else {
       const join = r.match === "any" ? "anyof" : "allof";
@@ -169,8 +171,9 @@ export function compile(rules: Rule[], vacation?: VacationConfig): string {
   return lines.join("\n");
 }
 
-// parse: lê de volta o JSON do comentário. Se o script existir sem a nossa marca (alguém escreveu
-// à mão), devolve null — melhor dizer "não consigo ler isto" do que apagar o trabalho da pessoa.
+// parse: reads the JSON back from the comment. If the script exists without our marker (someone
+// wrote it by hand), returns null — better to say "I can't read this" than to erase the person's
+// work.
 export function parse(script: string): Rule[] | null {
   const m = script.match(/^# mailin:rules (.+)$/m);
   if (!m) return null;
@@ -182,7 +185,7 @@ export function parse(script: string): Rule[] | null {
   }
 }
 
-// parseVacation: lê a config de férias do mesmo script (comentário próprio). Ausente → null.
+// parseVacation: reads the vacation config from the same script (its own comment). Absent → null.
 export function parseVacation(script: string): VacationConfig | null {
   const m = script.match(/^# mailin:vacation (.+)$/m);
   if (!m) return null;
@@ -193,11 +196,11 @@ export function parseVacation(script: string): VacationConfig | null {
   }
 }
 
-// --- Regras de saída: aplicadas pelo webmail no envio -----------------------
+// --- Outbound rules: applied by the webmail at send time --------------------
 
 export interface Draft { to?: string; cc?: string; subject?: string; body?: string }
 
-// matchesOutbound testa um rascunho contra uma regra de saída, com a mesma semântica do Sieve.
+// matchesOutbound tests a draft against an outbound rule, with the same semantics as Sieve.
 export function matchesOutbound(r: Rule, d: Draft): boolean {
   const val = (f: Field): string =>
     f === "to" ? d.to ?? "" : f === "cc" ? d.cc ?? "" : f === "subject" ? d.subject ?? "" : f === "body" ? d.body ?? "" : "";
@@ -218,9 +221,10 @@ export function matchesOutbound(r: Rule, d: Draft): boolean {
   return r.match === "any" ? tests.some(one) : tests.every(one);
 }
 
-// outboundBcc avalia as regras de SAÍDA de um rascunho no envio e devolve os endereços a incluir em
-// Bcc (ação "forward" das regras que casam). Honra "stop". É o que o webmail consegue aplicar no
-// envio (as demais ações só valem na entrega, via Sieve). Antes, nenhuma regra de saída era avaliada.
+// outboundBcc evaluates a draft's OUTBOUND rules at send time and returns the addresses to include
+// in Bcc (the "forward" action of matching rules). Honors "stop". This is what the webmail can
+// apply at send time (the other actions only apply at delivery, via Sieve). Before this, no
+// outbound rule was ever evaluated.
 export function outboundBcc(rules: Rule[], d: Draft): string[] {
   const bcc: string[] = [];
   for (const r of rules) {

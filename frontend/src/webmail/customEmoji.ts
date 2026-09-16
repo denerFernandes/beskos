@@ -1,8 +1,9 @@
 import { mediaUrl } from "../apiBase";
 
-// Registo global dos emojis customizados do workspace (:nome: → URL da imagem). É preenchido uma vez
-// quando o chat carrega a lista; o renderRich consulta-o para trocar :nome: por <img>. Global (e não
-// prop) para não ter de passar o mapa por todos os pontos que renderizam texto (chat, comentários).
+// Global registry of the workspace's custom emoji (:name: -> image URL). Populated once when
+// the chat loads the list; renderRich consults it to swap :name: for <img>. Global (rather than
+// a prop) so the map doesn't have to be threaded through every place that renders text (chat,
+// comments).
 
 let MAP: Record<string, string> = {};
 
