@@ -175,7 +175,8 @@ func (s *Server) handleLobbyDecision(w http.ResponseWriter, r *http.Request, sta
 		writeErr(w, http.StatusBadRequest, "meet.invalid_id")
 		return
 	}
-	k, err := s.q.GetKnock(r.Context(), id)
+	mu := mailUserFrom(r.Context())
+	k, err := s.q.GetKnockInTenant(r.Context(), db.GetKnockInTenantParams{ID: id, TenantID: mu.TenantID})
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "meet.not_found")
 		return
