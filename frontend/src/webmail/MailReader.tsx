@@ -340,7 +340,7 @@ function MessageItem({ m, service, locale, t, single, spam, me, open, onToggle, 
       `<style>body{font:14px -apple-system,system-ui,sans-serif;color:#111;padding:32px;max-width:720px}` +
       `h1{font-size:20px}table{margin:12px 0 20px;font-size:13px;color:#444}td.k{padding-right:14px;color:#888;white-space:nowrap;vertical-align:top}` +
       `pre{white-space:pre-wrap;word-wrap:break-word;font:inherit}</style>` +
-      `<h1>${esc(m.subject || "(sem assunto)")}</h1><table>${head}</table><pre>${esc(body)}</pre>`);
+      `<h1>${esc(m.subject || t("webmail.noSubject"))}</h1><table>${head}</table><pre>${esc(body)}</pre>`);
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 250);

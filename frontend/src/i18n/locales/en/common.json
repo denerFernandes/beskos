@@ -1223,6 +1223,21 @@
     "upsellBody": "{{feature}} requires a Pro license for this installation.",
     "upsellCta": "Learn more"
   },
+  "native": {
+    "windowOpenFailed": "Could not open the window."
+  },
+  "signatures": {
+    "simple": "Simple",
+    "divider": "With a divider",
+    "accent_bar": "Accent bar",
+    "bold_name": "Bold name",
+    "two_col": "Two columns",
+    "minimal_gray": "Minimal",
+    "corporate": "Corporate",
+    "quote": "With a quote",
+    "compact": "Compact",
+    "card": "Card"
+  },
   "domainsSection": {
     "desc": "Your organization's email domains.",
     "details": "Details"
@@ -1742,6 +1757,7 @@
     "kind_vacation": "Vacation"
   },
   "chat": {
+    "youSuffix": " (you)",
     "generalName": "General",
     "title": "Chat",
     "react": "React",

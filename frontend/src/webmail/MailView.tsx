@@ -411,7 +411,7 @@ export function MailView({ session, search, sub, sub2, advOpen = false, onAdvClo
     // would duplicate the image.
     const attachments: UploadedBlob[] = (m.attachments ?? [])
       .filter((a) => !a.cid)
-      .map((a) => ({ blobId: a.blobId, type: a.type, name: a.name || "anexo", size: a.size }));
+      .map((a) => ({ blobId: a.blobId, type: a.type, name: a.name || t("webmail.reader.attachment"), size: a.size }));
     openComposer({
       to: (m.to ?? []).map((a) => a.email).join(", "),
       subject: m.subject, body, bodyHtml: bodyHtml || undefined, draftId: id,
