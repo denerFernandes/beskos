@@ -17,10 +17,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// linkExpiry converts the requested days into a deadline: absent (nil) = default 30d; 0 = no
-// expiration (NULL); N = N days. Capped at 365 so it doesn't become "forever" by mistake.
+// linkExpiry converts the requested days into a deadline: absent (nil) = default fileLinkTTL;
+// 0 = no expiration (NULL); N = N days. Capped at 365 so it doesn't become "forever" by mistake.
 func linkExpiry(days *int) pgtype.Timestamptz {
-	d := 30
+	d := int(fileLinkTTL / (24 * time.Hour))
 	if days != nil {
 		d = *days
 	}

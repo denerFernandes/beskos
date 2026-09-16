@@ -196,11 +196,13 @@ func TestToolResultsGoBackAsUntrustedData(t *testing.T) {
 			toolMsg = &p.lastMsgs[i]
 		}
 	}
+	//nolint:staticcheck // SA5011: see the note below, this is one finding split across both lines
 	if toolMsg == nil {
 		t.Fatal("no tool message was sent to the model")
 	}
 	// The role matters: a result that came back as RoleUser or RoleSystem would be
 	// indistinguishable from a user request — which is exactly the attack.
+	//nolint:staticcheck // SA5011 false positive: t.Fatal above calls runtime.Goexit, so this never runs with toolMsg nil
 	if toolMsg.Role != ai.RoleTool {
 		t.Errorf("role = %q, want %q", toolMsg.Role, ai.RoleTool)
 	}

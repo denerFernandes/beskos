@@ -85,7 +85,7 @@ func NormalizeVATID(taxID, country string) string {
 	if cc == "GR" {
 		cc = "EL" // Greece declares itself as EL in the number
 	}
-	if cc != "" && len(s) > 1 && !(s[0] >= 'A' && s[0] <= 'Z' && s[1] >= 'A' && s[1] <= 'Z') {
+	if cc != "" && len(s) > 1 && (s[0] < 'A' || s[0] > 'Z' || s[1] < 'A' || s[1] > 'Z') {
 		s = cc + s
 	}
 	return s

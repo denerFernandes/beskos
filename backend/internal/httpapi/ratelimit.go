@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // rateLimiter is an in-memory limiter (sliding window per key). Blocks brute-force/credential
@@ -49,9 +51,15 @@ func (rl *rateLimiter) allow(key string, now time.Time) bool {
 	return true
 }
 
-// clientIP returns the client's IP. middleware.RealIP already resolves X-Forwarded-For when
-// behind our proxy (Caddy); outside of it, it falls back to RemoteAddr.
+// clientIP returns the client's IP. middleware.ClientIPFromXFFTrustedProxies(1), installed in
+// Router(), already resolved it from X-Forwarded-For when behind our proxy (Caddy) -- reading the
+// entry Caddy itself appended, not whatever a client's own X-Forwarded-For claims, so this can't
+// be spoofed by an attacker forging the header. Outside of it (local dev with no proxy), it falls
+// back to the raw RemoteAddr.
 func clientIP(r *http.Request) string {
+	if ip := middleware.GetClientIP(r.Context()); ip != "" {
+		return ip
+	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host
 	}

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // rateLimiter is an in-memory sliding window per key — the same implementation as httpapi's, kept
@@ -47,8 +49,13 @@ func (rl *rateLimiter) allow(key string, now time.Time) bool {
 	return true
 }
 
-// clientIP devolve o IP do cliente (middleware.RealIP já resolveu X-Forwarded-For atrás do Caddy).
+// clientIP returns the client's IP, resolved by middleware.ClientIPFromXFFTrustedProxies(1) in
+// Router() from the X-Forwarded-For entry Caddy itself appended -- not the leftmost one, which a
+// client's own header could forge.
 func clientIP(r *http.Request) string {
+	if ip := middleware.GetClientIP(r.Context()); ip != "" {
+		return ip
+	}
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host
 	}

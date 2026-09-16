@@ -9,7 +9,6 @@ package httpapi
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/google/uuid"
@@ -52,19 +51,6 @@ func accountView(a billing.Account) map[string]any {
 		out["days_left"] = int(time.Until(a.Until).Hours() / 24)
 	}
 	return out
-}
-
-// requireSendingAllowed refuses the routes that create outbound work when the organisation is
-// blocked. Reading, searching and exporting deliberately go through untouched.
-func (s *Server) requireSendingAllowed(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u := mailUserFrom(r.Context())
-		if s.accountState(r.Context(), u.TenantID).Blocked() {
-			writeErr(w, http.StatusPaymentRequired, "account.sending_blocked")
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
 }
 
 // domainPublished reports whether the user's own domain is live in DNS, and says which domain it is

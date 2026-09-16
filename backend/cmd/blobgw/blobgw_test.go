@@ -299,12 +299,16 @@ func TestGatewayRejectsOutsidePrefix(t *testing.T) {
 
 func TestGatewayRejectsUnsupportedOperation(t *testing.T) {
 	g, _, cli := build(t)
-	// ListObjects is one of the operations this gateway does NOT implement, on purpose.
-	for obj := range cli.ListObjects(context.Background(), g.bucket, minio.ListObjectsOptions{Prefix: "mail/"}) {
-		if obj.Err == nil {
-			t.Fatal("listing should be rejected")
-		}
-		return
+	// ListObjects is one of the operations this gateway does NOT implement, on purpose. The
+	// first (and, since the gateway rejects the request outright, only) item the channel yields
+	// already carries the rejection, so there's nothing to gain from consuming the rest of it.
+	objs := cli.ListObjects(context.Background(), g.bucket, minio.ListObjectsOptions{Prefix: "mail/"})
+	obj, ok := <-objs
+	if !ok {
+		t.Fatal("listing should be rejected, but the channel closed with no items")
+	}
+	if obj.Err == nil {
+		t.Fatal("listing should be rejected")
 	}
 }
 

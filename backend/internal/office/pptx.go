@@ -29,11 +29,9 @@ func buildPptx(p Plan) ([]byte, error) {
 		n := i + 1
 		path := fmt.Sprintf("ppt/slides/slide%d.xml", n)
 		rid := fmt.Sprintf("rId%d", n+1) // rId1 is reserved for the master
-		slideRefs.WriteString(fmt.Sprintf(`<p:sldId id="%d" r:id="%s"/>`, 255+n, rid))
-		presRels.WriteString(fmt.Sprintf(
-			`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide%d.xml"/>`, rid, n))
-		overrides.WriteString(fmt.Sprintf(
-			`<Override PartName="/%s" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`, path))
+		fmt.Fprintf(&slideRefs, `<p:sldId id="%d" r:id="%s"/>`, 255+n, rid)
+		fmt.Fprintf(&presRels, `<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide%d.xml"/>`, rid, n)
+		fmt.Fprintf(&overrides, `<Override PartName="/%s" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`, path)
 		parts = append(parts,
 			part{path, slideXML(s)},
 			part{fmt.Sprintf("ppt/slides/_rels/slide%d.xml.rels", n), xmlHeader +
