@@ -215,7 +215,7 @@ impl Engine {
         Ok(pair)
     }
 
-/// Stops syncing a folder. Does NOT delete files -- neither local ones nor cloud ones.
+    /// Stops syncing a folder. Does NOT delete files -- neither local ones nor cloud ones.
     pub fn remove_pair(&self, local_path: &str) -> Result<()> {
         let mut cfg = config::load()?;
         let token = config::load_token()?;

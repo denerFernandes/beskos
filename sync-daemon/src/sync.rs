@@ -6,8 +6,8 @@
 //!   2. pull: applies the feed. Places each file under its folder's path (tree mirror); if only
 //!      the folder changed (same hash), it MOVES the local file instead of re-downloading;
 //!      tombstones delete only what this daemon downloaded. The cursor only advances per applied page.
-//! Safety: sanitized paths (anti-traversal, incl. subfolders), atomic writes, and LOCAL deletes
-//! are never propagated to the server.
+//!      Safety: sanitized paths (anti-traversal, incl. subfolders), atomic writes, and LOCAL
+//!      deletes are never propagated to the server.
 
 use std::collections::HashSet;
 use std::fs;
@@ -182,13 +182,6 @@ fn try_delta_upload(
 const RECONCILE_EVERY: Duration = Duration::from_secs(3600);
 const RECONCILE_KEY: &str = "last_reconcile";
 
-/// Sweep-based reconciliation -- fixes the incremental feed's blind spot: when someone **empties
-/// the trash** on the server, the row disappears (hard delete) and the feed (which is based on
-/// `updated_at`) never emits a tombstone. Without this the file would stay orphaned locally forever.
-///
-/// Sweeps the feed FROM THE START (without touching the incremental cursor), collects the ids the
-/// server still knows about, and removes locally whatever no longer exists there.
-
 /// Shortcut to increment a counter on the shared `Stats` without scattering locks through the code.
 fn bump(stats: &Mutex<Stats>, f: impl FnOnce(&mut Stats)) {
     f(&mut stats.lock().unwrap_or_else(|e| e.into_inner()));
@@ -261,17 +254,6 @@ pub fn run_once(
     Ok(stats.into_inner().unwrap_or_else(|e| e.into_inner()))
 }
 
-/// Relative path (with '/') where a feed file should land: <folder>/<name>. Falls back to the root
-/// if the folder does not resolve. Returns None if the file's own name is unsafe.
-///
-/// Files shared with me go to `Partilhados/<name>`: their `folder_id` belongs to the OWNER's tree,
-/// which I cannot (and should not) resolve -- so they land flat in the reserved folder.
-
-/// Uploads local changes: tracked files whose content changed (PUT with If-Match) and new files in
-/// any subfolder (POST, creating the missing server folders). A local delete is NOT propagated
-/// (safety against accidentally deleting data).
-
-/// Collects the relative paths (with '/') of every file under `dir`, recursively.
 /// OS junk and editing temporaries: never uploaded to Drive. They are noise for the user (macOS's
 /// `.DS_Store` used to show up in the file list) and keep changing on their own, generating
 /// useless syncs.
@@ -295,6 +277,7 @@ fn is_ignored(name: &str) -> bool {
         || name.ends_with(".mailin-part")
 }
 
+/// Collects the relative paths (with '/') of every file under `dir`, recursively.
 fn collect_files(root: &Path, dir: &Path, out: &mut Vec<String>) -> Result<()> {
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -331,7 +314,7 @@ fn save_conflict_copy(src: &Path) -> Result<()> {
         None => format!("{stem} (conflito {secs})"),
     };
     let dest = src.with_file_name(cname);
-    fs::copy(&src, &dest)?;
+    fs::copy(src, &dest)?;
     Ok(())
 }
 

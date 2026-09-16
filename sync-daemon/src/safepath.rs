@@ -8,11 +8,7 @@ use std::path::{Component, Path, PathBuf};
 /// (the caller treats this as invalid input and skips the file).
 pub fn sanitize_name(name: &str) -> Option<String> {
     // Cuts off any path separator (the name has to be ONE component, never a subtree).
-    let base = name
-        .rsplit(|c| c == '/' || c == '\\')
-        .next()
-        .unwrap_or("")
-        .trim();
+    let base = name.rsplit(['/', '\\']).next().unwrap_or("").trim();
     // Rejects empty names, "." and ".." and names with NUL (avoids truncation in OS calls).
     if base.is_empty() || base == "." || base == ".." || base.contains('\0') {
         return None;
@@ -28,8 +24,7 @@ pub fn safe_join_rel(root: &Path, rel: &str) -> anyhow::Result<PathBuf> {
         if seg.is_empty() {
             continue;
         }
-        let clean =
-            sanitize_name(seg).ok_or_else(|| anyhow::anyhow!("invalid path segment"))?;
+        let clean = sanitize_name(seg).ok_or_else(|| anyhow::anyhow!("invalid path segment"))?;
         out.push(clean);
     }
     // Final check: no `..` components, and the result has to stay under the root.
