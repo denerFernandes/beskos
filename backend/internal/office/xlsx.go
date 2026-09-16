@@ -27,12 +27,9 @@ func buildXlsx(p Plan) ([]byte, error) {
 		path := fmt.Sprintf("xl/worksheets/sheet%d.xml", n)
 		rid := fmt.Sprintf("rId%d", n)
 
-		sheetRefs.WriteString(fmt.Sprintf(
-			`<sheet name="%s" sheetId="%d" r:id="%s"/>`, esc(name), n, rid))
-		sheetRels.WriteString(fmt.Sprintf(
-			`<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%d.xml"/>`, rid, n))
-		overrides.WriteString(fmt.Sprintf(
-			`<Override PartName="/%s" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`, path))
+		fmt.Fprintf(&sheetRefs, `<sheet name="%s" sheetId="%d" r:id="%s"/>`, esc(name), n, rid)
+		fmt.Fprintf(&sheetRels, `<Relationship Id="%s" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet%d.xml"/>`, rid, n)
+		fmt.Fprintf(&overrides, `<Override PartName="/%s" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`, path)
 		parts = append(parts, part{path, sheetXML(sh)})
 	}
 
@@ -62,7 +59,7 @@ func buildXlsx(p Plan) ([]byte, error) {
 func sheetXML(sh Sheet) string {
 	var rows strings.Builder
 	for r, row := range sh.Rows {
-		rows.WriteString(fmt.Sprintf(`<row r="%d">`, r+1))
+		fmt.Fprintf(&rows, `<row r="%d">`, r+1)
 		for c, val := range row {
 			rows.WriteString(cellXML(colName(c)+strconv.Itoa(r+1), val))
 		}

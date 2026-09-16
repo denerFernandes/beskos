@@ -22,17 +22,19 @@ func TestHumanizeCode(t *testing.T) {
 func TestRateLimiterWindow(t *testing.T) {
 	rl := newRateLimiter(2, time.Minute)
 	now := time.Now()
-	if !rl.allow("k", now) || !rl.allow("k", now) {
-		t.Fatal("first two attempts should pass")
+	for i := 1; i <= 2; i++ {
+		if !rl.allow("k", now) {
+			t.Fatalf("attempt %d of 2 should pass", i)
+		}
 	}
 	if rl.allow("k", now) {
 		t.Fatal("third attempt within window should be blocked")
 	}
-	// Fora da janela, a chave volta a passar.
+	// Outside the window, the key passes again.
 	if !rl.allow("k", now.Add(2*time.Minute)) {
 		t.Fatal("attempt after window should pass")
 	}
-	// Chaves independentes não interferem.
+	// Independent keys don't interfere with each other.
 	if !rl.allow("other", now) {
 		t.Fatal("different key should pass")
 	}

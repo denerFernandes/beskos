@@ -11,7 +11,7 @@ import (
 
 func sign(payload, secret string, ts int64) string {
 	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(fmt.Sprintf("%d.%s", ts, payload)))
+	fmt.Fprintf(mac, "%d.%s", ts, payload)
 	return fmt.Sprintf("t=%d,v1=%s", ts, hex.EncodeToString(mac.Sum(nil)))
 }
 

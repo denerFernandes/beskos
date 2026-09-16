@@ -42,10 +42,9 @@ func tr(lang, pt, en string) string {
 func build(lang, subject, intro string, lines []Line, cta, ctaURL, footer string) Msg {
 	var rows, txt strings.Builder
 	for _, l := range lines {
-		rows.WriteString(fmt.Sprintf(
-			`<tr><td style="padding:7px 0;color:#6C7370;font-size:14px">%s</td>`+
-				`<td style="padding:7px 0;text-align:right;font-size:14px;font-weight:600;color:#10161A">%s</td></tr>`,
-			html.EscapeString(l.Label), html.EscapeString(l.Value)))
+		fmt.Fprintf(&rows, `<tr><td style="padding:7px 0;color:#6C7370;font-size:14px">%s</td>`+
+			`<td style="padding:7px 0;text-align:right;font-size:14px;font-weight:600;color:#10161A">%s</td></tr>`,
+			html.EscapeString(l.Label), html.EscapeString(l.Value))
 		txt.WriteString(l.Label + ": " + l.Value + "\n")
 	}
 	button := ""

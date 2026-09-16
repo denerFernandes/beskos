@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"github.com/beskosorg/beskos/backend/internal/assistant"
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
@@ -137,15 +135,4 @@ func (s *Server) decideDurablePendingAction(r *http.Request, id uuid.UUID, appro
 		return false
 	}
 	return true
-}
-
-// taskStatusLabel validates a status coming from outside. It exists so the test can assert that
-// the backend's states and the ones the UI knows about are the same set.
-func taskStatusValid(status string) bool {
-	switch strings.TrimSpace(status) {
-	case assistant.TaskQueued, assistant.TaskRunning, assistant.TaskWaiting,
-		assistant.TaskDone, assistant.TaskFailed, assistant.TaskCancelled:
-		return true
-	}
-	return false
 }

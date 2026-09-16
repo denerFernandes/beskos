@@ -18,7 +18,11 @@ func (s *Server) Router() http.Handler {
 	// requestLogger replaces middleware.Logger: the session token can arrive in ?access_token=
 	// (WS/media), and the default logger would write the whole URL — a 7-day token in the logs is
 	// a session hijack waiting to happen. The sensitive query is redacted here before logging.
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer, requestLogger)
+	// ClientIPFromXFFTrustedProxies(1): exactly one reverse proxy (Caddy) sits between us and the
+	// public internet (architecture.md, DIVERGENCES §D7/D8), so the real client IP is the entry
+	// Caddy itself appended to X-Forwarded-For -- never the leftmost one, which a client's own
+	// header can freely forge. The deprecated middleware.RealIP trusted the leftmost entry.
+	r.Use(middleware.RequestID, middleware.ClientIPFromXFFTrustedProxies(1), middleware.Recoverer, requestLogger)
 	r.Use(s.cors) // CORS for the native app (Tauri) — no-op if there are no configured origins
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { writeJSON(w, 200, map[string]string{"status": "ok"}) })

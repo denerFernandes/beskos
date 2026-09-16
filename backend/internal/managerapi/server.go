@@ -56,7 +56,10 @@ func NewServer(q *db.Queries, encKey string, cookieSecure bool, bp billing.Provi
 
 func (s *Server) Router() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RealIP)
+	// ClientIPFromXFFTrustedProxies(1): exactly one reverse proxy (Caddy) sits in front of this
+	// service. The deprecated middleware.RealIP trusted the leftmost X-Forwarded-For entry, which
+	// a client's own header can forge; this trusts only the entry Caddy itself appended.
+	r.Use(middleware.ClientIPFromXFFTrustedProxies(1))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 

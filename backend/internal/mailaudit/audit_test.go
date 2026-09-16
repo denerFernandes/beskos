@@ -1,6 +1,7 @@
 package mailaudit
 
 import (
+	"context"
 	"errors"
 	"net"
 	"reflect"
@@ -62,7 +63,7 @@ func TestTruncatedCountIsUnknownNotPass(t *testing.T) {
 // eventually points at a domain that redirects to itself.
 func TestCountLookupsStopsOnCycles(t *testing.T) {
 	seen := map[string]bool{"loop.example": true}
-	n, _ := countLookups(nil, nil, "v=spf1 include:loop.example -all", seen, 0)
+	n, _ := countLookups(context.TODO(), nil, "v=spf1 include:loop.example -all", seen, 0)
 	if n != 1 {
 		t.Errorf("counted %d, want the mechanism counted once and not followed", n)
 	}

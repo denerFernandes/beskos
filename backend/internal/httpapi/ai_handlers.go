@@ -26,7 +26,7 @@ func localeFromRequest(r *http.Request) string {
 		return "pt-BR"
 	}
 	for _, c := range v {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '-') {
+		if (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && c != '-' {
 			return "pt-BR"
 		}
 	}
