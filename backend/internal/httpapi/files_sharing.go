@@ -28,8 +28,8 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "storage.invalid_share")
 		return
 	}
-	// O CreateShare é upsert; para saber se é partilha NOVA (e portanto se há alguém a avisar),
-	// olha-se antes.
+	// CreateShare is an upsert; to know whether this is a NEW share (and therefore whether someone
+	// needs notifying), we check beforehand.
 	existed := false
 	if cur, lerr := s.q.ListSharesByFile(r.Context(), db.ListSharesByFileParams{FileID: f.ID, TenantID: f.TenantID}); lerr == nil {
 		for _, c := range cur {
@@ -46,11 +46,11 @@ func (s *Server) handleShareFile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "storage.share_failed")
 		return
 	}
-	// Dentro da organização: notificação na app (alimenta a badge de Arquivos). Fora: e-mail com o
-	// link público, que é a única porta de entrada de quem não tem conta.
+	// Inside the organization: an in-app notification (feeds the Files badge). Outside: an email with
+	// the public link, the only entry point for someone without an account.
 	if target, terr := s.q.GetMailUserByEmail(r.Context(), req.Principal); terr != nil || target.TenantID != f.TenantID {
-		// Só avisa quem AINDA não tinha acesso: mudar a permissão de quem já foi avisado não
-		// justifica um segundo "partilharam um ficheiro consigo".
+		// Only notifies someone who did NOT already have access: changing the permission of someone
+		// already notified doesn't justify a second "a file was shared with you".
 		if strings.Contains(req.Principal, "@") && !existed {
 			link, sent := s.shareWithOutsider(r, f, mailUserFrom(r.Context()), req.Principal)
 			writeJSON(w, http.StatusCreated, map[string]any{"id": sh.ID, "external": true, "link": link, "emailed": sent})

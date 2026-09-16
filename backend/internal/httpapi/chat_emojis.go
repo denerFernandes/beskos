@@ -11,8 +11,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Emojis customizados do workspace (:nome:). A imagem é enviada primeiro por /api/files; aqui só se
-// liga o nome ao ficheiro (mesmo padrão do avatar de contato). O frontend renderiza via /thumb.
+// Custom workspace emojis (:name:). The image is uploaded first via /api/files; here we only link
+// the name to the file (same pattern as the contact avatar). The frontend renders it via /thumb.
 
 var emojiName = regexp.MustCompile(`^[a-z0-9_]{2,32}$`)
 
@@ -40,7 +40,7 @@ func (s *Server) handleCreateEmoji(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.ToLower(strings.TrimSpace(strings.Trim(req.Name, ":")))
 	if !emojiName.MatchString(name) {
-		writeErr(w, http.StatusBadRequest, "chat.emoji_bad_name") // só [a-z0-9_], 2..32
+		writeErr(w, http.StatusBadRequest, "chat.emoji_bad_name") // only [a-z0-9_], 2..32
 		return
 	}
 	fid, err := uuid.Parse(req.FileID)
@@ -48,7 +48,7 @@ func (s *Server) handleCreateEmoji(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "chat.emoji_bad_file")
 		return
 	}
-	// O ficheiro tem de ser do mesmo tenant (a imagem foi enviada por /api/files).
+	// The file must belong to the same tenant (the image was uploaded via /api/files).
 	if _, err := s.q.GetStorageFileInTenant(r.Context(), db.GetStorageFileInTenantParams{ID: fid, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusNotFound, "storage.not_found")
 		return

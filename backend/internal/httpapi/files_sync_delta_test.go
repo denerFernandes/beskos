@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// rebuild é um atalho para os testes: corre a reconstrução e devolve o conteúdo final.
+// rebuild is a shortcut for the tests: it runs the rebuild and returns the final content.
 func rebuild(t *testing.T, old, body string, totalSize, bs int64, changed ...int64) string {
 	t.Helper()
 	set := map[int64]bool{}
@@ -23,55 +23,55 @@ func rebuild(t *testing.T, old, body string, totalSize, bs int64, changed ...int
 }
 
 func TestRebuildFromDelta(t *testing.T) {
-	// Blocos de 4 bytes. "AAAABBBBCCCC" com o bloco do meio trocado por "XXXX".
+	// 4-byte blocks. "AAAABBBBCCCC" with the middle block swapped for "XXXX".
 	if got, want := rebuild(t, "AAAABBBBCCCC", "XXXX", 12, 4, 1), "AAAAXXXXCCCC"; got != want {
-		t.Errorf("bloco do meio: %q, queria %q", got, want)
+		t.Errorf("middle block: %q, want %q", got, want)
 	}
-	// Nenhum bloco alterado ⇒ conteúdo idêntico (corpo vazio).
+	// No block changed ⇒ identical content (empty body).
 	if got, want := rebuild(t, "AAAABBBB", "", 8, 4), "AAAABBBB"; got != want {
-		t.Errorf("sem alterações: %q, queria %q", got, want)
+		t.Errorf("no changes: %q, want %q", got, want)
 	}
-	// Vários blocos alterados, pela ordem dos índices.
+	// Several blocks changed, in index order.
 	if got, want := rebuild(t, "AAAABBBBCCCC", "XXXXZZZZ", 12, 4, 0, 2), "XXXXBBBBZZZZ"; got != want {
-		t.Errorf("dois blocos: %q, queria %q", got, want)
+		t.Errorf("two blocks: %q, want %q", got, want)
 	}
 }
 
 func TestRebuildFromDeltaFileGrew(t *testing.T) {
-	// Ficheiro cresceu: o bloco novo (índice 2) só pode vir do corpo.
+	// File grew: the new block (index 2) can only come from the body.
 	got := rebuild(t, "AAAABBBB", "CCCC", 12, 4, 2)
 	if want := "AAAABBBBCCCC"; got != want {
-		t.Errorf("cresceu: %q, queria %q", got, want)
+		t.Errorf("grew: %q, want %q", got, want)
 	}
 }
 
 func TestRebuildFromDeltaFileShrank(t *testing.T) {
-	// Ficheiro encolheu: para em totalSize e ignora o resto do antigo.
+	// File shrank: stops at totalSize and ignores the rest of the old content.
 	if got, want := rebuild(t, "AAAABBBBCCCC", "", 8, 4), "AAAABBBB"; got != want {
-		t.Errorf("encolheu: %q, queria %q", got, want)
+		t.Errorf("shrank: %q, want %q", got, want)
 	}
-	// Último bloco parcial vindo do corpo.
+	// Last partial block coming from the body.
 	if got, want := rebuild(t, "AAAABBBB", "XX", 6, 4, 1), "AAAAXX"; got != want {
-		t.Errorf("bloco parcial: %q, queria %q", got, want)
+		t.Errorf("partial block: %q, want %q", got, want)
 	}
 }
 
 func TestRebuildFromDeltaRejectsBadInput(t *testing.T) {
 	set := map[int64]bool{}
 	var out bytes.Buffer
-	// Bloco NÃO marcado como alterado mas inexistente no antigo (o cliente enganou-se):
-	// tem de recusar em vez de gravar um ficheiro truncado/lixo.
+	// Block NOT marked as changed but missing from the old content (the client got it wrong):
+	// it has to refuse instead of writing a truncated/garbage file.
 	err := rebuildFromDelta(&out, strings.NewReader("AAAA"), strings.NewReader(""), 4, 8, 4, set)
 	if err == nil {
-		t.Fatal("esperava erro quando falta um bloco no conteúdo antigo")
+		t.Fatal("expected an error when a block is missing from the old content")
 	}
 
-	// Corpo mais curto do que os blocos marcados como alterados.
+	// Body shorter than the blocks marked as changed.
 	out.Reset()
 	err = rebuildFromDelta(&out, strings.NewReader("AAAA"), strings.NewReader("X"), 4, 4, 4,
 		map[int64]bool{0: true})
 	if err == nil {
-		t.Fatal("esperava erro quando o corpo é curto demais")
+		t.Fatal("expected an error when the body is too short")
 	}
 }
 
@@ -82,13 +82,13 @@ func TestParseBlockList(t *testing.T) {
 	}
 	for _, i := range []int64{0, 3, 7} {
 		if !got[i] {
-			t.Errorf("faltou o bloco %d", i)
+			t.Errorf("missing block %d", i)
 		}
 	}
 	if got[1] {
-		t.Error("bloco 1 não devia estar marcado")
+		t.Error("block 1 shouldn't be marked")
 	}
 	if empty, err := parseBlockList(""); err != nil || len(empty) != 0 {
-		t.Errorf("lista vazia devia dar conjunto vazio, deu %v (%v)", empty, err)
+		t.Errorf("empty list should give an empty set, got %v (%v)", empty, err)
 	}
 }

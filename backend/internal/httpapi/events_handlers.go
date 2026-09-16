@@ -14,7 +14,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Calendário: eventos por usuário final (nossa camada). Filtra por owner (a mailbox logada).
+// Calendar: events per end user (our layer). Filters by owner (the logged-in mailbox).
 
 func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -24,7 +24,7 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "events.invalid_range")
 		return
 	}
-	// Params gerados: EndsAt = limite inferior (ends_at > from), StartsAt = limite superior (starts_at < to).
+	// Generated params: EndsAt = lower bound (ends_at > from), StartsAt = upper bound (starts_at < to).
 	events, err := s.q.ListEventsRange(r.Context(), db.ListEventsRangeParams{
 		OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true}, EndsAt: from, StartsAt: to,
 	})
@@ -32,14 +32,15 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "events.failed")
 		return
 	}
-	// Únicos só: os recorrentes vêm da expansão (senão o mestre apareceria duas vezes no range).
+	// Non-recurring only: recurring ones come from the expansion (otherwise the master would show
+	// up twice in the range).
 	out := make([]eventOut, 0, len(events))
 	for _, e := range events {
 		if e.Recur == "" {
 			out = append(out, eventOut{Event: e})
 		}
 	}
-	// Expande os mestres recorrentes (próprios) em ocorrências dentro do intervalo [from, to].
+	// Expands the (own) recurring masters into occurrences within the [from, to] range.
 	if recurring, rerr := s.q.ListRecurringByOwner(r.Context(), pgtype.UUID{Bytes: mu.ID, Valid: true}); rerr == nil {
 		for _, m := range recurring {
 			for _, occ := range expandRecurrence(m, from, to) {
@@ -47,7 +48,7 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// Eventos a que fui CONVIDADO entram na minha agenda (marcados invited + a minha resposta).
+	// Events I was INVITED to go into my calendar (marked invited + my response).
 	if invited, ierr := s.q.ListInvitedEvents(r.Context(), mu.ID); ierr == nil {
 		for _, iv := range invited {
 			out = append(out, invitedOccurrences(iv, from, to)...)
@@ -68,7 +69,7 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 		if rows, aerr := s.q.ListEventInviteesForEvents(r.Context(), ids); aerr == nil {
 			for _, a := range rows {
 				if a.Email == mu.Email {
-					continue // o próprio utilizador não precisa de ver o próprio avatar em tudo
+					continue // the user doesn't need to see their own avatar on everything
 				}
 				byEvent[a.EventID] = append(byEvent[a.EventID], eventAttendee{
 					Name: a.Name, Email: a.Email, Avatar: a.Avatar, Status: a.Status,
@@ -100,7 +101,7 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		// Externos também "estão no evento": iniciais + selo external (sem avatar/conta).
+		// Externals also "are in the event": initials + external badge (no avatar/account).
 		if ext, eerr := s.q.ListEventExternalsForEvents(r.Context(), ids); eerr == nil {
 			for _, x := range ext {
 				byEvent[x.EventID] = append(byEvent[x.EventID], eventAttendee{
@@ -115,8 +116,9 @@ func (s *Server) handleListEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// expandRecurrence gera as ocorrências de um mestre recorrente que caem em [from, to]. Cada ocorrência
-// é uma cópia com starts_at/ends_at deslocados (mesmo id do mestre — editar/apagar afeta a série).
+// expandRecurrence generates the occurrences of a recurring master that fall within [from, to].
+// Each occurrence is a copy with starts_at/ends_at shifted (same id as the master — editing or
+// deleting affects the whole series).
 func expandRecurrence(m db.Event, from, to time.Time) []db.Event {
 	dur := m.EndsAt.Sub(m.StartsAt)
 	limit := to
@@ -134,13 +136,13 @@ func expandRecurrence(m db.Event, from, to time.Time) []db.Event {
 		case "yearly":
 			return t.AddDate(1, 0, 0)
 		}
-		return t.AddDate(100, 0, 0) // desconhecido: encerra rápido
+		return t.AddDate(100, 0, 0) // unknown: closes quickly
 	}
 	out := []db.Event{}
 	occ := m.StartsAt
-	for i := 0; i < 1000 && !occ.After(limit); i++ { // teto de segurança contra laço infinito
+	for i := 0; i < 1000 && !occ.After(limit); i++ { // safety cap against an infinite loop
 		end := occ.Add(dur)
-		if end.After(from) { // sobrepõe o intervalo pedido
+		if end.After(from) { // overlaps the requested range
 			e := m
 			e.StartsAt = occ
 			e.EndsAt = end
@@ -160,18 +162,18 @@ type createEventReq struct {
 	EndsAt         string   `json:"ends_at"`
 	SourceEmail    string   `json:"source_email_id"`
 	Tags           []string `json:"tags"`
-	CreateMeet     bool     `json:"create_meet"`     // cria uma sala do Meet vinculada
-	Force          bool     `json:"force"`           // confirma mesmo havendo conflito de horário
-	RemindMinutes  *int     `json:"remind_minutes"`  // minutos antes p/ lembrar (nil = default 10; 0 = sem)
-	AllDay         bool     `json:"all_day"`         // evento de dia inteiro (sem hora)
+	CreateMeet     bool     `json:"create_meet"`     // creates a linked Meet room
+	Force          bool     `json:"force"`           // confirms even when there's a time conflict
+	RemindMinutes  *int     `json:"remind_minutes"`  // minutes before to remind (nil = default 10; 0 = none)
+	AllDay         bool     `json:"all_day"`         // all-day event (no time)
 	Recur          string   `json:"recur"`           // '' | daily | weekly | monthly | yearly
-	RecurUntil     string   `json:"recur_until"`     // limite da recorrência (RFC3339, opcional)
-	InviteeIDs     []string `json:"invitee_ids"`     // colegas convidados (RSVP)
-	ExternalEmails []string `json:"external_emails"` // convidados de fora (recebem e-mail)
-	CalendarID     string   `json:"calendar_id"`     // calendário do evento ("" = sem categoria)
+	RecurUntil     string   `json:"recur_until"`     // recurrence limit (RFC3339, optional)
+	InviteeIDs     []string `json:"invitee_ids"`     // invited colleagues (RSVP)
+	ExternalEmails []string `json:"external_emails"` // outside guests (receive an email)
+	CalendarID     string   `json:"calendar_id"`     // event's calendar ("" = no category)
 }
 
-// calendarID valida que o calendário é do próprio usuário; caso contrário devolve NULL.
+// calendarID validates that the calendar belongs to the user; otherwise returns NULL.
 func (s *Server) calendarID(ctx context.Context, mu db.MailUser, raw string) pgtype.UUID {
 	if raw == "" {
 		return pgtype.UUID{}
@@ -186,7 +188,8 @@ func (s *Server) calendarID(ctx context.Context, mu db.MailUser, raw string) pgt
 	return pgtype.UUID{Bytes: id, Valid: true}
 }
 
-// recurValues normaliza a recorrência: só a escala fixa; qualquer outra coisa vira ” (único).
+// recurValues normalizes the recurrence: only the fixed scale is allowed; anything else becomes ""
+// (one-off).
 func recurValues(recur, until string) (string, pgtype.Timestamptz) {
 	switch recur {
 	case "daily", "weekly", "monthly", "yearly":
@@ -202,7 +205,7 @@ func recurValues(recur, until string) (string, pgtype.Timestamptz) {
 	return recur, u
 }
 
-// remindOrDefault: nil = 10 (default como no Google Calendar); caso contrário o valor pedido (0 = sem).
+// remindOrDefault: nil = 10 (default, same as Google Calendar); otherwise the requested value (0 = none).
 func remindOrDefault(p *int) int32 {
 	if p == nil {
 		return 10
@@ -228,8 +231,8 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 	if req.Color == "" {
 		req.Color = "#116466"
 	}
-	// Aviso de conflito: se já houver evento sobrepondo o horário e o usuário não confirmou (force),
-	// devolve 409 com os conflitos para o frontend perguntar (modal).
+	// Conflict warning: if there's already an event overlapping the time slot and the user hasn't
+	// confirmed (force), returns 409 with the conflicts for the frontend to ask about (modal).
 	if !req.Force {
 		if conflicts, err := s.q.EventsOverlapping(r.Context(), db.EventsOverlappingParams{
 			OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true}, EndsAt: starts, StartsAt: ends,
@@ -253,7 +256,7 @@ func (s *Server) handleCreateEvent(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "events.create_failed")
 		return
 	}
-	// Integração com o Meet: cria a sala e vincula ao evento.
+	// Meet integration: creates the room and links it to the event.
 	if req.CreateMeet {
 		event.MeetingRoom = s.attachMeetToEvent(r.Context(), mu, event.ID, req.Title, starts, ends)
 	}
@@ -270,14 +273,14 @@ type updateEventReq struct {
 	StartsAt       string   `json:"starts_at"`
 	EndsAt         string   `json:"ends_at"`
 	Tags           []string `json:"tags"`
-	Force          bool     `json:"force"`           // confirma mesmo com conflito de horário
-	RemindMinutes  *int     `json:"remind_minutes"`  // minutos antes p/ lembrar (nil = 10; 0 = sem)
-	AllDay         bool     `json:"all_day"`         // evento de dia inteiro
+	Force          bool     `json:"force"`           // confirms even with a time conflict
+	RemindMinutes  *int     `json:"remind_minutes"`  // minutes before to remind (nil = 10; 0 = none)
+	AllDay         bool     `json:"all_day"`         // all-day event
 	Recur          string   `json:"recur"`           // '' | daily | weekly | monthly | yearly
-	RecurUntil     string   `json:"recur_until"`     // limite (RFC3339, opcional)
-	InviteeIDs     []string `json:"invitee_ids"`     // colegas convidados (RSVP)
-	ExternalEmails []string `json:"external_emails"` // convidados de fora (recebem e-mail)
-	CalendarID     string   `json:"calendar_id"`     // calendário do evento ("" = sem categoria)
+	RecurUntil     string   `json:"recur_until"`     // limit (RFC3339, optional)
+	InviteeIDs     []string `json:"invitee_ids"`     // invited colleagues (RSVP)
+	ExternalEmails []string `json:"external_emails"` // outside guests (receive an email)
+	CalendarID     string   `json:"calendar_id"`     // event's calendar ("" = no category)
 }
 
 func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
@@ -300,8 +303,8 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 	if req.Tags == nil {
 		req.Tags = []string{}
 	}
-	// Aviso de conflito TAMBÉM na edição (antes só na criação): mesma semântica do create, mas
-	// ignorando o próprio evento. Sem force e havendo choque → 409 com os conflitos.
+	// Conflict warning ALSO on edit (previously only on create): same semantics as create, but
+	// ignoring the event itself. Without force and if there's a clash → 409 with the conflicts.
 	if !req.Force {
 		if conflicts, cerr := s.q.EventsOverlappingExcept(r.Context(), db.EventsOverlappingExceptParams{
 			OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true}, EndsAt: starts, StartsAt: ends, ID: id,
@@ -311,8 +314,9 @@ func (s *Server) handleUpdateEvent(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	recurN, recurU := recurValues(req.Recur, req.RecurUntil)
-	// owner_user_id no WHERE: eventos são pessoais. Sem isto, um colega do mesmo tenant edita a
-	// agenda alheia passando o UUID do evento (auditoria H7). "no rows" quando não é o dono → 404.
+	// owner_user_id in the WHERE: events are personal. Without this, a colleague in the same tenant
+	// could edit someone else's calendar by passing the event's UUID (audit H7). "no rows" when
+	// they're not the owner → 404.
 	event, err := s.q.UpdateEvent(r.Context(), db.UpdateEventParams{
 		ID: id, TenantID: mu.TenantID, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
 		Title: req.Title, Description: req.Description,
@@ -343,9 +347,9 @@ func (s *Server) handleDeleteEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// attachMeetToEvent cria uma sala Meet, adiciona o dono como host e vincula-a ao evento. Devolve o
-// nome da sala (ou "" se o Meet está desligado ou a criação falhou). Partilhado por criar-com-meet e
-// adicionar-meet-a-evento-existente.
+// attachMeetToEvent creates a Meet room, adds the owner as host, and links it to the event.
+// Returns the room name (or "" if Meet is disabled or the creation failed). Shared by
+// create-with-meet and add-meet-to-existing-event.
 func (s *Server) attachMeetToEvent(ctx context.Context, mu db.MailUser, eventID uuid.UUID, title string, starts, ends time.Time) string {
 	if s.meet == nil {
 		return ""
@@ -364,8 +368,8 @@ func (s *Server) attachMeetToEvent(ctx context.Context, mu db.MailUser, eventID 
 	return room
 }
 
-// handleAddMeetToEvent vincula uma sala Meet a um evento já existente (idempotente: se já tem sala,
-// devolve-a). Só o dono do evento.
+// handleAddMeetToEvent links a Meet room to an already-existing event (idempotent: if it already
+// has a room, returns it). Only the event's owner.
 func (s *Server) handleAddMeetToEvent(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -378,7 +382,7 @@ func (s *Server) handleAddMeetToEvent(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "events.not_found")
 		return
 	}
-	if ev.MeetingRoom != "" { // já vinculado
+	if ev.MeetingRoom != "" { // already linked
 		writeJSON(w, http.StatusOK, map[string]string{"meeting_room": ev.MeetingRoom})
 		return
 	}
@@ -394,7 +398,7 @@ func (s *Server) handleAddMeetToEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"meeting_room": room})
 }
 
-// handleRestoreEvent desfaz uma exclusão recente (undo estilo Gmail): limpa deleted_at. Só o dono.
+// handleRestoreEvent undoes a recent deletion (Gmail-style undo): clears deleted_at. Only the owner.
 func (s *Server) handleRestoreEvent(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -410,9 +414,10 @@ func (s *Server) handleRestoreEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, ev)
 }
 
-// handleDuplicateEvent cria uma cópia independente do evento (mesmo dono/tenant): novo id, sem
-// convites nem vínculo de reunião. O título vem do frontend (que sabe o locale p/ o sufixo "(cópia)");
-// vazio = cópia literal. Não checa conflito de horário — é uma cópia intencional.
+// handleDuplicateEvent creates an independent copy of the event (same owner/tenant): new id, no
+// invites or meeting link. The title comes from the frontend (which knows the locale for the
+// "(copy)" suffix); empty = literal copy. Doesn't check for time conflicts — it's an intentional
+// copy.
 func (s *Server) handleDuplicateEvent(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -423,7 +428,7 @@ func (s *Server) handleDuplicateEvent(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Title string `json:"title"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req) // corpo opcional; ausência/erro = cópia literal, sem escrever no w
+	_ = json.NewDecoder(r.Body).Decode(&req) // optional body; absence/error = literal copy, without writing to w
 	src, err := s.q.GetEventInTenant(r.Context(), db.GetEventInTenantParams{ID: id, TenantID: mu.TenantID})
 	if err != nil || !src.OwnerUserID.Valid || uuid.UUID(src.OwnerUserID.Bytes) != mu.ID || src.DeletedAt.Valid {
 		writeErr(w, http.StatusNotFound, "events.not_found")

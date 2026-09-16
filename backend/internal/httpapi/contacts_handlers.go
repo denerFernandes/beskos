@@ -13,11 +13,13 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// CONTATOS: empresa ou pessoa, numa lista só. A pessoa pode pertencer a uma empresa (company_id).
+// CONTACTS: company or person, in a single list. A person can belong to a company (company_id).
 //
-// VER é regido pelo GRUPO: sou o dono, ou estou numa EQUIPA com que algum grupo do contato foi
-// partilhado (a query decide — ver ListContacts). Uma pessoa herda da empresa dela.
-// EDITAR/APAGAR é só do dono — ver ≠ mexer. Deixar NOTA é de quem vê: comentar não é editar.
+// VIEWING is governed by the GROUP: either I'm the owner, or I'm on a TEAM that one of the
+// contact's groups was shared with (the query decides — see ListContacts). A person inherits from
+// their company.
+// EDITING/DELETING is owner-only — viewing ≠ touching. Leaving a NOTE belongs to whoever can view:
+// commenting is not editing.
 
 type contactOut struct {
 	db.ListContactsRow
@@ -49,7 +51,7 @@ type contactReq struct {
 	Name        string      `json:"name"`
 	Email       string      `json:"email"`
 	Phone       string      `json:"phone"`
-	Company     string      `json:"company"` // empresa em texto livre (quando não há contato-empresa)
+	Company     string      `json:"company"` // company as free text (when there's no company contact)
 	Domain      string      `json:"domain"`
 	Notes       string      `json:"notes"`
 	Tags        []string    `json:"tags"`
@@ -60,13 +62,13 @@ type contactReq struct {
 	AllowPhone  bool        `json:"allow_phone"`
 	AllowEmail  bool        `json:"allow_email"`
 	CompanyID   string      `json:"company_id"`
-	ExtraEmails []string    `json:"extra_emails"` // e-mails secundários (o principal é Email)
-	ExtraPhones []string    `json:"extra_phones"` // telefones secundários (o principal é Phone/Mobile)
-	// Campos customizados livres (rótulo → valor), guardados como JSONB.
+	ExtraEmails []string    `json:"extra_emails"` // secondary emails (the primary one is Email)
+	ExtraPhones []string    `json:"extra_phones"` // secondary phones (the primary one is Phone/Mobile)
+	// Free-form custom fields (label → value), stored as JSONB.
 	CustomFields map[string]string `json:"custom_fields"`
 }
 
-// customJSON serializa os campos customizados (objeto vazio se nada).
+// customJSON serializes the custom fields (empty object if none).
 func (r contactReq) customJSON() json.RawMessage {
 	if len(r.CustomFields) == 0 {
 		return json.RawMessage("{}")
@@ -78,7 +80,8 @@ func (r contactReq) customJSON() json.RawMessage {
 	return b
 }
 
-// cleanList tira entradas vazias/só-espaço; nil vira []string{} (o array NOT NULL do banco).
+// cleanList strips empty/whitespace-only entries; nil becomes []string{} (the database's NOT NULL
+// array).
 func cleanList(in []string) []string {
 	out := make([]string, 0, len(in))
 	for _, s := range in {
@@ -89,7 +92,7 @@ func cleanList(in []string) []string {
 	return out
 }
 
-// kind normaliza: desconhecido vira 'person'.
+// kind normalizes: unknown becomes 'person'.
 func (r contactReq) kind() string {
 	if r.Kind == "company" {
 		return "company"
@@ -104,10 +107,11 @@ func (r contactReq) tags() []string {
 	return r.Tags
 }
 
-// companyID só vale para pessoa e só aceita um contato-empresa que o usuário VÊ, do mesmo tenant.
-// Empresa dentro de empresa não existe (o CHECK do banco recusaria).
-// companyID resolve a empresa da pessoa: primeiro a explícita (raw); se não houver, tenta o vínculo
-// automático por domínio (uma empresa do dono com o mesmo domínio da pessoa). Zero rede/3º.
+// companyID only applies to a person and only accepts a company contact the user CAN VIEW, in the
+// same tenant. A company inside a company doesn't exist (the database's CHECK would reject it).
+// companyID resolves the person's company: first the explicit one (raw); if there isn't one, it
+// tries the automatic domain link (a company of the owner's with the same domain as the person).
+// No network/third-party calls.
 func (s *Server) companyID(ctx context.Context, mu db.MailUser, kind, raw, domain, email string) pgtype.UUID {
 	if kind != "person" {
 		return pgtype.UUID{}
@@ -120,7 +124,7 @@ func (s *Server) companyID(ctx context.Context, mu db.MailUser, kind, raw, domai
 			}
 		}
 	}
-	// Vínculo automático por domínio: usa o domínio informado ou o do e-mail.
+	// Automatic domain link: uses the given domain, or the email's.
 	d := strings.TrimSpace(domain)
 	if d == "" {
 		d = domainOf(email)
@@ -135,7 +139,7 @@ func (s *Server) companyID(ctx context.Context, mu db.MailUser, kind, raw, domai
 	return pgtype.UUID{Bytes: co.ID, Valid: true}
 }
 
-// domainOf extrai o domínio de um e-mail (parte depois do @), em minúsculas.
+// domainOf extracts the domain from an email (the part after the @), lowercased.
 func domainOf(email string) string {
 	i := strings.LastIndexByte(email, '@')
 	if i < 0 || i == len(email)-1 {
@@ -144,7 +148,8 @@ func domainOf(email string) string {
 	return strings.ToLower(strings.TrimSpace(email[i+1:]))
 }
 
-// handleEnrichContacts (POST): liga pessoas sem empresa às empresas do dono pelo domínio. Idempotente.
+// handleEnrichContacts (POST): links people without a company to the owner's companies by domain.
+// Idempotent.
 func (s *Server) handleEnrichContacts(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	n, err := s.q.LinkPeopleByDomain(r.Context(), db.LinkPeopleByDomainParams{TenantID: mu.TenantID, OwnerUserID: mu.ID})
@@ -155,7 +160,7 @@ func (s *Server) handleEnrichContacts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int64{"linked": n})
 }
 
-// syncGroups zera e regrava a associação N:N do contato com os grupos.
+// syncGroups clears and rewrites the contact's N:N association with the groups.
 func (s *Server) syncGroups(ctx context.Context, contactID uuid.UUID, groupIDs []uuid.UUID) {
 	_ = s.q.ClearContactGroups(ctx, contactID)
 	for _, g := range groupIDs {
@@ -201,7 +206,8 @@ func (s *Server) handleUpdateContact(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	// UpdateContact filtra por owner_user_id: quem vê mas não é dono leva 404 — nunca edita.
+	// UpdateContact filters by owner_user_id: whoever can view but isn't the owner gets a 404 —
+	// never an edit.
 	c, err := s.q.UpdateContact(r.Context(), db.UpdateContactParams{
 		ID: id, OwnerUserID: mu.ID, Kind: req.kind(), Name: strings.TrimSpace(req.Name),
 		Email: req.Email, Phone: req.Phone, Company: req.Company, Domain: req.Domain,
@@ -233,7 +239,7 @@ func (s *Server) handleDeleteContact(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// contactOr404 carrega o contato respeitando a visibilidade por grupo.
+// contactOr404 loads the contact while respecting group-based visibility.
 func (s *Server) contactOr404(w http.ResponseWriter, r *http.Request) (db.GetContactRow, bool) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -249,8 +255,8 @@ func (s *Server) contactOr404(w http.ResponseWriter, r *http.Request) (db.GetCon
 	return c, true
 }
 
-// handleGetContact: ficha do contato. Empresa vem com as pessoas dela; `is_owner` diz à UI se
-// mostra o botão de editar (a API recusa de qualquer forma).
+// handleGetContact: the contact's record. A company comes with its people; `is_owner` tells the
+// UI whether to show the edit button (the API refuses the edit either way).
 func (s *Server) handleGetContact(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	c, ok := s.contactOr404(w, r)
@@ -271,7 +277,7 @@ func (s *Server) handleGetContact(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// ---- Notas, tarefas e chamados do contato ----
+// ---- Contact notes, tasks, and tickets ----
 
 func (s *Server) handleListCrmNotes(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -299,7 +305,8 @@ func (s *Server) handleCreateCrmNote(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "crm.note_empty")
 		return
 	}
-	// Comentar não é editar: quem VÊ o contato pode deixar nota, mesmo não sendo o dono.
+	// Commenting is not editing: whoever can VIEW the contact can leave a note, even without being
+	// the owner.
 	n, err := s.q.CreateContactNote(r.Context(), db.CreateContactNoteParams{
 		TenantID: mu.TenantID, ContactID: c.ID, AuthorID: mu.ID, Body: strings.TrimSpace(req.Body),
 	})
@@ -317,7 +324,7 @@ func (s *Server) handleDeleteCrmNote(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "crm.invalid_id")
 		return
 	}
-	// Só o autor apaga a própria nota.
+	// Only the author can delete their own note.
 	if err := s.q.DeleteCrmNote(r.Context(), db.DeleteCrmNoteParams{ID: id, AuthorID: mu.ID}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "crm.note_failed")
 		return
@@ -337,16 +344,17 @@ func (s *Server) handleListContactTasks(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, orEmpty(cards))
 }
 
-// ---- Grupos de contato e a partilha deles com EQUIPAS ----
+// ---- Contact groups and their sharing with TEAMS ----
 
-// sharedRef é um alvo de partilha (equipa ou pessoa) no formato {id,name} que o picker consome.
+// sharedRef is a sharing target (team or person) in the {id,name} format the picker consumes.
 type sharedRef struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 }
 
-// handleSetGroupShares troca com QUEM o grupo é partilhado — equipas E/OU pessoas. Só o DONO do
-// grupo decide (senão qualquer um abriria a agenda alheia para si ou para a sua equipa).
+// handleSetGroupShares changes WHO the group is shared with — teams AND/OR people. Only the
+// group's OWNER decides (otherwise anyone could open someone else's address book for themselves or
+// their team).
 func (s *Server) handleSetGroupShares(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -355,8 +363,8 @@ func (s *Server) handleSetGroupShares(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		UserGroupIDs []string `json:"user_group_ids"` // equipas
-		UserIDs      []string `json:"user_ids"`       // pessoas
+		UserGroupIDs []string `json:"user_group_ids"` // teams
+		UserIDs      []string `json:"user_ids"`       // people
 	}
 	if !decode(w, r, &req) {
 		return
@@ -366,7 +374,7 @@ func (s *Server) handleSetGroupShares(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "contacts.not_owner")
 		return
 	}
-	// Equipas: substitui o conjunto pelo enviado (só as do próprio tenant).
+	// Teams: replaces the set with the one sent (only the tenant's own).
 	_ = s.q.ClearGroupShares(r.Context(), g.ID)
 	for _, raw := range req.UserGroupIDs {
 		ugid, err := uuid.Parse(raw)
@@ -378,7 +386,7 @@ func (s *Server) handleSetGroupShares(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = s.q.SetGroupShare(r.Context(), db.SetGroupShareParams{GroupID: g.ID, UserGroupID: ugid})
 	}
-	// Pessoas: idem (só colegas do próprio tenant; ignora partilhar consigo mesmo).
+	// People: same idea (only colleagues in the tenant; ignores sharing with oneself).
 	_ = s.q.ClearGroupUserShares(r.Context(), g.ID)
 	for _, raw := range req.UserIDs {
 		uid, err := uuid.Parse(raw)
@@ -400,8 +408,8 @@ func (s *Server) handleListGroupShares(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "contacts.invalid_id")
 		return
 	}
-	// Checa posse do grupo antes de listar (sem isto, um id de outro tenant devolvia os alvos da
-	// partilha — auditoria M).
+	// Checks group ownership before listing (without this, an id from another tenant would return
+	// the sharing targets — audit M).
 	if _, err := s.q.GetContactGroupOwned(r.Context(), db.GetContactGroupOwnedParams{ID: id, OwnerUserID: mu.ID}); err != nil {
 		writeErr(w, http.StatusNotFound, "contacts.not_owner")
 		return
@@ -409,7 +417,7 @@ func (s *Server) handleListGroupShares(w http.ResponseWriter, r *http.Request) {
 	s.writeGroupShares(w, r, id)
 }
 
-// writeGroupShares devolve com quem o grupo está partilhado: { teams: [...], users: [...] }.
+// writeGroupShares returns who the group is shared with: { teams: [...], users: [...] }.
 func (s *Server) writeGroupShares(w http.ResponseWriter, r *http.Request, groupID uuid.UUID) {
 	teams, _ := s.q.ListGroupShares(r.Context(), groupID)
 	users, _ := s.q.ListGroupUserShares(r.Context(), groupID)
@@ -424,8 +432,8 @@ func (s *Server) writeGroupShares(w http.ResponseWriter, r *http.Request, groupI
 	writeJSON(w, http.StatusOK, map[string]any{"teams": tOut, "users": uOut})
 }
 
-// handleShareTeams lista as equipas do tenant (id+nome) para o PICKER de partilha. NÃO exige
-// permissão de admin (ao contrário de /groups): escolher com quem partilho o meu grupo é meu.
+// handleShareTeams lists the tenant's teams (id+name) for the sharing PICKER. It does NOT require
+// admin permission (unlike /groups): choosing who I share my own group with is mine to decide.
 func (s *Server) handleShareTeams(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, _ := s.q.ListTeamsForShare(r.Context(), mu.TenantID)
@@ -446,8 +454,8 @@ func (s *Server) handleListContactGroups(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, orEmpty(groups))
 }
 
-// handleContactGroupEmails devolve os e-mails dos contatos do grupo (lista de distribuição). Verifica
-// posse do grupo antes; a query já limita aos contatos do dono.
+// handleContactGroupEmails returns the emails of the group's contacts (distribution list). Checks
+// group ownership first; the query already limits results to the owner's contacts.
 func (s *Server) handleContactGroupEmails(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -535,9 +543,9 @@ func (s *Server) handleDeleteContactGroup(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleListColleagues devolve os colegas do tenant para os seletores de responsável. Aberto a
-// qualquer usuário autenticado de propósito: atribuir trabalho é do dia a dia, e a alternativa
-// (dar members.view a todos) entregaria papel e estado de MFA junto.
+// handleListColleagues returns the tenant's colleagues for the assignee selectors. Open to any
+// authenticated user on purpose: assigning work is an everyday thing, and the alternative (giving
+// members.view to everyone) would hand over role and MFA status along with it.
 func (s *Server) handleListColleagues(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListColleagues(r.Context(), mu.TenantID)

@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// --- Pastas ---
+// --- Folders ---
 
 type folderReq struct {
 	Name     string `json:"name"`
@@ -61,11 +61,11 @@ func (s *Server) handleRenameFolder(w http.ResponseWriter, r *http.Request) {
 }
 
 type moveFolderReq struct {
-	ParentID *string `json:"parent_id"` // null/"" = raiz
+	ParentID *string `json:"parent_id"` // null/"" = root
 }
 
-// handleMoveFolder muda o pai de uma pasta. Barra ciclo: não deixa mover para si mesma nem para
-// dentro de uma descendente (senão a subárvore some da navegação e vira um laço no banco).
+// handleMoveFolder changes a folder's parent. Blocks cycles: won't allow moving into itself or
+// into a descendant (otherwise the subtree disappears from navigation and becomes a loop in the DB).
 func (s *Server) handleMoveFolder(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -88,7 +88,8 @@ func (s *Server) handleMoveFolder(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusBadRequest, "storage.folder_cycle")
 			return
 		}
-		// Sobe do pai proposto até a raiz; se cruzar a própria pasta, é descendente → ciclo.
+		// Walks up from the proposed parent to the root; if it crosses the folder itself, it's a
+		// descendant -> cycle.
 		cur := pgtype.UUID{Bytes: pid, Valid: true}
 		for cur.Valid {
 			f, err := s.q.GetFolder(r.Context(), db.GetFolderParams{ID: cur.Bytes, OwnerUserID: mu.ID})

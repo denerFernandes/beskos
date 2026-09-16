@@ -19,8 +19,8 @@ type createDomainReq struct {
 	Domain string `json:"domain"`
 }
 
-// handleCreateDomain registra um domínio no estado 'pending' e responde na hora.
-// O worker (máquina de estados §7) avança o provisionamento de forma assíncrona.
+// handleCreateDomain registers a domain in the 'pending' state and responds immediately.
+// The worker (state machine §7) advances the provisioning asynchronously.
 func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	var req createDomainReq
@@ -45,8 +45,8 @@ func (s *Server) handleCreateDomain(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, d)
 }
 
-// handleGetDomain devolve o domínio (estado + registros DNS para a tela de dns_pending),
-// checando posse do tenant antes (brief §2/§10).
+// handleGetDomain returns the domain (state + DNS records for the dns_pending screen),
+// checking tenant ownership first (brief §2/§10).
 func (s *Server) handleGetDomain(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.ownedDomain(w, r)
 	if !ok {
@@ -56,7 +56,7 @@ func (s *Server) handleGetDomain(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": d.ID, "domain": d.Domain, "provision_state": d.ProvisionState,
 		"dkim_status": d.DkimStatus, "dns_status": d.DnsStatus,
-		"dns_records": orEmpty(provisioning.ParseZone(zone)), // nunca null: domínio novo ainda não tem zona
+		"dns_records": orEmpty(provisioning.ParseZone(zone)), // never null: a new domain doesn't have a zone yet
 	})
 }
 
@@ -67,8 +67,8 @@ type createMailboxReq struct {
 	QuotaGB  int64  `json:"quota_gb"`
 }
 
-// handleCreateMailbox cria uma mailbox no domínio (só quando 'active'). Checa posse e
-// traduz para a chamada JMAP no Stalwart (brief §2).
+// handleCreateMailbox creates a mailbox on the domain (only when 'active'). Checks ownership
+// and translates it into the JMAP call to Stalwart (brief §2).
 func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.ownedDomain(w, r)
 	if !ok {
@@ -78,7 +78,7 @@ func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "domains.not_active")
 		return
 	}
-	// Cota: nº de mailboxes do tenant vs. limite do plano.
+	// Quota: tenant's number of mailboxes vs. the plan's limit.
 	plan := s.tenantPlan(r, d.TenantID)
 	if count, _ := s.q.CountMailboxesByTenant(r.Context(), d.TenantID); int(count) >= plan.MaxMailboxes {
 		writeErr(w, http.StatusPaymentRequired, "quota.mailboxes")
@@ -122,14 +122,15 @@ func (s *Server) handleCreateMailbox(w http.ResponseWriter, r *http.Request) {
 		TenantID: pgtype.UUID{Bytes: d.TenantID, Valid: true}, Actor: mailUserFrom(r.Context()).Email,
 		Action: "mailbox.create", Target: email,
 	})
-	s.syncSeats(d.TenantID) // seats na Stripe acompanham (rateio no período)
+	s.syncSeats(d.TenantID) // seats in Stripe follow along (prorated for the period)
 	writeJSON(w, http.StatusCreated, mu)
 }
 
-// handleDeleteDomain remove um domínio: recusa se ainda há caixas nele (apagar utilizadores
-// primeiro — remoção nunca é em cascata sobre dados de pessoas), apaga no Stalwart, remove a
-// identidade no SES (best-effort) e por fim a linha. Ordem pensada para retomada: se o Stalwart
-// falhar, nada foi perdido; se a linha falhar, repetir a chamada é seguro (tudo idempotente).
+// handleDeleteDomain removes a domain: refuses if it still has mailboxes on it (delete users
+// first — removal is never cascaded onto people's data), deletes it in Stalwart, removes the
+// identity in SES (best-effort), and finally the row. Order designed for resumability: if
+// Stalwart fails, nothing is lost; if the row fails, repeating the call is safe (everything is
+// idempotent).
 func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.ownedDomain(w, r)
 	if !ok {
@@ -166,8 +167,8 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// Identidade SES: best-effort (sem SES configurado, ou falha transitória, não bloqueia — a
-	// identidade órfã pode ser removida à mão na AWS; fica no log).
+	// SES identity: best-effort (no SES configured, or a transient failure, doesn't block — the
+	// orphaned identity can be removed by hand in AWS; it gets logged).
 	if s.sesRelay != nil {
 		if err := s.sesRelay.DeleteIdentity(r.Context(), d.Domain); err != nil {
 			log.Printf("domains: ses delete identity %s: %v", d.Domain, err)
@@ -183,7 +184,7 @@ func (s *Server) handleDeleteDomain(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// ownedDomain carrega o domínio da rota e garante que pertence ao tenant do usuário.
+// ownedDomain loads the domain from the route and ensures it belongs to the user's tenant.
 func (s *Server) ownedDomain(w http.ResponseWriter, r *http.Request) (db.Domain, bool) {
 	u := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -197,7 +198,7 @@ func (s *Server) ownedDomain(w http.ResponseWriter, r *http.Request) (db.Domain,
 		return db.Domain{}, false
 	}
 	if d.TenantID != u.TenantID {
-		// Não vaza existência de recurso de outro tenant.
+		// Doesn't leak the existence of another tenant's resource.
 		writeErr(w, http.StatusNotFound, "domains.not_found")
 		return db.Domain{}, false
 	}

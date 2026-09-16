@@ -13,13 +13,14 @@ import (
 	"strings"
 )
 
-// Convidados / RSVP. O dono convida colegas (event_invites); o evento entra na agenda deles e cada um
-// responde. eventOut acrescenta ao evento se sou convidado (não dono) e a minha resposta.
+// Invitees / RSVP. The owner invites colleagues (event_invites); the event enters their calendar
+// and each of them responds. eventOut adds to the event whether I'm invited (not owner) and my
+// response.
 type eventOut struct {
 	db.Event
 	Invited bool   `json:"invited"`
 	MyRsvp  string `json:"my_rsvp,omitempty"`
-	// Attendees vão nos cards do calendário (avatar/iniciais + tooltip nome/e-mail).
+	// Attendees show up on the calendar cards (avatar/initials + name/email tooltip).
 	Attendees []eventAttendee `json:"attendees,omitempty"`
 }
 
@@ -30,7 +31,8 @@ type eventAttendee struct {
 	Status string `json:"status,omitempty"` // invited | accepted | declined | maybe
 }
 
-// syncInvites regrava os convidados do evento (só colegas válidos do tenant) e avisa os novos.
+// syncInvites rewrites the event's invitees (only valid colleagues from the tenant) and notifies
+// the new ones.
 func (s *Server) syncInvites(ctx context.Context, ev db.Event, actor db.MailUser, inviteeIDs []string) {
 	prev := map[uuid.UUID]bool{}
 	if cur, err := s.q.ListEventInvites(ctx, ev.ID); err == nil {
@@ -45,12 +47,12 @@ func (s *Server) syncInvites(ctx context.Context, ev db.Event, actor db.MailUser
 			continue
 		}
 		if _, err := s.q.GetMailUserInTenant(ctx, db.GetMailUserInTenantParams{ID: uid, TenantID: actor.TenantID}); err != nil {
-			continue // não é do tenant → nunca convida às cegas
+			continue // not from the tenant → never invite blindly
 		}
 		if err := s.q.AddEventInvite(ctx, db.AddEventInviteParams{EventID: ev.ID, TenantID: actor.TenantID, UserID: uid}); err != nil {
 			continue
 		}
-		if !prev[uid] { // avisa só quem é novo (não re-notifica a cada edição)
+		if !prev[uid] { // notify only new ones (don't re-notify on every edit)
 			s.notifyUser(ctx, actor.TenantID, uid, "event_invite",
 				"Invitation: "+ev.Title, actor.Name+" invited you — "+ev.StartsAt.UTC().Format(time.RFC3339), eventLink(ev.ID, ev.StartsAt), uuid.Nil,
 				map[string]string{"actor": actor.Name, "title": ev.Title, "when": ev.StartsAt.UTC().Format(time.RFC3339)})
@@ -58,7 +60,7 @@ func (s *Server) syncInvites(ctx context.Context, ev db.Event, actor db.MailUser
 	}
 }
 
-// handleRSVP: o convidado responde ao evento (accepted|declined|maybe|pending). Avisa o dono.
+// handleRSVP: the invitee responds to the event (accepted|declined|maybe|pending). Notifies the owner.
 func (s *Server) handleEventRSVP(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -77,14 +79,14 @@ func (s *Server) handleEventRSVP(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "events.invalid_rsvp")
 		return
 	}
-	// Só quem foi convidado responde (o convite prova a posse do direito de responder).
+	// Only whoever was invited can respond (the invite proves the right to respond).
 	inv, err := s.q.GetEventInvite(r.Context(), db.GetEventInviteParams{EventID: id, UserID: mu.ID})
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "events.not_invited")
 		return
 	}
 	_ = s.q.SetInviteStatus(r.Context(), db.SetInviteStatusParams{EventID: id, UserID: mu.ID, Status: req.Status})
-	// Avisa o dono da resposta.
+	// Notifies the owner of the response.
 	if ev, err := s.q.GetEventInTenant(r.Context(), db.GetEventInTenantParams{ID: id, TenantID: mu.TenantID}); err == nil && ev.OwnerUserID.Valid {
 		s.notifyUser(r.Context(), mu.TenantID, uuid.UUID(ev.OwnerUserID.Bytes), "event_rsvp",
 			"RSVP: "+ev.Title, mu.Name+" replied: "+req.Status, eventLink(ev.ID, ev.StartsAt), uuid.Nil,
@@ -94,7 +96,7 @@ func (s *Server) handleEventRSVP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": req.Status})
 }
 
-// handleEventInvites lista os convidados e seus status (dono ou convidado podem ver).
+// handleEventInvites lists the invitees and their statuses (owner or invitee can view).
 func (s *Server) handleEventInvites(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -107,7 +109,7 @@ func (s *Server) handleEventInvites(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orEmpty(rows))
 }
 
-// invitedToEvent converte a linha da lista de convidados no db.Event (para reaproveitar a expansão).
+// invitedToEvent converts the invitee-list row into a db.Event (to reuse the expansion logic).
 func invitedToEvent(iv db.ListInvitedEventsRow) db.Event {
 	return db.Event{
 		ID: iv.ID, TenantID: iv.TenantID, OwnerUserID: iv.OwnerUserID, Title: iv.Title,
@@ -118,7 +120,7 @@ func invitedToEvent(iv db.ListInvitedEventsRow) db.Event {
 	}
 }
 
-// invitedOccurrences expande (se recorrente) ou filtra pelo intervalo um evento a que fui convidado.
+// invitedOccurrences expands (if recurring) or filters by the interval an event I was invited to.
 func invitedOccurrences(iv db.ListInvitedEventsRow, from, to time.Time) []eventOut {
 	m := invitedToEvent(iv)
 	var evs []db.Event
@@ -134,12 +136,12 @@ func invitedOccurrences(iv db.ListInvitedEventsRow, from, to time.Time) []eventO
 	return out
 }
 
-// syncExternals regrava os convidados EXTERNOS (e-mails de fora da organização) e envia o convite
-// por e-mail aos NOVOS (best-effort: sem SMTP configurado, só regista). Validação mínima de e-mail;
-// duplicados e vazios são ignorados.
+// syncExternals rewrites the EXTERNAL invitees (emails from outside the organization) and sends
+// the invite by email to the NEW ones (best-effort: without SMTP configured, it just records them).
+// Minimal email validation; duplicates and empty entries are ignored.
 func (s *Server) syncExternals(ctx context.Context, ev db.Event, actor db.MailUser, emails []string) {
 	if emails == nil {
-		return // pedido sem o campo: não mexe (compatibilidade com chamadas antigas)
+		return // request without the field: leave it alone (compatibility with old callers)
 	}
 	prev := map[string]bool{}
 	if cur, err := s.q.ListEventExternals(ctx, ev.ID); err == nil {
@@ -161,8 +163,9 @@ func (s *Server) syncExternals(ctx context.Context, ev db.Event, actor db.MailUs
 			continue
 		}
 		if !prev[email] {
-			// Gente de FORA da organização não tem app onde receber a notificação: para essas vai
-			// e-mail. Quem é de dentro é convidado por `syncInvites` e recebe notificação in-app.
+			// People from OUTSIDE the organization have no app to receive the notification in: for
+			// them, we send an email. Whoever is internal is invited by `syncInvites` and gets an
+			// in-app notification.
 			who := actor.Name
 			if who == "" {
 				who = actor.Email
@@ -177,7 +180,7 @@ func (s *Server) syncExternals(ctx context.Context, ev db.Event, actor db.MailUs
 	}
 }
 
-// handleEventExternals devolve os convidados externos do evento (para o modal de edição).
+// handleEventExternals returns the event's external invitees (for the edit modal).
 func (s *Server) handleEventExternals(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -185,7 +188,7 @@ func (s *Server) handleEventExternals(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "events.invalid_id")
 		return
 	}
-	// Posse: o evento tem de ser do tenant (dono OU convidado interno podem ver).
+	// Ownership: the event must belong to the tenant (owner OR internal invitee can view).
 	if _, gerr := s.q.GetEventInTenant(r.Context(), db.GetEventInTenantParams{ID: id, TenantID: mu.TenantID}); gerr != nil {
 		writeErr(w, http.StatusNotFound, "events.not_found")
 		return

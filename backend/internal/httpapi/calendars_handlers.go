@@ -11,7 +11,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Múltiplos calendários (por usuário) + free-busy (agenda de colega, só ocupado/livre).
+// Multiple calendars (per user) + free-busy (a colleague's calendar, busy/free only).
 
 func (s *Server) handleListCalendars(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -81,7 +81,7 @@ func (s *Server) handleDeleteCalendar(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "calendars.invalid_id")
 		return
 	}
-	// Eventos do calendário ficam sem categoria (ON DELETE SET NULL), não são apagados.
+	// Events in the calendar are left without a category (ON DELETE SET NULL), not deleted.
 	if err := s.q.DeleteCalendar(r.Context(), db.DeleteCalendarParams{ID: id, OwnerUserID: mu.ID}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "calendars.failed")
 		return
@@ -89,8 +89,8 @@ func (s *Server) handleDeleteCalendar(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleFreeBusy devolve os blocos ocupados de um colega (mesmo tenant) num intervalo — só início/fim,
-// sem título nem detalhes. Serve para agendar sem expor a agenda alheia.
+// handleFreeBusy returns a colleague's busy blocks (same tenant) within a range — only start/end,
+// no title or details. Used for scheduling without exposing someone else's calendar.
 func (s *Server) handleFreeBusy(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	target, err := uuid.Parse(r.URL.Query().Get("user"))
@@ -104,12 +104,12 @@ func (s *Server) handleFreeBusy(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "events.invalid_range")
 		return
 	}
-	// O alvo tem de ser um colega do mesmo tenant (nunca expõe agenda de fora).
+	// The target must be a colleague in the same tenant (never expose an outside calendar).
 	if _, err := s.q.GetMailUserInTenant(r.Context(), db.GetMailUserInTenantParams{ID: target, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusNotFound, "events.not_found")
 		return
 	}
-	// EndsAt = limite inferior (ends_at > from), StartsAt = limite superior (starts_at < to).
+	// EndsAt = lower bound (ends_at > from), StartsAt = upper bound (starts_at < to).
 	blocks, err := s.q.FreeBusy(r.Context(), db.FreeBusyParams{OwnerUserID: pgUUID(target), TenantID: mu.TenantID, EndsAt: from, StartsAt: to})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "events.failed")

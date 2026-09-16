@@ -16,11 +16,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Cópia/duplicação, download de pasta em zip e ações em lote sobre ficheiros.
+// Copy/duplication, folder download as zip, and batch actions on files.
 
-// handleCopyFile duplica um ficheiro do dono. O armazenamento é endereçado por conteúdo (hash), então
-// a cópia REUTILIZA o mesmo blob — não recopia bytes, não muda o uso de disco. Novo id, mesma pasta.
-// O nome vem do frontend (que sabe o locale p/ o sufixo "(cópia)"); vazio = mesmo nome.
+// handleCopyFile duplicates a file owned by the user. Storage is content-addressed (hash), so
+// the copy REUSES the same blob — it doesn't recopy bytes, doesn't change disk usage. New id, same folder.
+// The name comes from the frontend (which knows the locale for the "(copy)" suffix); empty = same name.
 func (s *Server) handleCopyFile(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
@@ -30,7 +30,7 @@ func (s *Server) handleCopyFile(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name string `json:"name"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&req) // corpo opcional
+	_ = json.NewDecoder(r.Body).Decode(&req) // optional body
 	name := f.Name
 	if n := strings.TrimSpace(req.Name); n != "" {
 		name = n
@@ -48,8 +48,8 @@ func (s *Server) handleCopyFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, rec)
 }
 
-// handleZipFolder transmite todos os ficheiros de uma pasta (recursivo) como um .zip. Monta a árvore
-// de pastas do dono em memória e faz BFS a partir da raiz, preservando os caminhos relativos.
+// handleZipFolder streams all files of a folder (recursively) as a .zip. It builds the owner's
+// folder tree in memory and does a BFS from the root, preserving relative paths.
 func (s *Server) handleZipFolder(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -89,7 +89,7 @@ func (s *Server) handleZipFolder(w http.ResponseWriter, r *http.Request) {
 		for _, file := range files {
 			obj, gerr := s.storage.Get(r.Context(), file.BlobKey)
 			if gerr != nil {
-				continue // blob ausente: pula o ficheiro em vez de quebrar o zip
+				continue // missing blob: skip the file instead of breaking the zip
 			}
 			if fw, cerr := zw.Create(path.Join(n.rel, file.Name)); cerr == nil {
 				_, _ = io.Copy(fw, obj)
@@ -102,7 +102,7 @@ func (s *Server) handleZipFolder(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// zipSafe limpa o nome da pasta para virar nome de ficheiro (sem separadores de caminho).
+// zipSafe cleans the folder name to turn it into a file name (no path separators).
 func zipSafe(name string) string {
 	name = strings.NewReplacer("/", "_", "\\", "_", "..", "_").Replace(strings.TrimSpace(name))
 	if name == "" {
@@ -111,14 +111,14 @@ func zipSafe(name string) string {
 	return name
 }
 
-// handleBatchFiles aplica uma ação a vários ficheiros do dono de uma vez: trash | restore | move.
-// Cada operação é filtrada por owner_user_id (multi-tenant), então ids de fora simplesmente não casam.
+// handleBatchFiles applies an action to several of the owner's files at once: trash | restore | move.
+// Each operation is filtered by owner_user_id (multi-tenant), so ids from outside simply don't match.
 func (s *Server) handleBatchFiles(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req struct {
 		IDs      []string `json:"ids"`
 		Action   string   `json:"action"`
-		FolderID string   `json:"folder_id"` // p/ "move" ("" = raiz)
+		FolderID string   `json:"folder_id"` // for "move" ("" = root)
 	}
 	if !decode(w, r, &req) {
 		return
@@ -139,7 +139,7 @@ func (s *Server) handleBatchFiles(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if _, err := s.q.GetFolder(r.Context(), db.GetFolderParams{ID: fid, OwnerUserID: mu.ID}); err != nil {
-			writeErr(w, http.StatusNotFound, "storage.not_found") // pasta destino não é do dono
+			writeErr(w, http.StatusNotFound, "storage.not_found") // destination folder isn't owned by this user
 			return
 		}
 		dest = pgtype.UUID{Bytes: fid, Valid: true}

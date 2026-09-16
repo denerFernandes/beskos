@@ -33,7 +33,7 @@ const (
 	maxBlockSize     = 16 << 20 // 16 MiB
 )
 
-// blockSizeParam lê e valida ?block_size=, caindo no default.
+// blockSizeParam reads and validates ?block_size=, falling back to the default.
 func blockSizeParam(r *http.Request) (int64, bool) {
 	v := r.URL.Query().Get("block_size")
 	if v == "" {
@@ -46,8 +46,9 @@ func blockSizeParam(r *http.Request) (int64, bool) {
 	return n, true
 }
 
-// handleSyncFileBlocks: GET /api/sync/files/{id}/blocks?block_size=N — hashes SHA-256 por bloco do
-// conteúdo atual. O cliente compara com os seus e descobre que blocos precisa mesmo de enviar.
+// handleSyncFileBlocks: GET /api/sync/files/{id}/blocks?block_size=N — SHA-256 hashes per block of
+// the current content. The client compares them against its own and finds out which blocks it
+// actually needs to send.
 func (s *Server) handleSyncFileBlocks(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -94,14 +95,15 @@ func (s *Server) handleSyncFileBlocks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"block_size": bs,
 		"total_size": f.Size,
-		"hash":       f.Hash, // hash do ficheiro inteiro: serve de If-Match na escrita
+		"hash":       f.Hash, // hash of the whole file: serves as If-Match on write
 		"hashes":     hashes,
 	})
 }
 
 // handleSyncUpdateFileDelta: PUT /api/sync/files/{id}/delta?block_size=&total_size=&blocks=1,4,9
-// com If-Match. O corpo é a concatenação, POR ORDEM, dos blocos listados em `blocks`. O servidor
-// reconstrói o ficheiro: bloco alterado vem do corpo, bloco inalterado é copiado do blob antigo.
+// with If-Match. The body is the concatenation, IN ORDER, of the blocks listed in `blocks`. The
+// server reconstructs the file: a changed block comes from the body, an unchanged block is copied
+// from the old blob.
 func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -138,8 +140,8 @@ func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Reques
 		writeErr(w, http.StatusNotFound, "files.not_found")
 		return
 	}
-	// O conteúdo tem de ser exatamente aquele sobre o qual o cliente calculou o delta — senão os
-	// blocos "inalterados" que vamos copiar já não são os que ele viu.
+	// The content must be exactly the one the client computed the delta against — otherwise the
+	// "unchanged" blocks we're about to copy are no longer the ones it saw.
 	if cur.Hash != base {
 		writeErr(w, http.StatusPreconditionFailed, "sync.conflict")
 		return
@@ -161,7 +163,7 @@ func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Reques
 
 	body := http.MaxBytesReader(w, r.Body, s.maxUploadLimit())
 	hasher := sha256.New()
-	out := io.MultiWriter(tmp, hasher) // grava e vai calculando o hash final ao mesmo tempo
+	out := io.MultiWriter(tmp, hasher) // writes while computing the final hash at the same time
 
 	if err := rebuildFromDelta(out, old, body, cur.Size, totalSize, bs, changed); err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
@@ -169,7 +171,7 @@ func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Reques
 	}
 
 	hash := hex.EncodeToString(hasher.Sum(nil))
-	if hash == cur.Hash { // delta não mudou nada: no-op idempotente
+	if hash == cur.Hash { // delta changed nothing: idempotent no-op
 		writeJSON(w, http.StatusOK, cur)
 		return
 	}
@@ -183,7 +185,7 @@ func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Reques
 		writeErr(w, code, ecode)
 		return
 	}
-	// Histórico: fotografa o estado anterior antes de trocar o conteúdo (igual ao upload normal).
+	// History: snapshots the previous state before swapping the content (same as a normal upload).
 	_ = s.q.SnapshotFileVersion(r.Context(), db.SnapshotFileVersionParams{
 		FileID: cur.ID, TenantID: mu.TenantID, BlobKey: cur.BlobKey, Hash: cur.Hash,
 		Size: cur.Size, Version: cur.Version, CreatedBy: pgtype.UUID{Bytes: mu.ID, Valid: true},
@@ -198,7 +200,7 @@ func (s *Server) handleSyncUpdateFileDelta(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, rec)
 }
 
-// parseBlockList lê "0,3,7" para um conjunto de índices. Vazio = nenhum bloco alterado.
+// parseBlockList reads "0,3,7" into a set of indices. Empty = no block changed.
 func parseBlockList(v string) (map[int64]bool, error) {
 	out := map[int64]bool{}
 	if strings.TrimSpace(v) == "" {
@@ -214,20 +216,20 @@ func parseBlockList(v string) (map[int64]bool, error) {
 	return out, nil
 }
 
-// rebuildFromDelta escreve o conteúdo NOVO em `out`, bloco a bloco: os alterados vêm de `body`, os
-// restantes são copiados de `old`. Isolado da HTTP de propósito — é a parte com risco real de
-// correção (ficheiro a crescer/encolher, bloco final parcial), por isso tem testes.
+// rebuildFromDelta writes the NEW content to `out`, block by block: changed ones come from `body`,
+// the rest are copied from `old`. Deliberately isolated from HTTP — it's the part with real
+// correctness risk (file growing/shrinking, partial final block), which is why it has tests.
 //
-// Os dois lados são streams sequenciais, por isso `old` é avançado mesmo nos blocos alterados,
-// para se manter alinhado com o índice do bloco.
+// Both sides are sequential streams, so `old` is advanced even on changed blocks, to stay aligned
+// with the block index.
 func rebuildFromDelta(out io.Writer, old io.Reader, body io.Reader, oldSize, totalSize, bs int64, changed map[int64]bool) error {
 	var written int64
 	for i := int64(0); written < totalSize; i++ {
 		want := bs
 		if rem := totalSize - written; rem < want {
-			want = rem // último bloco é parcial
+			want = rem // the last block is partial
 		}
-		// Quanto é que este bloco ocupava no conteúdo antigo (0 se o ficheiro cresceu).
+		// How much this block occupied in the old content (0 if the file grew).
 		oldRem := oldSize - i*bs
 		if oldRem < 0 {
 			oldRem = 0
@@ -246,8 +248,8 @@ func rebuildFromDelta(out io.Writer, old io.Reader, body io.Reader, oldSize, tot
 				}
 			}
 		} else {
-			// Bloco inalterado: tem de existir no conteúdo antigo. Se não existe, o cliente
-			// enganou-se a marcar os blocos — recusamos em vez de gravar lixo.
+			// Unchanged block: it must exist in the old content. If it doesn't, the client got
+			// the block markings wrong — we refuse rather than write garbage.
 			if oldRem < want {
 				return errDeltaMissingBlock
 			}
@@ -260,7 +262,7 @@ func rebuildFromDelta(out io.Writer, old io.Reader, body io.Reader, oldSize, tot
 	return nil
 }
 
-// Erros do delta com o mesmo texto dos error_codes devolvidos ao cliente.
+// Delta errors carrying the same text as the error_codes returned to the client.
 var (
 	errDeltaShortBody    = deltaErr("sync.delta_short_body")
 	errDeltaMissingBlock = deltaErr("sync.delta_missing_block")

@@ -6,17 +6,17 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Marca da organização (cor principal + logo). Leitura por qualquer utilizador do tenant (para o
-// topo do app); escrita só por admin/owner (RBAC org.settings). No login, resolve-se por e-mail.
+// Organization branding (primary color + logo). Read by any tenant user (for the app's top bar);
+// write only by admin/owner (RBAC org.settings). At login, resolved by email.
 
 type brandingResp struct {
 	Name          string `json:"name"`
 	Color         string `json:"color"`
-	Logo          string `json:"logo"`            // data URI, ou vazio
-	LogoWhiteDark bool   `json:"logo_white_dark"` // força o logo a branco no tema escuro
+	Logo          string `json:"logo"`            // data URI, or empty
+	LogoWhiteDark bool   `json:"logo_white_dark"` // forces the logo to white in dark theme
 }
 
-// handleGetBranding devolve a marca do tenant do utilizador autenticado.
+// handleGetBranding returns the authenticated user's tenant branding.
 func (s *Server) handleGetBranding(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	t, err := s.q.GetTenant(r.Context(), mu.TenantID)
@@ -33,9 +33,9 @@ type updateBrandingReq struct {
 	LogoWhiteDark bool   `json:"logo_white_dark"`
 }
 
-const maxLogoBytes = 512 * 1024 // ~512 KB de data URI — chega para um logo, evita inchar a linha
+const maxLogoBytes = 512 * 1024 // ~512 KB data URI — enough for a logo, keeps the row from bloating
 
-// handleUpdateBranding grava a marca (admin/owner). Valida a cor e o tamanho do logo.
+// handleUpdateBranding saves the branding (admin/owner). Validates the color and the logo size.
 func (s *Server) handleUpdateBranding(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req updateBrandingReq
@@ -74,7 +74,7 @@ func (s *Server) handleResolveBranding(w http.ResponseWriter, r *http.Request) {
 	}
 	b, err := s.q.GetTenantBrandingByEmail(r.Context(), email)
 	if err != nil {
-		writeJSON(w, http.StatusOK, brandingResp{}) // desconhecido → default, sem vazar existência
+		writeJSON(w, http.StatusOK, brandingResp{}) // unknown -> default, without leaking existence
 		return
 	}
 	writeJSON(w, http.StatusOK, brandingResp{Name: b.Name, Color: b.BrandColor, Logo: b.BrandLogo})

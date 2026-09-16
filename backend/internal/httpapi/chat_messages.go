@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// ---- Mensagens ----
+// ---- Messages ----
 
 func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -25,8 +25,8 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.memberOr403(w, r, id); !ok {
 		return
 	}
-	// Saltar para a mensagem: ?around=<id> devolve uma JANELA em torno dela (antigas + novas), para
-	// abrir a busca/pin já no contexto. Ordem cronológica; has_more = há mais antigas antes da janela.
+	// Jump to a message: ?around=<id> returns a WINDOW around it (older + newer), so search/pin
+	// opens already in context. Chronological order; has_more = there are older ones before the window.
 	if around := r.URL.Query().Get("around"); around != "" {
 		aid, perr := uuid.Parse(around)
 		if perr != nil {
@@ -39,10 +39,10 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		const half = 25
-		older, _ := s.q.ListMessagesBeforeByChannel(r.Context(), db.ListMessagesBeforeByChannelParams{ChannelID: id, CreatedAt: pivot.CreatedAt.Add(time.Microsecond), Limit: half}) // inclui o pivô, DESC
+		older, _ := s.q.ListMessagesBeforeByChannel(r.Context(), db.ListMessagesBeforeByChannelParams{ChannelID: id, CreatedAt: pivot.CreatedAt.Add(time.Microsecond), Limit: half}) // includes the pivot, DESC
 		newer, _ := s.q.ListMessagesAfterByChannel(r.Context(), db.ListMessagesAfterByChannelParams{ChannelID: id, CreatedAt: pivot.CreatedAt, Limit: half})                         // ASC
 		raw := make([]rawMsg, 0, len(older)+len(newer))
-		for i := len(older) - 1; i >= 0; i-- { // DESC → ASC (mais antiga primeiro)
+		for i := len(older) - 1; i >= 0; i-- { // DESC → ASC (oldest first)
 			m := older[i]
 			raw = append(raw, rawMsg{ID: m.ID, ChannelID: m.ChannelID, UserID: m.UserID, ParentID: m.ParentID, Body: m.Body, EditedAt: m.EditedAt, DeletedAt: m.DeletedAt, CreatedAt: m.CreatedAt, AuthorEmail: m.AuthorEmail, AuthorName: m.AuthorName, ReplyCount: m.ReplyCount, BotName: m.BotName})
 		}
@@ -52,13 +52,14 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 		reactions, _ := s.q.ListReactionsByChannel(r.Context(), id)
 		atts, _ := s.q.ListAttachmentsByChannel(r.Context(), id)
 		writeJSON(w, http.StatusOK, map[string]any{
-			"messages": s.markSaved(r.Context(), mu.ID, id, buildMessages(raw, reactions, atts, mu.ID, false)), // raw já cronológico
+			"messages": s.markSaved(r.Context(), mu.ID, id, buildMessages(raw, reactions, atts, mu.ID, false)), // raw is already chronological
 			"has_more": len(older) == half, "focus": around,
 		})
 		return
 	}
-	// Paginação: ?limit (default 50, teto 100) e ?before=<RFC3339 do topo já carregado> para trazer as
-	// mensagens ANTERIORES. Sem `before`, é a página mais recente (e marca o canal como lido).
+	// Pagination: ?limit (default 50, cap 100) and ?before=<RFC3339 of the already-loaded top> to
+	// bring in the PREVIOUS messages. Without `before`, it's the most recent page (and marks the
+	// channel as read).
 	limit := int32(50)
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if n, e := strconv.Atoi(l); e == nil && n > 0 && n <= 100 {
@@ -91,7 +92,7 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 			raw = append(raw, rawMsg{ID: m.ID, ChannelID: m.ChannelID, UserID: m.UserID, ParentID: m.ParentID, Body: m.Body, EditedAt: m.EditedAt, DeletedAt: m.DeletedAt, CreatedAt: m.CreatedAt, AuthorEmail: m.AuthorEmail, AuthorName: m.AuthorName, ReplyCount: m.ReplyCount, BotName: m.BotName})
 		}
 	}
-	hasMore := len(raw) == int(limit) // pode haver mais antigas
+	hasMore := len(raw) == int(limit) // there may be older ones
 	reactions, _ := s.q.ListReactionsByChannel(r.Context(), id)
 	atts, _ := s.q.ListAttachmentsByChannel(r.Context(), id)
 	msgs := s.markSaved(r.Context(), mu.ID, id, buildMessages(raw, reactions, atts, mu.ID, true))
@@ -101,7 +102,7 @@ func (s *Server) handleListMessages(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"messages": msgs, "has_more": hasMore})
 }
 
-// handleThreadReplies devolve o pai + as respostas de uma thread.
+// handleThreadReplies returns the parent + the replies of a thread.
 func (s *Server) handleThreadReplies(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -134,7 +135,7 @@ func (s *Server) handleThreadReplies(w http.ResponseWriter, r *http.Request) {
 type sendMessageReq struct {
 	Body        string          `json:"body"`
 	ParentID    string          `json:"parent_id"`
-	Mentions    []string        `json:"mentions"` // ids de usuário mencionados
+	Mentions    []string        `json:"mentions"` // mentioned user ids
 	Attachments []attachmentDTO `json:"attachments"`
 }
 
@@ -148,7 +149,7 @@ func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.memberOr403(w, r, id); !ok {
 		return
 	}
-	// Canal arquivado é só de leitura — senão "arquivar" não queria dizer nada.
+	// An archived channel is read-only — otherwise "archiving" wouldn't mean anything.
 	if ch, err := s.q.GetChannel(r.Context(), db.GetChannelParams{ID: id, TenantID: mu.TenantID}); err == nil && ch.ArchivedAt.Valid {
 		writeErr(w, http.StatusForbidden, "chat.channel_archived")
 		return
@@ -173,7 +174,7 @@ func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "chat.send_failed")
 		return
 	}
-	// Anexos: liga cada arquivo (já subido no storage) à mensagem.
+	// Attachments: links each file (already uploaded to storage) to the message.
 	out := make([]attachmentDTO, 0, len(req.Attachments))
 	for _, a := range req.Attachments {
 		fid, perr := uuid.Parse(a.FileID)
@@ -202,13 +203,14 @@ func (s *Server) handleSendMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, dto)
 }
 
-// fanoutMessage dispara as notificações de uma nova mensagem: menções pessoais, @channel/@here e a
-// notificação de "mensagem" (DM sempre; canal "all"). Dedup por pessoa; nunca o autor nem quem silenciou.
+// fanoutMessage fires the notifications for a new message: personal mentions, @channel/@here, and
+// the plain "message" notification (DM always; channel "all"). Dedup per person; never the author
+// nor anyone who muted it.
 func (s *Server) fanoutMessage(ctx context.Context, channelID, tenantID, authorID uuid.UUID, author, body, preview string, mentions []string) {
 	notified := map[uuid.UUID]bool{authorID: true}
 
-	// 1) Menções pessoais. O alvo PRECISA ser membro do canal (senão notificaria qualquer UUID, até
-	// de outro tenant — auditoria M).
+	// 1) Personal mentions. The target MUST be a channel member (otherwise it would notify any
+	// UUID, even from another tenant — audit M).
 	for _, uidStr := range mentions {
 		tid, perr := uuid.Parse(uidStr)
 		if perr != nil || notified[tid] {
@@ -226,7 +228,7 @@ func (s *Server) fanoutMessage(ctx context.Context, channelID, tenantID, authorI
 	meta, _ := s.q.GetChannelMeta(ctx, channelID)
 	prefs, _ := s.q.ListChannelMemberPrefs(ctx, channelID)
 
-	// 2) @channel (todos os membros) e @here (só os online). Respeita mute; não vale em DM.
+	// 2) @channel (all members) and @here (only those online). Respects mute; doesn't apply in DMs.
 	atChannel := hasMentionToken(body, "channel")
 	atHere := hasMentionToken(body, "here")
 	if meta.Kind != "dm" && (atChannel || atHere) {
@@ -246,7 +248,7 @@ func (s *Server) fanoutMessage(ctx context.Context, channelID, tenantID, authorI
 				continue
 			}
 			if !atChannel && !online[p.UserID.String()] {
-				continue // @here isolado: só quem está online
+				continue // @here alone: only those online
 			}
 			s.notifyUser(ctx, tenantID, p.UserID, "chat_mention", author+" called "+label+" in #"+meta.Name, preview, chatLink(channelID), uuid.Nil,
 				map[string]string{"actor": author, "at": label, "channel": meta.Name})
@@ -254,7 +256,7 @@ func (s *Server) fanoutMessage(ctx context.Context, channelID, tenantID, authorI
 		}
 	}
 
-	// 3) Mensagem comum: DM sempre avisa o outro; canal avisa quem escolheu "all".
+	// 3) Plain message: DM always notifies the other side; channel notifies whoever chose "all".
 	isDM := meta.Kind == "dm"
 	for _, p := range prefs {
 		if notified[p.UserID] || p.NotifPref == "none" {
@@ -315,7 +317,7 @@ func (s *Server) handleForwardMessage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	quoted := "> " + strings.ReplaceAll(strings.TrimSpace(src.Body), "\n", "\n> ")
-	fwdBody := "↪ **Encaminhada de " + srcAuthor + "**\n" + quoted
+	fwdBody := "↪ **Forwarded from " + srcAuthor + "**\n" + quoted
 	msg, err := s.q.CreateMessage(r.Context(), db.CreateMessageParams{TenantID: mu.TenantID, ChannelID: target, UserID: mu.ID, Body: fwdBody})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "chat.send_failed")
@@ -335,7 +337,7 @@ func (s *Server) handleForwardMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, dto)
 }
 
-// handleSaveMessage / handleUnsaveMessage: salvar/dessalvar uma mensagem (saved items do usuário).
+// handleSaveMessage / handleUnsaveMessage: save/unsave a message (the user's saved items).
 func (s *Server) handleSaveMessage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	mid, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -366,7 +368,7 @@ func (s *Server) handleUnsaveMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "unsaved"})
 }
 
-// handleListSaved lista as mensagens salvas do usuário (painel "Salvos").
+// handleListSaved lists the user's saved messages ("Saved" panel).
 func (s *Server) handleListSaved(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListSavedMessages(r.Context(), mu.ID)
@@ -424,7 +426,7 @@ func (s *Server) handleDeleteMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "chat.not_found")
 		return
 	}
-	// O autor apaga a própria; um gestor/owner do canal modera (apaga a de terceiros).
+	// The author deletes their own; a channel manager/owner moderates (deletes others').
 	if msg.UserID == mu.ID {
 		if err := s.q.DeleteMessage(r.Context(), db.DeleteMessageParams{ID: id, UserID: mu.ID}); err != nil {
 			writeErr(w, http.StatusInternalServerError, "chat.failed")
@@ -444,7 +446,7 @@ func (s *Server) handleDeleteMessage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// ---- Reações ----
+// ---- Reactions ----
 
 func (s *Server) handleReact(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -469,9 +471,9 @@ func (s *Server) handleReact(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "chat.not_found")
 		return
 	}
-	// Só membro do canal reage: todos os irmãos (listar/enviar/pin/busca) checam memberOr403 — sem
-	// isto, um não-membro reage numa mensagem de canal privado e a reação é transmitida aos membros
-	// (auditoria M — quebra de autorização de canal).
+	// Only a channel member reacts: all its siblings (list/send/pin/search) check memberOr403 —
+	// without this, a non-member could react to a message in a private channel and the reaction
+	// would be broadcast to the members (audit M — channel authorization break).
 	if _, ok := s.memberOr403(w, r, msg.ChannelID); !ok {
 		return
 	}

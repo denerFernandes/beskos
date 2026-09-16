@@ -10,7 +10,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// IA do calendário: criar por linguagem natural, sugerir horário livre, pauta do dia.
+// Calendar AI: create from natural language, suggest a free time slot, day agenda.
 
 func (s *Server) handleAIParseEvent(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.assistant(w, r)
@@ -24,7 +24,7 @@ func (s *Server) handleAIParseEvent(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	// Fuso do utilizador (vindo do navegador). Valida contra a base IANA; inválido/vazio → fallback.
+	// User's timezone (coming from the browser). Validates against the IANA database; invalid/empty -> fallback.
 	tz := req.TZ
 	if tz == "" {
 		tz = "America/Sao_Paulo"
@@ -116,7 +116,7 @@ func (s *Server) handleAIAgenda(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"agenda": agenda})
 }
 
-// compactEvents reduz os eventos ao essencial para a IA (título + horário).
+// compactEvents reduces events to the essentials for the AI (title + time).
 func compactEvents(events []db.Event) []map[string]string {
 	out := make([]map[string]string, 0, len(events))
 	for _, e := range events {
