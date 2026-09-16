@@ -2,28 +2,22 @@ package httpapi
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
-	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/beskosorg/beskos/backend/ee"
 	"github.com/beskosorg/beskos/backend/internal/assistant"
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Limits for a customer-created profile. They exist so that an agent doesn't turn into a place
-// where someone pastes a 50 KB prompt that then gets paid for on every turn.
-const (
-	agentNameMax         = 60
-	agentPurposeMax      = 200
-	agentInstructionsMax = 4000
-)
-
 // assistantAgentsFor returns the agents AVAILABLE to this organisation: the built-in ones that
-// haven't been disabled, plus the ones created by the customer.
+// haven't been disabled, plus the ones created by the customer. This -- and everything else in
+// this file -- stays Community: chat needs to resolve an agent regardless of edition, and an
+// organization that once had Pro keeps whatever it already configured after the license lapses
+// (see ee/agents_pro.go for what actually requires the Agents capability: creating, changing,
+// deleting, or toggling an agent).
 //
 // A failure reading the database doesn't leave the person without an assistant: it returns at
 // least the general agent. Without this, a transient database error would take away the whole
@@ -76,24 +70,8 @@ func clientAgent(r db.AssistantAgent) assistant.Agent {
 		Name:         r.Name,
 		Purpose:      r.Purpose,
 		Instructions: r.Instructions,
-		Tools:        capTools(r.Tools),
+		Tools:        assistant.CapTools(r.Tools),
 	}
-}
-
-// capTools throws away anything that isn't in the cap. It's the server-side validation, applied on
-// write AND on read (§3.2): the UI is not the defense.
-func capTools(want []string) []string {
-	max := assistant.MaxTools()
-	out := make([]string, 0, len(want))
-	for _, w := range want {
-		for _, m := range max {
-			if w == m {
-				out = append(out, w)
-				break
-			}
-		}
-	}
-	return out
 }
 
 // assistantAgentByKey resolves an agent by the key that came in the request — built-in or
@@ -108,7 +86,7 @@ func (s *Server) assistantAgentByKey(ctx context.Context, tenant uuid.UUID, key 
 	return assistant.Agent{}, false
 }
 
-// --- Management API ---
+// --- Management API (read side; see ee/agents_pro.go for the write side) ---
 
 type agentJSON struct {
 	Key     string   `json:"key"`
@@ -162,185 +140,43 @@ func (s *Server) handleAssistantAgents(w http.ResponseWriter, r *http.Request) {
 	for _, c := range rows {
 		items = append(items, agentJSON{
 			Key: c.ID.String(), Name: c.Name, Purpose: c.Purpose,
-			Instructions: c.Instructions, Tools: capTools(c.Tools), Enabled: true,
+			Instructions: c.Instructions, Tools: assistant.CapTools(c.Tools), Enabled: true,
 		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "max_tools": assistant.MaxTools()})
 }
 
-type agentWriteReq struct {
-	Name         string   `json:"name"`
-	Purpose      string   `json:"purpose"`
-	Instructions string   `json:"instructions"`
-	Tools        []string `json:"tools"`
-	// DuplicateOf, when set, starts from a BUILT-IN agent. The copy is independent: it doesn't
-	// receive our updates, and that's disclosed at duplication time (§3.2).
-	DuplicateOf string `json:"duplicate_of"`
+// handleAssistantAgentCreateGate, ...UpdateGate, ...DeleteGate, ...ToggleGate enforce the Pro
+// Agents capability before handing off to ee -- see ee/agents_pro.go for the actual logic and
+// ee/README.md for why the gate lives here rather than inside ee.Register.
+func (s *Server) handleAssistantAgentCreateGate(w http.ResponseWriter, r *http.Request) {
+	if !s.edition.Agents {
+		writeErr(w, http.StatusForbidden, "assistant.agents_edition_required")
+		return
+	}
+	ee.CreateAgent(w, r, ee.Deps{Queries: s.q})
 }
 
-// validate normalizes and rejects whatever can't be saved. Rejecting tools is the important part:
-// a profile can never have more than the cap, and that's decided HERE, not in the UI.
-func (a *agentWriteReq) validate() string {
-	a.Name = strings.TrimSpace(a.Name)
-	a.Purpose = strings.TrimSpace(a.Purpose)
-	if a.Name == "" || len([]rune(a.Name)) > agentNameMax {
-		return "assistant.agent_name_invalid"
+func (s *Server) handleAssistantAgentUpdateGate(w http.ResponseWriter, r *http.Request) {
+	if !s.edition.Agents {
+		writeErr(w, http.StatusForbidden, "assistant.agents_edition_required")
+		return
 	}
-	if len([]rune(a.Purpose)) > agentPurposeMax || len([]rune(a.Instructions)) > agentInstructionsMax {
-		return "assistant.agent_too_long"
-	}
-	// A tool outside the cap is REJECTED, not silently dropped: whoever asked for it has to know
-	// they didn't get it. Filtering silently would produce an agent different from the one they
-	// thought they were creating.
-	max := assistant.MaxTools()
-	for _, w := range a.Tools {
-		found := false
-		for _, m := range max {
-			if w == m {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return "assistant.agent_tool_not_allowed"
-		}
-	}
-	if a.Tools == nil {
-		a.Tools = []string{}
-	}
-	return ""
+	ee.UpdateAgent(w, r, ee.Deps{Queries: s.q})
 }
 
-// handleAssistantAgentCreate creates a customer profile, from scratch or by duplicating a
-// built-in one.
-func (s *Server) handleAssistantAgentCreate(w http.ResponseWriter, r *http.Request) {
-	mu := mailUserFrom(r.Context())
-	var req agentWriteReq
-	if !decode(w, r, &req) {
+func (s *Server) handleAssistantAgentDeleteGate(w http.ResponseWriter, r *http.Request) {
+	if !s.edition.Agents {
+		writeErr(w, http.StatusForbidden, "assistant.agents_edition_required")
 		return
 	}
-	if req.DuplicateOf != "" {
-		src, ok := assistant.Builtin(req.DuplicateOf)
-		if !ok {
-			// Only BUILT-IN agents can be duplicated: duplicating a customer one would be copying a
-			// copy, and the spec only promises starting from a base that works.
-			writeErr(w, http.StatusBadRequest, "assistant.unknown_agent")
-			return
-		}
-		if req.Instructions == "" {
-			req.Instructions = src.Instructions
-		}
-		if len(req.Tools) == 0 {
-			req.Tools = src.Tools
-		}
-		if req.Purpose == "" {
-			req.Purpose = src.Purpose
-		}
-	}
-	if code := req.validate(); code != "" {
-		writeErr(w, http.StatusBadRequest, code)
-		return
-	}
-	row, err := s.q.CreateClientAgent(r.Context(), db.CreateClientAgentParams{
-		TenantID: mu.TenantID, Name: req.Name, Purpose: req.Purpose,
-		Instructions: req.Instructions, Tools: req.Tools,
-	})
-	if err != nil {
-		writeErr(w, http.StatusConflict, agentWriteError(err))
-		return
-	}
-	writeJSON(w, http.StatusCreated, agentJSON{
-		Key: row.ID.String(), Name: row.Name, Purpose: row.Purpose,
-		Instructions: row.Instructions, Tools: capTools(row.Tools), Enabled: true,
-	})
+	ee.DeleteAgent(w, r, ee.Deps{Queries: s.q})
 }
 
-// handleAssistantAgentUpdate changes a customer profile. Built-in agents never go through here:
-// the route requires a UUID, and built-in keys aren't UUIDs — the immutability doesn't depend on
-// an `if`.
-func (s *Server) handleAssistantAgentUpdate(w http.ResponseWriter, r *http.Request) {
-	mu := mailUserFrom(r.Context())
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "assistant.unknown_agent")
+func (s *Server) handleAssistantAgentToggleGate(w http.ResponseWriter, r *http.Request) {
+	if !s.edition.Agents {
+		writeErr(w, http.StatusForbidden, "assistant.agents_edition_required")
 		return
 	}
-	var req agentWriteReq
-	if !decode(w, r, &req) {
-		return
-	}
-	if code := req.validate(); code != "" {
-		writeErr(w, http.StatusBadRequest, code)
-		return
-	}
-	row, err := s.q.UpdateClientAgent(r.Context(), db.UpdateClientAgentParams{
-		ID: id, TenantID: mu.TenantID, Name: req.Name, Purpose: req.Purpose,
-		Instructions: req.Instructions, Tools: req.Tools,
-	})
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, agentWriteError(err))
-		return
-	}
-	writeJSON(w, http.StatusOK, agentJSON{
-		Key: row.ID.String(), Name: row.Name, Purpose: row.Purpose,
-		Instructions: row.Instructions, Tools: capTools(row.Tools), Enabled: true,
-	})
-}
-
-func (s *Server) handleAssistantAgentDelete(w http.ResponseWriter, r *http.Request) {
-	mu := mailUserFrom(r.Context())
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, "assistant.unknown_agent")
-		return
-	}
-	if err := s.q.DeleteClientAgent(r.Context(), db.DeleteClientAgentParams{ID: id, TenantID: mu.TenantID}); err != nil {
-		log.Printf("assistant: delete agent: %v", err)
-		writeErr(w, http.StatusInternalServerError, "assistant.failed")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-type agentToggleReq struct {
-	Enabled bool `json:"enabled"`
-}
-
-// handleAssistantAgentToggle enables or disables a BUILT-IN agent for the organisation.
-//
-// It controls AVAILABILITY, never behavior: there's no endpoint that changes the instructions or
-// tools of a built-in agent, because those live in code (§3.2, decision 3).
-func (s *Server) handleAssistantAgentToggle(w http.ResponseWriter, r *http.Request) {
-	mu := mailUserFrom(r.Context())
-	key := chi.URLParam(r, "key")
-	if _, ok := assistant.Builtin(key); !ok {
-		writeErr(w, http.StatusBadRequest, "assistant.unknown_agent")
-		return
-	}
-	// Disabling the general agent is allowed: it's the assistant's master switch. While it's
-	// disabled, chat rejects at the door (assistant.disabled) — the other agents end up with no way
-	// in, which is the intended behavior for "assistant disabled for the organisation".
-	var req agentToggleReq
-	if !decode(w, r, &req) {
-		return
-	}
-	if err := s.q.SetBuiltinAgentEnabled(r.Context(), db.SetBuiltinAgentEnabledParams{
-		TenantID: mu.TenantID, AgentKey: key, Enabled: req.Enabled,
-	}); err != nil {
-		log.Printf("assistant: toggle agent: %v", err)
-		writeErr(w, http.StatusInternalServerError, "assistant.failed")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"key": key, "enabled": req.Enabled})
-}
-
-// agentWriteError translates the database error into an i18n key. A duplicate name is the common
-// case and deserves its own message; everything else stays generic, so as not to leak database
-// details.
-func agentWriteError(err error) string {
-	if strings.Contains(err.Error(), "idx_assistant_agents_name") {
-		return "assistant.agent_name_taken"
-	}
-	log.Printf("assistant: agent write: %v", fmt.Errorf("%w", err))
-	return "assistant.failed"
+	ee.ToggleAgent(w, r, ee.Deps{Queries: s.q})
 }

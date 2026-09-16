@@ -166,10 +166,10 @@ func (s *Server) Router() http.Handler {
 			// Agent profiles. Reading is for any user (the panel's selector needs the list);
 			// creating, changing, and toggling is for the organization's administration.
 			r.Get("/assistant/agents", s.handleAssistantAgents)
-			r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/agents", s.handleAssistantAgentCreate)
-			r.With(s.requirePerm(rbac.PermAssistantManage)).Put("/assistant/agents/{id}", s.handleAssistantAgentUpdate)
-			r.With(s.requirePerm(rbac.PermAssistantManage)).Delete("/assistant/agents/{id}", s.handleAssistantAgentDelete)
-			r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/agents/{key}/enabled", s.handleAssistantAgentToggle)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/agents", s.handleAssistantAgentCreateGate)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Put("/assistant/agents/{id}", s.handleAssistantAgentUpdateGate)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Delete("/assistant/agents/{id}", s.handleAssistantAgentDeleteGate)
+			r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/agents/{key}/enabled", s.handleAssistantAgentToggleGate)
 
 			r.Post("/ai/summarize", s.handleAISummarize)
 			r.Post("/ai/draft", s.handleAIDraft)

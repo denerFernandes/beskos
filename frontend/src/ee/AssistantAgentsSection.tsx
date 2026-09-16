@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { assistantApi, type AgentDraft, type AgentProfile } from "../webmail/assistant/api";
-import { toast } from "./ui";
+import { toast } from "../panel/ui";
 import { Drawer } from "../webmail/Drawer";
-import { IcPlus } from "./icons";
+import { IcPlus } from "../panel/icons";
 
 // Assistant agents (RBAC org.settings). Two lists with different rules, and the difference is
 // deliberate (§3.2 of the assistant's design):
@@ -15,6 +15,10 @@ import { IcPlus } from "./icons";
 //     surface;
 //   - CUSTOMER ones are theirs: create, change and delete. Never with more tools than the cap, and
 //     that's validated on the server — hiding a checkbox here would be no defense at all.
+//
+// Pro only: mounted by ../panel/AssistantAgentsSectionGate.tsx behind the Agents capability. The
+// backend enforces the same boundary independently (ee/agents_pro.go) -- this gate is UX, not the
+// security line. Reading the agent list stays Community (chat needs it regardless of edition).
 export function AssistantAgentsSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();

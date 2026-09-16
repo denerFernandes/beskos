@@ -742,6 +742,7 @@
   "server": {
     "chat.cannot_delete_general": "The default channel cannot be deleted.",
     "branding.edition_required": "This feature needs a Pro license.",
+    "assistant.agents_edition_required": "This feature needs a Pro license.",
     "notif": {
       "meeting_invite": {
         "t": "{{actor}} invited you: {{title}}",
