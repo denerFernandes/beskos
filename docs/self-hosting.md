@@ -2,6 +2,17 @@
 
 This assumes you've already gone through [getting-started.md](getting-started.md) once, locally.
 
+## Account access and usage
+
+The public edition uses the `self_hosted` plan. It has no commercial limit on users, storage,
+or daily sends, and access does not expire after a hosted trial. Infrastructure capacity and
+configured service limits still apply. Usage statistics remain available in the administration
+overview. Hosted checkout, payment-provider configuration, and commercial signup are absent.
+
+The public worker does not run hosted daily usage aggregation or delete recordings according
+to a hosted subscription plan. When object storage is configured, its initialization must
+succeed before the worker starts its storage jobs.
+
 ## TLS and the reverse proxy
 
 Stalwart sends no CORS headers, so the webmail and the JMAP client must be served from the same

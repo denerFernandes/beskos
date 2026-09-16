@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/beskosorg/beskos/backend/internal/ses"
+	"github.com/beskosorg/beskos/backend/internal/awssign"
 )
 
-// SNSSender envia SMS pelo Amazon SNS (Publish com PhoneNumber — sem tópico), assinado com o
-// SigV4 partilhado de internal/ses. Tipo Transactional: códigos de MFA têm prioridade de entrega
-// sobre promocional. SenderID é opcional (nem todos os países o suportam; o Brasil ignora).
+// SNSSender publishes SMS directly to a phone number through Amazon SNS.
+// SigV4 signing is shared with the email provider. Transactional SMS prioritizes MFA delivery.
+
 type SNSSender struct {
 	region    string
 	accessKey string
@@ -58,7 +58,7 @@ func (s *SNSSender) Send(ctx context.Context, phone, message string) error {
 		return err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	ses.SignRequest(req, body, s.region, "sns", s.accessKey, s.secretKey, s.now())
+	awssign.SignRequest(req, body, s.region, "sns", s.accessKey, s.secretKey, s.now())
 	resp, err := s.http.Do(req)
 	if err != nil {
 		return fmt.Errorf("sns publish: %w", err)

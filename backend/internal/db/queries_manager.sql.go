@@ -336,6 +336,122 @@ func (q *Queries) ListManagerUsers(ctx context.Context) ([]ListManagerUsersRow, 
 	return items, nil
 }
 
+const managerAlertRows = `-- name: ManagerAlertRows :many
+SELECT t.id, t.name, t.plan,
+    ((SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)
+      + (SELECT count(*) FROM email_aliases al WHERE al.tenant_id = t.id))::int AS users,
+    (SELECT coalesce(sum(f.size), 0) FROM storage_files f
+      WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)::bigint AS storage_bytes,
+    (SELECT coalesce(sum(a.tokens), 0) FROM assistant_usage a
+      WHERE a.tenant_id = t.id AND a.created_at >= current_date)::bigint AS ai_today,
+    (SELECT coalesce(avg(d.ai_tokens), 0) FROM tenant_daily_usage d
+      WHERE d.tenant_id = t.id AND d.day >= current_date - 7 AND d.day < current_date)::bigint AS ai_prev_avg,
+    COALESCE((SELECT m.sent FROM tenant_mail_sent m
+      WHERE m.tenant_id = t.id AND m.day = current_date), 0)::int AS mail_today,
+    COALESCE(p.max_users, 0)::int AS max_users,
+    COALESCE(p.max_storage_gb, 0)::int AS max_storage_gb,
+    COALESCE(p.max_daily_send, 0)::int AS max_daily_send
+FROM tenants t
+LEFT JOIN plans p ON p.key = t.plan
+WHERE t.status = 'active'
+ORDER BY t.name
+`
+
+type ManagerAlertRowsRow struct {
+	ID           uuid.UUID `json:"id"`
+	Name         string    `json:"name"`
+	Plan         string    `json:"plan"`
+	Users        int32     `json:"users"`
+	StorageBytes int64     `json:"storage_bytes"`
+	AiToday      int64     `json:"ai_today"`
+	AiPrevAvg    int64     `json:"ai_prev_avg"`
+	MailToday    int32     `json:"mail_today"`
+	MaxUsers     int32     `json:"max_users"`
+	MaxStorageGb int32     `json:"max_storage_gb"`
+	MaxDailySend int32     `json:"max_daily_send"`
+}
+
+// Current usage, prior seven-day AI baseline, and plan limits for tenant alerts.
+func (q *Queries) ManagerAlertRows(ctx context.Context) ([]ManagerAlertRowsRow, error) {
+	rows, err := q.db.Query(ctx, managerAlertRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManagerAlertRowsRow
+	for rows.Next() {
+		var i ManagerAlertRowsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Plan,
+			&i.Users,
+			&i.StorageBytes,
+			&i.AiToday,
+			&i.AiPrevAvg,
+			&i.MailToday,
+			&i.MaxUsers,
+			&i.MaxStorageGb,
+			&i.MaxDailySend,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const managerDeliverability = `-- name: ManagerDeliverability :many
+SELECT t.id, t.name,
+    (SELECT COALESCE(sum(m.sent), 0) FROM tenant_mail_sent m
+      WHERE m.tenant_id = t.id AND m.day >= current_date - 30)::bigint AS sent_30d,
+    (SELECT count(*) FROM mail_events e WHERE e.tenant_id = t.id
+      AND e.type = 'bounce' AND e.created_at > now() - interval '30 days')::bigint AS bounces_30d,
+    (SELECT count(*) FROM mail_events e WHERE e.tenant_id = t.id
+      AND e.type = 'complaint' AND e.created_at > now() - interval '30 days')::bigint AS complaints_30d
+FROM tenants t
+WHERE t.status = 'active'
+ORDER BY t.name
+`
+
+type ManagerDeliverabilityRow struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Sent30d       int64     `json:"sent_30d"`
+	Bounces30d    int64     `json:"bounces_30d"`
+	Complaints30d int64     `json:"complaints_30d"`
+}
+
+// Per-tenant delivery totals, bounces, and complaints over the last 30 days.
+func (q *Queries) ManagerDeliverability(ctx context.Context) ([]ManagerDeliverabilityRow, error) {
+	rows, err := q.db.Query(ctx, managerDeliverability)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManagerDeliverabilityRow
+	for rows.Next() {
+		var i ManagerDeliverabilityRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Sent30d,
+			&i.Bounces30d,
+			&i.Complaints30d,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const managerFinanceRows = `-- name: ManagerFinanceRows :many
 SELECT t.id, t.name, t.plan, t.status,
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)::int AS users,
@@ -623,6 +739,224 @@ func (q *Queries) ManagerOverview(ctx context.Context) (ManagerOverviewRow, erro
 	return i, err
 }
 
+const managerSetTenantPlan = `-- name: ManagerSetTenantPlan :exec
+UPDATE tenants SET plan = $1 WHERE id = $2
+`
+
+type ManagerSetTenantPlanParams struct {
+	Plan string    `json:"plan"`
+	ID   uuid.UUID `json:"id"`
+}
+
+func (q *Queries) ManagerSetTenantPlan(ctx context.Context, arg ManagerSetTenantPlanParams) error {
+	_, err := q.db.Exec(ctx, managerSetTenantPlan, arg.Plan, arg.ID)
+	return err
+}
+
+const managerTenantUsage = `-- name: ManagerTenantUsage :many
+SELECT tenant_id, day, users, users_active, storage_bytes, files, ai_tokens, meet_minutes, recordings, recordings_bytes, wiki_pages, cards, mail_sent, updated_at FROM tenant_daily_usage
+WHERE tenant_id = $1 AND day >= cast($2 as date)
+ORDER BY day DESC
+`
+
+type ManagerTenantUsageParams struct {
+	TenantID uuid.UUID   `json:"tenant_id"`
+	Since    pgtype.Date `json:"since"`
+}
+
+func (q *Queries) ManagerTenantUsage(ctx context.Context, arg ManagerTenantUsageParams) ([]TenantDailyUsage, error) {
+	rows, err := q.db.Query(ctx, managerTenantUsage, arg.TenantID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TenantDailyUsage
+	for rows.Next() {
+		var i TenantDailyUsage
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.Day,
+			&i.Users,
+			&i.UsersActive,
+			&i.StorageBytes,
+			&i.Files,
+			&i.AiTokens,
+			&i.MeetMinutes,
+			&i.Recordings,
+			&i.RecordingsBytes,
+			&i.WikiPages,
+			&i.Cards,
+			&i.MailSent,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const managerTopAIUsers = `-- name: ManagerTopAIUsers :many
+SELECT u.email, u.name, t.name AS tenant, sum(a.tokens)::bigint AS tokens
+FROM assistant_usage a
+JOIN mail_users u ON u.id = a.mail_user_id
+JOIN tenants t ON t.id = a.tenant_id
+WHERE a.created_at > now() - interval '24 hours'
+GROUP BY u.email, u.name, t.name
+ORDER BY sum(a.tokens) DESC
+LIMIT 10
+`
+
+type ManagerTopAIUsersRow struct {
+	Email  string `json:"email"`
+	Name   string `json:"name"`
+	Tenant string `json:"tenant"`
+	Tokens int64  `json:"tokens"`
+}
+
+// Highest AI token usage per user over the last 24 hours.
+func (q *Queries) ManagerTopAIUsers(ctx context.Context) ([]ManagerTopAIUsersRow, error) {
+	rows, err := q.db.Query(ctx, managerTopAIUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManagerTopAIUsersRow
+	for rows.Next() {
+		var i ManagerTopAIUsersRow
+		if err := rows.Scan(
+			&i.Email,
+			&i.Name,
+			&i.Tenant,
+			&i.Tokens,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const managerUsageAllRows = `-- name: ManagerUsageAllRows :many
+SELECT t.name, u.tenant_id, u.day, u.users, u.users_active, u.storage_bytes, u.files, u.ai_tokens, u.meet_minutes, u.recordings, u.recordings_bytes, u.wiki_pages, u.cards, u.mail_sent, u.updated_at FROM tenant_daily_usage u
+JOIN tenants t ON t.id = u.tenant_id
+WHERE u.day >= cast($1 as date)
+ORDER BY u.day DESC, t.name
+`
+
+type ManagerUsageAllRowsRow struct {
+	Name            string      `json:"name"`
+	TenantID        uuid.UUID   `json:"tenant_id"`
+	Day             pgtype.Date `json:"day"`
+	Users           int32       `json:"users"`
+	UsersActive     int32       `json:"users_active"`
+	StorageBytes    int64       `json:"storage_bytes"`
+	Files           int32       `json:"files"`
+	AiTokens        int64       `json:"ai_tokens"`
+	MeetMinutes     int32       `json:"meet_minutes"`
+	Recordings      int32       `json:"recordings"`
+	RecordingsBytes int64       `json:"recordings_bytes"`
+	WikiPages       int32       `json:"wiki_pages"`
+	Cards           int32       `json:"cards"`
+	MailSent        int32       `json:"mail_sent"`
+	UpdatedAt       time.Time   `json:"updated_at"`
+}
+
+// CSV export: raw rollup for all tenants in the period, including the organization name.
+func (q *Queries) ManagerUsageAllRows(ctx context.Context, since pgtype.Date) ([]ManagerUsageAllRowsRow, error) {
+	rows, err := q.db.Query(ctx, managerUsageAllRows, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManagerUsageAllRowsRow
+	for rows.Next() {
+		var i ManagerUsageAllRowsRow
+		if err := rows.Scan(
+			&i.Name,
+			&i.TenantID,
+			&i.Day,
+			&i.Users,
+			&i.UsersActive,
+			&i.StorageBytes,
+			&i.Files,
+			&i.AiTokens,
+			&i.MeetMinutes,
+			&i.Recordings,
+			&i.RecordingsBytes,
+			&i.WikiPages,
+			&i.Cards,
+			&i.MailSent,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const managerUsageSeries = `-- name: ManagerUsageSeries :many
+SELECT day,
+    sum(users)::bigint AS users, sum(users_active)::bigint AS users_active,
+    sum(storage_bytes)::bigint AS storage_bytes, sum(ai_tokens)::bigint AS ai_tokens,
+    sum(meet_minutes)::bigint AS meet_minutes, sum(recordings)::bigint AS recordings,
+    sum(mail_sent)::bigint AS mail_sent
+FROM tenant_daily_usage
+WHERE day >= cast($1 as date)
+GROUP BY day ORDER BY day
+`
+
+type ManagerUsageSeriesRow struct {
+	Day          pgtype.Date `json:"day"`
+	Users        int64       `json:"users"`
+	UsersActive  int64       `json:"users_active"`
+	StorageBytes int64       `json:"storage_bytes"`
+	AiTokens     int64       `json:"ai_tokens"`
+	MeetMinutes  int64       `json:"meet_minutes"`
+	Recordings   int64       `json:"recordings"`
+	MailSent     int64       `json:"mail_sent"`
+}
+
+// Aggregate daily usage across tenants for operator reports.
+func (q *Queries) ManagerUsageSeries(ctx context.Context, since pgtype.Date) ([]ManagerUsageSeriesRow, error) {
+	rows, err := q.db.Query(ctx, managerUsageSeries, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ManagerUsageSeriesRow
+	for rows.Next() {
+		var i ManagerUsageSeriesRow
+		if err := rows.Scan(
+			&i.Day,
+			&i.Users,
+			&i.UsersActive,
+			&i.StorageBytes,
+			&i.AiTokens,
+			&i.MeetMinutes,
+			&i.Recordings,
+			&i.MailSent,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const resetManagerUserCredentials = `-- name: ResetManagerUserCredentials :exec
 UPDATE manager_users
 SET password_hash = $1, totp_secret = '', totp_confirmed = false, active = true
@@ -698,6 +1032,20 @@ type SetManagerUserActiveParams struct {
 // Desativar corta o login E as sessões existentes (GetManagerSession filtra u.active).
 func (q *Queries) SetManagerUserActive(ctx context.Context, arg SetManagerUserActiveParams) error {
 	_, err := q.db.Exec(ctx, setManagerUserActive, arg.Active, arg.ID)
+	return err
+}
+
+const setPlanActive = `-- name: SetPlanActive :exec
+UPDATE plans SET active = $1, updated_at = now() WHERE key = $2
+`
+
+type SetPlanActiveParams struct {
+	Active bool   `json:"active"`
+	Key    string `json:"key"`
+}
+
+func (q *Queries) SetPlanActive(ctx context.Context, arg SetPlanActiveParams) error {
+	_, err := q.db.Exec(ctx, setPlanActive, arg.Active, arg.Key)
 	return err
 }
 
@@ -801,4 +1149,99 @@ type UpsertManagerSettingParams struct {
 func (q *Queries) UpsertManagerSetting(ctx context.Context, arg UpsertManagerSettingParams) error {
 	_, err := q.db.Exec(ctx, upsertManagerSetting, arg.Key, arg.Value)
 	return err
+}
+
+const upsertPlan = `-- name: UpsertPlan :one
+INSERT INTO plans (key, name, description, price_cents_per_user, min_users, max_users,
+    apps_enabled, max_storage_gb, ai_tokens_per_window, meet_max_participants, meet_max_minutes,
+    recording, recording_retention_days, max_daily_send, onlyoffice_edit, wiki_public_links, sort, prices)
+VALUES ($1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10, $11,
+    $12, $13, $14, $15, $16, $17, $18)
+ON CONFLICT (key) DO UPDATE SET
+    name = EXCLUDED.name, description = EXCLUDED.description,
+    price_cents_per_user = EXCLUDED.price_cents_per_user,
+    min_users = EXCLUDED.min_users, max_users = EXCLUDED.max_users,
+    apps_enabled = EXCLUDED.apps_enabled, max_storage_gb = EXCLUDED.max_storage_gb,
+    ai_tokens_per_window = EXCLUDED.ai_tokens_per_window,
+    meet_max_participants = EXCLUDED.meet_max_participants,
+    meet_max_minutes = EXCLUDED.meet_max_minutes,
+    recording = EXCLUDED.recording,
+    recording_retention_days = EXCLUDED.recording_retention_days,
+    max_daily_send = EXCLUDED.max_daily_send,
+    onlyoffice_edit = EXCLUDED.onlyoffice_edit, wiki_public_links = EXCLUDED.wiki_public_links,
+    sort = EXCLUDED.sort, prices = EXCLUDED.prices, updated_at = now()
+RETURNING key, name, description, price_cents_per_user, min_users, max_users, apps_enabled, max_storage_gb, ai_tokens_per_window, meet_max_participants, meet_max_minutes, recording, recording_retention_days, max_daily_send, onlyoffice_edit, wiki_public_links, active, sort, created_at, updated_at, stripe_product_id, stripe_price_id, prices
+`
+
+type UpsertPlanParams struct {
+	Key                    string   `json:"key"`
+	Name                   string   `json:"name"`
+	Description            string   `json:"description"`
+	PriceCentsPerUser      int32    `json:"price_cents_per_user"`
+	MinUsers               int32    `json:"min_users"`
+	MaxUsers               int32    `json:"max_users"`
+	AppsEnabled            []string `json:"apps_enabled"`
+	MaxStorageGb           int32    `json:"max_storage_gb"`
+	AiTokensPerWindow      int32    `json:"ai_tokens_per_window"`
+	MeetMaxParticipants    int32    `json:"meet_max_participants"`
+	MeetMaxMinutes         int32    `json:"meet_max_minutes"`
+	Recording              string   `json:"recording"`
+	RecordingRetentionDays int32    `json:"recording_retention_days"`
+	MaxDailySend           int32    `json:"max_daily_send"`
+	OnlyofficeEdit         bool     `json:"onlyoffice_edit"`
+	WikiPublicLinks        bool     `json:"wiki_public_links"`
+	Sort                   int32    `json:"sort"`
+	Prices                 []byte   `json:"prices"`
+}
+
+// Operator-only plan administration.
+func (q *Queries) UpsertPlan(ctx context.Context, arg UpsertPlanParams) (Plan, error) {
+	row := q.db.QueryRow(ctx, upsertPlan,
+		arg.Key,
+		arg.Name,
+		arg.Description,
+		arg.PriceCentsPerUser,
+		arg.MinUsers,
+		arg.MaxUsers,
+		arg.AppsEnabled,
+		arg.MaxStorageGb,
+		arg.AiTokensPerWindow,
+		arg.MeetMaxParticipants,
+		arg.MeetMaxMinutes,
+		arg.Recording,
+		arg.RecordingRetentionDays,
+		arg.MaxDailySend,
+		arg.OnlyofficeEdit,
+		arg.WikiPublicLinks,
+		arg.Sort,
+		arg.Prices,
+	)
+	var i Plan
+	err := row.Scan(
+		&i.Key,
+		&i.Name,
+		&i.Description,
+		&i.PriceCentsPerUser,
+		&i.MinUsers,
+		&i.MaxUsers,
+		&i.AppsEnabled,
+		&i.MaxStorageGb,
+		&i.AiTokensPerWindow,
+		&i.MeetMaxParticipants,
+		&i.MeetMaxMinutes,
+		&i.Recording,
+		&i.RecordingRetentionDays,
+		&i.MaxDailySend,
+		&i.OnlyofficeEdit,
+		&i.WikiPublicLinks,
+		&i.Active,
+		&i.Sort,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StripeProductID,
+		&i.StripePriceID,
+		&i.Prices,
+	)
+	return i, err
 }

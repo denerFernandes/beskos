@@ -18,6 +18,30 @@ All UI text comes from i18n (law §4). Frontend: `react-i18next`, locales in
 `frontend/src/i18n/locales/{pt-BR,en}/common.json` (default **pt-BR**, **en** mandatory).
 API errors carry a stable `error_code`; the frontend translates it via the `server.<code>` key.
 
+## Public export validation
+
+Install `sqlc` v1.27.0, then run
+`python3 scripts/export_public.py --check --private-only` to validate the operator console,
+metering, and hosted billing boundary in a temporary public export. The export regenerates
+database code and configuration documentation from the retained sources. Run without
+`--private-only` for the full residue report, including remaining branding and comment findings.
+
+`python3 scripts/export_public.py /path/to/empty-directory --private-only` creates a local
+snapshot without Git history. The private `public-export.yml` workflow checks the boundary,
+database generation reproducibility, backend vet, build, and tests with and without `pro`,
+and the exported frontend build and tests. `--manager-only` remains an alias for existing tools.
+
+The public snapshot omits hosted checkout, Stripe, VAT calculation, commercial signup screens,
+daily usage rollups, and plan-based recording retention. It uses a `self_hosted` catalog without
+commercial seat, storage, or sending limits; account access has no hosted trial deadline.
+The complete working tree retains the hosted behavior. Its worker shares one storage client,
+fails startup if configured storage cannot initialize, and preserves recording rows until blob
+deletion succeeds. Metering logs repeated failures and recovery independently for each job.
+
+Remaining work includes per-tenant SES, marketing endpoints, legacy billing schema cleanup,
+Pro feature extraction, and a fresh full-stack deployment test. Passing the export checks does
+not certify that this remaining separation is complete.
+
 ## Status
 
 **Phase 0 — Foundation** ✅ · docker-compose (Stalwart v0.16.4 + Postgres + MinIO), typed JMAP

@@ -24,7 +24,10 @@ jobs:
           # On CI the working tree IS the commit, so diffing against HEAD would find nothing.
           # The base is the PR target branch, or the previous commit on a push.
           base="${{ github.event.pull_request.base.sha || github.event.before }}"
-          [ -n "$base" ] && [ "$base" != "0000000000000000000000000000000000000000" ] || base="HEAD~1"
+          # An orphan publication has no parent; check every line against the empty tree.
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            base="$(git hash-object -t tree /dev/null)"
+          fi
           python3 scripts/check_laws.py --base "$base"
   secrets:
     name: Secret scanning (gitleaks)

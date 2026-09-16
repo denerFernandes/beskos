@@ -21,7 +21,6 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/mailaudit"
 	"github.com/beskosorg/beskos/backend/internal/notify"
 	"github.com/beskosorg/beskos/backend/internal/provisioning"
-	"github.com/beskosorg/beskos/backend/internal/ses"
 	"github.com/beskosorg/beskos/backend/internal/sms"
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 	"github.com/beskosorg/beskos/backend/internal/storage"
@@ -115,11 +114,7 @@ func main() {
 	// Readiness (/readyz): pings Postgres. The orchestrator only forwards traffic once the database responds.
 	srv.SetReadiness(pool.Ping)
 
-	// SES (optional): used only to clean up the identity when deleting a domain.
-	if c := ses.NewFromEnv(); c != nil {
-		srv.EnableSES(c)
-		log.Printf("SES identity cleanup enabled")
-	}
+	enableHostedServices(srv)
 
 	// Encryption of the TOTP secret at rest (optional; without MFA_ENC_KEY it stores in plaintext — dev only).
 	srv.EnableTOTPEncryption(cfg.MFAEncKey)
