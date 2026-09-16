@@ -25,7 +25,7 @@ export MINIO_ENDPOINT="localhost:$MOPORT" MINIO_ACCESS_KEY=mailin MINIO_SECRET_K
 cd "$BACKEND"
 go run ./cmd/bootstrap >/dev/null 2>&1; docker restart $SW >/dev/null
 for i in $(seq 1 30); do curl -fsS http://localhost:$SWPORT/jmap/session -u admin:$SECRET >/dev/null 2>&1 && break; sleep 1; done
-HTTP_ADDR=":$APIPORT" go run ./cmd/api >/tmp/st-api.log 2>&1 & API_PID=$!
+HTTP_ADDR=":$APIPORT" DEV_SIGNUP_ENABLED=true go run ./cmd/api >/tmp/st-api.log 2>&1 & API_PID=$!
 PROVISION_SKIP_DNS_VERIFY=true go run ./cmd/worker >/tmp/st-wk.log 2>&1 & WK_PID=$!
 for i in $(seq 1 20); do curl -fsS localhost:$APIPORT/healthz >/dev/null 2>&1 && break; sleep 1; done
 grep -q "storage enabled" /tmp/st-api.log && echo "   storage habilitado ✓"

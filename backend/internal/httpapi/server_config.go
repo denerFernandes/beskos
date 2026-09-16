@@ -110,6 +110,12 @@ func (s *Server) originAllowed(origin string) bool {
 // "coming soon" and the API refuses — the rest of the product stays the same for existing customers.
 func (s *Server) SetSignupsOpen(open bool) { s.signupsOpen = open }
 
+// SetDevSignupEnabled mounts (or leaves unmounted) the legacy /auth/signup route the e2e scripts
+// use for test convenience (DEV_SIGNUP_ENABLED). It bypasses signupsOpen, rate limiting, and the
+// billing signup flow entirely, so it stays off unless a caller explicitly wants it -- never in
+// production, which config.validateProduction refuses outright regardless of this call.
+func (s *Server) SetDevSignupEnabled(enabled bool) { s.devSignupEnabled = enabled }
+
 // EnableEmail wires e-mail sending for notifications (optional).
 func (s *Server) EnableEmail(e *notify.Email) { s.email = e }
 

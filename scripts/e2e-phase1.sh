@@ -38,7 +38,7 @@ docker restart "$SW" >/dev/null
 for i in $(seq 1 30); do curl -fsS "http://localhost:$SWPORT/jmap/session" -u "admin:$ADMIN_SECRET" >/dev/null 2>&1 && break; sleep 1; done
 
 echo "== subindo API + worker =="
-HTTP_ADDR=":$APIPORT" go run ./cmd/api > /tmp/e2e-api.log 2>&1 &
+HTTP_ADDR=":$APIPORT" DEV_SIGNUP_ENABLED=true go run ./cmd/api > /tmp/e2e-api.log 2>&1 &
 API_PID=$!
 PROVISION_SKIP_DNS_VERIFY=true go run ./cmd/worker > /tmp/e2e-worker.log 2>&1 &
 WORKER_PID=$!

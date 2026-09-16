@@ -185,6 +185,11 @@ func main() {
 		log.Printf("self-service signups CLOSED (SIGNUPS_OPEN=false) — /signup shows the coming-soon page")
 	}
 
+	srv.SetDevSignupEnabled(cfg.DevSignupEnabled)
+	if cfg.DevSignupEnabled {
+		log.Printf("WARNING: /auth/signup is ENABLED (DEV_SIGNUP_ENABLED=true) — unauthenticated, unlimited tenant creation. Dev/e2e use only, never in production (config.validateProduction refuses it there).")
+	}
+
 	// Per-file cap in Files (configurable; default 100 GiB).
 	srv.SetFileUploadLimit(cfg.FilesMaxUploadBytes)
 

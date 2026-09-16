@@ -82,6 +82,13 @@ type Config struct {
 	// the API refuses — so it can be opened to the public whenever wanted, with no new deploy.
 	SignupsOpen bool
 
+	// DevSignupEnabled mounts /auth/signup, a legacy unauthenticated tenant-creation endpoint the
+	// e2e scripts (scripts/e2e-*.sh) still use for test convenience. It bypasses SignupsOpen, rate
+	// limiting, and the billing signup flow (/public/signup) entirely, so it defaults to OFF and
+	// validateProduction refuses to boot with it on in production (audit P6) — a stray "true" in
+	// an env file must never reopen free, unlimited tenant creation on a real deployment.
+	DevSignupEnabled bool
+
 	// Environment: "development" (default) or "production". In production the config fails closed —
 	// it refuses empty or weak secrets, or known dev defaults (audit H8/H10).
 	Environment string
@@ -152,6 +159,7 @@ func Load() (*Config, error) {
 		CookieSecure:        getenv("COOKIE_SECURE", "false") == "true",
 		PublicURL:           strings.TrimRight(getenv("PUBLIC_URL", ""), "/"),
 		SignupsOpen:         getenv("SIGNUPS_OPEN", "true") != "false",
+		DevSignupEnabled:    getenv("DEV_SIGNUP_ENABLED", "false") == "true",
 		Environment:         getenv("APP_ENV", "development"),
 		MFAEncKey:           os.Getenv("MFA_ENC_KEY"),
 	}
@@ -211,6 +219,9 @@ func (c *Config) validateProduction() error {
 	}
 	if c.NotifySMTPInsecure {
 		errs = append(errs, "NOTIFY_SMTP_INSECURE must be false in production (TLS verification)")
+	}
+	if c.DevSignupEnabled {
+		errs = append(errs, "DEV_SIGNUP_ENABLED must be false in production (unauthenticated, unlimited tenant creation)")
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("insecure production config: %s", strings.Join(errs, "; "))

@@ -174,11 +174,6 @@ export const api = {
   // Organization apps: list of toggleable + disabled ones; PUT saves the disabled ones (admin/owner only).
   appsGet: () => req<{ apps: string[]; disabled: string[] }>("/api/apps"),
   appsSet: (disabled: string[]) => req<{ disabled: string[] }>("/api/apps", { method: "PUT", body: JSON.stringify({ disabled }) }),
-  signup: (org_name: string, email: string, password: string) =>
-    req<{ tenant_id: string; user_id: string }>("/api/auth/signup", {
-      method: "POST",
-      body: JSON.stringify({ org_name, email, password }),
-    }),
   login: (email: string, password: string) =>
     req<{ user_id?: string; mfa_required?: boolean; challenge?: string; methods?: string[] }>("/api/auth/login", {
       method: "POST",
