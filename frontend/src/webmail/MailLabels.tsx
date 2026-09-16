@@ -5,10 +5,10 @@ import { backend, labelKeyword } from "./backend";
 import { IcPlus, IcCheck, IcTrash } from "../panel/icons";
 import { toast } from "./toast";
 
-// Paleta dos marcadores (mesma linguagem visual das tags/eventos).
+// Label palette (same visual language as tags/events).
 const LABEL_COLORS = ["#B4785F", "#c0392b", "#8e44ad", "#2980b9", "#d68910", "#27ae60", "#2c3e50"];
 
-// Ícone de etiqueta inline (não há IcTag no conjunto).
+// Inline label icon (there's no IcTag in the set).
 export function TagIcon({ size = 15 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -18,7 +18,7 @@ export function TagIcon({ size = 15 }: { size?: number }) {
   );
 }
 
-// LabelChips: os marcadores aplicados a um e-mail, lidos das keywords JMAP.
+// LabelChips: the labels applied to an email, read from the JMAP keywords.
 export function LabelChips({ keywords }: { keywords?: Record<string, boolean> }) {
   const labelsQ = useQuery({ queryKey: ["labels"], queryFn: () => backend.labels() });
   const applied = (labelsQ.data ?? []).filter((l) => keywords?.[labelKeyword(l.id)]);
@@ -32,8 +32,8 @@ export function LabelChips({ keywords }: { keywords?: Record<string, boolean> })
   );
 }
 
-// LabelMenu: botão + dropdown para aplicar/remover marcadores no e-mail aberto e criar/apagar do
-// catálogo. onToggle aplica no JMAP e recarrega o e-mail (fica a cargo do reader).
+// LabelMenu: button + dropdown to apply/remove labels on the open email and create/delete from
+// the catalog. onToggle applies it on JMAP and reloads the email (left to the reader).
 export function LabelMenu({ keywords, onToggle }: {
   keywords?: Record<string, boolean>;
   onToggle: (labelId: string, on: boolean) => void;
@@ -53,11 +53,11 @@ export function LabelMenu({ keywords, onToggle }: {
       const l = await backend.createLabel(n, color);
       await qc.invalidateQueries({ queryKey: ["labels"] });
       setName("");
-      onToggle(l.id, true); // já aplica o novo marcador ao e-mail aberto
+      onToggle(l.id, true); // already applies the new label to the open email
     } catch (e) { toast((e as Error).message); }
   };
   const remove = async (id: string) => {
-    // Apaga do catálogo; a keyword em e-mails antigos deixa de ter nome/cor (some da UI). Ok.
+    // Deletes from the catalog; the keyword on older emails loses its name/color (disappears from the UI). That's fine.
     try { await backend.deleteLabel(id); await qc.invalidateQueries({ queryKey: ["labels"] }); }
     catch (e) { toast((e as Error).message); }
   };

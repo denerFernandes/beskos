@@ -8,8 +8,8 @@ import { Switch } from "./Switch";
 import { Avatar } from "./Avatar";
 import { IcTrash, IcX, IcPaperclip, IcChevron, IcLink, IcMail, IcArchive } from "../panel/icons";
 
-// Integrações (webhooks de entrada): cada uma é um token de URL pública que vira mensagem-bot no
-// canal. Útil para CI/alertas/serviços externos postarem sem login. Só gestores criam/removem.
+// Integrations (incoming webhooks): each one is a public URL token that turns into a bot message in
+// the channel. Useful for CI/alerts/external services to post without login. Only managers create/remove them.
 export function WebhooksSection({ channelId }: { channelId: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -46,8 +46,8 @@ export function WebhooksSection({ channelId }: { channelId: string }) {
   );
 }
 
-// Painel de membros e definições do canal. Quem pode adicionar depende da política (aberta = qualquer
-// membro; restrita = só gestor). Gestores (owner/manager) removem, promovem e editam as definições.
+// Members and channel settings panel. Who can add depends on the policy (open = any
+// member; restricted = managers only). Managers (owner/manager) remove, promote, and edit the settings.
 export function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; me: string; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -57,14 +57,14 @@ export function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; m
   const [listed, setListed] = useState(channel.listed !== false);
   const [restricted, setRestricted] = useState(channel.add_policy === "restricted");
 
-  // Membros com busca + paginação no SERVIDOR (aguenta canais grandes).
+  // Members with search + pagination on the SERVER (handles large channels).
   const membersQ = useQuery({ queryKey: ["chat-members", channel.id, filter, page], queryFn: () => backend.chatMembersSearch(channel.id, filter, page) });
   const colleagues = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false });
 
   const canManage = channel.my_role === "owner" || channel.my_role === "manager";
   const canAdd = canManage || channel.add_policy !== "restricted";
-  // Arquivar é do DONO do canal ou de um admin da organização — este último pode nem ser gestor do
-  // canal, por isso a secção fica fora do bloco de definições (que só o gestor vê).
+  // Archiving belongs to the channel OWNER or an organization admin — the latter might not even be a
+  // manager of the channel, so this section sits outside the settings block (which only the manager sees).
   const meQ = useQuery({ queryKey: ["me"], queryFn: () => backend.me(), retry: false, staleTime: Infinity });
   const orgAdmin = ["owner", "admin", "internal_admin"].includes(meQ.data?.role ?? "");
   const canArchive = channel.kind !== "dm" && !channel.is_general && (channel.my_role === "owner" || orgAdmin);
@@ -81,7 +81,7 @@ export function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; m
   const members = membersQ.data?.members ?? [];
   const total = membersQ.data?.total ?? 0;
   const q = pick.trim().toLowerCase();
-  // Adicionar é idempotente no servidor (ON CONFLICT), então não é preciso excluir os já-membros.
+  // Adding is idempotent on the server (ON CONFLICT), so there is no need to exclude existing members.
   const candidates = q ? (colleagues.data ?? []).filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)).slice(0, 6) : [];
   const refresh = () => { membersQ.refetch(); qc.invalidateQueries({ queryKey: ["chat-channels"] }); };
 
@@ -144,7 +144,7 @@ export function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; m
               <h4>{t("chat.archiveChannel")}</h4>
               <p className="wh-hint">{t("chat.archiveHint")}</p>
               {confirmArch ? (
-                /* Confirmação em linha (o projeto não usa diálogos nativos): pergunta e ação lado a lado. */
+                /* Inline confirmation (the project does not use native dialogs): question and action side by side. */
                 <div className="chan-arch-confirm">
                   <span>{t("chat.archiveConfirm", { name: channel.name })}</span>
                   <button className="chipbtn" onClick={() => setConfirmArch(false)}>{t("common.cancel")}</button>
@@ -177,16 +177,16 @@ export function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; m
   );
 }
 
-// --- Abas do painel do canal ---
+// --- Channel panel tabs ---
 
-// Canvas: documento rico partilhado do canal. Qualquer membro edita e guarda.
+// Canvas: the channel's shared rich document. Any member edits and saves it.
 export function CanvasTab({ channelId }: { channelId: string }) {
   const { t } = useTranslation();
   const ed = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const canvasQ = useQuery({ queryKey: ["chat-canvas", channelId], queryFn: () => backend.chatCanvas(channelId) });
-  // Canvas é HTML gravado por qualquer membro do canal. Sanitizar SEMPRE antes de injetar via
-  // innerHTML (na leitura) e antes de persistir (defesa em profundidade) — senão é stored XSS.
+  // Canvas is HTML saved by any channel member. ALWAYS sanitize before injecting via
+  // innerHTML (on read) and before persisting (defense in depth) — otherwise it is stored XSS.
   useEffect(() => { if (ed.current && canvasQ.data) ed.current.innerHTML = sanitizeRich(canvasQ.data.canvas); }, [canvasQ.data]);
   const exec = (e: React.MouseEvent, cmd: string) => { e.preventDefault(); document.execCommand(cmd); ed.current?.focus(); };
   const save = async () => { setSaving(true); try { await backend.chatSaveCanvas(channelId, sanitizeRich(ed.current?.innerHTML ?? "")); toast(t("chat.canvasSaved")); } catch (e) { toast((e as Error).message); } finally { setSaving(false); } };
@@ -212,7 +212,7 @@ export function CanvasTab({ channelId }: { channelId: string }) {
   );
 }
 
-// Pinos: mensagens fixadas do canal.
+// Pins: the channel's pinned messages.
 export function PinsTab({ channelId, onJump }: { channelId: string; onJump?: (msgId: string) => void }) {
   const { t, i18n } = useTranslation();
   const pinsQ = useQuery({ queryKey: ["chat-pins", channelId], queryFn: () => backend.chatPins(channelId) });
@@ -237,7 +237,7 @@ export function PinsTab({ channelId, onJump }: { channelId: string; onJump?: (ms
   );
 }
 
-// Ficheiros & links do canal (coleção curada). Qualquer membro adiciona e remove.
+// Channel files & links (curated collection). Any member adds and removes.
 export function FilesLinksTab({ channelId }: { channelId: string }) {
   const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
@@ -305,7 +305,7 @@ export function FilesLinksTab({ channelId }: { channelId: string }) {
   );
 }
 
-// Cartão de perfil do membro (ao clicar no nome/avatar): detalhes + botões.
+// Member profile card (on clicking the name/avatar): details + buttons.
 export function MemberProfile({ member, me, onClose, onOpenDM }: { member: ChatMember; me: string; onClose: () => void; onOpenDM: (email: string) => void }) {
   const { t } = useTranslation();
   const isMe = member.email === me;

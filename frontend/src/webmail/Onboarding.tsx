@@ -9,11 +9,11 @@ import { BRAND_COLORS } from "./branding";
 import { IcCheck, IcUsers, IcStar, IcPlus, IcX } from "../panel/icons";
 import "./onboarding.css";
 
-// Primeiro acesso do dono: definir a senha, vestir a casa (logótipo e cor) e chamar a equipa.
-// Fica FORA do registo de propósito — antes do cartão, cada campo a mais é gente que desiste.
+// Owner's first access: set the password, dress up the house (logo and color), and invite the
+// team. Kept OUTSIDE the signup deliberately — before the card, every extra field is someone giving up.
 //
-// Só corre uma vez: a marca de concluído vive nas definições do utilizador (general.onboarded),
-// por isso não precisa de coluna nova nem de migração.
+// Only runs once: the completed flag lives in the user's settings (general.onboarded),
+// so it doesn't need a new column or a migration.
 
 type Step = 0 | 1 | 2;
 
@@ -23,14 +23,14 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
   const [step, setStep] = useState<Step>(0);
   const [err, setErr] = useState("");
 
-  // Passo 1 — senha
+  // Step 1 — password
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
-  const strength = useRef(false); // senha aceitável? (o medidor decide)
-  // Passo 2 — marca
+  const strength = useRef(false); // password acceptable? (the meter decides)
+  // Step 2 — brand
   const [color, setColor] = useState(BRAND_COLORS[0].hex);
   const [logo, setLogo] = useState("");
-  // Passo 3 — equipa
+  // Step 3 — team
   const [invites, setInvites] = useState<string[]>([]);
   const [invite, setInvite] = useState("");
 
@@ -57,7 +57,7 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["branding"] }); setErr(""); setStep(2); },
     onError: (e) => setErr((e as Error).message),
   });
-  // Convites: cada endereço vira um convite por e-mail (a pessoa escolhe a senha ao aceitar).
+  // Invites: each address becomes an email invite (the person picks a password upon accepting).
   const sendInvites = useMutation({
     mutationFn: async () => { for (const e of invites) await api.createInvite(e, "member"); },
     onSuccess: () => finish.mutate(),
@@ -66,7 +66,7 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
 
   const onLogo = (f: File | undefined) => {
     if (!f) return;
-    // Data URL: é assim que a marca é guardada (o backend recebe a string). Ficheiro pequeno.
+    // Data URL: that's how the brand is stored (the backend receives the string). Small file.
     if (f.size > 512 * 1024) { setErr(t("onboarding.logoTooBig")); return; }
     const rd = new FileReader();
     rd.onload = () => { setErr(""); setLogo(String(rd.result || "")); };
@@ -98,8 +98,8 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
               <input type="password" value={pw2} onChange={(e) => { setErr(""); setPw2(e.target.value); }} />
             </label>
             {err && <p className="ob-err">{err}</p>}
-            {/* Bloqueado enquanto a senha não passa: o servidor de correio recusa-a de qualquer
-                forma, e é melhor dizê-lo aqui do que depois de submeter. */}
+            {/* Blocked while the password doesn't pass: the mail server rejects it either
+                way, and it's better to say so here than after submitting. */}
             <button className="ob-cta" disabled={savePassword.isPending || !strength.current || pw !== pw2}
               onClick={() => {
                 if (!strength.current) { setErr(t("webmail.pwHintWeak")); return; }

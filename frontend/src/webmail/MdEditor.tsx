@@ -2,13 +2,13 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { IcLink } from "../panel/icons";
 
-// Editor de texto rico PARTILHADO (markdown, mesmo dialeto do chat e da descrição de card). Uma barra
-// de formatação envolve a seleção do textarea com a marcação; guarda-se texto portável e mostra-se
-// com renderRich. Usado em TODO o campo de texto longo: descrição, comentários, notas… — para o
-// utilizador ter sempre o mesmo editor.
+// SHARED rich text editor (markdown, same dialect as chat and card description). A formatting
+// toolbar wraps the textarea's selection with markup; portable text is stored and rendered with
+// renderRich. Used in EVERY long text field: description, comments, notes… — so the user always
+// gets the same editor.
 
-// MdToolbar: só a barra. Para casos onde o textarea já existe e tem lógica própria (ex.: composer de
-// comentários com @menções) — chama onWrap(before, after) para envolver a seleção.
+// MdToolbar: just the toolbar. For cases where the textarea already exists and has its own logic
+// (e.g. comment composer with @mentions) — calls onWrap(before, after) to wrap the selection.
 export function MdToolbar({ onWrap }: { onWrap: (before: string, after: string) => void }) {
   const { t } = useTranslation();
   const b = (title: string, before: string, after: string, node: React.ReactNode) => (
@@ -26,8 +26,8 @@ export function MdToolbar({ onWrap }: { onWrap: (before: string, after: string) 
   );
 }
 
-// wrapSelection envolve a seleção atual de um textarea com marcação e devolve o novo valor, deixando
-// a seleção onde estava (útil para partilhar a lógica de "wrap" fora do MdEditor).
+// wrapSelection wraps a textarea's current selection with markup and returns the new value, leaving
+// the selection where it was (useful for sharing the "wrap" logic outside of MdEditor).
 export function wrapSelection(ta: HTMLTextAreaElement | null, value: string, before: string, after: string, onChange: (v: string) => void) {
   if (!ta) return;
   const s = ta.selectionStart, e = ta.selectionEnd;

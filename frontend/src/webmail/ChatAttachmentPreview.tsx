@@ -3,21 +3,21 @@ import { useQuery } from "@tanstack/react-query";
 import { backend, type ChatAttachment } from "./backend";
 import { IcTable, IcCode, IcMaximize } from "../panel/icons";
 
-// Pré-visualização de anexos de TEXTO na própria conversa: um CSV vira tabela e um txt/json/log
-// mostra as primeiras linhas. Antes eram todos uma linha cinzenta com o nome do ficheiro — para
-// ver três colunas de um CSV era preciso descarregá-lo e abrir noutro programa.
+// Preview of TEXT attachments right in the conversation: a CSV becomes a table and a txt/json/log
+// shows the first lines. Before, they were all a single gray line with the file name — to see
+// three columns of a CSV you had to download it and open it in another program.
 //
-// Só lemos o INÍCIO do ficheiro (MAX_BYTES): um log de 40 MB não pode travar a conversa. Quem
-// quiser o resto abre o visualizador (o botão de expandir) ou descarrega.
+// We only read the START of the file (MAX_BYTES): a 40 MB log can't be allowed to stall the
+// conversation. Whoever wants the rest opens the viewer (the expand button) or downloads it.
 
 const MAX_BYTES = 64 * 1024;
-const MAX_ROWS = 12;   // linhas de dados mostradas na tabela (fora o cabeçalho)
+const MAX_ROWS = 12;   // data rows shown in the table (excluding the header)
 const MAX_COLS = 8;
-const MAX_LINES = 10;  // linhas mostradas no texto/JSON
+const MAX_LINES = 10;  // lines shown in text/JSON
 
 export type PreviewKind = "csv" | "text";
 
-// previewKind diz se este anexo tem pré-visualização na conversa (e qual).
+// previewKind says whether this attachment has a preview in the conversation (and which kind).
 export function previewKind(name: string): PreviewKind | null {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (ext === "csv" || ext === "tsv") return "csv";
@@ -45,7 +45,7 @@ export function ChatAttachmentPreview({ att, kind, onOpen }: {
   );
 
   if (q.isLoading) return <div className="att-preview">{head}<div className="ap-msg">{t("editor.loading")}</div></div>;
-  // Falhar a leitura não é motivo para esconder o anexo: a linha normal (descarregar) continua lá.
+  // Failing to read isn't a reason to hide the attachment: the normal row (download) is still there.
   if (q.isError || !q.data) return null;
 
   return (
@@ -59,7 +59,7 @@ export function ChatAttachmentPreview({ att, kind, onOpen }: {
 }
 
 async function fetchHead(fileId: string): Promise<{ text: string; truncated: boolean }> {
-  // Range: o servidor pode ignorá-lo (devolve 200 com tudo) — por isso cortamos na mesma no cliente.
+  // Range: the server may ignore it (returns 200 with everything) — so we truncate client-side anyway.
   const res = await fetch(backend.chatAttachmentUrl(fileId, true), {
     credentials: "same-origin",
     headers: { Range: `bytes=0-${MAX_BYTES - 1}` },
@@ -71,7 +71,7 @@ async function fetchHead(fileId: string): Promise<{ text: string; truncated: boo
 
 // --- CSV ---
 
-// Divide uma linha de CSV respeitando aspas ("a,b" é UM campo) e aspas duplicadas ("" = ").
+// Splits a CSV row while respecting quotes ("a,b" is ONE field) and doubled quotes ("" = ").
 function splitRow(line: string, sep: string): string[] {
   const out: string[] = [];
   let cur = "";
@@ -90,8 +90,8 @@ function splitRow(line: string, sep: string): string[] {
   return out;
 }
 
-// O separador varia com a região (Excel português grava com ";"). Decide-se pela primeira linha:
-// ganha o que aparecer mais vezes fora de aspas.
+// The separator varies by region (Excel in some locales writes with ";"). Decided from the first
+// line: whichever appears more often outside quotes wins.
 function guessSep(line: string): string {
   const count = (sep: string) => splitRow(line, sep).length;
   return count(";") > count(",") ? ";" : ",";
@@ -101,7 +101,7 @@ function CsvTable({ text, truncated, tab }: { text: string; truncated: boolean; 
   const { t } = useTranslation();
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== "");
   if (lines.length === 0) return null;
-  // A última linha de um pedaço cortado costuma vir a meio — não vale a pena mostrá-la.
+  // The last line of a truncated chunk usually comes in mid-way — not worth showing it.
   const usable = truncated && lines.length > 1 ? lines.slice(0, -1) : lines;
   const sep = tab ? "\t" : guessSep(usable[0]);
   const rows = usable.slice(0, MAX_ROWS + 1).map((l) => splitRow(l, sep).slice(0, MAX_COLS));
@@ -141,8 +141,8 @@ function CsvTable({ text, truncated, tab }: { text: string; truncated: boolean; 
 function TextHead({ text, json, truncated }: { text: string; json: boolean; truncated: boolean }) {
   const { t } = useTranslation();
   let body = text;
-  // JSON válido fica legível (indentado); inválido ou cortado a meio mostra-se como veio.
-  if (json) { try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { /* mantém cru */ } }
+  // Valid JSON is made readable (indented); invalid or mid-way truncated is shown as-is.
+  if (json) { try { body = JSON.stringify(JSON.parse(text), null, 2); } catch { /* keeps raw */ } }
   const lines = body.split("\n");
   const shown = lines.slice(0, MAX_LINES).join("\n");
   const rest = lines.length - MAX_LINES;

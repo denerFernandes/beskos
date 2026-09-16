@@ -8,8 +8,8 @@ import { IcPencil, IcTrash, IcUsers, IcX } from "../panel/icons";
 
 const PALETTE = ["#B4785F", "#B44D3A", "#3B6FB0", "#8257C7", "#2E7D5B", "#C0692F"];
 
-// GRUPOS de contatos: além de arrumar, é o que DÁ ACESSO — partilhar um grupo com uma equipa faz
-// os contatos dele aparecerem para essa equipa. Decide-se uma vez por grupo, não contato a contato.
+// Contact GROUPS: besides organizing, this is what GRANTS ACCESS — sharing a group with a team
+// makes its contacts show up for that team. Decided once per group, not contact by contact.
 export function GroupsSidebar({ active, onSelect, allCount, count }: {
   active: string | null; onSelect: (id: string | null) => void;
   allCount: number; count: (id: string) => number;
@@ -53,8 +53,8 @@ export function GroupsSidebar({ active, onSelect, allCount, count }: {
   );
 
   return (
-    // No telemóvel (empilhado) a barra de grupos perde a borda direita e limita a altura para não
-    // empurrar a lista para baixo (tem scroll próprio). (Tailwind max-md:*, important — tailwind.config.js.)
+    // On phone (stacked) the groups bar loses its right border and caps its height so it doesn't
+    // push the list down (it has its own scroll). (Tailwind max-md:*, important — tailwind.config.js.)
     <aside className="cts-side max-md:border-r-0 max-md:max-h-44">
       <div className="rlabel" style={{ margin: "0 0 8px" }}>{t("contacts.groups")}</div>
 
@@ -85,7 +85,7 @@ export function GroupsSidebar({ active, onSelect, allCount, count }: {
   );
 }
 
-// Partilhar o grupo com EQUIPAS e/ou PESSOAS. Só o dono do grupo consegue — a API recusa os outros.
+// Share the group with TEAMS and/or PEOPLE. Only the group's owner can — the API rejects everyone else.
 function ShareModal({ group, onClose }: { group: ContactGroup; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

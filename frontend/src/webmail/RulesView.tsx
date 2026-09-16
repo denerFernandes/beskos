@@ -12,14 +12,14 @@ import { IcPlus, IcTrash, IcPencil, IcX, IcMail, IcFolder, IcCheck } from "../pa
 const FIELDS: Field[] = ["from", "to", "cc", "subject", "body"];
 const OPS: Op[] = ["contains", "is", "starts", "ends", "domain"];
 const ACTIONS: ActionKind[] = ["move", "flag", "read", "keyword", "reply", "forward", "delete", "stop"];
-// Regras de SAÍDA: o webmail só consegue aplicar Bcc (forward) e parar, no envio. As demais são Sieve
-// (entrega). Restringir o editor evita prometer ações que não teriam efeito ao enviar.
+// OUTBOUND rules: the webmail can only apply Bcc (forward) and stop, on send. The rest are Sieve
+// (delivery). Restricting the editor avoids promising actions that would have no effect when sending.
 const OUTBOUND_ACTIONS: ActionKind[] = ["forward", "stop"];
 
-// Automações de e-mail. O fluxo é lido de cima para baixo: QUANDO → SE → ENTÃO.
+// Email automations. The flow reads top to bottom: WHEN -> IF -> THEN.
 //
-// As regras de ENTRADA viram um script Sieve no Stalwart e correm na entrega — valem com tudo
-// fechado. As de SAÍDA só o webmail aplica, e isso está escrito na cara de quem as cria.
+// INBOUND rules become a Sieve script on Stalwart and run on delivery — they apply with everything
+// closed. OUTBOUND ones only the webmail applies, and that's spelled out to whoever creates them.
 export function RulesView({ session }: { session: WebmailSession }) {
   const { t } = useTranslation();
   const api = session.service.rules();
@@ -32,7 +32,7 @@ export function RulesView({ session }: { session: WebmailSession }) {
 
   const folders = useQuery({ queryKey: ["mailboxes"], queryFn: () => session.service.mailboxes() });
 
-  // Carrega do próprio script (o JSON vem no comentário) — o Stalwart é a fonte única.
+  // Loads from the script itself (the JSON comes in the comment) — Stalwart is the single source of truth.
   const load = useQuery({
     queryKey: ["sieve"],
     queryFn: async () => {
@@ -52,7 +52,7 @@ export function RulesView({ session }: { session: WebmailSession }) {
     }
   }, [load.data, rules, myDomain]);
 
-  // persist recompila SEMPRE regras + férias no mesmo script (fonte única). Overrides opcionais.
+  // persist ALWAYS recompiles rules + vacation into the same script (single source of truth). Optional overrides.
   const persist = async (nextRules?: Rule[], nextVac?: VacationConfig) => {
     const r = nextRules ?? rules ?? [];
     const v = nextVac ?? vacation ?? undefined;
@@ -77,14 +77,14 @@ export function RulesView({ session }: { session: WebmailSession }) {
         <h2>{t("rules.title")}</h2>
         {saving && <Spinner size={14} />}
         <div className="grow" />
-        {/* Sem "×": isto é uma página do e-mail, e sai-se dela escolhendo uma pasta. Um botão de
-            fechar dizia "modal" e era mentira. */}
+        {/* No "x": this is a mail page, and you leave it by picking a folder. A close
+            button said "modal" and that was a lie. */}
         <button className="chipbtn" onClick={() => setEditing(newRule())}><IcPlus size={15} /> {t("rules.new")}</button>
       </div>
 
-      {/* Corpo com a mesma métrica das outras páginas (padding + largura máxima). Sem isto, o
-          cabeçalho vinha recuado e o conteúdo colado às bordas, e num ecrã largo os campos do
-          painel de férias esticavam de ponta a ponta. */}
+      {/* Body with the same metrics as the other pages (padding + max width). Without this, the
+          header came out indented and the content glued to the edges, and on a wide screen the
+          vacation panel's fields stretched edge to edge. */}
       <div className="rules-body">
         <p className="rule-hint">{t("rules.explain")}</p>
         {foreign && <p className="rule-hint warn">{t("rules.foreign")}</p>}
@@ -117,8 +117,8 @@ export function RulesView({ session }: { session: WebmailSession }) {
   );
 }
 
-// Painel da resposta de férias: ligar/desligar, janela de datas, escopo (todos/interno), assunto e
-// mensagem. Guarda no mesmo script Sieve (via onSave → persist). Estado local até "Guardar".
+// Vacation reply panel: on/off, date window, scope (all/internal), subject and
+// message. Saves into the same Sieve script (via onSave -> persist). Local state until "Save".
 function VacationPanel({ value, domain, saving, onSave }: {
   value: VacationConfig; domain: string; saving: boolean; onSave: (v: VacationConfig) => void;
 }) {
@@ -162,8 +162,8 @@ function VacationPanel({ value, domain, saving, onSave }: {
   );
 }
 
-// O cartão usa os MESMOS nós do editor, em leitura: quem cria a regra e quem a relê depois vê o
-// mesmo desenho. Duas linguagens visuais para a mesma coisa fariam parecer duas coisas.
+// The card uses the SAME nodes as the editor, read-only: whoever creates the rule and whoever
+// rereads it later sees the same design. Two visual languages for the same thing would make it look like two things.
 function RuleCard({ r, folders, onEdit, onToggle, onDelete }: {
   r: Rule; folders: string[]; onEdit: () => void; onToggle: () => void; onDelete: () => void;
 }) {
@@ -204,7 +204,7 @@ function RuleCard({ r, folders, onEdit, onToggle, onDelete }: {
       </div>
 
       {r.trigger === "send" && <p className="rule-warn">{t("rules.sendWarn")}</p>}
-      {/* Pasta apagada depois da regra criada: o Sieve criaria uma nova em silêncio. */}
+      {/* Folder deleted after the rule was created: Sieve would silently create a new one. */}
       {badFolder && <p className="rule-warn">{t("rules.folderGone")}</p>}
     </div>
   );
@@ -220,9 +220,9 @@ function describeAction(a: Action, t: TFunction): string {
   }
 }
 
-// Editor em FLUXO: uma espinha vertical com nós ligados. Cada passo tem cor e ícone próprios —
-// gatilho, condição e ação são coisas diferentes e devem parecer diferentes. O "+" vive na linha,
-// entre os nós, porque é ali que a pessoa quer acrescentar.
+// FLOW editor: a vertical spine with connected nodes. Each step has its own color and icon —
+// trigger, condition, and action are different things and should look different. The "+" lives on the
+// line, between the nodes, because that's where the person wants to add something.
 function RuleEditor({ rule, folders, onClose, onSave }: {
   rule: Rule; folders: string[]; onClose: () => void; onSave: (r: Rule) => void;
 }) {
@@ -233,8 +233,8 @@ function RuleEditor({ rule, folders, onClose, onSave }: {
     set("conditions", r.conditions.map((x, j) => (j === i ? { ...x, ...c } : x)));
   const setAct = (i: number, a: Partial<Action>) =>
     set("actions", r.actions.map((x, j) => (j === i ? { ...x, ...a } : x)));
-  // Ao trocar de gatilho, coage as ações às válidas do modo — evita deixar uma ação de entrega
-  // (ex.: mover) numa regra de saída, que seria ignorada no envio.
+  // When switching triggers, coerces the actions to the mode's valid ones — avoids leaving a delivery
+  // action (e.g. move) in an outbound rule, which would be ignored on send.
   const setTrigger = (tg: Trigger) => setR((p) => ({
     ...p, trigger: tg,
     actions: tg === "send"
@@ -256,7 +256,7 @@ function RuleEditor({ rule, folders, onClose, onSave }: {
             onChange={(e) => set("name", e.target.value)} />
 
           <div className="canvas">
-            {/* 1 — QUANDO */}
+            {/* 1 — WHEN */}
             <Node kind="when" icon={<IcMail size={14} />} title={t("rules.whenTitle")}>
               <div className="node-chips">
                 {(["receive", "send"] as const).map((tg) => (
@@ -269,7 +269,7 @@ function RuleEditor({ rule, folders, onClose, onSave }: {
 
             <Link />
 
-            {/* 2 — SE */}
+            {/* 2 — IF */}
             <Node kind="if" icon={<IcCheck size={14} />} title={t("rules.ifTitle")}
               aside={
                 <div className="node-chips sm">
@@ -305,12 +305,12 @@ function RuleEditor({ rule, folders, onClose, onSave }: {
 
             <Link />
 
-            {/* 3 — ENTÃO */}
+            {/* 3 — THEN */}
             <Node kind="then" icon={<IcFolder size={14} />} title={t("rules.thenTitle")} last>
               {r.actions.map((a, i) => (
                 <div className="node-row" key={i}>
                   <select value={a.kind} onChange={(e) => setAct(i, { kind: e.target.value as ActionKind, value: "" })}>
-                    {/* Saída só oferece o que o webmail aplica de facto no envio (Bcc/parar); o resto é Sieve, só na entrada. */}
+                    {/* Outbound only offers what the webmail actually applies on send (Bcc/stop); the rest is Sieve, inbound only. */}
                     {(r.trigger === "send" ? OUTBOUND_ACTIONS : ACTIONS).map((k) => <option key={k} value={k}>{t(`rules.act_${k}`)}</option>)}
                   </select>
                   {a.kind === "move" && (
@@ -350,8 +350,8 @@ function RuleEditor({ rule, folders, onClose, onSave }: {
   );
 }
 
-// Node: um passo do fluxo. O ponto colorido fica SOBRE a linha da espinha — é o que faz os cartões
-// parecerem ligados em vez de empilhados.
+// Node: a step in the flow. The colored dot sits ON the spine line — it's what makes the cards
+// look connected instead of stacked.
 function Node({ kind, icon, title, aside, children, last }: {
   kind: "when" | "if" | "then"; icon: React.ReactNode; title: string;
   aside?: React.ReactNode; children: React.ReactNode; last?: boolean;
@@ -367,8 +367,8 @@ function Node({ kind, icon, title, aside, children, last }: {
   );
 }
 
-// Link: só o trecho de linha entre dois nós. Sem "+": o fluxo é fixo (quando → se → então), não
-// há passo para inserir aqui — acrescentar condição/ação é dentro do nó que as contém.
+// Link: just the line segment between two nodes. No "+": the flow is fixed (when -> if -> then), there's
+// no step to insert here — adding a condition/action happens inside the node that holds them.
 function Link() {
   return <div className="node-link"><span className="link-arrow">↓</span></div>;
 }
