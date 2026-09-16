@@ -380,21 +380,7 @@ func (s *Server) handlePublicBookingCreate(w http.ResponseWriter, r *http.Reques
 		writeErr(w, http.StatusInternalServerError, "booking.create_failed")
 		return
 	}
-	title := page.Title
-	if title == "" {
-		title = "Reunião"
-	}
-	title += " · " + req.Name
-	desc := "Reserva pela página pública.\nNome: " + req.Name + "\nE-mail: " + req.Email
-	if req.Phone != "" {
-		desc += "\nTelefone: " + req.Phone
-	}
-	if req.Company != "" {
-		desc += "\nEmpresa: " + req.Company
-	}
-	if req.Note != "" {
-		desc += "\nNota: " + req.Note
-	}
+	title, desc := notify.BookingEvent(owner.Language, page.Title, req.Name, req.Email, req.Phone, req.Company, strings.TrimSpace(req.Note))
 	ev, err := s.q.CreateEvent(ctx, db.CreateEventParams{
 		TenantID: page.TenantID, OwnerUserID: pgUUID(owner.ID), Title: title, Description: desc,
 		Location: "", Color: "#8B7CF6", StartsAt: starts, EndsAt: ends, SourceEmailID: "",

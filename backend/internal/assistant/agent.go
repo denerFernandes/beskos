@@ -112,7 +112,7 @@ var builtins = map[string]Agent{
 	},
 	AgentKnowledge: {
 		Key: AgentKnowledge, Builtin: true,
-		Purpose: "the wiki / knowledge base: wiki pages (\"páginas\"), answering questions from company knowledge, creating or editing wiki pages",
+		Purpose: "the wiki / knowledge base: wiki pages, answering questions from company knowledge, creating or editing wiki pages",
 		Instructions: "You are the Beskos knowledge agent. You answer questions from the organisation's " +
 			"wiki and help keep it written down.\n" +
 			"To answer a question, ALWAYS look it up first with wiki.search and, when needed, read the " +
