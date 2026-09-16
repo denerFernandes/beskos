@@ -41,14 +41,14 @@ Have a feature you'd like to see prioritized? Open an issue.
 Beskos is source-available under the [Business Source License 1.1](../LICENSE.md): free to run,
 for your own organization, on your own infrastructure, with no seat limit. What it does not
 allow is reselling it as a hosted service to third parties -- that needs a
-[commercial license](../LICENSE.md#121-licenciamento-dual-o-servico-concorrente-compra-a-licenca-comercial).
+[commercial license](../LICENSE.md#what-this-means-in-practice).
 Every BUSL-licensed version converts to Apache 2.0 four years after its release, so nothing here
 is ever permanently locked away.
 
 A handful of features that a business pays for without hesitation -- meeting recording,
-white-label branding, an audit log, organization-wide security policies, AI agents -- are Pro,
-at **€1 per user per month**. Everything else, including every security feature, is Community.
-See [docs/editions.md](editions.md) for the full split.
+white-label branding, organization-wide security policies, AI agents -- are Pro, at **€1 per
+user per month**. Everything else, including every security feature, is Community. See
+[docs/editions.md](editions.md) for the full split, including what's planned but not shipped yet.
 
 ## Quickstart
 
