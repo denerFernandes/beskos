@@ -36,7 +36,7 @@ type AddCardDepParams struct {
 	DependsOnID uuid.UUID `json:"depends_on_id"`
 }
 
-// Só depende de card do mesmo quadro/tenant (o handler valida).
+// Can only depend on a card from the same board/tenant (validated by the handler).
 func (q *Queries) AddCardDep(ctx context.Context, arg AddCardDepParams) error {
 	_, err := q.db.Exec(ctx, addCardDep, arg.CardID, arg.DependsOnID)
 	return err
@@ -68,7 +68,7 @@ const automationsForColumn = `-- name: AutomationsForColumn :many
 SELECT id, board_id, tenant_id, trigger_column_id, action, action_value, created_at FROM board_automations WHERE trigger_column_id = $1
 `
 
-// Regras cujo gatilho é entrar nesta coluna (aplicadas quando um card se move para cá).
+// Rules triggered by entering this column (applied when a card moves into it).
 func (q *Queries) AutomationsForColumn(ctx context.Context, triggerColumnID uuid.UUID) ([]BoardAutomation, error) {
 	rows, err := q.db.Query(ctx, automationsForColumn, triggerColumnID)
 	if err != nil {
@@ -125,7 +125,7 @@ type BoardRoleParams struct {
 	TenantID uuid.UUID   `json:"tenant_id"`
 }
 
-// Papel efetivo (rank) no quadro: 0=sem acesso, 1=viewer, 3=editor, 4=manager. Card atribuído = 3.
+// Effective role (rank) on the board: 0=no access, 1=viewer, 3=editor, 4=manager. Assigned card = 3.
 func (q *Queries) BoardRole(ctx context.Context, arg BoardRoleParams) (int32, error) {
 	row := q.db.QueryRow(ctx, boardRole, arg.UserID, arg.BoardID, arg.TenantID)
 	var role_rank int32
@@ -155,8 +155,8 @@ WHERE due <> '' AND due <= $1 AND assignee_id IS NOT NULL AND due_notified_for <
 ORDER BY due LIMIT 200
 `
 
-// Cards com prazo (due 'YYYY-MM-DD') até a data limite, com responsável, ainda não avisados para
-// ESTE due. Datas ISO comparam lexicograficamente, então <= $1 pega vencidos e o que vence até lá.
+// Cards with a due date (due 'YYYY-MM-DD') up to the cutoff, with an assignee, not yet notified
+// for THIS due date. ISO dates compare lexicographically, so <= $1 catches overdue and due-by cards.
 func (q *Queries) CardsDueForNotify(ctx context.Context, due string) ([]Card, error) {
 	rows, err := q.db.Query(ctx, cardsDueForNotify, due)
 	if err != nil {
@@ -214,8 +214,8 @@ const countCardsInColumn = `-- name: CountCardsInColumn :one
 SELECT count(*) FROM cards WHERE column_id = $1 AND archived_at IS NULL
 `
 
-// ---- Biblioteca de GIFs (pessoal) ----
-// ===== Kanban planning: WIP, múltiplos responsáveis, dependências =====
+// ---- GIF library (personal) ----
+// ===== Kanban planning: WIP, multiple assignees, dependencies =====
 func (q *Queries) CountCardsInColumn(ctx context.Context, columnID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countCardsInColumn, columnID)
 	var count int64
@@ -522,7 +522,7 @@ type DeleteCardCommentParams struct {
 	AuthorID uuid.UUID `json:"author_id"`
 }
 
-// Só o autor apaga o próprio comentário.
+// Only the author deletes their own comment.
 func (q *Queries) DeleteCardComment(ctx context.Context, arg DeleteCardCommentParams) error {
 	_, err := q.db.Exec(ctx, deleteCardComment, arg.ID, arg.AuthorID)
 	return err
@@ -566,7 +566,7 @@ type EditCardCommentParams struct {
 	Body     string    `json:"body"`
 }
 
-// Só o autor edita o próprio comentário.
+// Only the author edits their own comment.
 func (q *Queries) EditCardComment(ctx context.Context, arg EditCardCommentParams) (CardComment, error) {
 	row := q.db.QueryRow(ctx, editCardComment, arg.ID, arg.AuthorID, arg.Body)
 	var i CardComment
@@ -656,7 +656,7 @@ type GetCardAttachmentBlobParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Download tenant-scoped: o anexo tem de ser do tenant. Devolve o ficheiro para servir o blob.
+// Tenant-scoped download: the attachment must belong to the tenant. Returns the file to serve the blob.
 func (q *Queries) GetCardAttachmentBlob(ctx context.Context, arg GetCardAttachmentBlobParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, getCardAttachmentBlob, arg.ID, arg.TenantID)
 	var i StorageFile
@@ -979,8 +979,8 @@ type ListBoardsParams struct {
 // Split out of queries.sql, which had grown to 2309 lines -- four times the 600 the project
 // allows (law 1.4). sqlc reads every file in this directory, so moving a query changes nothing
 // about the generated API; only where it lives.
-// Visibilidade por utilizador: dono, legado (sem dono nem grants = org toda), grant (org/user/grupo)
-// ou card atribuído no quadro (acesso automático).
+// Per-user visibility: owner, legacy (no owner and no grants = whole org), a grant (org/user/group),
+// or a card assigned to the user on the board (automatic access).
 func (q *Queries) ListBoards(ctx context.Context, arg ListBoardsParams) ([]Board, error) {
 	rows, err := q.db.Query(ctx, listBoards, arg.TenantID, arg.UserID)
 	if err != nil {
@@ -1130,7 +1130,7 @@ type ListCardCommentsRow struct {
 	AuthorEmail string      `json:"author_email"`
 }
 
-// ===== Grupos de utilizadores =====
+// ===== User groups =====
 func (q *Queries) ListCardComments(ctx context.Context, arg ListCardCommentsParams) ([]ListCardCommentsRow, error) {
 	rows, err := q.db.Query(ctx, listCardComments, arg.CardID, arg.TenantID)
 	if err != nil {
@@ -1199,8 +1199,8 @@ type ListCardsByBoardRow struct {
 	CardKey        interface{}        `json:"card_key"`
 }
 
-// assignee_name: o nome do utilizador responsável, ou o texto legado de quem nunca casou com um
-// utilizador (a migração 00026 preservou-o). A UI mostra um ou outro sem saber a diferença.
+// assignee_name: the responsible user's name, or the legacy text for whoever was never matched to
+// a user (migration 00026 preserved it). The UI shows either without knowing the difference.
 func (q *Queries) ListCardsByBoard(ctx context.Context, boardID uuid.UUID) ([]ListCardsByBoardRow, error) {
 	rows, err := q.db.Query(ctx, listCardsByBoard, boardID)
 	if err != nil {
@@ -1339,7 +1339,7 @@ type ListContactCardsRow struct {
 	ColumnName  string    `json:"column_name"`
 }
 
-// Tarefas do contato = cards do Kanban ligados a ele. board_id serve para o link "abrir a tarefa".
+// A contact's tasks = Kanban cards linked to it. board_id serves the "open task" link.
 func (q *Queries) ListContactCards(ctx context.Context, arg ListContactCardsParams) ([]ListContactCardsRow, error) {
 	rows, err := q.db.Query(ctx, listContactCards, arg.ContactID, arg.TenantID)
 	if err != nil {
@@ -1412,8 +1412,8 @@ type MergeReassignCardsParams struct {
 	Tenant uuid.UUID   `json:"tenant"`
 }
 
-// ===== Calendário =====
-// ---- Fusão de duplicados: reatribui referências do contato "merge" para o "keep" ----
+// ===== Calendar =====
+// ---- Duplicate merge: reassigns references from the "merge" contact to the "keep" one ----
 func (q *Queries) MergeReassignCards(ctx context.Context, arg MergeReassignCardsParams) error {
 	_, err := q.db.Exec(ctx, mergeReassignCards, arg.Keep, arg.Merge, arg.Tenant)
 	return err
@@ -1473,7 +1473,7 @@ type NextCardNumberRow struct {
 	Prefix  string `json:"prefix"`
 }
 
-// Trava a linha do quadro: dois cards criados ao mesmo tempo nunca pegam o mesmo número.
+// Locks the board row: two cards created at the same time never get the same number.
 func (q *Queries) NextCardNumber(ctx context.Context, id uuid.UUID) (NextCardNumberRow, error) {
 	row := q.db.QueryRow(ctx, nextCardNumber, id)
 	var i NextCardNumberRow
@@ -1538,8 +1538,8 @@ type ReorderColumnParams struct {
 	CardIds  []uuid.UUID `json:"card_ids"`
 }
 
-// Reordena os cards de uma coluna e move para ela os de fora: define column_id e position (1..N) na
-// ordem exata do array, num único UPDATE atômico. Ordena por position em ListCardsByBoard.
+// Reorders a column's cards and moves outside ones into it: sets column_id and position (1..N) in
+// the array's exact order, in a single atomic UPDATE. Read back by position in ListCardsByBoard.
 func (q *Queries) ReorderColumn(ctx context.Context, arg ReorderColumnParams) error {
 	_, err := q.db.Exec(ctx, reorderColumn, arg.ColumnID, arg.TenantID, arg.CardIds)
 	return err
@@ -1558,8 +1558,9 @@ type ReorderColumnsParams struct {
 	ColumnIds []uuid.UUID `json:"column_ids"`
 }
 
-// Reordena as colunas do quadro: define position (1..N) na ordem exata do array, num único UPDATE
-// atômico. Preso ao board_id e ao tenant para não mover coluna alheia. Lê-se por position em ListColumns.
+// Reorders the board's columns: sets position (1..N) in the array's exact order, in a single
+// atomic UPDATE. Pinned to board_id and tenant so it can't move another board's column. Read back
+// by position in ListColumns.
 func (q *Queries) ReorderColumns(ctx context.Context, arg ReorderColumnsParams) error {
 	_, err := q.db.Exec(ctx, reorderColumns, arg.BoardID, arg.TenantID, arg.ColumnIds)
 	return err
@@ -1615,10 +1616,10 @@ type SearchCardsRow struct {
 	AssigneeName string      `json:"assignee_name"`
 }
 
-// Busca de tarefas para referenciar noutro sítio (o `/task` do chat). Casa pela chave (QUA-12),
-// pelo número solto (12) ou por texto do título. A visibilidade é a MESMA do ListBoards — sem
-// isso, o chat viraria uma janela para quadros a que a pessoa não tem acesso (lei §5.1/§5.2).
-// Chave exata primeiro (quem escreve "QUA-12" quer aquela tarefa), depois as mais recentes.
+// Task search for referencing elsewhere (chat's `/task`). Matches by key (QUA-12), by the bare
+// number (12), or by title text. Visibility is the SAME as ListBoards -- without that, chat would
+// turn into a window onto boards the person has no access to (law 5.1/5.2).
+// Exact key first (whoever types "QUA-12" wants that specific task), then the most recent.
 func (q *Queries) SearchCards(ctx context.Context, arg SearchCardsParams) ([]SearchCardsRow, error) {
 	rows, err := q.db.Query(ctx, searchCards, arg.TenantID, arg.Q, arg.UserID)
 	if err != nil {
@@ -1660,7 +1661,7 @@ type SetBoardArchivedParams struct {
 	Archived bool      `json:"archived"`
 }
 
-// Arquiva (true) ou restaura (false) um quadro. Só no próprio tenant.
+// Archives (true) or restores (false) a board. Only within the same tenant.
 func (q *Queries) SetBoardArchived(ctx context.Context, arg SetBoardArchivedParams) (Board, error) {
 	row := q.db.QueryRow(ctx, setBoardArchived, arg.ID, arg.TenantID, arg.Archived)
 	var i Board
@@ -1687,7 +1688,7 @@ type SetCardArchivedParams struct {
 	Archived bool      `json:"archived"`
 }
 
-// Arquiva (true) ou restaura (false) um card. Só no próprio tenant.
+// Archives (true) or restores (false) a card. Only within the same tenant.
 func (q *Queries) SetCardArchived(ctx context.Context, arg SetCardArchivedParams) (Card, error) {
 	row := q.db.QueryRow(ctx, setCardArchived, arg.ID, arg.TenantID, arg.Archived)
 	var i Card
@@ -1808,7 +1809,7 @@ type UpdateBoardPrefixParams struct {
 	Prefix   string    `json:"prefix"`
 }
 
-// Prefixo em maiúsculas, sem espaços, até 6 — o resto é decisão de quem gere o quadro.
+// Uppercase prefix, no spaces, up to 6 chars -- the rest is up to whoever manages the board.
 func (q *Queries) UpdateBoardPrefix(ctx context.Context, arg UpdateBoardPrefixParams) (Board, error) {
 	row := q.db.QueryRow(ctx, updateBoardPrefix, arg.ID, arg.TenantID, arg.Prefix)
 	var i Board
@@ -1847,8 +1848,8 @@ type UpdateCardParams struct {
 	ContactID   pgtype.UUID `json:"contact_id"`
 }
 
-// contact_id só muda se o pedido trouxer o campo: quem edita a tarefa sem falar do contato não
-// pode desfazer o vínculo por omissão.
+// contact_id only changes if the request carries the field: editing the task without mentioning
+// the contact can't undo the link by omission.
 func (q *Queries) UpdateCard(ctx context.Context, arg UpdateCardParams) (Card, error) {
 	row := q.db.QueryRow(ctx, updateCard,
 		arg.ID,

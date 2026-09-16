@@ -1,10 +1,10 @@
--- Wiki queries. Ver docs/wiki-features.md. Acesso resolvido em SQL (§5.3): o papel efetivo de um
--- utilizador num espaço/página = MÁXIMO entre dono, visibilidade org/public e grants (user/grupo/org).
--- Rank dos papéis: viewer=1, commenter=2, editor=3, manager=4. 0 = sem acesso (404). Tudo filtra
--- tenant_id do contexto autenticado (lei 5.1). O subject de um grant casa quando: é 'org', ou é o
--- próprio user, ou é um grupo (user_group) de que o user é membro.
+-- Wiki queries. See docs/wiki-features.md. Access resolved in SQL (§5.3): a user's effective role
+-- on a space/page = the MAXIMUM among owner, org/public visibility, and grants (user/group/org).
+-- Role ranks: viewer=1, commenter=2, editor=3, manager=4. 0 = no access (404). Everything filters
+-- by tenant_id from the authenticated context (law 5.1). A grant's subject matches when it's
+-- 'org', or the user themselves, or a group (user_group) the user is a member of.
 
--- ---------- Espaços (wikis) ----------
+-- ---------- Spaces (wikis) ----------
 
 -- name: CreateWikiSpace :one
 INSERT INTO wiki_spaces (tenant_id, key, name, description, icon, owner_user_id, visibility)
@@ -25,17 +25,17 @@ RETURNING *;
 DELETE FROM wiki_spaces WHERE id = @id AND tenant_id = @tenant_id;
 
 -- name: SetWikiSpacePublic :one
--- Liga/desliga o acesso público: define visibility e o public_slug (null desliga o link).
+-- Turns public access on/off: sets visibility and public_slug (null turns the link off).
 UPDATE wiki_spaces SET visibility = @visibility, public_slug = sqlc.narg('public_slug'), updated_at = now()
 WHERE id = @id AND tenant_id = @tenant_id
 RETURNING *;
 
 -- name: GetWikiSpaceByPublicSlug :one
--- Resolve um espaço público pelo slug anónimo (o tenant vem da linha, nunca do request).
+-- Resolves a public space by its anonymous slug (the tenant comes from the row, never the request).
 SELECT * FROM wiki_spaces WHERE public_slug = @slug AND visibility = 'public';
 
 -- name: ListVisibleWikiSpaces :many
--- Espaços que o utilizador pode ver (papel >= viewer): dono, org/public, ou grant (user/grupo/org).
+-- Spaces the user can see (role >= viewer): owner, org/public, or a grant (user/group/org).
 SELECT s.* FROM wiki_spaces s
 WHERE s.tenant_id = @tenant_id AND (
     s.owner_user_id = @user_id
@@ -54,7 +54,7 @@ WHERE s.tenant_id = @tenant_id AND (
 ORDER BY s.name;
 
 -- name: WikiSpaceRole :one
--- Papel efetivo (rank) do utilizador num espaço. 0 = sem acesso.
+-- Effective role (rank) of the user in a space. 0 = no access.
 SELECT COALESCE(MAX(rank), 0)::int AS role_rank FROM (
     SELECT CASE WHEN s.owner_user_id = @user_id THEN 4
                 WHEN s.visibility IN ('org', 'public') THEN 1 ELSE 0 END AS rank
@@ -71,7 +71,7 @@ SELECT COALESCE(MAX(rank), 0)::int AS role_rank FROM (
     )
 ) t;
 
--- ---------- Páginas (árvore) ----------
+-- ---------- Pages (tree) ----------
 
 -- name: CreateWikiPage :one
 INSERT INTO wiki_pages (
@@ -90,14 +90,14 @@ SELECT * FROM wiki_pages
 WHERE tenant_id = @tenant_id AND space_id = @space_id AND slug = @slug;
 
 -- name: ListWikiPages :many
--- Árvore de um espaço. Drafts só entram quando include_drafts (o serviço liga isto se o papel >= editor).
+-- A space's tree. Drafts are included only when include_drafts (the service turns this on when role >= editor).
 SELECT * FROM wiki_pages
 WHERE tenant_id = @tenant_id AND space_id = @space_id
   AND (status = 'published' OR @include_drafts::bool)
 ORDER BY position, title;
 
 -- name: UpdateWikiPage :one
--- Bloqueio otimista: só grava se a versão bater; senão 0 linhas -> serviço devolve 409 (§6).
+-- Optimistic locking: only saves if the version matches; otherwise 0 rows -> the service returns 409 (§6).
 UPDATE wiki_pages SET
     title = @title, slug = @slug, body_json = @body_json, body_text = @body_text,
     body_html = @body_html, status = @status, author_user_id = @author_user_id,
@@ -113,7 +113,7 @@ WHERE id = @id AND tenant_id = @tenant_id;
 DELETE FROM wiki_pages WHERE id = @id AND tenant_id = @tenant_id;
 
 -- name: WikiPageRole :one
--- Papel efetivo (rank) do utilizador numa página = máx(papel herdado do espaço, grants da página).
+-- Effective role (rank) of the user on a page = max(role inherited from the space, page grants).
 SELECT COALESCE(MAX(rank), 0)::int AS role_rank FROM (
     SELECT CASE WHEN s.owner_user_id = @user_id THEN 4
                 WHEN s.visibility IN ('org', 'public') THEN 1 ELSE 0 END AS rank
@@ -141,7 +141,7 @@ SELECT COALESCE(MAX(rank), 0)::int AS role_rank FROM (
     )
 ) t;
 
--- ---------- Versões ----------
+-- ---------- Versions ----------
 
 -- name: InsertWikiPageVersion :exec
 INSERT INTO wiki_page_versions (tenant_id, page_id, version, title, body_json, body_text, author_user_id)
@@ -157,7 +157,7 @@ ORDER BY version DESC;
 SELECT * FROM wiki_page_versions
 WHERE tenant_id = @tenant_id AND page_id = @page_id AND version = @version;
 
--- ---------- Grants do espaço ----------
+-- ---------- Space grants ----------
 
 -- name: ListWikiSpaceGrants :many
 SELECT * FROM wiki_space_grants
@@ -177,7 +177,7 @@ RETURNING *;
 -- name: DeleteWikiSpaceGrant :exec
 DELETE FROM wiki_space_grants WHERE id = @id AND tenant_id = @tenant_id;
 
--- ---------- Grants da página ----------
+-- ---------- Page grants ----------
 
 -- name: ListWikiPageGrants :many
 SELECT * FROM wiki_page_grants
@@ -197,7 +197,7 @@ RETURNING *;
 -- name: DeleteWikiPageGrant :exec
 DELETE FROM wiki_page_grants WHERE id = @id AND tenant_id = @tenant_id;
 
--- ---------- Comentários ----------
+-- ---------- Comments ----------
 
 -- name: ListWikiComments :many
 SELECT c.id, c.tenant_id, c.page_id, c.author_user_id, c.body, c.body_html, c.created_at,
@@ -218,7 +218,7 @@ SELECT * FROM wiki_comments WHERE id = @id AND tenant_id = @tenant_id;
 -- name: DeleteWikiComment :exec
 DELETE FROM wiki_comments WHERE id = @id AND tenant_id = @tenant_id;
 
--- ---------- Anexos (reuso do Files/storage_files) ----------
+-- ---------- Attachments (reusing Files/storage_files) ----------
 
 -- name: AttachFileToWikiPage :exec
 INSERT INTO wiki_attachments (tenant_id, page_id, file_id, added_by)
@@ -234,32 +234,32 @@ WHERE a.page_id = @page_id AND a.tenant_id = @tenant_id ORDER BY a.created_at;
 DELETE FROM wiki_attachments WHERE id = @id AND tenant_id = @tenant_id;
 
 -- name: GetWikiAttachmentBlob :one
--- Devolve o ficheiro e a página do anexo para o serviço conferir acesso antes de servir o blob.
+-- Returns the file and the page of the attachment so the service can check access before serving the blob.
 SELECT f.*, a.page_id FROM wiki_attachments a JOIN storage_files f ON f.id = a.file_id
 WHERE a.id = @id AND a.tenant_id = @tenant_id;
 
--- ---------- RAG: chunks + busca semântica (pgvector, §7.2) ----------
+-- ---------- RAG: chunks + semantic search (pgvector, §7.2) ----------
 
 -- name: UpsertWikiChunk :exec
--- Idempotente por (page_id, chunk_index); created_at=now() marca o chunk como fresco face a updated_at.
+-- Idempotent on (page_id, chunk_index); created_at=now() marks the chunk as fresh relative to updated_at.
 INSERT INTO wiki_chunks (tenant_id, page_id, space_id, chunk_index, chunk_text, embedding)
 VALUES (@tenant_id, @page_id, @space_id, @chunk_index, @chunk_text, @embedding::vector)
 ON CONFLICT (page_id, chunk_index) DO UPDATE
 SET chunk_text = EXCLUDED.chunk_text, embedding = EXCLUDED.embedding, created_at = now();
 
 -- name: DeleteWikiChunksFrom :exec
--- Apara chunks além do novo tamanho da página (página encolheu ao regravar).
+-- Trims chunks past the page's new size (the page shrank when re-saved).
 DELETE FROM wiki_chunks WHERE page_id = @page_id AND chunk_index >= @from_index;
 
 -- name: DeleteStaleWikiChunks :execrows
--- Limpa chunks de páginas despublicadas ou de espaços com ai_indexed desligado (nunca ficam órfãos).
+-- Cleans up chunks from unpublished pages or spaces with ai_indexed turned off (never left orphaned).
 DELETE FROM wiki_chunks c
 USING wiki_pages p, wiki_spaces s
 WHERE c.page_id = p.id AND s.id = p.space_id
   AND (p.status <> 'published' OR s.ai_indexed = false);
 
 -- name: ListWikiPagesNeedingEmbedding :many
--- Páginas published/indexáveis sem nenhum chunk mais fresco que updated_at (precisam de (re)embed).
+-- Published/indexable pages with no chunk fresher than updated_at (need a (re)embed).
 SELECT p.id, p.tenant_id, p.space_id, p.title, p.body_text
 FROM wiki_pages p JOIN wiki_spaces s ON s.id = p.space_id
 WHERE p.status = 'published' AND s.ai_indexed = true AND p.body_text <> ''
@@ -268,15 +268,15 @@ WHERE p.status = 'published' AND s.ai_indexed = true AND p.body_text <> ''
 LIMIT @max_pages;
 
 -- name: SearchWikiChunks :many
--- kNN por cosseno FILTRADO pela permissão de quem pergunta (mesma superfície vis, §7.4) + tenant +
--- ai_indexed + published. distance menor = mais relevante.
+-- Cosine kNN FILTERED by the asker's permission (same visibility surface, §7.4) + tenant +
+-- ai_indexed + published. Smaller distance = more relevant.
 SELECT c.page_id, c.chunk_index, c.chunk_text, p.title, p.slug, p.space_id,
        (c.embedding <=> @query_embedding::vector)::float8 AS distance
 FROM wiki_chunks c
 JOIN wiki_pages p ON p.id = c.page_id
 JOIN wiki_spaces s ON s.id = c.space_id
 WHERE c.tenant_id = @tenant_id AND p.status = 'published' AND s.ai_indexed = true
-  -- B9: pré-filtro FTS barato (GIN em search_tsv) antes do kNN; o serviço repete sem ele se der 0.
+  -- B9: cheap FTS pre-filter (GIN on search_tsv) before the kNN; the service retries without it on 0 results.
   AND (@use_fts::bool = false OR p.search_tsv @@ websearch_to_tsquery('simple', @query_text::text))
   AND (
     s.owner_user_id = @user_id
@@ -302,10 +302,11 @@ ORDER BY c.embedding <=> @query_embedding::vector
 LIMIT @max_results;
 
 -- name: SearchWikiPagesText :many
--- Busca LEXICAL, direta às PÁGINAS, com a mesma superfície de visibilidade do kNN. É a rede para
--- quando não há EMBEDDINGS_API_KEY: aí não existem chunks nenhuns (só nascem no embedPage), por
--- isso procurar nos chunks daria sempre vazio. `search_tsv` é coluna GENERATED — existe sempre,
--- sem pipeline nenhum. `distance` mantém a semântica do kNN (menor = mais relevante).
+-- LEXICAL search, straight against PAGES, with the same visibility surface as the kNN. This is
+-- the safety net for when there's no EMBEDDINGS_API_KEY: then no chunks exist at all (they're
+-- only born in embedPage), so searching the chunks would always come back empty. `search_tsv` is
+-- a GENERATED column -- always there, no pipeline needed. `distance` keeps the kNN's semantics
+-- (smaller = more relevant).
 SELECT p.id AS page_id, p.title, p.slug, p.space_id,
        left(p.body_text, 1200) AS snippet,
        (1.0 - ts_rank_cd(p.search_tsv, websearch_to_tsquery('simple', @query_text::text)))::float8 AS distance
@@ -336,7 +337,7 @@ WHERE p.tenant_id = @tenant_id AND p.status = 'published' AND s.ai_indexed = tru
 ORDER BY ts_rank_cd(p.search_tsv, websearch_to_tsquery('simple', @query_text::text)) DESC
 LIMIT @max_results;
 
--- ---------- Home da app Wiki (B5) ----------
+-- ---------- Wiki app home (B5) ----------
 
 -- name: GetWikiHome :one
 SELECT * FROM wiki_home WHERE tenant_id = @tenant_id;
@@ -349,7 +350,7 @@ ON CONFLICT (tenant_id) DO UPDATE SET
     body_html = EXCLUDED.body_html, updated_by = EXCLUDED.updated_by, updated_at = now()
 RETURNING *;
 
--- ---------- Templates de página (B7) ----------
+-- ---------- Page templates (B7) ----------
 
 -- name: SetWikiPageTemplate :one
 UPDATE wiki_pages SET is_template = @is_template, updated_at = now()

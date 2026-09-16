@@ -28,7 +28,7 @@ type AttachFileToWikiPageParams struct {
 	AddedBy  pgtype.UUID `json:"added_by"`
 }
 
-// ---------- Anexos (reuso do Files/storage_files) ----------
+// ---------- Attachments (reusing Files/storage_files) ----------
 func (q *Queries) AttachFileToWikiPage(ctx context.Context, arg AttachFileToWikiPageParams) error {
 	_, err := q.db.Exec(ctx, attachFileToWikiPage,
 		arg.TenantID,
@@ -102,7 +102,7 @@ type CreateWikiPageParams struct {
 	AuthorUserID uuid.UUID       `json:"author_user_id"`
 }
 
-// ---------- Páginas (árvore) ----------
+// ---------- Pages (tree) ----------
 func (q *Queries) CreateWikiPage(ctx context.Context, arg CreateWikiPageParams) (WikiPage, error) {
 	row := q.db.QueryRow(ctx, createWikiPage,
 		arg.TenantID,
@@ -158,12 +158,12 @@ type CreateWikiSpaceParams struct {
 	Visibility  string    `json:"visibility"`
 }
 
-// Wiki queries. Ver docs/wiki-features.md. Acesso resolvido em SQL (§5.3): o papel efetivo de um
-// utilizador num espaço/página = MÁXIMO entre dono, visibilidade org/public e grants (user/grupo/org).
-// Rank dos papéis: viewer=1, commenter=2, editor=3, manager=4. 0 = sem acesso (404). Tudo filtra
-// tenant_id do contexto autenticado (lei 5.1). O subject de um grant casa quando: é 'org', ou é o
-// próprio user, ou é um grupo (user_group) de que o user é membro.
-// ---------- Espaços (wikis) ----------
+// Wiki queries. See docs/wiki-features.md. Access resolved in SQL (§5.3): a user's effective role
+// on a space/page = the MAXIMUM among owner, org/public visibility, and grants (user/group/org).
+// Role ranks: viewer=1, commenter=2, editor=3, manager=4. 0 = no access (404). Everything filters
+// by tenant_id from the authenticated context (law 5.1). A grant's subject matches when it's
+// 'org', or the user themselves, or a group (user_group) the user is a member of.
+// ---------- Spaces (wikis) ----------
 func (q *Queries) CreateWikiSpace(ctx context.Context, arg CreateWikiSpaceParams) (WikiSpace, error) {
 	row := q.db.QueryRow(ctx, createWikiSpace,
 		arg.TenantID,
@@ -199,7 +199,7 @@ WHERE c.page_id = p.id AND s.id = p.space_id
   AND (p.status <> 'published' OR s.ai_indexed = false)
 `
 
-// Limpa chunks de páginas despublicadas ou de espaços com ai_indexed desligado (nunca ficam órfãos).
+// Cleans up chunks from unpublished pages or spaces with ai_indexed turned off (never left orphaned).
 func (q *Queries) DeleteStaleWikiChunks(ctx context.Context) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteStaleWikiChunks)
 	if err != nil {
@@ -217,7 +217,7 @@ type DeleteWikiChunksFromParams struct {
 	FromIndex int32     `json:"from_index"`
 }
 
-// Apara chunks além do novo tamanho da página (página encolheu ao regravar).
+// Trims chunks past the page's new size (the page shrank when re-saved).
 func (q *Queries) DeleteWikiChunksFrom(ctx context.Context, arg DeleteWikiChunksFromParams) error {
 	_, err := q.db.Exec(ctx, deleteWikiChunksFrom, arg.PageID, arg.FromIndex)
 	return err
@@ -380,7 +380,7 @@ type GetWikiAttachmentBlobRow struct {
 	PageID      uuid.UUID          `json:"page_id"`
 }
 
-// Devolve o ficheiro e a página do anexo para o serviço conferir acesso antes de servir o blob.
+// Returns the file and the page of the attachment so the service can check access before serving the blob.
 func (q *Queries) GetWikiAttachmentBlob(ctx context.Context, arg GetWikiAttachmentBlobParams) (GetWikiAttachmentBlobRow, error) {
 	row := q.db.QueryRow(ctx, getWikiAttachmentBlob, arg.ID, arg.TenantID)
 	var i GetWikiAttachmentBlobRow
@@ -433,7 +433,7 @@ const getWikiHome = `-- name: GetWikiHome :one
 SELECT tenant_id, body_json, body_text, body_html, updated_by, updated_at FROM wiki_home WHERE tenant_id = $1
 `
 
-// ---------- Home da app Wiki (B5) ----------
+// ---------- Wiki app home (B5) ----------
 func (q *Queries) GetWikiHome(ctx context.Context, tenantID uuid.UUID) (WikiHome, error) {
 	row := q.db.QueryRow(ctx, getWikiHome, tenantID)
 	var i WikiHome
@@ -579,7 +579,7 @@ const getWikiSpaceByPublicSlug = `-- name: GetWikiSpaceByPublicSlug :one
 SELECT id, tenant_id, key, name, description, icon, owner_user_id, visibility, public_slug, ai_indexed, created_at, updated_at FROM wiki_spaces WHERE public_slug = $1 AND visibility = 'public'
 `
 
-// Resolve um espaço público pelo slug anónimo (o tenant vem da linha, nunca do request).
+// Resolves a public space by its anonymous slug (the tenant comes from the row, never the request).
 func (q *Queries) GetWikiSpaceByPublicSlug(ctx context.Context, slug *string) (WikiSpace, error) {
 	row := q.db.QueryRow(ctx, getWikiSpaceByPublicSlug, slug)
 	var i WikiSpace
@@ -651,7 +651,7 @@ type InsertWikiPageVersionParams struct {
 	AuthorUserID pgtype.UUID     `json:"author_user_id"`
 }
 
-// ---------- Versões ----------
+// ---------- Versions ----------
 func (q *Queries) InsertWikiPageVersion(ctx context.Context, arg InsertWikiPageVersionParams) error {
 	_, err := q.db.Exec(ctx, insertWikiPageVersion,
 		arg.TenantID,
@@ -724,7 +724,7 @@ type ListVisibleWikiSpacesParams struct {
 	UserID   uuid.UUID `json:"user_id"`
 }
 
-// Espaços que o utilizador pode ver (papel >= viewer): dono, org/public, ou grant (user/grupo/org).
+// Spaces the user can see (role >= viewer): owner, org/public, or a grant (user/group/org).
 func (q *Queries) ListVisibleWikiSpaces(ctx context.Context, arg ListVisibleWikiSpacesParams) ([]WikiSpace, error) {
 	rows, err := q.db.Query(ctx, listVisibleWikiSpaces, arg.TenantID, arg.UserID)
 	if err != nil {
@@ -830,7 +830,7 @@ type ListWikiCommentsRow struct {
 	AuthorEmail  string    `json:"author_email"`
 }
 
-// ---------- Comentários ----------
+// ---------- Comments ----------
 func (q *Queries) ListWikiComments(ctx context.Context, arg ListWikiCommentsParams) ([]ListWikiCommentsRow, error) {
 	rows, err := q.db.Query(ctx, listWikiComments, arg.TenantID, arg.PageID)
 	if err != nil {
@@ -873,7 +873,7 @@ type ListWikiPageGrantsParams struct {
 	PageID   uuid.UUID `json:"page_id"`
 }
 
-// ---------- Grants da página ----------
+// ---------- Page grants ----------
 func (q *Queries) ListWikiPageGrants(ctx context.Context, arg ListWikiPageGrantsParams) ([]WikiPageGrant, error) {
 	rows, err := q.db.Query(ctx, listWikiPageGrants, arg.TenantID, arg.PageID)
 	if err != nil {
@@ -967,7 +967,7 @@ type ListWikiPagesParams struct {
 	IncludeDrafts bool      `json:"include_drafts"`
 }
 
-// Árvore de um espaço. Drafts só entram quando include_drafts (o serviço liga isto se o papel >= editor).
+// A space's tree. Drafts are included only when include_drafts (the service turns this on when role >= editor).
 func (q *Queries) ListWikiPages(ctx context.Context, arg ListWikiPagesParams) ([]WikiPage, error) {
 	rows, err := q.db.Query(ctx, listWikiPages, arg.TenantID, arg.SpaceID, arg.IncludeDrafts)
 	if err != nil {
@@ -1023,7 +1023,7 @@ type ListWikiPagesNeedingEmbeddingRow struct {
 	BodyText string    `json:"body_text"`
 }
 
-// Páginas published/indexáveis sem nenhum chunk mais fresco que updated_at (precisam de (re)embed).
+// Published/indexable pages with no chunk fresher than updated_at (need a (re)embed).
 func (q *Queries) ListWikiPagesNeedingEmbedding(ctx context.Context, maxPages int32) ([]ListWikiPagesNeedingEmbeddingRow, error) {
 	rows, err := q.db.Query(ctx, listWikiPagesNeedingEmbedding, maxPages)
 	if err != nil {
@@ -1062,7 +1062,7 @@ type ListWikiSpaceGrantsParams struct {
 	SpaceID  uuid.UUID `json:"space_id"`
 }
 
-// ---------- Grants do espaço ----------
+// ---------- Space grants ----------
 func (q *Queries) ListWikiSpaceGrants(ctx context.Context, arg ListWikiSpaceGrantsParams) ([]WikiSpaceGrant, error) {
 	rows, err := q.db.Query(ctx, listWikiSpaceGrants, arg.TenantID, arg.SpaceID)
 	if err != nil {
@@ -1156,7 +1156,7 @@ FROM wiki_chunks c
 JOIN wiki_pages p ON p.id = c.page_id
 JOIN wiki_spaces s ON s.id = c.space_id
 WHERE c.tenant_id = $2 AND p.status = 'published' AND s.ai_indexed = true
-  -- B9: pré-filtro FTS barato (GIN em search_tsv) antes do kNN; o serviço repete sem ele se der 0.
+  -- B9: cheap FTS pre-filter (GIN on search_tsv) before the kNN; the service retries without it on 0 results.
   AND ($3::bool = false OR p.search_tsv @@ websearch_to_tsquery('simple', $4::text))
   AND (
     s.owner_user_id = $5
@@ -1201,8 +1201,8 @@ type SearchWikiChunksRow struct {
 	Distance   float64   `json:"distance"`
 }
 
-// kNN por cosseno FILTRADO pela permissão de quem pergunta (mesma superfície vis, §7.4) + tenant +
-// ai_indexed + published. distance menor = mais relevante.
+// Cosine kNN FILTERED by the asker's permission (same visibility surface, §7.4) + tenant +
+// ai_indexed + published. Smaller distance = more relevant.
 func (q *Queries) SearchWikiChunks(ctx context.Context, arg SearchWikiChunksParams) ([]SearchWikiChunksRow, error) {
 	rows, err := q.db.Query(ctx, searchWikiChunks,
 		arg.QueryEmbedding,
@@ -1286,10 +1286,11 @@ type SearchWikiPagesTextRow struct {
 	Distance float64   `json:"distance"`
 }
 
-// Busca LEXICAL, direta às PÁGINAS, com a mesma superfície de visibilidade do kNN. É a rede para
-// quando não há EMBEDDINGS_API_KEY: aí não existem chunks nenhuns (só nascem no embedPage), por
-// isso procurar nos chunks daria sempre vazio. `search_tsv` é coluna GENERATED — existe sempre,
-// sem pipeline nenhum. `distance` mantém a semântica do kNN (menor = mais relevante).
+// LEXICAL search, straight against PAGES, with the same visibility surface as the kNN. This is
+// the safety net for when there's no EMBEDDINGS_API_KEY: then no chunks exist at all (they're
+// only born in embedPage), so searching the chunks would always come back empty. `search_tsv` is
+// a GENERATED column -- always there, no pipeline needed. `distance` keeps the kNN's semantics
+// (smaller = more relevant).
 func (q *Queries) SearchWikiPagesText(ctx context.Context, arg SearchWikiPagesTextParams) ([]SearchWikiPagesTextRow, error) {
 	rows, err := q.db.Query(ctx, searchWikiPagesText,
 		arg.QueryText,
@@ -1335,7 +1336,7 @@ type SetWikiPageTemplateParams struct {
 	TenantID   uuid.UUID `json:"tenant_id"`
 }
 
-// ---------- Templates de página (B7) ----------
+// ---------- Page templates (B7) ----------
 func (q *Queries) SetWikiPageTemplate(ctx context.Context, arg SetWikiPageTemplateParams) (WikiPage, error) {
 	row := q.db.QueryRow(ctx, setWikiPageTemplate, arg.IsTemplate, arg.ID, arg.TenantID)
 	var i WikiPage
@@ -1374,7 +1375,7 @@ type SetWikiSpacePublicParams struct {
 	TenantID   uuid.UUID `json:"tenant_id"`
 }
 
-// Liga/desliga o acesso público: define visibility e o public_slug (null desliga o link).
+// Turns public access on/off: sets visibility and public_slug (null turns the link off).
 func (q *Queries) SetWikiSpacePublic(ctx context.Context, arg SetWikiSpacePublicParams) (WikiSpace, error) {
 	row := q.db.QueryRow(ctx, setWikiSpacePublic,
 		arg.Visibility,
@@ -1422,7 +1423,7 @@ type UpdateWikiPageParams struct {
 	ExpectedVersion int32           `json:"expected_version"`
 }
 
-// Bloqueio otimista: só grava se a versão bater; senão 0 linhas -> serviço devolve 409 (§6).
+// Optimistic locking: only saves if the version matches; otherwise 0 rows -> the service returns 409 (§6).
 func (q *Queries) UpdateWikiPage(ctx context.Context, arg UpdateWikiPageParams) (WikiPage, error) {
 	row := q.db.QueryRow(ctx, updateWikiPage,
 		arg.Title,
@@ -1522,8 +1523,8 @@ type UpsertWikiChunkParams struct {
 	Embedding  string    `json:"embedding"`
 }
 
-// ---------- RAG: chunks + busca semântica (pgvector, §7.2) ----------
-// Idempotente por (page_id, chunk_index); created_at=now() marca o chunk como fresco face a updated_at.
+// ---------- RAG: chunks + semantic search (pgvector, §7.2) ----------
+// Idempotent on (page_id, chunk_index); created_at=now() marks the chunk as fresh relative to updated_at.
 func (q *Queries) UpsertWikiChunk(ctx context.Context, arg UpsertWikiChunkParams) error {
 	_, err := q.db.Exec(ctx, upsertWikiChunk,
 		arg.TenantID,
@@ -1608,7 +1609,7 @@ type WikiPageRoleParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Papel efetivo (rank) do utilizador numa página = máx(papel herdado do espaço, grants da página).
+// Effective role (rank) of the user on a page = max(role inherited from the space, page grants).
 func (q *Queries) WikiPageRole(ctx context.Context, arg WikiPageRoleParams) (int32, error) {
 	row := q.db.QueryRow(ctx, wikiPageRole, arg.UserID, arg.PageID, arg.TenantID)
 	var role_rank int32
@@ -1640,7 +1641,7 @@ type WikiSpaceRoleParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Papel efetivo (rank) do utilizador num espaço. 0 = sem acesso.
+// Effective role (rank) of the user in a space. 0 = no access.
 func (q *Queries) WikiSpaceRole(ctx context.Context, arg WikiSpaceRoleParams) (int32, error) {
 	row := q.db.QueryRow(ctx, wikiSpaceRole, arg.UserID, arg.SpaceID, arg.TenantID)
 	var role_rank int32
