@@ -42,7 +42,7 @@ cd "$BACKEND"
 echo "== bootstrap + restart =="; go run ./cmd/bootstrap >/dev/null 2>&1; docker restart $SW >/dev/null
 for i in $(seq 1 30); do curl -fsS http://localhost:$SWPORT/jmap/session -u admin:$SECRET >/dev/null 2>&1 && break; sleep 1; done
 echo "== api(:8000) + worker =="
-HTTP_ADDR=":8000" go run ./cmd/api >/tmp/demo-api.log 2>&1 & API_PID=$!
+HTTP_ADDR=":8000" DEV_SIGNUP_ENABLED=true go run ./cmd/api >/tmp/demo-api.log 2>&1 & API_PID=$!
 PROVISION_SKIP_DNS_VERIFY=true go run ./cmd/worker >/tmp/demo-wk.log 2>&1 & WK_PID=$!
 for i in $(seq 1 20); do curl -fsS localhost:8000/healthz >/dev/null 2>&1 && break; sleep 1; done
 

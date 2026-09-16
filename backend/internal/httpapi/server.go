@@ -38,7 +38,14 @@ func (s *Server) Router() http.Handler {
 
 		// Public. Unified login: with a mailbox it validates against Stalwart, without one (a
 		// freshly created organization) it validates against our own signup. /app no longer exists.
-		r.Post("/auth/signup", s.handleSignup)
+		//
+		// /auth/signup is dev/test-only (see SetDevSignupEnabled): it creates a tenant + owner with
+		// no rate limit, no signupsOpen check, and no relation to the real signup flow
+		// (/public/signup, billing_routes.go) or to bootstrap-owner -- it must never be mounted in
+		// a real deployment, self-hosted or hosted (audit P6).
+		if s.devSignupEnabled {
+			r.Post("/auth/signup", s.handleSignup)
+		}
 		r.Post("/auth/login", s.handleLogin)
 		r.Post("/webmail/login", s.handleLogin)       // alias already used by the webmail
 		r.Post("/auth/mfa/verify", s.handleMFAVerify) // 2nd step of login

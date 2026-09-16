@@ -25,32 +25,35 @@ import (
 )
 
 type Server struct {
-	q            *db.Queries
-	sw           *stalwart.Client
-	ai           ai.Provider // may be nil if AI is not configured
-	sms          sms.Sender
-	storage      *storage.Service // may be nil if MinIO is not configured
-	billing      billing.Provider
-	signupsOpen  bool
-	billingCfg   billing.Settings
-	office       *onlyoffice   // office editing (OnlyOffice Document Server); nil = off
-	meet         *meet         // video calling (LiveKit); nil = off
-	salesEmail   string        // where the website's contact form delivers; empty = form disabled
-	email        *notify.Email // e-mail sending (notifications); nil = off
-	hub          *chat.Hub     // chat's real-time transport (Redis pub/sub); nil = off
-	wiki         *wiki.Service // knowledge base (Confluence-style); service layer over the queries
-	wikiEmb      *ai.Embedder  // wiki RAG embeddings (nil = semantic search off)
-	push         *webPush      // Web Push (desktop notifications with the app closed); nil = off
-	maxUpload    int64         // per-file cap on uploads to Files (bytes); 0 = default
-	corsOrigins  []string      // origins allowed for CORS (native Tauri app, external web)
-	cookieSecure bool          // session cookie as Secure+SameSite=None (HTTPS/cross-site)
-	publicURL    string        // app's public URL for absolute links that go out in e-mails (no trailing "/")
-	brandURL     string        // fallback for appURL when publicURL is unset (BRAND_URL)
-	mailHost     string        // public hostname of the mail server (IMAP/SMTP/JMAP) for external clients
-	mtaStsHost   string        // public name serving MTA-STS policies; every customer's mta-sts.<domain> points here
-	aiProxyBase  string        // DeepSeek endpoint (OpenAI-compat) for the editor's AI proxy
-	aiProxyKey   string        // real DeepSeek key — server-side ONLY, never reaches the browser
-	aiProxyModel string        // model to force in the proxy (e.g. deepseek-chat)
+	q           *db.Queries
+	sw          *stalwart.Client
+	ai          ai.Provider // may be nil if AI is not configured
+	sms         sms.Sender
+	storage     *storage.Service // may be nil if MinIO is not configured
+	billing     billing.Provider
+	signupsOpen bool
+	// devSignupEnabled mounts the legacy /auth/signup route (see SetDevSignupEnabled). Off unless
+	// explicitly turned on; config.validateProduction refuses to boot with it on in production.
+	devSignupEnabled bool
+	billingCfg       billing.Settings
+	office           *onlyoffice   // office editing (OnlyOffice Document Server); nil = off
+	meet             *meet         // video calling (LiveKit); nil = off
+	salesEmail       string        // where the website's contact form delivers; empty = form disabled
+	email            *notify.Email // e-mail sending (notifications); nil = off
+	hub              *chat.Hub     // chat's real-time transport (Redis pub/sub); nil = off
+	wiki             *wiki.Service // knowledge base (Confluence-style); service layer over the queries
+	wikiEmb          *ai.Embedder  // wiki RAG embeddings (nil = semantic search off)
+	push             *webPush      // Web Push (desktop notifications with the app closed); nil = off
+	maxUpload        int64         // per-file cap on uploads to Files (bytes); 0 = default
+	corsOrigins      []string      // origins allowed for CORS (native Tauri app, external web)
+	cookieSecure     bool          // session cookie as Secure+SameSite=None (HTTPS/cross-site)
+	publicURL        string        // app's public URL for absolute links that go out in e-mails (no trailing "/")
+	brandURL         string        // fallback for appURL when publicURL is unset (BRAND_URL)
+	mailHost         string        // public hostname of the mail server (IMAP/SMTP/JMAP) for external clients
+	mtaStsHost       string        // public name serving MTA-STS policies; every customer's mta-sts.<domain> points here
+	aiProxyBase      string        // DeepSeek endpoint (OpenAI-compat) for the editor's AI proxy
+	aiProxyKey       string        // real DeepSeek key — server-side ONLY, never reaches the browser
+	aiProxyModel     string        // model to force in the proxy (e.g. deepseek-chat)
 
 	loginIP    *rateLimiter // login attempts per IP
 	loginUser  *rateLimiter // login attempts per account (e-mail)

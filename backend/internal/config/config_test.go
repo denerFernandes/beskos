@@ -62,3 +62,32 @@ func TestOnlyOfficeSourceURLNotRequiredWhenOnlyOfficeDisabled(t *testing.T) {
 		t.Fatalf("Load() failed with OnlyOffice disabled: %v", err)
 	}
 }
+
+// DevSignupEnabled mounts an unauthenticated, unlimited tenant-creation route meant only for the
+// e2e scripts. A production boot must refuse it outright rather than trust that whoever set the
+// env var meant to -- unlike SIGNUPS_OPEN, there is no legitimate reason for this to be true on a
+// real deployment, so it gets a hard refusal instead of a warning (audit P6).
+func TestDevSignupEnabledRefusedInProduction(t *testing.T) {
+	setProductionBase(t)
+	t.Setenv("DEV_SIGNUP_ENABLED", "true")
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Load() succeeded in production with DEV_SIGNUP_ENABLED=true")
+	}
+	if !strings.Contains(err.Error(), "DEV_SIGNUP_ENABLED") {
+		t.Fatalf("error does not mention DEV_SIGNUP_ENABLED: %v", err)
+	}
+}
+
+func TestDevSignupDisabledByDefaultInProduction(t *testing.T) {
+	setProductionBase(t)
+
+	c, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed with DEV_SIGNUP_ENABLED unset: %v", err)
+	}
+	if c.DevSignupEnabled {
+		t.Fatal("DevSignupEnabled defaulted to true")
+	}
+}

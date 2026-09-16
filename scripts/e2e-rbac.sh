@@ -11,7 +11,7 @@ docker run -d --name $PG -e POSTGRES_USER=mailin -e POSTGRES_PASSWORD=r -e POSTG
 for i in $(seq 1 30); do docker exec $PG pg_isready -U mailin >/dev/null 2>&1 && break; sleep 1; done
 
 export DATABASE_URL="postgres://mailin:r@localhost:$PGPORT/mailin?sslmode=disable"
-cd "$BACKEND"; HTTP_ADDR=":$APIPORT" go run ./cmd/api >/tmp/rbac-api.log 2>&1 & API_PID=$!
+cd "$BACKEND"; HTTP_ADDR=":$APIPORT" DEV_SIGNUP_ENABLED=true go run ./cmd/api >/tmp/rbac-api.log 2>&1 & API_PID=$!
 for i in $(seq 1 20); do curl -fsS localhost:$APIPORT/healthz >/dev/null 2>&1 && break; sleep 1; done
 API="localhost:$APIPORT/api"; PW=correct-horse-battery-9273
 J(){ python3 -c "import sys,json;print(json.load(sys.stdin)$1)"; }
