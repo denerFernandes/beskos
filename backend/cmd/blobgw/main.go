@@ -1,28 +1,28 @@
-// blobgw é um servidor S3 que cifra o que lhe passa pelas mãos.
+// blobgw is an S3 server that encrypts whatever passes through its hands.
 //
-// PORQUÊ. O Stalwart escreve as mensagens e os anexos direto no armazenamento de objetos, com
-// credenciais S3, sem passar pelo nosso código — e por isso ficavam legíveis na Cloudflare, a linha
-// mais fraca do que dizemos publicamente. O armazenamento S3 do Stalwart não tem opção de cifra
-// nenhuma (nem SSE-S3, nem SSE-C, nem chave do cliente: a lista de campos é bucket, region,
-// accessKey, secretKey, securityToken, profile, timeout, maxRetries, verifyAfterWrite, keyPrefix e
-// allowInvalidCerts). E não modificamos o Stalwart (CLAUDE.md §5.4).
+// WHY. Stalwart writes messages and attachments straight to object storage, with S3 credentials,
+// without going through our code — and so they stayed readable in Cloudflare, the weakest link
+// compared to what we say publicly. Stalwart's S3 storage has no encryption option at all
+// (no SSE-S3, no SSE-C, no client key: the field list is bucket, region, accessKey, secretKey,
+// securityToken, profile, timeout, maxRetries, verifyAfterWrite, keyPrefix and allowInvalidCerts).
+// And we do not modify Stalwart (CLAUDE.md §5.4).
 //
-// A saída é falar a língua dele. O Stalwart aponta o endpoint para aqui em vez de para a
-// Cloudflare; nós ciframos com o formato que já existe (internal/filecrypt) e reencaminhamos. Ele
-// não sabe que mudou nada.
+// The way out is to speak its language. Stalwart points its endpoint here instead of at
+// Cloudflare; we encrypt with the format that already exists (internal/filecrypt) and forward it.
+// It has no idea anything changed.
 //
-// PORQUE É PEQUENO. Lido o cliente S3 do Stalwart (crates/store/src/backend/s3/mod.rs), ele usa
-// exatamente quatro operações — GET, GET com Range, PUT de corpo inteiro, HEAD e DELETE — em estilo
-// de caminho (`with_path_style`). NÃO usa multipart: o `put_object` recebe o corpo todo de uma vez.
-// É isso que permite a este serviço não ter estado nenhum e, portanto, escalar em réplicas.
+// WHY IT IS SMALL. Having read Stalwart's S3 client (crates/store/src/backend/s3/mod.rs), it uses
+// exactly four operations — GET, GET with Range, whole-body PUT, HEAD and DELETE — in path style
+// (`with_path_style`). It does NOT use multipart: `put_object` receives the whole body at once.
+// That is what lets this service hold no state at all, and therefore scale across replicas.
 //
-// O que NÃO está aqui, de propósito: multipart, URLs pré-assinados, listagens. O LiveKit precisa de
-// tudo isso para as gravações e por isso continua a ser tratado pela selagem em fundo. Uma peça que
-// serve dois clientes com necessidades diferentes acaba por servir mal os dois.
+// What is NOT here, on purpose: multipart, pre-signed URLs, listings. LiveKit needs all of that
+// for recordings and so it keeps being handled by background sealing. One piece that serves two
+// clients with different needs ends up serving both badly.
 //
-// LISTA BRANCA DE PREFIXOS. O gateway só aceita chaves dentro dos prefixos configurados. É a mesma
-// lição que a selagem custou a aprender: quem partilha armazenamento diz explicitamente o que é
-// seu, em vez de assumir que tudo o é.
+// PREFIX ALLOWLIST. The gateway only accepts keys within the configured prefixes. It is the same
+// lesson sealing was expensive to learn: whoever shares storage says explicitly what is theirs,
+// instead of assuming everything is.
 package main
 
 import (
@@ -37,10 +37,10 @@ import (
 
 type gateway struct {
 	st *storage.Service
-	// bucket é o nome que o cliente usa no caminho. Serve só para validar: o balde de destino real
-	// vem da configuração do storage.
+	// bucket is the name the client uses in the path. It is only used for validation: the real
+	// destination bucket comes from the storage configuration.
 	bucket string
-	// prefixos que este gateway aceita servir.
+	// prefixes this gateway accepts serving.
 	prefixes []string
 	cred     credential
 }
@@ -54,15 +54,15 @@ func main() {
 		envOr("BLOBGW_S3_SSL", "true") == "true",
 	)
 	if err != nil {
-		log.Fatalf("armazenamento: %v", err)
+		log.Fatalf("storage: %v", err)
 	}
 
-	// Sem base de dados: as chaves servidas aqui não têm tenant. Uma mensagem é endereçada pelo
-	// resumo do conteúdo e o Stalwart deduplica-a entre contas — pode pertencer a mais do que um
-	// tenant ao mesmo tempo, e por isso não pode ser cifrada com a chave de um só. Fica embrulhada
-	// pela KEK, como os outros objetos de sistema.
+	// No database: keys served here have no tenant. A message is addressed by its content
+	// digest and Stalwart deduplicates it across accounts — it can belong to more than one
+	// tenant at the same time, so it cannot be encrypted with just one tenant's key. It gets
+	// wrapped by the KEK, like the other system objects.
 	if err := st.EnableEncryption(nil, env("FILE_ENC_KEYS")); err != nil {
-		log.Fatalf("cifra: %v", err)
+		log.Fatalf("encryption: %v", err)
 	}
 	if !st.Encrypting() {
 		log.Fatal("blobgw: FILE_ENC_KEYS missing — this service exists to encrypt; starting without a key would be worse than not starting")
@@ -87,7 +87,7 @@ func main() {
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
-		// Generosos: um anexo grande a subir por uma ligação lenta não pode ser cortado a meio.
+		// Generous: a large attachment uploading over a slow connection must not be cut off midway.
 		ReadTimeout:       10 * time.Minute,
 		WriteTimeout:      10 * time.Minute,
 		ReadHeaderTimeout: 30 * time.Second,
@@ -113,22 +113,22 @@ func envOr(name, fallback string) string {
 	return fallback
 }
 
-// ServeHTTP encaminha. Tudo o que não seja uma das quatro operações que o Stalwart usa responde 501
-// — é mais honesto do que fingir que se implementou o S3 inteiro.
+// ServeHTTP dispatches. Anything that is not one of the four operations Stalwart uses responds 501
+// — which is more honest than pretending the whole of S3 was implemented.
 func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	key, err := g.key(r.URL.Path)
 	if err != nil {
-		// COM registo: um pedido recusado que não deixa rasto é indistinguível de um pedido que
-		// nunca chegou. Custou uma diagnose inteira a perceber que o cliente mandava o nome de
-		// balde antigo e nós respondíamos 403 em silêncio.
+		// WITH logging: a rejected request that leaves no trace is indistinguishable from a
+		// request that never arrived. It cost a whole diagnosis session to realize the client
+		// was sending the old bucket name and we were answering 403 in silence.
 		log.Printf("%s %s -> 403 rejected: %v", r.Method, r.URL.Path, err)
 		s3Err(w, http.StatusForbidden, "AccessDenied", err.Error())
 		return
 	}
 	if err := g.cred.check(r); err != nil {
 		log.Printf("blobgw: signature rejected on %s %s: %v", r.Method, key, err)
-		s3Err(w, http.StatusForbidden, "SignatureDoesNotMatch", "assinatura inválida")
+		s3Err(w, http.StatusForbidden, "SignatureDoesNotMatch", "invalid signature")
 		return
 	}
 
@@ -144,25 +144,25 @@ func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		status = g.delete(ctx, w, key)
 	default:
-		s3Err(w, http.StatusNotImplemented, "NotImplemented", "operação não suportada por este gateway")
+		s3Err(w, http.StatusNotImplemented, "NotImplemented", "operation not supported by this gateway")
 		status = http.StatusNotImplemented
 	}
 	log.Printf("%s %s -> %d (%s)", r.Method, key, status, time.Since(start).Round(time.Millisecond))
 }
 
-// chave extrai a chave do objeto do caminho e confirma que está num prefixo nosso.
+// key extracts the object key from the path and confirms it is within one of our prefixes.
 //
-// O cliente usa estilo de caminho (`/<balde>/<chave>`), que é o que o Stalwart configura.
+// The client uses path style (`/<bucket>/<key>`), which is what Stalwart configures.
 func (g *gateway) key(path string) (string, error) {
 	p := strings.TrimPrefix(path, "/")
 	bucket, key, ok := strings.Cut(p, "/")
 	if !ok || bucket != g.bucket {
-		return "", errf("balde %q desconhecido", bucket)
+		return "", errf("unknown bucket %q", bucket)
 	}
 	for _, pre := range g.prefixes {
 		if pre != "" && strings.HasPrefix(key, pre) {
 			return key, nil
 		}
 	}
-	return "", errf("chave %q fora dos prefixos servidos", key)
+	return "", errf("key %q outside the served prefixes", key)
 }

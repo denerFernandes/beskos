@@ -1,11 +1,11 @@
 package assistant
 
-// App gating: desligar uma app na organização corta o acesso do assistente às ferramentas dessa app
-// e, se houver, ao agente de origem que depende dela. É a mesma decisão do rail — uma app desligada
-// não existe para ninguém, nem para a IA (pedido do cliente).
+// App gating: turning off an app in the organization cuts the assistant's access to that app's
+// tools and, if there is one, to the built-in agent that depends on it. It's the same decision as
+// the rail — a disabled app doesn't exist for anyone, not even for the AI (customer request).
 
-// AppTools mapeia cada app do rail para as ferramentas do assistente que ela habilita. Apps sem
-// ferramentas (chat, today, meet) não entram.
+// AppTools maps each rail app to the assistant tools it enables. Apps with no tools (chat, today,
+// meet) are not included.
 var AppTools = map[string][]string{
 	"mail":     {ToolMailSearch, ToolMailRead, ToolMailDraft, ToolMailSend},
 	"contacts": {ToolContactsSearch, ToolContactsCreate},
@@ -16,15 +16,15 @@ var AppTools = map[string][]string{
 	"notes":    {ToolNotesSearch, ToolNotesRead, ToolNotesCreate, ToolNotesEdit},
 }
 
-// AppAgent mapeia uma app ao agente de ORIGEM que depende dela: desligar a app tira o agente do
-// encaminhamento (ex.: sem Ficheiros, não há agente de Documentos; sem Correio, não há o de Caixa).
+// AppAgent maps an app to the BUILT-IN agent that depends on it: turning off the app removes the
+// agent from routing (e.g. without Files, there's no Documents agent; without Mail, no Inbox one).
 var AppAgent = map[string]string{
 	"files": AgentDocs,
 	"mail":  AgentInbox,
 	"wiki":  AgentKnowledge,
 }
 
-// AllowedTools filtra a lista de ferramentas de um agente, removendo as das apps desligadas.
+// AllowedTools filters an agent's tool list, removing the ones from disabled apps.
 func AllowedTools(tools []string, disabledApps []string) []string {
 	if len(disabledApps) == 0 {
 		return tools
@@ -47,9 +47,10 @@ func AllowedTools(tools []string, disabledApps []string) []string {
 	return out
 }
 
-// WithoutTools tira da lista as ferramentas que a organização desligou. É um TETO: só remove, nunca
-// acrescenta — nem para agentes criados pelo cliente, que já são validados contra o catálogo. Serve
-// o corte fino ("a IA nunca envia e-mail") sem tocar no que cada agente é (§3.2, decisão 3).
+// WithoutTools removes from the list the tools the organization has turned off. It is a CAP: it
+// only removes, never adds — not even for agents created by the customer, which are already
+// validated against the catalog. It serves fine-grained cuts ("the AI never sends e-mail") without
+// touching what each agent is (§3.2, decision 3).
 func WithoutTools(tools []string, blocked []string) []string {
 	if len(blocked) == 0 || len(tools) == 0 {
 		return tools
@@ -67,7 +68,7 @@ func WithoutTools(tools []string, blocked []string) []string {
 	return out
 }
 
-// AllTools é o catálogo completo, para a governança poder listar o que há para desligar.
+// AllTools is the complete catalog, so governance can list what there is to turn off.
 func AllTools() []string {
 	return []string{
 		ToolMailSearch, ToolMailRead, ToolMailDraft, ToolMailSend,
@@ -78,7 +79,7 @@ func AllTools() []string {
 	}
 }
 
-// AgentAvailable diz se um agente de origem continua disponível dadas as apps desligadas.
+// AgentAvailable reports whether a built-in agent remains available given the disabled apps.
 func AgentAvailable(agentKey string, disabledApps []string) bool {
 	for app, ag := range AppAgent {
 		if ag != agentKey {

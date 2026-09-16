@@ -7,7 +7,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/ai"
 )
 
-// recordingCal regista os eventos que lhe mandaram criar, para se afirmar o que foi (ou não) criado.
+// recordingCal records the events it was asked to create, so tests can assert what was (or
+// wasn't) created.
 type recordingCal struct{ created []NewEvent }
 
 func (c *recordingCal) create(_ context.Context, _ Identity, ev NewEvent) (EventRef, error) {
@@ -21,11 +22,12 @@ func calCall(args string) ai.Response {
 	return ai.Response{ToolCalls: []ai.ToolCall{{ID: "c1", Name: ToolCalendarCreate, Arguments: args}}, FinishReason: "tool_calls"}
 }
 
-// Um evento A SOLO fica na agenda do próprio: não sai da organização e não pede confirmação —
-// exigi-la aqui gastaria a atenção de quem confirma no que não importa.
+// A SOLO event stays on the owner's own calendar: it doesn't leave the organisation and doesn't
+// ask for confirmation — requiring it here would spend the confirmer's attention on what doesn't
+// matter.
 func TestCalendarSoloEventNeedsNoConfirmation(t *testing.T) {
 	cal := &recordingCal{}
-	conf := &scriptedConfirmer{approve: false} // recusaria, se fosse perguntado
+	conf := &scriptedConfirmer{approve: false} // would refuse, if asked
 	args := `{"title":"Foco","starts_at":"2026-07-22T10:00:00Z"}`
 	eng := NewEngine(&fakeProvider{script: []ai.Response{calCall(args), textResp("criado")}},
 		calRegistry(cal), &memAudit{}, 0).WithConfirmer(conf)
@@ -36,18 +38,18 @@ func TestCalendarSoloEventNeedsNoConfirmation(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	if len(conf.asked) != 0 {
-		t.Errorf("evento a solo pediu confirmação (%d) — não devia", len(conf.asked))
+		t.Errorf("solo event asked for confirmation (%d) — it shouldn't have", len(conf.asked))
 	}
 	if len(cal.created) != 1 {
-		t.Fatalf("eventos criados = %d, quero 1", len(cal.created))
+		t.Fatalf("events created = %d, want 1", len(cal.created))
 	}
 	if run.Steps[0].ErrorCode != "" {
-		t.Errorf("passo com erro: %+v", run.Steps[0])
+		t.Errorf("step with error: %+v", run.Steps[0])
 	}
 }
 
-// INVARIANTE (§6.3): convidar avisa OUTRA pessoa, portanto pede confirmação. Recusada, o evento NÃO
-// é criado — não se convida ninguém sem aprovação.
+// INVARIANT (§6.3): inviting notifies ANOTHER person, so it asks for confirmation. If declined,
+// the event is NOT created — no one gets invited without approval.
 func TestCalendarWithGuestsRequiresConfirmation(t *testing.T) {
 	cal := &recordingCal{}
 	conf := &scriptedConfirmer{approve: false}
@@ -61,17 +63,17 @@ func TestCalendarWithGuestsRequiresConfirmation(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	if len(conf.asked) != 1 {
-		t.Errorf("convites pedidos à confirmação = %d, quero 1", len(conf.asked))
+		t.Errorf("invites sent to confirmation = %d, want 1", len(conf.asked))
 	}
 	if len(cal.created) != 0 {
-		t.Fatalf("CONVIDOU SEM APROVAÇÃO: %+v", cal.created)
+		t.Fatalf("INVITED WITHOUT APPROVAL: %+v", cal.created)
 	}
 	if run.Steps[0].ErrorCode != "assistant.confirm_declined" {
-		t.Errorf("passo = %+v, quero a recusa registada", run.Steps[0])
+		t.Errorf("step = %+v, want the refusal recorded", run.Steps[0])
 	}
 }
 
-// Aprovada, cria o evento COM os convidados que foram mostrados.
+// Approved, it creates the event WITH the guests that were shown.
 func TestCalendarWithGuestsApprovedCreatesWithInvitees(t *testing.T) {
 	cal := &recordingCal{}
 	conf := &scriptedConfirmer{approve: true}
@@ -84,9 +86,9 @@ func TestCalendarWithGuestsApprovedCreatesWithInvitees(t *testing.T) {
 		t.Fatalf("Run: %v", err)
 	}
 	if len(conf.asked) != 1 {
-		t.Errorf("confirmações = %d, quero 1", len(conf.asked))
+		t.Errorf("confirmations = %d, want 1", len(conf.asked))
 	}
 	if len(cal.created) != 1 || len(cal.created[0].Invitees) != 1 || cal.created[0].Invitees[0] != "bob@acme.pt" {
-		t.Fatalf("evento criado sem os convidados certos: %+v", cal.created)
+		t.Fatalf("event created without the right guests: %+v", cal.created)
 	}
 }

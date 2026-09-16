@@ -9,22 +9,22 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/office"
 )
 
-// fakeFiles é um Drive em memória: guarda o conteúdo e a versão de cada ficheiro, e conta as
-// escrituras para se poder afirmar que uma recusa NÃO gravou nada.
+// fakeFiles is an in-memory Drive: it keeps the content and version of each file, and counts
+// writes so a refusal can be asserted to have written NOTHING.
 type fakeFiles struct {
 	mu       sync.Mutex
 	version  int32
 	editable bool
 	edits    int
-	// bumpBefore simula outra pessoa a gravar entre a leitura e a escrita: sobe a versão uma vez.
+	// bumpBefore simulates someone else saving between the read and the write: bumps the version once.
 	bumpBefore bool
 }
 
 func (f *fakeFiles) read(_ context.Context, _ Identity, fileID string) (FileContent, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return FileContent{ID: fileID, Name: "relatorio.docx", Kind: office.KindDocument,
-		Text: "conteúdo atual", Version: f.version, Hash: "h", Editable: f.editable}, nil
+	return FileContent{ID: fileID, Name: "report.docx", Kind: office.KindDocument,
+		Text: "current content", Version: f.version, Hash: "h", Editable: f.editable}, nil
 }
 
 func (f *fakeFiles) edit(_ context.Context, _ Identity, fileID string, _ office.Plan, expect int32) (DriveHit, error) {
@@ -39,7 +39,7 @@ func (f *fakeFiles) edit(_ context.Context, _ Identity, fileID string, _ office.
 	}
 	f.version++
 	f.edits++
-	return DriveHit{ID: fileID, Name: "relatorio.docx", Kind: "file", Version: f.version}, nil
+	return DriveHit{ID: fileID, Name: "report.docx", Kind: "file", Version: f.version}, nil
 }
 
 var errConflict = &conflictError{}
@@ -58,80 +58,80 @@ func readCall(fileID string) ai.Response {
 
 func editCall(fileID string) ai.Response {
 	return ai.Response{ToolCalls: []ai.ToolCall{{ID: "e1", Name: ToolDocsEdit,
-		Arguments: `{"file_id":"` + fileID + `","kind":"document","summary":"acrescentei uma secção","blocks":[{"text":"novo"}]}`}}, FinishReason: "tool_calls"}
+		Arguments: `{"file_id":"` + fileID + `","kind":"document","summary":"added a section","blocks":[{"text":"new"}]}`}}, FinishReason: "tool_calls"}
 }
 
-// INVARIANTE (§5.1, regra 1): docs.edit exige ter lido o ficheiro NESTA execução. Sem leitura, o
-// modelo escreveria por cima de conteúdo que nunca viu — por isso a edição é recusada.
+// INVARIANT (§5.1, rule 1): docs.edit requires the file to have been read IN THIS RUN. Without a
+// read, the model would overwrite content it never saw — hence the edit is refused.
 func TestEditRequiresReadInThisRun(t *testing.T) {
 	f := &fakeFiles{version: 3, editable: true}
 	eng := NewEngine(&fakeProvider{script: []ai.Response{
-		editCall("file-1"), // edita SEM ler primeiro
-		textResp("não deu"),
+		editCall("file-1"), // edits WITHOUT reading first
+		textResp("no luck"),
 	}}, editRegistry(f), &memAudit{}, 0)
 	ag, _ := Builtin(AgentGeneral)
 
-	run, err := eng.Run(context.Background(), testIdentity(), ag, "muda o relatório")
+	run, err := eng.Run(context.Background(), testIdentity(), ag, "change the report")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if f.edits != 0 {
-		t.Fatal("EDITOU SEM LER PRIMEIRO — a regra 1 de §5.1 foi violada")
+		t.Fatal("EDITED WITHOUT READING FIRST — rule 1 of §5.1 was violated")
 	}
 	if run.Steps[0].ErrorCode == "" {
-		t.Error("a edição sem leitura devia falhar a ferramenta")
+		t.Error("editing without reading should have failed the tool")
 	}
 }
 
-// Lido primeiro, na mesma execução, a edição passa — e grava uma versão nova.
+// Read first, in the same run, the edit succeeds — and saves a new version.
 func TestEditAfterReadSucceeds(t *testing.T) {
 	f := &fakeFiles{version: 3, editable: true}
 	eng := NewEngine(&fakeProvider{script: []ai.Response{
 		readCall("file-1"),
 		editCall("file-1"),
-		textResp("acrescentei a secção"),
+		textResp("added the section"),
 	}}, editRegistry(f), &memAudit{}, 0)
 	ag, _ := Builtin(AgentGeneral)
 
-	run, err := eng.Run(context.Background(), testIdentity(), ag, "acrescenta uma secção ao relatório")
+	run, err := eng.Run(context.Background(), testIdentity(), ag, "add a section to the report")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if f.edits != 1 {
-		t.Fatalf("edições = %d, quero 1", f.edits)
+		t.Fatalf("edits = %d, want 1", f.edits)
 	}
 	if f.version != 4 {
-		t.Errorf("versão = %d, quero 4 (subiu uma)", f.version)
+		t.Errorf("version = %d, want 4 (bumped by one)", f.version)
 	}
-	// REGRA 5: o cartão diz o que mudou, não "documento atualizado".
+	// RULE 5: the card says what changed, not "document updated".
 	var editStep *Step
 	for i := range run.Steps {
 		if run.Steps[i].Tool == ToolDocsEdit {
 			editStep = &run.Steps[i]
 		}
 	}
-	if editStep == nil || editStep.Summary != "acrescentei uma secção" {
-		t.Errorf("o cartão de edição não descreve a mudança: %+v", editStep)
+	if editStep == nil || editStep.Summary != "added a section" {
+		t.Errorf("the edit card doesn't describe the change: %+v", editStep)
 	}
 }
 
-// INVARIANTE (§5.1, regra 3): se o ficheiro mudou entre a leitura e a escrita, a edição é recusada
-// — não se perde o trabalho de quem gravou entretanto.
+// INVARIANT (§5.1, rule 3): if the file changed between the read and the write, the edit is
+// refused — the work of whoever saved in the meantime is not lost.
 func TestEditRefusedWhenFileChangedSinceRead(t *testing.T) {
-	f := &fakeFiles{version: 3, editable: true, bumpBefore: true} // alguém grava entre ler e editar
+	f := &fakeFiles{version: 3, editable: true, bumpBefore: true} // someone saves between read and edit
 	eng := NewEngine(&fakeProvider{script: []ai.Response{
 		readCall("file-1"),
 		editCall("file-1"),
-		textResp("não consegui, mudou entretanto"),
+		textResp("couldn't, it changed in the meantime"),
 	}}, editRegistry(f), &memAudit{}, 0)
 	ag, _ := Builtin(AgentGeneral)
 
-	run, err := eng.Run(context.Background(), testIdentity(), ag, "muda o relatório")
+	run, err := eng.Run(context.Background(), testIdentity(), ag, "change the report")
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
 	if f.edits != 0 {
-		t.Fatal("EDITOU POR CIMA DE UMA MUDANÇA CONCORRENTE — a regra 3 de §5.1 foi violada")
+		t.Fatal("EDITED OVER A CONCURRENT CHANGE — rule 3 of §5.1 was violated")
 	}
 	var editStep *Step
 	for i := range run.Steps {
@@ -140,62 +140,63 @@ func TestEditRefusedWhenFileChangedSinceRead(t *testing.T) {
 		}
 	}
 	if editStep == nil || editStep.ErrorCode == "" {
-		t.Error("a edição sobre uma versão desatualizada devia falhar")
+		t.Error("editing over a stale version should have failed")
 	}
 }
 
-// A leitura de um ficheiro NÃO autoriza a edição de OUTRO. A marca é por ficheiro, não um
-// "já li alguma coisa" global.
+// Reading one file does NOT authorise editing ANOTHER. The mark is per file, not a global
+// "already read something".
 func TestReadingOneFileDoesNotAuthoriseEditingAnother(t *testing.T) {
 	f := &fakeFiles{version: 1, editable: true}
 	eng := NewEngine(&fakeProvider{script: []ai.Response{
 		readCall("file-A"),
-		editCall("file-B"), // leu A, tenta editar B
-		textResp("não"),
+		editCall("file-B"), // read A, tries to edit B
+		textResp("no"),
 	}}, editRegistry(f), &memAudit{}, 0)
 	ag, _ := Builtin(AgentGeneral)
 
-	eng.Run(context.Background(), testIdentity(), ag, "edita o B")
+	eng.Run(context.Background(), testIdentity(), ag, "edit B")
 	if f.edits != 0 {
-		t.Fatal("editou um ficheiro que nunca foi lido nesta execução")
+		t.Fatal("edited a file that was never read in this run")
 	}
 }
 
-// A marca de leitura é POR EXECUÇÃO: uma leitura numa execução não deixa editar noutra. Sem isto,
-// uma leitura de ontem autorizaria uma escrita de hoje.
+// The read mark is PER RUN: a read in one run does not allow editing in another. Without this,
+// yesterday's read would authorise today's write.
 func TestReadMarkDoesNotLeakBetweenRuns(t *testing.T) {
 	f := &fakeFiles{version: 1, editable: true}
 	ag, _ := Builtin(AgentGeneral)
 
-	// Execução 1: só lê.
-	eng1 := NewEngine(&fakeProvider{script: []ai.Response{readCall("file-1"), textResp("li")}},
+	// Run 1: only reads.
+	eng1 := NewEngine(&fakeProvider{script: []ai.Response{readCall("file-1"), textResp("read")}},
 		editRegistry(f), &memAudit{}, 0)
-	eng1.Run(context.Background(), testIdentity(), ag, "lê")
+	eng1.Run(context.Background(), testIdentity(), ag, "read")
 
-	// Execução 2: tenta editar sem ler. Tem de ser recusada.
-	eng2 := NewEngine(&fakeProvider{script: []ai.Response{editCall("file-1"), textResp("tentei")}},
+	// Run 2: tries to edit without reading. Must be refused.
+	eng2 := NewEngine(&fakeProvider{script: []ai.Response{editCall("file-1"), textResp("tried")}},
 		editRegistry(f), &memAudit{}, 0)
-	eng2.Run(context.Background(), testIdentity(), ag, "edita")
+	eng2.Run(context.Background(), testIdentity(), ag, "edit")
 
 	if f.edits != 0 {
-		t.Fatal("uma leitura de outra execução autorizou esta edição")
+		t.Fatal("a read from another run authorised this edit")
 	}
 }
 
-// docs.edit não pede confirmação: a guarda é a versão nova e o histórico, não a confirmação (§5.1).
+// docs.edit does not ask for confirmation: the guard is the new version and the history, not
+// confirmation (§5.1).
 func TestEditDoesNotAskForConfirmation(t *testing.T) {
 	f := &fakeFiles{version: 1, editable: true}
 	conf := &scriptedConfirmer{approve: false}
 	eng := NewEngine(&fakeProvider{script: []ai.Response{
-		readCall("file-1"), editCall("file-1"), textResp("feito"),
+		readCall("file-1"), editCall("file-1"), textResp("done"),
 	}}, editRegistry(f), &memAudit{}, 0).WithConfirmer(conf)
 	ag, _ := Builtin(AgentGeneral)
 
-	eng.Run(context.Background(), testIdentity(), ag, "edita")
+	eng.Run(context.Background(), testIdentity(), ag, "edit")
 	if len(conf.asked) != 0 {
-		t.Error("docs.edit pediu confirmação")
+		t.Error("docs.edit asked for confirmation")
 	}
 	if f.edits != 1 {
-		t.Error("docs.edit não gravou apesar de não precisar de confirmação")
+		t.Error("docs.edit did not save even though it needed no confirmation")
 	}
 }

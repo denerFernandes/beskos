@@ -7,20 +7,20 @@ import (
 	"io"
 )
 
-// conferidor lê o corpo enquanto vai calculando o resumo, para o comparar no fim com o que o
-// cliente assinou.
+// checker reads the body while computing its digest, to compare it at the end against what the
+// client signed.
 //
-// PORQUÊ EM PASSAGEM e não a ler tudo primeiro: um anexo de dezenas de MiB não tem de caber em
-// memória para ser verificado. O preço é a verificação só concluir DEPOIS de o objeto estar
-// escrito — daí quem chama apagar o que escreveu quando não bate certo.
+// WHY STREAMING and not reading it all up front: an attachment of dozens of MiB does not have to
+// fit in memory to be verified. The price is that verification only concludes AFTER the object
+// has been written — hence the caller deleting what it wrote when it does not match.
 type checker struct {
 	source   io.Reader
 	digest   hash.Hash
 	declared string
 }
 
-// semCorpoAssinado é o que a AWS aceita para "não assinei o corpo". Aparece em clientes que
-// transmitem em fluxo; aqui não há nada para comparar e a verificação é saltada.
+// unsignedPayload is what AWS accepts for "I did not sign the body". It shows up in clients that
+// stream; here there is nothing to compare and verification is skipped.
 const unsignedPayload = "UNSIGNED-PAYLOAD"
 
 func newChecker(r io.Reader, declared string) *checker {
@@ -45,7 +45,7 @@ func (c *checker) verify() error {
 	}
 	got := hex.EncodeToString(c.digest.Sum(nil))
 	if got != c.declared {
-		return errf("resumo do corpo %s, assinado %s", got[:12], first(c.declared, 12))
+		return errf("body digest %s, signed %s", got[:12], first(c.declared, 12))
 	}
 	return nil
 }

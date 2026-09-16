@@ -1,14 +1,15 @@
-// stalwart-sieve instala no Stalwart o script que identifica o cliente ao relay de saída.
+// stalwart-sieve installs on Stalwart the script that identifies the customer to the outbound
+// relay.
 //
-// Acrescenta `X-SES-TENANT: <domínio-com-hífens>` a cada mensagem. Sem esse cabeçalho, os tenants
-// do SES existem mas não recebem tráfego — e a pausa automática da AWS, que é a única defesa que
-// funciona com o nosso código em baixo, nunca dispara.
+// Adds `X-SES-TENANT: <domain-with-hyphens>` to every message. Without that header, SES tenants
+// exist but receive no traffic — and AWS's automatic pause, which is the only defense that works
+// once our code is down, never triggers.
 //
-//	stalwart-sieve            # mostra o script e a configuração atual, não altera nada
-//	stalwart-sieve --apply  # instala e liga à fase DATA
+//	stalwart-sieve            # shows the script and current configuration, changes nothing
+//	stalwart-sieve --apply  # installs and connects it to the DATA stage
 //
-// Imprime SEMPRE a configuração atual da fase DATA antes de mexer: se algo correr mal, a reversão
-// está no registo e não na memória de alguém.
+// ALWAYS prints the DATA stage's current configuration before touching it: if something goes
+// wrong, the rollback is in the log and not in someone's memory.
 package main
 
 import (
@@ -29,7 +30,7 @@ func main() {
 	apply := flag.Bool("apply", false, "actually install; without this it only reports")
 	flag.Parse()
 
-	log.Printf("=== corrida %s ===", time.Now().UTC().Format(time.RFC3339))
+	log.Printf("=== run %s ===", time.Now().UTC().Format(time.RFC3339))
 
 	c := stalwart.New(env("STALWART_URL"), env("STALWART_ADMIN_ID"), env("STALWART_ADMIN_SECRET"))
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
@@ -40,7 +41,7 @@ func main() {
 		log.Fatalf("read the DATA stage: %v", err)
 	}
 	log.Printf("CURRENT DATA STAGE (keep — it is the rollback):\n%s", indent(current))
-	log.Printf("SCRIPT A INSTALAR (%s):\n%s", scriptName, stalwart.ScriptTenantSES())
+	log.Printf("SCRIPT TO INSTALL (%s):\n%s", scriptName, stalwart.ScriptTenantSES())
 
 	if !*apply {
 		log.Printf("nothing was changed (--apply was not given)")
@@ -49,20 +50,20 @@ func main() {
 
 	id, err := c.UpsertSieveScript(ctx, scriptName, stalwart.ScriptTenantSES())
 	if err != nil {
-		log.Fatalf("instalar o script: %v", err)
+		log.Fatalf("install the script: %v", err)
 	}
 	log.Printf("script installed, id %s", id)
 
 	if err := c.SetDataStageScript(ctx, scriptName); err != nil {
 		log.Fatalf("connect to the DATA stage: %v", err)
 	}
-	log.Printf("fase DATA ligada ao script")
+	log.Printf("DATA stage connected to the script")
 
 	after, err := c.GetDataStageScript(ctx)
 	if err != nil {
 		log.Fatalf("re-read: %v", err)
 	}
-	log.Printf("FASE DATA AGORA:\n%s", indent(after))
+	log.Printf("DATA STAGE NOW:\n%s", indent(after))
 	log.Printf("Stalwart still has to be RELOADED for this to take effect — `docker service update --force stalwart`")
 }
 

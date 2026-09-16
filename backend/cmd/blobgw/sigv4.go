@@ -11,18 +11,18 @@ import (
 	"time"
 )
 
-// Verificação de assinatura AWS SigV4.
+// AWS SigV4 signature verification.
 //
-// PORQUÊ VERIFICAR, se o serviço só é alcançável na rede interna: porque quem falar com ele lê o
-// correio todo. "Está numa rede privada" é uma suposição sobre a infraestrutura de amanhã, não uma
-// propriedade do serviço. O Stalwart já assina — só temos de conferir.
+// WHY VERIFY, if the service is only reachable on the internal network: because whoever talks to
+// it reads all of the mail. "It is on a private network" is an assumption about tomorrow's
+// infrastructure, not a property of the service. Stalwart already signs — we just have to check.
 //
-// O que se confere: a chave de acesso, a data (contra repetições), e o HMAC sobre o pedido
-// canónico. O corpo é conferido à parte, em passagem — ver corpoConferido.
+// What is checked: the access key, the date (against replays), and the HMAC over the canonical
+// request. The body is checked separately, in stream — see checker.
 
 const algorithm = "AWS4-HMAC-SHA256"
 
-// desvioMaximo é a janela de aceitação do relógio. Quinze minutos é o que a AWS usa.
+// maxSkew is the clock acceptance window. Fifteen minutes is what AWS uses.
 const maxSkew = 15 * time.Minute
 
 type credential struct {
@@ -34,7 +34,7 @@ type credential struct {
 func (c credential) check(r *http.Request) error {
 	auth := r.Header.Get("Authorization")
 	if !strings.HasPrefix(auth, algorithm+" ") {
-		return errf("falta a autorização %s", algorithm)
+		return errf("missing %s authorization", algorithm)
 	}
 	parts := map[string]string{}
 	for _, p := range strings.Split(strings.TrimPrefix(auth, algorithm+" "), ",") {
@@ -48,37 +48,37 @@ func (c credential) check(r *http.Request) error {
 	signature := parts["Signature"]
 	signed := parts["SignedHeaders"]
 	if rawCredential == "" || signature == "" || signed == "" {
-		return errf("autorização incompleta")
+		return errf("incomplete authorization")
 	}
 
 	fields := strings.Split(rawCredential, "/")
 	if len(fields) != 5 {
-		return errf("credencial malformada")
+		return errf("malformed credential")
 	}
 	if !hmac.Equal([]byte(fields[0]), []byte(c.access)) {
-		return errf("chave de acesso desconhecida")
+		return errf("unknown access key")
 	}
 	shortDate, region, service := fields[1], fields[2], fields[3]
 
 	when := r.Header.Get("X-Amz-Date")
 	if when == "" {
-		return errf("falta o X-Amz-Date")
+		return errf("missing X-Amz-Date")
 	}
 	t, err := time.Parse("20060102T150405Z", when)
 	if err != nil {
-		return errf("X-Amz-Date inválido: %w", err)
+		return errf("invalid X-Amz-Date: %w", err)
 	}
-	// Sem esta janela, um pedido assinado capturado servia para sempre.
+	// Without this window, a captured signed request would work forever.
 	if d := time.Since(t); d > maxSkew || d < -maxSkew {
-		return errf("pedido fora da janela de %s (desvio %s)", maxSkew, d.Round(time.Second))
+		return errf("request outside the %s window (skew %s)", maxSkew, d.Round(time.Second))
 	}
 
 	bodyHash := r.Header.Get("X-Amz-Content-Sha256")
 	if bodyHash == "" {
-		return errf("falta o X-Amz-Content-Sha256")
+		return errf("missing X-Amz-Content-Sha256")
 	}
 	if strings.HasPrefix(bodyHash, "STREAMING-") {
-		return errf("corpo assinado em fluxo não é suportado")
+		return errf("streaming-signed body is not supported")
 	}
 
 	canonical := canonicalRequest(r, strings.Split(signed, ";"), bodyHash)
@@ -89,12 +89,12 @@ func (c credential) check(r *http.Request) error {
 
 	want := hex.EncodeToString(hmacSHA256(signingKey(c.secret, shortDate, region, service), toSign))
 	if !hmac.Equal([]byte(want), []byte(signature)) {
-		return errf("assinatura não confere")
+		return errf("signature does not match")
 	}
 	return nil
 }
 
-// pedidoCanonico monta a forma canónica do pedido, tal como a especificação manda.
+// canonicalRequest builds the canonical form of the request, as the spec requires.
 func canonicalRequest(r *http.Request, signed []string, bodyHash string) string {
 	sort.Strings(signed)
 
@@ -116,7 +116,7 @@ func canonicalRequest(r *http.Request, signed []string, bodyHash string) string 
 	}, "\n")
 }
 
-// valorCabecalho: o Host não vem no mapa de cabeçalhos do Go, vem no campo próprio.
+// headerValue: Host does not come in Go's header map, it comes in its own field.
 func headerValue(r *http.Request, name string) string {
 	if name == "host" {
 		return strings.TrimSpace(r.Host)
@@ -128,8 +128,8 @@ func headerValue(r *http.Request, name string) string {
 	return strings.Join(values, ",")
 }
 
-// caminhoCanonico usa o caminho tal como veio no pedido, sem descodificar: o cliente assinou o que
-// escreveu, e normalizar aqui daria assinaturas diferentes para o mesmo pedido.
+// canonicalPath uses the path exactly as it came in the request, without decoding: the client
+// signed what it wrote, and normalizing here would give different signatures for the same request.
 func canonicalPath(u *url.URL) string {
 	if p := u.EscapedPath(); p != "" {
 		return p
@@ -161,8 +161,8 @@ func canonicalQuery(u *url.URL) string {
 	return b.String()
 }
 
-// escapar segue a codificação da AWS, que difere do url.QueryEscape em dois pontos: o espaço vai
-// como %20 (e não +) e o til não é escapado.
+// escape follows AWS's encoding, which differs from url.QueryEscape in two spots: the space is
+// %20 (not +) and the tilde is not escaped.
 func escape(s string) string {
 	e := url.QueryEscape(s)
 	e = strings.ReplaceAll(e, "+", "%20")

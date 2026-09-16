@@ -8,27 +8,27 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
-// Selagem em fundo: percorre o balde e cifra o que ainda estiver em claro.
+// Background sealing: walks the bucket and encrypts whatever is still in plaintext.
 //
-// Cobre os dois casos com o mesmo mecanismo, porque são o mesmo problema — um objeto no
-// armazenamento que não passou pela nossa cifra:
+// Covers both cases with the same mechanism, because they are the same problem — an object in
+// storage that did not go through our encryption:
 //
-//   - o conteúdo anterior à cifra existir;
-//   - as gravações compostas, escritas diretamente pelo LiveKit Egress com as credenciais S3.
+//   - content predating encryption existing;
+//   - composed recordings, written directly by LiveKit Egress with S3 credentials.
 //
-// Não guarda estado nenhum sobre o progresso. O que decide se um objeto já está selado é o próprio
-// objeto (a magia no cabeçalho), o que torna cada passagem idempotente e imune a reinícios: uma
-// marca na base de dados que dessincronizasse levaria a cifrar o cifrado.
+// Holds no state at all about progress. What decides whether an object is already sealed is the
+// object itself (the magic in the header), which makes every pass idempotent and immune to
+// restarts: a database marker that got out of sync would lead to encrypting the encrypted.
 //
-// RITMO. Uma pausa entre objetos, de propósito: isto corre no mesmo servidor que serve o correio dos
-// clientes, e migrar depressa não vale interromper quem está a trabalhar. Uma passagem que não
-// termine não é problema — a seguinte continua onde a anterior parou, porque salta o que já está
-// feito.
+// PACE. A pause between objects, on purpose: this runs on the same server that serves customers'
+// mail, and migrating fast is not worth interrupting whoever is working. A pass that does not
+// finish is not a problem — the next one continues where the previous one stopped, because it
+// skips what is already done.
 
 const (
 	sealingInterval     = 10 * time.Minute
 	pauseBetweenObjects = 200 * time.Millisecond
-	// Teto por passagem: mantém a passagem curta e o registo legível.
+	// Cap per pass: keeps the pass short and the log readable.
 	maxPerPass = 500
 )
 
@@ -38,7 +38,7 @@ func startSealing(st *storage.Service) {
 		return
 	}
 	go func() {
-		// Primeira passagem com atraso: o arranque já tem que fazer.
+		// First pass delayed: startup already has enough to do.
 		time.Sleep(time.Minute)
 		for {
 			sealPass(context.Background(), st)
