@@ -42,10 +42,22 @@ docker compose -f deploy/docker-compose.yml restart stalwart
 
 ## First login
 
-Open the frontend (in dev, `npm run dev` inside `frontend/`; in this compose, whatever reverse
-proxy you put in front of `api`'s port 8000 -- see [docs/self-hosting.md](self-hosting.md) for a
-production Caddy config) and sign up. The first organization on a fresh database becomes its own
-tenant automatically; there is no separate "create the first admin" step.
+The public edition has no self-service sign-up page -- that is a hosted-only feature. Create the
+first organization and owner mailbox with `bootstrap-owner`, once, on a fresh database (it
+refuses to run again once any organization already exists). Postgres has no host port published,
+so run it as a one-off container on the same Docker network instead of from the host, reusing the
+`api` service's own environment (`DATABASE_URL`, `STALWART_URL`, and the rest):
+
+```bash
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env run --rm \
+  -e OWNER_ORG_NAME="Acme" -e OWNER_DOMAIN=example.org -e OWNER_LOGIN=admin -e OWNER_NAME="Jane Doe" \
+  api bootstrap-owner
+```
+
+Leave `OWNER_PASSWORD` unset to have one generated and printed once. Then open the frontend (in
+dev, `npm run dev` inside `frontend/`; in this compose, whatever reverse proxy you put in front of
+`api`'s port 8000 -- see [docs/self-hosting.md](self-hosting.md) for a production Caddy config)
+and log in with that mailbox address and password.
 
 ## What's next
 
