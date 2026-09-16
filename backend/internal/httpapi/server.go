@@ -57,7 +57,7 @@ func (s *Server) Router() http.Handler {
 			// MFA (second-factor enrollment). Requires an already active session.
 			// Organization security policy (MFA required) — only whoever manages the org.
 			r.With(s.requirePerm(rbac.PermOrgSecurity)).Get("/org/security", s.handleGetSecurityPolicy)
-			r.With(s.requirePerm(rbac.PermOrgSecurity)).Put("/org/security", s.handleSetSecurityPolicy)
+			r.With(s.requirePerm(rbac.PermOrgSecurity)).Put("/org/security", s.handleSetSecurityPolicyGate)
 
 			r.Post("/mfa/totp/start", s.handleTOTPStart)
 			r.Post("/mfa/totp/enable", s.handleTOTPEnable)
