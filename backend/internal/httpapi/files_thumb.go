@@ -1,11 +1,13 @@
 package httpapi
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 	_ "image/gif" // registers the GIF decoder
 	"image/jpeg"
 	_ "image/png" // registers the PNG decoder
+	"io"
 	"net/http"
 	"strings"
 
@@ -16,6 +18,21 @@ import (
 // dependency (CLAUDE.md §2.5): decode, downscale by box average, and re-encode as JPEG.
 
 const thumbMax = 256 // longest thumbnail side, in pixels
+
+// thumbMaxBytes bounds how much of the stored blob is read into memory before decoding -- large
+// enough for any real photo, small enough that a file merely NAMED *.png can't force an unbounded
+// read. thumbMaxPixels bounds the declared width*height read from the header BEFORE the full
+// pixel buffer is allocated: a tiny file can declare an enormous image (the classic
+// image-decoding memory-bomb), and image.Decode has no built-in ceiling of its own.
+const thumbMaxBytes = 20 << 20
+const thumbMaxPixels = 40_000_000
+
+// dimensionsWithinLimit rejects a non-positive or implausibly huge declared width/height before
+// the full pixel buffer is allocated for it. Widened to int64 first: a hostile width*height near
+// MaxInt32 would otherwise overflow a 32-bit multiplication on some platforms.
+func dimensionsWithinLimit(width, height int) bool {
+	return width > 0 && height > 0 && int64(width)*int64(height) <= thumbMaxPixels
+}
 
 // handleStarFile marks/unmarks a file as a favorite of its owner.
 func (s *Server) handleStarFile(w http.ResponseWriter, r *http.Request) {
@@ -70,8 +87,20 @@ func (s *Server) handleThumbnail(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "storage.download_failed")
 		return
 	}
-	defer obj.Close()
-	src, _, err := image.Decode(obj)
+	data, err := io.ReadAll(io.LimitReader(obj, thumbMaxBytes+1))
+	obj.Close()
+	if err != nil || int64(len(data)) > thumbMaxBytes {
+		writeErr(w, http.StatusUnsupportedMediaType, "storage.not_image")
+		return
+	}
+	// Peek the declared dimensions before the full decode allocates a pixel buffer for them: a
+	// tiny file can declare an enormous image, and image.Decode enforces no ceiling of its own.
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil || !dimensionsWithinLimit(cfg.Width, cfg.Height) {
+		writeErr(w, http.StatusUnsupportedMediaType, "storage.not_image")
+		return
+	}
+	src, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		writeErr(w, http.StatusUnsupportedMediaType, "storage.not_image")
 		return

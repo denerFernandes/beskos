@@ -888,6 +888,7 @@
     "storage.download_failed": "Falha ao baixar arquivo",
     "storage.hash_failed": "Falha ao ler o arquivo",
     "storage.invalid_id": "Identificador de arquivo inválido",
+    "storage.invalid_name": "Nome de arquivo inválido",
     "storage.invalid_share": "Compartilhamento inválido",
     "storage.list_failed": "Erro ao listar arquivos",
     "storage.no_file": "Envie um arquivo",

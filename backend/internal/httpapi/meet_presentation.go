@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -111,11 +112,25 @@ func (s *Server) buildPresentationPDF(ctx context.Context, tenant uuid.UUID, nam
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.office.reachable(pdfURL), nil)
+	// Same host allowlist as the OnlyOffice save callback (onlyoffice.go's fetchURLAllowed): the
+	// Document Server's own ConvertService response tells us where to fetch the result, so this
+	// closes the same class of "fetch whatever URL a JSON response names" risk defensively, even
+	// though today's fileUrl always comes back pointing at the DS we just called ourselves.
+	target, ok := s.office.fetchURLAllowed(pdfURL)
+	if !ok {
+		return "", fmt.Errorf("onlyoffice: refused non-DocumentServer convert result url %q", pdfURL)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
 	if err != nil {
 		return "", err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return fmt.Errorf("onlyoffice: redirect on convert result url blocked")
+		},
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
 	}

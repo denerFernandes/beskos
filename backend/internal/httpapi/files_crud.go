@@ -56,6 +56,11 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
+	name := sanitizeUploadName(header.Filename)
+	if name == "" {
+		writeErr(w, http.StatusBadRequest, "storage.invalid_name")
+		return
+	}
 
 	// Content hash (dedup) — then rewinds for the upload.
 	hasher := sha256.New()
@@ -103,16 +108,16 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Versioning by name (same name → new version).
-	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Name: header.Filename})
+	prevMax, _ := s.q.MaxVersionByName(r.Context(), db.MaxVersionByNameParams{TenantID: mu.TenantID, Name: name})
 	rec, err := s.q.CreateStorageFile(r.Context(), db.CreateStorageFileParams{
 		TenantID: mu.TenantID, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
-		Name: header.Filename, BlobKey: blobKey, Hash: hash, Size: header.Size, Version: prevMax + 1, FolderID: folderID,
+		Name: name, BlobKey: blobKey, Hash: hash, Size: header.Size, Version: prevMax + 1, FolderID: folderID,
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "storage.record_failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Action: "file.upload", Target: header.Filename})
+	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: mu.TenantID, Valid: true}, Actor: mu.Email, Action: "file.upload", Target: name})
 	writeJSON(w, http.StatusCreated, rec)
 }
 

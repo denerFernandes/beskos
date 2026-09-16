@@ -888,6 +888,7 @@
     "storage.download_failed": "Failed to download file",
     "storage.hash_failed": "Failed to read file",
     "storage.invalid_id": "Invalid file id",
+    "storage.invalid_name": "Invalid file name",
     "storage.invalid_share": "Invalid share",
     "storage.list_failed": "Failed to list files",
     "storage.no_file": "Please attach a file",

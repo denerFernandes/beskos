@@ -87,6 +87,13 @@ func textFromPrefix(zr *zip.Reader, prefix string) (string, error) {
 	return b.String(), nil
 }
 
+// maxDecompressedPart bounds how much decompressed XML a single zip member can produce here.
+// The outer file is already capped (20 MiB at ExtractText's one caller), but DEFLATE lets one
+// member compress far past that ratio -- a small crafted document.xml could otherwise decompress
+// to gigabytes before this function ever returns. A real document's text content is nowhere near
+// this size, so the cap only ever bites on an adversarial input.
+const maxDecompressedPart = 10 << 20
+
 // xmlText extracts the text from an XML's character nodes, without worrying about tag names:
 // OOXML's text elements (<w:t>, <a:t>, <t>) are leaves with the text inside, and picking up
 // all the CharData gives the readable body without needing to know the whole schema.
@@ -96,7 +103,7 @@ func xmlText(f *zip.File) (string, error) {
 		return "", err
 	}
 	defer rc.Close()
-	dec := xml.NewDecoder(rc)
+	dec := xml.NewDecoder(io.LimitReader(rc, maxDecompressedPart))
 	var b strings.Builder
 	var inText bool
 	for {
