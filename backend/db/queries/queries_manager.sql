@@ -177,3 +177,100 @@ UPDATE plans SET stripe_product_id = $2, stripe_price_id = $3 WHERE key = $1;
 
 -- name: SetTenantCurrency :exec
 UPDATE tenants SET currency = $2 WHERE id = $1;
+
+-- Operator-only plan administration.
+-- name: UpsertPlan :one
+INSERT INTO plans (key, name, description, price_cents_per_user, min_users, max_users,
+    apps_enabled, max_storage_gb, ai_tokens_per_window, meet_max_participants, meet_max_minutes,
+    recording, recording_retention_days, max_daily_send, onlyoffice_edit, wiki_public_links, sort, prices)
+VALUES (@key, @name, @description, @price_cents_per_user, @min_users, @max_users,
+    @apps_enabled, @max_storage_gb, @ai_tokens_per_window, @meet_max_participants, @meet_max_minutes,
+    @recording, @recording_retention_days, @max_daily_send, @onlyoffice_edit, @wiki_public_links, @sort, @prices)
+ON CONFLICT (key) DO UPDATE SET
+    name = EXCLUDED.name, description = EXCLUDED.description,
+    price_cents_per_user = EXCLUDED.price_cents_per_user,
+    min_users = EXCLUDED.min_users, max_users = EXCLUDED.max_users,
+    apps_enabled = EXCLUDED.apps_enabled, max_storage_gb = EXCLUDED.max_storage_gb,
+    ai_tokens_per_window = EXCLUDED.ai_tokens_per_window,
+    meet_max_participants = EXCLUDED.meet_max_participants,
+    meet_max_minutes = EXCLUDED.meet_max_minutes,
+    recording = EXCLUDED.recording,
+    recording_retention_days = EXCLUDED.recording_retention_days,
+    max_daily_send = EXCLUDED.max_daily_send,
+    onlyoffice_edit = EXCLUDED.onlyoffice_edit, wiki_public_links = EXCLUDED.wiki_public_links,
+    sort = EXCLUDED.sort, prices = EXCLUDED.prices, updated_at = now()
+RETURNING *;
+
+-- name: SetPlanActive :exec
+UPDATE plans SET active = @active, updated_at = now() WHERE key = @key;
+
+-- name: ManagerSetTenantPlan :exec
+UPDATE tenants SET plan = @plan WHERE id = @id;
+
+-- name: ManagerDeliverability :many
+-- Per-tenant delivery totals, bounces, and complaints over the last 30 days.
+SELECT t.id, t.name,
+    (SELECT COALESCE(sum(m.sent), 0) FROM tenant_mail_sent m
+      WHERE m.tenant_id = t.id AND m.day >= current_date - 30)::bigint AS sent_30d,
+    (SELECT count(*) FROM mail_events e WHERE e.tenant_id = t.id
+      AND e.type = 'bounce' AND e.created_at > now() - interval '30 days')::bigint AS bounces_30d,
+    (SELECT count(*) FROM mail_events e WHERE e.tenant_id = t.id
+      AND e.type = 'complaint' AND e.created_at > now() - interval '30 days')::bigint AS complaints_30d
+FROM tenants t
+WHERE t.status = 'active'
+ORDER BY t.name;
+
+-- name: ManagerTenantUsage :many
+SELECT * FROM tenant_daily_usage
+WHERE tenant_id = @tenant_id AND day >= cast(@since as date)
+ORDER BY day DESC;
+
+-- name: ManagerUsageSeries :many
+-- Aggregate daily usage across tenants for operator reports.
+SELECT day,
+    sum(users)::bigint AS users, sum(users_active)::bigint AS users_active,
+    sum(storage_bytes)::bigint AS storage_bytes, sum(ai_tokens)::bigint AS ai_tokens,
+    sum(meet_minutes)::bigint AS meet_minutes, sum(recordings)::bigint AS recordings,
+    sum(mail_sent)::bigint AS mail_sent
+FROM tenant_daily_usage
+WHERE day >= cast(@since as date)
+GROUP BY day ORDER BY day;
+
+-- name: ManagerAlertRows :many
+-- Current usage, prior seven-day AI baseline, and plan limits for tenant alerts.
+SELECT t.id, t.name, t.plan,
+    ((SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)
+      + (SELECT count(*) FROM email_aliases al WHERE al.tenant_id = t.id))::int AS users,
+    (SELECT coalesce(sum(f.size), 0) FROM storage_files f
+      WHERE f.tenant_id = t.id AND f.deleted_at IS NULL)::bigint AS storage_bytes,
+    (SELECT coalesce(sum(a.tokens), 0) FROM assistant_usage a
+      WHERE a.tenant_id = t.id AND a.created_at >= current_date)::bigint AS ai_today,
+    (SELECT coalesce(avg(d.ai_tokens), 0) FROM tenant_daily_usage d
+      WHERE d.tenant_id = t.id AND d.day >= current_date - 7 AND d.day < current_date)::bigint AS ai_prev_avg,
+    COALESCE((SELECT m.sent FROM tenant_mail_sent m
+      WHERE m.tenant_id = t.id AND m.day = current_date), 0)::int AS mail_today,
+    COALESCE(p.max_users, 0)::int AS max_users,
+    COALESCE(p.max_storage_gb, 0)::int AS max_storage_gb,
+    COALESCE(p.max_daily_send, 0)::int AS max_daily_send
+FROM tenants t
+LEFT JOIN plans p ON p.key = t.plan
+WHERE t.status = 'active'
+ORDER BY t.name;
+
+-- name: ManagerTopAIUsers :many
+-- Highest AI token usage per user over the last 24 hours.
+SELECT u.email, u.name, t.name AS tenant, sum(a.tokens)::bigint AS tokens
+FROM assistant_usage a
+JOIN mail_users u ON u.id = a.mail_user_id
+JOIN tenants t ON t.id = a.tenant_id
+WHERE a.created_at > now() - interval '24 hours'
+GROUP BY u.email, u.name, t.name
+ORDER BY sum(a.tokens) DESC
+LIMIT 10;
+
+-- name: ManagerUsageAllRows :many
+-- CSV export: raw rollup for all tenants in the period, including the organization name.
+SELECT t.name, u.* FROM tenant_daily_usage u
+JOIN tenants t ON t.id = u.tenant_id
+WHERE u.day >= cast(@since as date)
+ORDER BY u.day DESC, t.name;

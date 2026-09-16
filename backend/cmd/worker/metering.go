@@ -2,8 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -12,80 +13,96 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/storage"
 )
 
-// Manager metering: idempotent daily rollup, plus recording retention per the tenant's plan.
-
-// scanDailyUsage freezes per-tenant usage for TODAY and YESTERDAY (upsert). Running hourly covers
-// changes throughout the day; redoing yesterday on the first tick after midnight closes the right day.
-func scanDailyUsage(ctx context.Context, q *db.Queries) {
-	now := time.Now()
-	for _, d := range []time.Time{now, now.AddDate(0, 0, -1)} {
-		day := pgtype.Date{Time: d, Valid: true}
-		if err := q.RollupTenantDailyUsage(ctx, day); err != nil {
-			log.Printf("metering: rollup %s: %v", d.Format("2006-01-02"), err)
+// scanDailyUsage refreshes today and yesterday, including changes around midnight.
+func scanDailyUsage(ctx context.Context, q *db.Queries, now time.Time) error {
+	var failures []error
+	for _, day := range []time.Time{now, now.AddDate(0, 0, -1)} {
+		if err := q.RollupTenantDailyUsage(ctx, pgtype.Date{Time: day, Valid: true}); err != nil {
+			failures = append(failures, fmt.Errorf("rollup %s: %w", day.Format("2006-01-02"), err))
 		}
 	}
+	return errors.Join(failures...)
 }
 
-// scanRecordingRetention deletes recordings past the plan's retention: first the storage object,
-// then the row (in this order — if storage fails, the row stays and we try again).
-func scanRecordingRetention(ctx context.Context, q *db.Queries, st *storage.Service) {
+// scanRecordingRetention preserves rows until their storage objects have been removed.
+func scanRecordingRetention(ctx context.Context, q *db.Queries, remove func(context.Context, string) error) error {
 	rows, err := q.ExpiredRecordings(ctx)
 	if err != nil {
-		log.Printf("metering: expired recordings: %v", err)
+		return fmt.Errorf("list expired recordings: %w", err)
+	}
+	var failures []error
+	removed := 0
+	for _, row := range rows {
+		if err := removeExpiredRecording(ctx, q, row, remove); err != nil {
+			failures = append(failures, fmt.Errorf("recording %s: %w", row.ID, err))
+			continue
+		}
+		removed++
+	}
+	if removed > 0 {
+		log.Printf("metering: recording retention removed %d recording(s)", removed)
+	}
+	return errors.Join(failures...)
+}
+
+func removeExpiredRecording(ctx context.Context, q *db.Queries, row db.ExpiredRecordingsRow, remove func(context.Context, string) error) error {
+	if row.BlobKey != "" {
+		if remove == nil {
+			return fmt.Errorf("storage unavailable for blob %s; retaining database row", row.BlobKey)
+		}
+		if err := remove(ctx, row.BlobKey); err != nil {
+			return fmt.Errorf("remove blob %s: %w", row.BlobKey, err)
+		}
+	}
+	if err := q.DeleteRecordingRow(ctx, db.DeleteRecordingRowParams{ID: row.ID, TenantID: row.TenantID}); err != nil {
+		return fmt.Errorf("delete database row: %w", err)
+	}
+	return nil
+}
+
+type meteringHealth struct {
+	consecutive int
+}
+
+func (h *meteringHealth) report(job string, err error) {
+	if err == nil {
+		if h.consecutive > 0 {
+			log.Printf("metering: %s RECOVERED after %d failed passes", job, h.consecutive)
+		}
+		h.consecutive = 0
 		return
 	}
-	for _, r := range rows {
-		if r.BlobKey != "" && st != nil {
-			if err := st.Remove(ctx, r.BlobKey); err != nil {
-				log.Printf("metering: remove recording blob %s: %v", r.BlobKey, err)
-				continue
-			}
-		}
-		if err := q.DeleteRecordingRow(ctx, r.ID); err != nil {
-			log.Printf("metering: delete recording row %s: %v", r.ID, err)
-		}
+	h.consecutive++
+	if h.consecutive >= failuresBeforeAlarm {
+		log.Printf("metering: %s UNHEALTHY after %d consecutive failed passes: %v", job, h.consecutive, err)
+		return
 	}
-	if len(rows) > 0 {
-		log.Printf("metering: recording retention removed %d recording(s)", len(rows))
-	}
+	log.Printf("metering: %s failed (pass %d): %v", job, h.consecutive, err)
 }
 
-// meteringStorage builds the MinIO client for retention (same envs as the api). nil = no storage
-// (retention only deletes rows whose blob is empty).
-func meteringStorage(q *db.Queries) *storage.Service {
-	ep := os.Getenv("MINIO_ENDPOINT")
-	if ep == "" {
-		return nil
+// startMetering runs only in the private edition, with independent failure counters per job.
+func startMetering(ctx context.Context, q *db.Queries, st *storage.Service) {
+	var remove func(context.Context, string) error
+	if st != nil {
+		remove = st.Remove
 	}
-	bucket := os.Getenv("MINIO_BUCKET")
-	if bucket == "" {
-		bucket = "beskos"
-	}
-	st, err := storage.New(ep, os.Getenv("MINIO_ACCESS_KEY"), os.Getenv("MINIO_SECRET_KEY"),
-		bucket, os.Getenv("MINIO_REGION"), os.Getenv("MINIO_SSL") == "true")
-	if err != nil {
-		log.Printf("metering: storage disabled: %v", err)
-		return nil
-	}
-	// Recording assembly writes through here: without this, the final MP4 would go out in
-	// plaintext while Drive's files went out encrypted. See the file-encryption design doc §3a.
-	if err := st.EnableEncryption(q, os.Getenv("FILE_ENC_KEYS")); err != nil {
-		log.Fatalf("metering: storage encryption: %v", err)
-	}
-	return st
-}
-
-// startMetering wires up rollup + retention on an hourly ticker (first pass already at startup).
-func startMetering(q *db.Queries) {
-	st := meteringStorage(q)
 	go func() {
-		t := time.NewTicker(time.Hour)
-		defer t.Stop()
-		scanDailyUsage(context.Background(), q)
-		scanRecordingRetention(context.Background(), q, st)
-		for range t.C {
-			scanDailyUsage(context.Background(), q)
-			scanRecordingRetention(context.Background(), q, st)
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		var usage, retention meteringHealth
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			passCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			usage.report("daily usage", scanDailyUsage(passCtx, q, time.Now()))
+			retention.report("recording retention", scanRecordingRetention(passCtx, q, remove))
+			cancel()
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
 		}
 	}()
 	log.Printf("metering worker started (hourly rollup + recording retention)")

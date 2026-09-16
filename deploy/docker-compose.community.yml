@@ -127,10 +127,8 @@ services:
       SMS_PROVIDER: "${SMS_PROVIDER:-log}"
       SNS_REGION: "${SNS_REGION:-}"
       SMS_SENDER_ID: "${SMS_SENDER_ID:-}"
-      SES_REGION: "${SES_REGION:-}"
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
-      BILLING_PROVIDER: "${BILLING_PROVIDER:-manual}"
       PROVISION_SKIP_DNS_VERIFY: "${PROVISION_SKIP_DNS_VERIFY:-false}"
       # Office editing (OnlyOffice Document Server). ONLYOFFICE_URL is what the BROWSER uses;
       # FILES_HOST_URL is how the Document Server reaches this API back (download/callback).

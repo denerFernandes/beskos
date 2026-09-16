@@ -27,7 +27,6 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/mailbox"
 	"github.com/beskosorg/beskos/backend/internal/provisioning"
 	"github.com/beskosorg/beskos/backend/internal/secretbox"
-	"github.com/beskosorg/beskos/backend/internal/ses"
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 	"github.com/beskosorg/beskos/backend/internal/storage"
 	"github.com/beskosorg/beskos/backend/internal/wiki"
@@ -393,16 +392,8 @@ func main() {
 		log.Printf("provisioning: STALWART_HOSTNAME unset — the zone given to customers will name the container, not a public host")
 	}
 
-	if relay := ses.NewFromEnv(); relay != nil {
-		brand := os.Getenv("MAIL_BRAND_DOMAIN")
-		if brand == "" {
-			brand = os.Getenv("STALWART_DEFAULT_DOMAIN")
-		}
-		machine.WithRelay(relay, brand)
-		log.Printf("SES relay enabled (white-label BYODKIM; brand=%s)", brand)
-		// Reputation sentinel: suspends one customer before AWS suspends everyone.
-		startReputation(q, relay)
-	}
+	configureEditionProvisioning(q, machine)
+
 	runner := provisioning.NewRunner(machine, q)
 
 	log.Printf("provisioning worker started")
@@ -447,12 +438,13 @@ func main() {
 		}
 	}()
 
-	// Manager metering: daily usage rollup plus recording retention per plan.
-	startMetering(q)
-
 	// Offline recording assembly (track egress → MP4 via ffmpeg; priority queue).
 	// Recording assembly and sealing share the same storage service.
-	stWorker := meteringStorage(q)
+	stWorker, err := workerStorage(context.Background(), q)
+	if err != nil {
+		log.Fatalf("worker: %v", err)
+	}
+	startEditionWorkers(context.Background(), q, stWorker)
 	startAssembly(q, stWorker)
 	startSealing(stWorker)
 	startWatchdog(os.Getenv("STALWART_URL"))

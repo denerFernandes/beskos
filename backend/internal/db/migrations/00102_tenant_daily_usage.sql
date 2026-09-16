@@ -1,7 +1,5 @@
 -- +goose Up
--- Rollup diário de uso por tenant (manager M3, docs/manager.md §3.5). O worker congela o dia
--- (upsert idempotente, a cada hora, para hoje e ontem); dashboards/relatórios leem daqui em vez
--- de agregar as tabelas grandes ao vivo.
+-- Daily tenant usage rollup. The worker upserts today and yesterday hourly.
 CREATE TABLE tenant_daily_usage (
     tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     day              DATE NOT NULL,

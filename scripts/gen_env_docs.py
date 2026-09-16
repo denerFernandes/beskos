@@ -11,7 +11,6 @@ review the diff by eye.
 """
 import pathlib
 import re
-import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "configuration.md"
@@ -23,15 +22,13 @@ PATTERN = re.compile(
 
 
 def scan() -> dict[str, str | None]:
-    files = subprocess.run(
-        ["git", "ls-files", "backend/*.go", "backend/**/*.go"],
-        cwd=ROOT, capture_output=True, text=True, check=True,
-    ).stdout.splitlines()
+    # Scan the source tree so a history-free public export can regenerate its own reference.
+    files = sorted((ROOT / "backend").rglob("*.go"))
     found: dict[str, str | None] = {}
-    for rel in files:
-        if rel.endswith("_test.go"):
+    for path in files:
+        if path.name.endswith("_test.go"):
             continue
-        text = (ROOT / rel).read_text(encoding="utf-8", errors="ignore")
+        text = path.read_text(encoding="utf-8", errors="ignore")
         for m in PATTERN.finditer(text):
             if m.group(1):
                 found.setdefault(m.group(1), None)
@@ -43,10 +40,10 @@ def scan() -> dict[str, str | None]:
     return found
 
 
-# Read only by the operator console (backend/cmd/manager-api, backend/internal/managerapi),
+# Read only by the private operator console,
 # which isn't part of this build -- listing them here would document a feature that isn't there.
 MANAGER_ONLY_PREFIX = "MANAGER_"
-MANAGER_ONLY_NAMES = {"APP_PUBLIC_URL"}  # doesn't carry the prefix, but is manager-api only
+MANAGER_ONLY_NAMES = {"APP_PUBLIC_URL"}  # private operator console only
 
 
 def render(vars_: dict[str, str | None]) -> str:

@@ -1,8 +1,6 @@
 -- +goose Up
--- Pipeline de gravação offline (decisão 22/07/2026, docs/manager.md §1): nos planos pagos o
--- padrão é TRACK EGRESS (tracks crus por participante saem baratos durante a reunião) +
--- MONTAGEM OFFLINE (o worker compõe o MP4 com ffmpeg fora do caminho quente). O modo
--- 'composite' (RoomComposite ao vivo) continua existindo como fallback/legado.
+-- Track egress records participant tracks for offline assembly by the worker.
+-- Live room composite recording remains available.
 ALTER TABLE recordings ADD COLUMN mode TEXT NOT NULL DEFAULT 'composite'
     CHECK (mode IN ('composite', 'tracks'));
 -- Ciclo do modo tracks: '' (composite) | pending (parou, à espera de montagem) |
