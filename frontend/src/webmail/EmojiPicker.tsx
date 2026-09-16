@@ -8,8 +8,8 @@ import { IcGear } from "../panel/icons";
 
 const RECENT_KEY = "mailin.emoji.recent";
 
-// Últimos usados: é o que faz um seletor deixar de ser uma lista e passar a servir. Fica no
-// browser de propósito — é preferência de teclado, não dado da empresa.
+// Recently used: this is what turns a picker from a mere list into something that actually
+// helps. It lives in the browser on purpose — it's a keyboard preference, not company data.
 function readRecent(): string[] {
   try {
     return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]").slice(0, 16);
@@ -21,11 +21,11 @@ export function pushRecent(ch: string) {
   const next = [ch, ...readRecent().filter((x) => x !== ch)].slice(0, 16);
   try {
     localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-  } catch { /* modo privado: sem recentes, o resto continua a funcionar */ }
+  } catch { /* private mode: no recents, everything else keeps working */ }
 }
 
-// Seletor de emoji. `anchor` é o botão que o abriu: o popup é `position:fixed` para escapar do
-// overflow:hidden da caixa do compositor, então a posição vem daqui, não do CSS.
+// Emoji picker. `anchor` is the button that opened it: the popup is `position:fixed` to escape
+// the composer box's overflow:hidden, so the position comes from here, not from CSS.
 export function EmojiPicker({ anchor, onPick, onClose }: {
   anchor: DOMRect | null; onPick: (ch: string) => void; onClose: () => void;
 }) {
@@ -38,11 +38,11 @@ export function EmojiPicker({ anchor, onPick, onClose }: {
   const custom = useMemo(() => customEmojiList(), []);
   const customHits = custom.filter((e) => !q.trim() || e.name.includes(q.trim().toLowerCase()));
 
-  // Fecha ao clicar fora ou com Escape — sem isto o popup fica preso no ecrã.
+  // Closes on click-outside or Escape — without this the popup stays stuck on screen.
   //
-  // O listener entra só no tick seguinte: o mousedown que ABRIU o seletor ainda está a subir para
-  // o document quando este efeito corre, e um listener registado agora apanharia esse mesmo evento
-  // — o popup abria e fechava no mesmo clique.
+  // The listener is only attached on the next tick: the mousedown that OPENED the picker is still
+  // bubbling up to the document when this effect runs, and a listener registered right now would
+  // catch that same event — the popup would open and close on the same click.
   useEffect(() => {
     const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) onClose(); };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -57,7 +57,7 @@ export function EmojiPicker({ anchor, onPick, onClose }: {
 
   const list: EmojiDef[] = q.trim() ? searchEmoji(q) : EMOJI_GROUPS[group].emojis;
 
-  // Acima do botão, e nunca a sair pela esquerda nem pela direita da janela.
+  // Above the button, and never spilling past the window's left or right edge.
   const style: React.CSSProperties = anchor
     ? { left: Math.max(8, Math.min(anchor.left, window.innerWidth - 240)), top: Math.max(8, anchor.top - 268) }
     : {};

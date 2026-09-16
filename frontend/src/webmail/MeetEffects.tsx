@@ -6,7 +6,7 @@ import { BackgroundProcessor, supportsBg, preloadBgModel, bgEngine, type BgMode 
 import { toast } from "./toast";
 import { IcSparkle, IcUpload } from "../panel/icons";
 
-// Fundos gerados (bokeh suave) como data URL — leves e sempre disponíveis, além do upload próprio.
+// Generated backgrounds (soft bokeh) as data URL — lightweight and always available, in addition to custom upload.
 function bokeh(base: string, dots: string): string {
   const c = document.createElement("canvas"); c.width = 1280; c.height = 720;
   const ctx = c.getContext("2d")!;
@@ -28,7 +28,7 @@ const BGS = [
   { key: "graphite", url: bokeh("#14161a", "#2c3038") },
 ];
 
-// Efeitos de câmera do Meet usando NOSSO processador (máscara de confiança + borda suave).
+// Meet camera effects using OUR processor (confidence mask + soft edge).
 export function MeetEffects() {
   const { t } = useTranslation();
   const { cameraTrack } = useLocalParticipant();
@@ -41,15 +41,15 @@ export function MeetEffects() {
 
   const track = cameraTrack?.track as LocalVideoTrack | undefined;
 
-  // Pré-carrega o segmentador (LOCAL, empacotado na app — sem downloads) assim que o menu abre.
+  // Preloads the segmenter (LOCAL, bundled in the app — no downloads) as soon as the menu opens.
   const [model, setModel] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [modelErr, setModelErr] = useState("");
   useEffect(() => {
     if (!open || model === "ready" || model === "loading") return;
     setModel("loading");
     preloadBgModel().then(() => setModel("ready")).catch((e) => {
-      console.warn("[meet] efeitos: modelo falhou:", e);
-      setModelErr(String((e as Error)?.message ?? e).slice(0, 140)); // erro real no ecrã (diagnóstico)
+      console.warn("[meet] effects: model failed:", e);
+      setModelErr(String((e as Error)?.message ?? e).slice(0, 140)); // real error on screen (diagnostic)
       setModel("error");
     });
   }, [open, model]);
@@ -59,8 +59,8 @@ export function MeetEffects() {
     setBusy(true);
     try {
       if (mode.kind === "none") {
-        // NÃO desligamos o processador (track.stopProcessor nem sempre restaura o vídeo no
-        // WKWebView — a câmara "sumia"). "Nenhum" vira pass-through: o render desenha o vídeo cru.
+        // We do NOT turn off the processor (track.stopProcessor doesn't always restore the video on
+        // WKWebView — the camera would "disappear"). "None" becomes pass-through: the renderer draws the raw video.
         if (proc.current) await proc.current.setMode(mode);
       } else if (!proc.current) {
         proc.current = new BackgroundProcessor(mode);
@@ -70,7 +70,7 @@ export function MeetEffects() {
       }
       setActive(key);
     } catch (e) {
-      console.warn("[meet] efeitos: aplicar falhou:", e);
+      console.warn("[meet] effects: apply failed:", e);
       toast(t("meet.fxApplyFail"));
     }
     setBusy(false);
@@ -86,7 +86,7 @@ export function MeetEffects() {
 
   return (
     <div className="meet-fx">
-      {/* Só ícone: o rótulo passa a title/aria para não se perder acessibilidade nem a dica ao passar. */}
+      {/* Icon only: the label goes through title/aria so accessibility and the hover hint aren't lost. */}
       <button className="fx-toggle" onClick={() => setOpen((v) => !v)} disabled={!track}
         title={t("meet.effects")} aria-label={t("meet.effects")}><IcSparkle size={17} /></button>
       {open && (

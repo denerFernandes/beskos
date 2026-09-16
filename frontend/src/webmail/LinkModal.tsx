@@ -2,11 +2,11 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { IcX } from "../panel/icons";
 
-// "Adicionar link" do composer (estilo Slack): dois campos — o texto que se lê e o endereço.
-// Escrever `[texto](url)` à mão no meio da mensagem é fácil de errar e não se vê o resultado; aqui
-// a pessoa preenche e o composer insere o markdown já formado.
+// Composer's "Add link" (Slack style): two fields — the readable text and the address.
+// Typing `[text](url)` by hand in the middle of the message is easy to get wrong and you can't
+// see the result; here the person fills the fields in and the composer inserts the ready-made markdown.
 export function LinkModal({ initialText = "", onSave, onClose }: {
-  /** Texto selecionado no composer, se havia — poupa reescrevê-lo. */
+  /** Text selected in the composer, if any — saves having to retype it. */
   initialText?: string;
   onSave: (text: string, url: string) => void;
   onClose: () => void;
@@ -18,7 +18,7 @@ export function LinkModal({ initialText = "", onSave, onClose }: {
   const save = () => {
     const href = url.trim();
     if (!href) return;
-    // Sem esquema o link ficaria relativo à app (/mail/…) e levava a lado nenhum.
+    // Without a scheme the link would be relative to the app (/mail/…) and would lead nowhere.
     const full = /^[a-z][a-z0-9+.-]*:|^\//i.test(href) ? href : `https://${href}`;
     onSave(text.trim() || full, full);
   };

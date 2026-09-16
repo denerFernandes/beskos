@@ -6,7 +6,7 @@ import { backend, type Notif } from "./backend";
 import { notifText } from "./notifText";
 import { IcBell } from "../panel/icons";
 
-// Sino de notificações in-app (convites de reunião, etc.). Poll leve; badge de não-lidas.
+// In-app notifications bell (meeting invites, etc.). Lightweight polling; unread badge.
 export function NotificationsBell() {
   const { t, i18n } = useTranslation();
   const nav = useNavigate();

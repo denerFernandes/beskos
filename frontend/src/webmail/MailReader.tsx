@@ -15,9 +15,9 @@ import { Avatar } from "./Avatar";
 import { IcReply, IcReplyAll, IcForward, IcSparkle, IcColumns, IcCalendar, IcShield, IcFolder, IcTrash, IcMail, IcPrinter, IcChevron, IcPlus, IcArchive, IcCheck } from "../panel/icons";
 import { TagIcon } from "./MailLabels";
 
-// Reader de e-mail com IA real: resumo (backend.summarize) e ações que abrem os fluxos de IA/tarefa/evento.
-// Carrega a CONVERSA inteira (mesmo threadId): a mensagem mais recente fica aberta, as anteriores
-// recolhidas numa linha — clicar expande. As ações (responder, encaminhar…) agem na mais recente.
+// Email reader with real AI: summary (backend.summarize) and actions that open the AI/task/event flows.
+// Loads the ENTIRE CONVERSATION (same threadId): the most recent message stays open, earlier ones
+// collapse into a single line — clicking expands them. The actions (reply, forward…) act on the most recent.
 export function MailReader({
   service, emailId, locale, me, isSpam, onReply, onDraftAI, onExtractTasks, onSchedule, spamAction,
   moveTargets, onMove, onArchive, onSnooze, onTrash, onMarkUnread, onOpenAttachment,
@@ -34,18 +34,18 @@ export function MailReader({
   spamAction?: { label: string; junk: boolean; run: () => void };
   moveTargets: { id: string; label: string }[];
   onMove: (mailboxId: string) => void;
-  onArchive?: () => void; // arquivar de 1 clique (undefined = não aplicável nesta pasta)
-  onSnooze?: (wake: Date) => void; // adiar (undefined = não aplicável nesta pasta)
+  onArchive?: () => void; // 1-click archive (undefined = not applicable in this folder)
+  onSnooze?: (wake: Date) => void; // snooze (undefined = not applicable in this folder)
   onTrash: () => void;
   onMarkUnread: () => void;
   onOpenAttachment: (a: EmailAttachment) => void;
 }) {
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [wantSummary, setWantSummary] = useState(false); // resumo é sob demanda (botão), não automático
-  // Barra de ações estilo Gmail: só o essencial à vista, o resto num menu ⋯. `replyOpen` é o menu
-  // do botão Responder (a todos / encaminhar / IA); `moreOpen`/`moreView` é o ⋯ com sub-níveis
-  // (mover, marcadores) à maneira do iOS.
+  const [wantSummary, setWantSummary] = useState(false); // summary is on-demand (button), not automatic
+  // Gmail-style action bar: only the essentials on display, the rest in a ⋯ menu. `replyOpen` is
+  // the Reply button's menu (reply all / forward / AI); `moreOpen`/`moreView` is the ⋯ with
+  // sub-levels (move, labels) iOS-style.
   const [replyOpen, setReplyOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [moreView, setMoreView] = useState<"root" | "move" | "labels">("root");
@@ -54,13 +54,13 @@ export function MailReader({
   const thread = useQuery({ queryKey: ["thread", emailId], queryFn: () => service.getThread(emailId!), enabled: !!emailId });
 
   const msgs = thread.data ?? [];
-  // Por defeito, só a mais recente está aberta. Recalcula quando muda de conversa.
+  // By default, only the most recent one is open. Recalculated when the conversation changes.
   useEffect(() => {
     if (msgs.length) setExpanded(new Set([msgs[msgs.length - 1].id]));
   }, [emailId, msgs.length]);
-  // Trocar de e-mail volta a esconder o resumo (é sob demanda por e-mail).
+  // Switching emails hides the summary again (it's on-demand per email).
   useEffect(() => { setWantSummary(false); }, [emailId]);
-  // Atalho "E" arquiva a conversa aberta (estilo Gmail). Ignora quando se está a escrever num campo.
+  // "E" shortcut archives the open conversation (Gmail style). Ignored while typing in a field.
   useEffect(() => {
     if (!emailId || !onArchive) return;
     const onKey = (e: KeyboardEvent) => {
@@ -76,20 +76,21 @@ export function MailReader({
   }, [emailId, onArchive]);
   const toggle = (id: string) => setExpanded((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
-  // Ações agem na mensagem mais recente da conversa (como o Gmail).
+  // Actions act on the most recent message of the conversation (like Gmail).
   const m = msgs[msgs.length - 1];
-  // Texto legível do corpo (para IA, citação de resposta e reencaminhamento). Num e-mail só-HTML o
-  // textBody aponta para a parte HTML — aí extraímos o texto das tags, senão a IA veria HTML cru.
+  // Readable text of the body (for AI, reply quoting, and forwarding). In an HTML-only email,
+  // textBody points to the HTML part — there we extract the text from the tags, otherwise the AI
+  // would see raw HTML.
   const bodyPart = m?.textBody?.[0];
   const rawBody = bodyPart ? m.bodyValues[bodyPart.partId]?.value ?? "" : (m?.preview ?? "");
   const body = bodyPart?.type === "text/html" ? htmlToText(rawBody) : rawBody;
 
-  // Config: o resumo por IA pode ser desligado nas Definições (settings.email.aiSummary). Nunca
-  // corre em SPAM — não se gasta IA nem se envia conteúdo suspeito para o modelo.
+  // Config: AI summarization can be turned off in Settings (settings.email.aiSummary). Never runs
+  // on SPAM — no AI is spent and no suspicious content is sent to the model.
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => settingsApi.get(), retry: false });
-  const aiSummaryOn = settings.data?.email?.aiSummary !== false && !isSpam; // default ligado
+  const aiSummaryOn = settings.data?.email?.aiSummary !== false && !isSpam; // default on
 
-  // Resumo por IA (best-effort). Conteúdo é imutável por id → cache em localStorage.
+  // AI summary (best-effort). Content is immutable per id → cached in localStorage.
   const summary = useQuery({
     queryKey: ["summary", m?.id],
     queryFn: async () => {
@@ -97,7 +98,7 @@ export function MailReader({
       const hit = localStorage.getItem(key);
       if (hit) return { summary: hit };
       const r = await backend.summarize(m!.subject, body);
-      try { localStorage.setItem(key, r.summary); } catch { /* quota: ignora */ }
+      try { localStorage.setItem(key, r.summary); } catch { /* quota: ignore */ }
       return r;
     },
     enabled: !!m && aiSummaryOn && wantSummary,
@@ -115,8 +116,9 @@ export function MailReader({
 
   const quoted = () => `\n\n${t("webmail.reader.quoteHeader", { who: name, date: fullDateTime(m.receivedAt, locale) })}\n` +
     body.split("\n").map((l) => "> " + l).join("\n");
-  // Preserva o HTML original na resposta/encaminhamento (antes citava só texto). O corpo original vai
-  // dentro de <blockquote>; o Compose sanitiza tudo. Sem parte HTML → undefined (cai no texto acima).
+  // Preserves the original HTML in the reply/forward (it used to only quote text). The original
+  // body goes inside a <blockquote>; Compose sanitizes everything. No HTML part → undefined (falls
+  // back to the text above).
   const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const origHtml = () => { const h = m.htmlBody?.[0]; return h?.type === "text/html" ? (m.bodyValues[h.partId]?.value ?? "") : ""; };
   const wrapQuote = (headerHtml: string) => {
@@ -141,8 +143,8 @@ export function MailReader({
     body: quoted(),
     bodyHtml: quotedHtml(),
   });
-  // "Rascunhar com IA": abre o assistente já com o contexto de RESPOSTA (destinatário + "Re:"),
-  // para o texto gerado virar uma resposta e não um e-mail novo.
+  // "Draft with AI": opens the assistant already with the REPLY context (recipient + "Re:"),
+  // so the generated text turns into a reply instead of a new email.
   const draftAI = () => onDraftAI(body, { to: replyTarget(), subject: rePrefix("Re: ", m.subject) });
   const doForward = () => onReply({
     subject: rePrefix("Fwd: ", m.subject),
@@ -152,9 +154,9 @@ export function MailReader({
     bodyHtml: fwdHtml(),
   });
 
-  // Ações de IA por e-mail (sob demanda, NÃO automáticas): resumir, rascunhar resposta, extrair
-  // tarefas. Vai como slot dentro da mensagem mais recente (entre cabeçalho e corpo). Enquanto o
-  // resumo não é pedido, mostra só a barra de botões; ao pedir, expande no cartão com o resumo.
+  // Per-email AI actions (on-demand, NOT automatic): summarize, draft reply, extract tasks. Goes
+  // in as a slot inside the most recent message (between header and body). While the summary
+  // hasn't been requested, it shows only the button bar; on request, it expands into the summary card.
   const summaryNode = !aiSummaryOn ? undefined : (
     (wantSummary && (summary.isLoading || summary.data)) ? (
       <div className="ai-card">
@@ -171,8 +173,8 @@ export function MailReader({
       </div>
     ) : (
       <div className="ai-bar">
-        {/* A IA fica num único ponto de entrada — Resumir. Rascunhar (== Responder com IA) vive no
-            menu do botão Responder; Extrair tarefas vive no ⋯. Sem duplicação. */}
+        {/* AI has a single entry point — Summarize. Draft (== Reply with AI) lives in the Reply
+            button's menu; Extract tasks lives in ⋯. No duplication. */}
         <button className="chipbtn" onClick={() => setWantSummary(true)}><IcSparkle size={15} /> {t("webmail.ai.summarize")}</button>
       </div>
     )
@@ -181,7 +183,7 @@ export function MailReader({
   return (
     <div className="rin">
       <div className="ract">
-        {/* Responder — botão dividido: clicar responde; o ▾ abre a todos / encaminhar / IA. */}
+        {/* Reply — split button: clicking replies; the ▾ opens reply all / forward / AI. */}
         <div className="split movewrap">
           <button className="split-main" onClick={() => doReply(false)}><IcReply size={15} /> {t("webmail.reader.reply")}</button>
           <button className={"split-caret" + (replyOpen ? " on" : "")} aria-label={t("webmail.reader.forward")} onClick={() => setReplyOpen((v) => !v)}><IcChevron size={14} className="down" /></button>
@@ -194,7 +196,7 @@ export function MailReader({
           )}
         </div>
 
-        {/* Triagem — 3 ícones (o mais usado): arquivar, adiar, apagar. */}
+        {/* Triage — 3 icons (the most used): archive, snooze, delete. */}
         {onArchive && <button className="iconbtn" title={t("webmail.archive")} onClick={onArchive}><IcArchive size={17} /></button>}
         {onSnooze && (
           <div className="movewrap">
@@ -215,7 +217,7 @@ export function MailReader({
 
         <div className="grow" />
 
-        {/* ⋯ Mais — tudo o resto, com sub-menus (mover, marcadores) à maneira do iOS. */}
+        {/* ⋯ More — everything else, with sub-menus (move, labels) iOS-style. */}
         <div className="movewrap">
           <button className={"iconbtn more-btn" + (moreOpen ? " on" : "")} title={t("webmail.more")} aria-label={t("webmail.more")}
             onClick={() => { setMoreOpen((v) => !v); setMoreView("root"); }}>⋯</button>
@@ -260,8 +262,8 @@ export function MailReader({
       </h1>
 
       {isSpam && (
-        // Banner de spam à moda do Gmail: explica por que está no Spam e deixa marcar "não é spam".
-        // O conteúdo abaixo tem links e imagens bloqueados (ver MailBody) por segurança.
+        // Gmail-style spam banner: explains why it's in Spam and lets it be marked "not spam".
+        // The content below has links and images blocked (see MailBody) for security.
         <div className="spam-banner">
           <div className="spam-txt">
             <b>{t("webmail.reader.spamTitle")}</b>
@@ -277,16 +279,16 @@ export function MailReader({
         <MessageItem key={msg.id} m={msg} service={service} locale={locale} t={t} spam={!!isSpam} me={me}
           single={msgs.length === 1} open={expanded.has(msg.id)} onToggle={() => toggle(msg.id)}
           onOpenAttachment={onOpenAttachment}
-          // Resumo por IA fica na mensagem mais recente, entre o cabeçalho e o corpo.
+          // AI summary sits in the most recent message, between the header and the body.
           summarySlot={i === msgs.length - 1 ? summaryNode : undefined} />
       ))}
     </div>
   );
 }
 
-// Uma mensagem da conversa. Recolhida mostra só remetente + trecho + hora; aberta mostra o cabeçalho
-// Captura automática: se o remetente ainda não está na agenda, oferece adicioná-lo com um clique.
-// Some quando já é contato (ou é o próprio utilizador). Compara e-mail sem caixa (case-insensitive).
+// A message in the conversation. Collapsed shows only sender + snippet + time; open shows the header
+// Automatic capture: if the sender isn't in the address book yet, offers to add them with one click.
+// Disappears once they're already a contact (or it's the user themself). Compares email case-insensitively.
 function AddSenderButton({ name, email }: { name: string; email: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -303,7 +305,7 @@ function AddSenderButton({ name, email }: { name: string; email: string }) {
   });
   const norm = email.trim().toLowerCase();
   if (!norm || add.isSuccess) return null;
-  if ((me.data?.email ?? "").toLowerCase() === norm) return null; // não me adiciono a mim mesmo
+  if ((me.data?.email ?? "").toLowerCase() === norm) return null; // don't add myself
   const exists = (contacts.data ?? []).some((c) => (c.email ?? "").toLowerCase() === norm);
   if (exists) return null;
   return (
@@ -312,7 +314,7 @@ function AddSenderButton({ name, email }: { name: string; email: string }) {
   );
 }
 
-// completo (com detalhes e imprimir) e o corpo. Numa conversa de uma só mensagem, sem cromo de colapso.
+// full one (with details and print) and the body. In a single-message conversation, with no collapse chrome.
 function MessageItem({ m, service, locale, t, single, spam, me, open, onToggle, onOpenAttachment, summarySlot }: {
   m: EmailFull; service: MailService; locale: string; t: TFunction; me: string;
   single: boolean; spam: boolean; open: boolean; onToggle: () => void; onOpenAttachment: (a: EmailAttachment) => void;
@@ -344,7 +346,7 @@ function MessageItem({ m, service, locale, t, single, spam, me, open, onToggle, 
     setTimeout(() => w.print(), 250);
   };
 
-  // Linha recolhida: um resumo clicável. Não aparece numa conversa de mensagem única.
+  // Collapsed row: a clickable summary. Doesn't appear in a single-message conversation.
   if (!open && !single) {
     return (
       <button className="emsg-collapsed" onClick={onToggle}>
@@ -396,8 +398,8 @@ function MessageItem({ m, service, locale, t, single, spam, me, open, onToggle, 
   );
 }
 
-// Presets de snooze estilo Gmail: mais tarde (+3h), esta noite (18h), amanhã (8h), próxima semana
-// (segunda 8h). Calculados a partir de agora — sempre no futuro.
+// Gmail-style snooze presets: later (+3h), tonight (6pm), tomorrow (8am), next week
+// (Monday 8am). Calculated from now — always in the future.
 function snoozeOptions(): { key: string; when: Date }[] {
   const now = new Date();
   const at = (d: Date, h: number) => { const x = new Date(d); x.setHours(h, 0, 0, 0); return x; };
@@ -406,7 +408,7 @@ function snoozeOptions(): { key: string; when: Date }[] {
   if (evening <= now) evening = at(new Date(now.getTime() + 86400_000), 18);
   const tomorrow = at(new Date(now.getTime() + 86400_000), 8);
   const nextMon = at(now, 8);
-  do { nextMon.setDate(nextMon.getDate() + 1); } while (nextMon.getDay() !== 1); // próxima segunda
+  do { nextMon.setDate(nextMon.getDate() + 1); } while (nextMon.getDay() !== 1); // next Monday
   return [
     { key: "later", when: later },
     { key: "evening", when: evening },
@@ -417,7 +419,7 @@ function snoozeOptions(): { key: string; when: Date }[] {
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 
-// Extrai o texto legível de um corpo HTML (para a IA e citações de resposta não verem tags cruas).
+// Extracts the readable text from an HTML body (so the AI and reply quotes don't see raw tags).
 function htmlToText(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   return (doc.body.textContent ?? "").replace(/\n{3,}/g, "\n\n").trim();
@@ -428,9 +430,9 @@ function fmtAddrs(list?: EmailAddress[] | null): string {
   return list.map((a) => (a.name ? `${a.name} <${a.email}>` : a.email)).join(", ");
 }
 
-// "para mim", "para Ana", "para dener@x.com e +2" — o resumo curto ao lado do remetente, à Gmail.
-// Antes assumia sempre "para mim"; em Enviados (destinatário ≠ eu) isso estava errado. Agora usa o
-// destinatário real e só diz "mim" quando o endereço é o do próprio utilizador.
+// "to me", "to Ana", "to dener@x.com and +2" — the short summary next to the sender, Gmail-style.
+// It used to always assume "to me"; in Sent (recipient ≠ me) that was wrong. It now uses the real
+// recipient and only says "me" when the address is the user's own.
 function recipientSummary(m: EmailFull, t: TFunction, me: string): string {
   const all = [...(m.to ?? []), ...(m.cc ?? [])];
   if (!all.length) return t("webmail.reader.toNobody");
@@ -440,7 +442,7 @@ function recipientSummary(m: EmailFull, t: TFunction, me: string): string {
   return t("webmail.reader.toMany", { who: label(all[0]), n: all.length - 1 });
 }
 
-// Painel de detalhes: os cabeçalhos que o Gmail esconde atrás da setinha. Só mostra o que existe.
+// Details panel: the headers Gmail hides behind the little arrow. Only shows what exists.
 function DetailsPanel({ m, locale }: { m: EmailFull; locale: string }) {
   const { t } = useTranslation();
   const rows: [string, string][] = [
@@ -463,13 +465,13 @@ function DetailsPanel({ m, locale }: { m: EmailFull; locale: string }) {
   );
 }
 
-// "Re: " / "Fwd: " sem empilhar prefixos: "Re: Re: x" é ruído.
+// "Re: " / "Fwd: " without stacking prefixes: "Re: Re: x" is noise.
 function rePrefix(prefix: string, subject: string): string {
   const s = subject ?? "";
   return s.toLowerCase().startsWith(prefix.toLowerCase()) ? s : prefix + s;
 }
 
-// Há mais alguém além de mim e do remetente? Decide se o botão "responder a todos" faz sentido.
+// Is there anyone else besides me and the sender? Decides whether the "reply all" button makes sense.
 function hasOthers(m: EmailFull, myEmail: string): boolean {
   const from = m.from?.[0]?.email.toLowerCase();
   return [...(m.to ?? []), ...(m.cc ?? [])].some((a) => {

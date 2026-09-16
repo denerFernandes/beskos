@@ -6,8 +6,8 @@ import { Drawer } from "./Drawer";
 import { toast } from "./toast";
 import { IcTrash, IcX, IcPlus } from "../panel/icons";
 
-// Contato novo: consentimento liberado por padrão (quem cadastra normalmente tem permissão), mas
-// sem grupo o contato só é visto pelo dono — abrir é decisão consciente, feita no grupo.
+// New contact: consent is enabled by default (whoever creates it normally has permission), but
+// without a group the contact is only visible to its owner — opening it up is a deliberate decision, made at the group level.
 const empty: ContactInput = {
   kind: "person", name: "", email: "", phone: "", company: "", domain: "", notes: "",
   tags: [], group_ids: [], title: "", mobile: "", is_whatsapp: false,
@@ -16,7 +16,7 @@ const empty: ContactInput = {
 
 export function ContactDrawer({ contact, initial, onClose, onOpen, onSaved, onDeleted }: {
   contact: Contact | null;
-  initial?: Partial<ContactInput>; // criação já preenchida (ex.: pessoa nova dentro de uma empresa)
+  initial?: Partial<ContactInput>; // pre-filled creation (e.g. a new person inside a company)
   onClose: () => void;
   onOpen?: (id: string) => void; onSaved?: () => void; onDeleted?: () => void;
 }) {
@@ -25,7 +25,7 @@ export function ContactDrawer({ contact, initial, onClose, onOpen, onSaved, onDe
   const [f, setF] = useState<ContactInput>(contact ? { ...empty, ...contact } : { ...empty, ...initial });
   const [tagInput, setTagInput] = useState("");
   const set = (k: keyof ContactInput, v: unknown) => setF((p) => ({ ...p, [k]: v }));
-  // Campos customizados: editados como linhas {k,v}; sincronizados para o objeto custom_fields.
+  // Custom fields: edited as {k,v} rows; synced into the custom_fields object.
   const [cfRows, setCfRows] = useState<{ k: string; v: string }[]>(Object.entries(contact?.custom_fields ?? {}).map(([k, v]) => ({ k, v })));
   const syncCf = (rows: { k: string; v: string }[]) => {
     setCfRows(rows);
@@ -165,8 +165,8 @@ export function ContactDrawer({ contact, initial, onClose, onOpen, onSaved, onDe
   );
 }
 
-// Editor de lista de valores (e-mails/telefones secundários): uma linha por valor + botão de adicionar.
-// Guarda vazio no estado enquanto se digita; o backend limpa os vazios ao salvar.
+// Editor for a list of values (secondary emails/phones): one row per value + an add button.
+// Keeps empty entries in state while typing; the backend clears empty ones on save.
 function MultiInput({ label, values, onChange, placeholder, type }: {
   label: string; values: string[]; onChange: (v: string[]) => void; placeholder: string; type?: string;
 }) {

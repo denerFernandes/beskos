@@ -6,17 +6,18 @@ import type { EmailFull } from "../jmap/types";
 import { sanitize, unblockImages } from "./mailHtml";
 import { IcMail } from "../panel/icons";
 
-// Corpo do e-mail. HTML quando existe (sanitizado), senão texto simples.
+// Email body. HTML when it exists (sanitized), otherwise plain text.
 //
-// O HTML corre num IFRAME SANDBOX: mesmo depois de sanitizado, o CSS de um e-mail sobreporia o da
-// app, e o sandbox garante que nada dele — nem um script que escapasse — toca no resto da página.
-// O sandbox NÃO inclui allow-scripts, então NENHUM script do e-mail corre. Inclui allow-same-origin
-// (apenas) para o parent poder medir a altura do conteúdo e ajustar o iframe (sem ele o
-// contentDocument é null). Sem allow-scripts, same-origin não concede acesso executável — é seguro.
+// The HTML runs in a SANDBOXED IFRAME: even after sanitizing, an email's CSS would clash with the
+// app's, and the sandbox guarantees that nothing from it — not even a script that escaped — touches
+// the rest of the page. The sandbox does NOT include allow-scripts, so NO email script runs. It
+// includes allow-same-origin (only) so the parent can measure the content's height and resize the
+// iframe (without it, contentDocument is null). Without allow-scripts, same-origin grants no
+// executable access — it's safe.
 export function MailBody({ m, service, textBody, spam }: { m: EmailFull; service: MailService; textBody: string; spam?: boolean }) {
   const { t } = useTranslation();
-  // Só é HTML de verdade se a parte for text/html. Num e-mail só-texto, o Stalwart aponta o
-  // htmlBody para a parte text/plain — aí renderiza-se como texto (sem iframe, integra-se no tema).
+  // Only really HTML if the part is text/html. In a text-only email, Stalwart points htmlBody
+  // at the text/plain part — in that case it renders as text (no iframe, blends into the theme).
   const htmlMeta = m.htmlBody?.[0];
   const rawHtml = htmlMeta?.type === "text/html" ? m.bodyValues[htmlMeta.partId]?.value : undefined;
 
@@ -24,7 +25,7 @@ export function MailBody({ m, service, textBody, spam }: { m: EmailFull; service
   return <HtmlBody html={rawHtml} m={m} service={service} t={t} spam={!!spam} />;
 }
 
-// Tema ativo: o data-theme no <html> (definido pelo toggle) manda; senão, a preferência do SO.
+// Active theme: the data-theme on <html> (set by the toggle) takes precedence; otherwise, the OS preference.
 function isDarkTheme(): boolean {
   const attr = document.documentElement.getAttribute("data-theme");
   if (attr === "dark") return true;
@@ -43,10 +44,10 @@ function HtmlBody({ html, m, service, t, spam }: {
 
   const { html: clean, blockedImages } = useMemo(() => sanitize(html), [html]);
 
-  // Imagens embutidas (cid:) são anexos do próprio e-mail — não são rastreadores, então carregam
-  // sempre. Resolve cada cid: para um blob: autenticado.
+  // Embedded (cid:) images are attachments of the email itself — they aren't trackers, so they
+  // always load. Resolves each cid: to an authenticated blob:.
   useEffect(() => {
-    if (spam) return; // em spam, nem as imagens embutidas (cid) carregam
+    if (spam) return; // in spam, not even embedded (cid) images load
     const cids = m.attachments?.filter((a) => a.cid) ?? [];
     if (!cids.length) return;
     let alive = true;
@@ -57,36 +58,37 @@ function HtmlBody({ html, m, service, t, spam }: {
         try {
           const url = await service.attachmentObjectUrl(a.blobId, a.name ?? "img", a.type);
           map[`cid:${a.cid}`] = url; urls.push(url);
-        } catch { /* anexo cid partido: fica sem imagem, não quebra o resto */ }
+        } catch { /* broken cid attachment: goes without the image, doesn't break the rest */ }
       }
       if (alive) setCidMap(map);
     })();
     return () => { alive = false; urls.forEach((u) => URL.revokeObjectURL(u)); };
   }, [m, service]);
 
-  // Monta o documento do iframe: HTML limpo, com imagens externas restauradas só se pedido e os
-  // cid: resolvidos. base target=_blank para links sem target explícito abrirem fora.
+  // Builds the iframe's document: cleaned HTML, with external images restored only if requested
+  // and cid: resolved. base target=_blank so links without an explicit target open externally.
   const doc = useMemo(() => {
-    // Em spam nunca desbloqueia imagens; os cid também não são resolvidos (cidMap fica vazio).
+    // In spam, images are never unblocked; cids also aren't resolved (cidMap stays empty).
     let body = (showImages && !spam) ? unblockImages(clean) : clean;
     for (const [cid, url] of Object.entries(cidMap)) body = body.split(cid).join(url);
-    // Em spam, desativa os links (pointer-events:none): não se clica em nada de um remetente suspeito.
+    // In spam, links are disabled (pointer-events:none): nothing gets clicked from a suspicious sender.
     const linkCss = spam ? "a{color:#8a8a8a;pointer-events:none;cursor:default;text-decoration:underline}" : "a{color:#116466}";
-    // Modo escuro: inverte o e-mail (fundo claro→escuro, texto escuro→claro) com hue-rotate para
-    // preservar as matizes, e RE-inverte imagens/vídeos/logos para não ficarem em negativo. É a
-    // técnica do "Dark Reader" — não é perfeita em e-mails muito ricos, mas integra bem no tema.
-    // A inversão do dark vai num WRAPPER interno (#mroot), NÃO no body: filtrar o body quebra a
-    // medição de altura (scrollHeight fica errado → iframe baixo com scroll). No wrapper, o body
-    // mede a altura corretamente. As imagens são re-invertidas para não ficarem em negativo.
-    // Fundo do iframe TRANSPARENTE: deixa passar o preto do painel de leitura (--paper), para o
-    // e-mail se fundir com a página em vez de somar um tom próprio (o painel, o iframe e o conteúdo
-    // eram 3 pretos diferentes). O conteúdo vive no #mroot (invertido); só o fundo exterior é que
-    // fica transparente.
-    // invert(0.93), não invert(1): a inversão total leva o branco do e-mail a #000 puro — mais
-    // escuro que o preto do site (--paper #121313), o que deixa o e-mail como um cartão destacado.
-    // A 0.93, o branco mapeia para ~#121313 (funde-se com a página) e o texto continua claro. As
-    // imagens/logos são re-invertidos para não ficarem em negativo (contraste ligeiramente mais
-    // suave, aceitável num modo escuro).
+    // Dark mode: inverts the email (light background→dark, dark text→light) with hue-rotate to
+    // preserve the hues, and RE-inverts images/videos/logos so they don't end up as negatives. It's
+    // the "Dark Reader" technique — not perfect on very rich emails, but blends well with the theme.
+    // The dark inversion goes on an inner WRAPPER (#mroot), NOT on the body: filtering the body
+    // breaks height measurement (scrollHeight comes out wrong → short iframe with scroll). On the
+    // wrapper, the body measures its height correctly. Images are re-inverted so they don't end up
+    // as negatives.
+    // TRANSPARENT iframe background: lets the reading panel's black (--paper) show through, so the
+    // email blends into the page instead of adding a tone of its own (the panel, the iframe, and
+    // the content were 3 different blacks). The content lives in #mroot (inverted); only the outer
+    // background is transparent.
+    // invert(0.93), not invert(1): full inversion takes the email's white to pure #000 — darker
+    // than the site's black (--paper #121313), which makes the email look like a highlighted card.
+    // At 0.93, white maps to ~#121313 (blends with the page) and the text stays light. Images/logos
+    // are re-inverted so they don't end up as negatives (slightly softer contrast, acceptable in
+    // dark mode).
     const themeCss = dark
       ? `html{color-scheme:dark}html,body{background:transparent}` +
         `#mroot{background:#fff;filter:invert(0.93) hue-rotate(180deg)}` +
@@ -95,8 +97,9 @@ function HtmlBody({ html, m, service, t, spam }: {
         // instead of standing out as a white card. Rich emails that set their own background
         // still show it (only the outer background is transparent).
         `html{color-scheme:light}html,body{background:transparent}`;
-    // #mroot em flow-root: cria um contexto de formatação que INCLUI as margens dos filhos na sua
-    // altura (senão a margem do último elemento "atravessa" e a medição fica curta → scroll).
+    // #mroot in flow-root: creates a formatting context that INCLUDES children's margins in its
+    // height (otherwise the last element's margin "leaks through" and the measurement comes up
+    // short → scroll).
     return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank">` +
       `<style>${themeCss}html,body{margin:0;padding:0;color:#1c1b1a;` +
       `font:14px/1.5 -apple-system,system-ui,sans-serif;word-wrap:break-word;overflow-wrap:break-word}` +
@@ -105,15 +108,15 @@ function HtmlBody({ html, m, service, t, spam }: {
       `</head><body><div id="mroot">${body}</div></body></html>`;
   }, [clean, showImages, cidMap, spam, dark]);
 
-  // Ajusta a altura do iframe ao conteúdo — o e-mail não deve ter scroll interno próprio, já que o
-  // leitor rola. Um ResizeObserver DENTRO do iframe acompanha qualquer mudança de altura (imagens a
-  // carregar, fontes, layout tardio), que uma medição pontual no onLoad perderia.
+  // Adjusts the iframe's height to the content — the email shouldn't have its own internal
+  // scroll, since the reader itself scrolls. A ResizeObserver INSIDE the iframe tracks any height
+  // change (images loading, fonts, late layout) that a one-off measurement in onLoad would miss.
   const onLoad = () => {
     const win = ref.current?.contentWindow as (Window & typeof globalThis) | null;
     const d = ref.current?.contentDocument;
     if (!win || !d) return;
-    // Mede o WRAPPER #mroot diretamente (getBoundingClientRect): envolve todo o conteúdo e a sua
-    // altura é a real, sem o ruído do filtro/scrollHeight do body.
+    // Measures the #mroot WRAPPER directly (getBoundingClientRect): it wraps all the content and
+    // its height is the real one, without the noise of the body's filter/scrollHeight.
     const measure = () => {
       const root = d.getElementById("mroot");
       const h = Math.max(
@@ -134,8 +137,8 @@ function HtmlBody({ html, m, service, t, spam }: {
   return (
     <div className="rbody-html">
       {blockedImages > 0 && !showImages && (
-        // Rastreadores bloqueados: dizê-lo, e deixar a pessoa aceitar conscientemente.
-        // Em spam não há botão para mostrar: fica bloqueado, ponto.
+        // Blocked trackers: say so, and let the person accept it consciously.
+        // In spam there's no button to reveal them: they stay blocked, period.
         <div className="img-blocked">
           <IcMail size={14} /> {t(spam ? "webmail.reader.imagesBlockedSpam" : "webmail.reader.imagesBlocked", { n: blockedImages })}
           {!spam && <button onClick={() => setShowImages(true)}>{t("webmail.reader.showImages")}</button>}

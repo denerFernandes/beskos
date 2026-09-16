@@ -21,8 +21,8 @@ function paragraphs(text: string): unknown[] {
   }));
 }
 
-// Conteúdo do painel de notas (o frame/cabeçalho vem do MeetRoom). Documento compartilhado da
-// reunião: autosave + sincronização ao vivo. Daqui as notas viram tarefas no Kanban via IA.
+// Notes panel content (the frame/header comes from MeetRoom). Shared meeting document:
+// autosave + live sync. From here the notes turn into Kanban tasks via AI.
 export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; title: string; isHost?: boolean }) {
   const { t } = useTranslation();
   const [body, setBody] = useState("");
@@ -40,14 +40,14 @@ export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; ti
   const noteId = notes.data?.id ?? null;
   useEffect(() => { if (notes.data && !typing.current) setBody(notes.data.body_text); }, [notes.data]);
 
-  // Chega edição de outro participante: aplica só se eu não estiver digitando (last-write-wins).
+  // An edit from another participant arrives: apply only if I'm not currently typing (last-write-wins).
   useChatSocket((ev) => {
     if (ev.type !== "notes" || ev.channel_id !== meetingId) return;
     if (typing.current) return;
     setBody(String(ev.payload.body ?? ""));
   });
 
-  // Autosave com debounce; `typing` evita que o eco do servidor sobrescreva o que estou escrevendo.
+  // Debounced autosave; `typing` prevents the server echo from overwriting what I'm typing.
   const onChange = (v: string) => {
     setBody(v);
     typing.current = true;
@@ -63,7 +63,7 @@ export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; ti
     }, 700);
   };
 
-  // Tarefa a partir do trecho selecionado (a IA expande no modal).
+  // Task from the selected excerpt (the AI expands it in the modal).
   const fromSelection = () => {
     const el = ta.current;
     const sel = el ? el.value.slice(el.selectionStart, el.selectionEnd).trim() : "";
@@ -71,8 +71,8 @@ export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; ti
     setTaskSeed(sel);
   };
 
-  // Envia as notas aos participantes. O retorno diz quantos e-mails saíram e quantos falharam —
-  // um "enviado!" que esconde metade dos envios perdidos é pior que o silêncio.
+  // Sends the notes to the participants. The response says how many emails went out and how many failed —
+  // a "sent!" that hides half the lost deliveries is worse than silence.
   const sendNotes = useMutation({
     mutationFn: () => backend.meetSendNotes(meetingId),
     onSuccess: (r) => toast(r.failed > 0 ? t("meet.notesSentPartial", { sent: r.sent, failed: r.failed }) : t("meet.notesSent", { n: r.sent })),
@@ -90,7 +90,7 @@ export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; ti
         <button className="chipbtn" onClick={fromSelection}>
           <IcColumns size={14} /> {t("meet.taskFromSelection")}
         </button>
-        {/* Só o host envia: as notas são da sala dele, e a API recusa os outros de qualquer forma. */}
+        {/* Only the host sends: the notes belong to their room, and the API rejects everyone else anyway. */}
         {isHost && (
           <button className="chipbtn" disabled={!body.trim() || sendNotes.isPending} onClick={() => sendNotes.mutate()}>
             {sendNotes.isPending ? <Spinner size={14} /> : <IcMail size={14} />} {t("meet.emailNotes")}
@@ -106,8 +106,8 @@ export function NotesPanel({ meetingId, title, isHost }: { meetingId: string; ti
   );
 }
 
-// Abre o TaskModal do Kanban com o trecho selecionado como semente (o botão "Gerar com IA" do
-// modal expande em título + descrição). Com mais de um quadro, pergunta antes onde criar.
+// Opens the Kanban TaskModal with the selected excerpt as a seed (the modal's "Generate with AI"
+// button expands it into a title + description). With more than one board, asks first where to create it.
 function NoteTaskModal({ seed, onClose }: { seed: string; onClose: () => void }) {
   const boards = useBoards();
   const [picked, setPicked] = useState<string | null>(null);
@@ -122,7 +122,7 @@ function NoteTaskModal({ seed, onClose }: { seed: string; onClose: () => void })
   );
 }
 
-// Passo "em qual quadro?" — só aparece quando há mais de um.
+// "Which board?" step — only appears when there is more than one.
 function ChooseBoard({ boards, onPick, onClose }: { boards: Board[]; onPick: (id: string) => void; onClose: () => void }) {
   const { t } = useTranslation();
   return (

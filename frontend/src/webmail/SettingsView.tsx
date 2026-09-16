@@ -15,15 +15,15 @@ import { NotificationsSection } from "./SettingsNotifications";
 type Section = "general" | "email" | "chat" | "calendar" | "files" | "meet" | "kanban" | "notifications" | "devices" | "assistant";
 const SECTIONS: Section[] = ["general", "email", "chat", "calendar", "files", "meet", "kanban", "notifications", "devices", "assistant"];
 
-// Definições do utilizador — preferências pessoais, separadas do Admin (que é gestão da
-// organização). Uma secção por app; por agora Geral e E-mail. A secção vem da URL.
+// User settings — personal preferences, separate from Admin (which is organization
+// management). One section per app; for now General and Email. The section comes from the URL.
 export function SettingsView({ section, onSection }: { section?: string; onSection: (s: string) => void }) {
   const { t } = useTranslation();
-  // No telemóvel a navegação é estilo iOS: sem secção na URL = lista de secções; com secção = detalhe
-  // + voltar. `current` nulo significa "na lista" (raiz). No desktop o rail lateral mostra sempre
-  // tudo, e a secção mostrada por omissão é a Geral.
-  // A sincronização deixou de ser secção própria (vive dentro de Files); a URL antiga continua a
-  // funcionar em vez de cair no vazio de quem tinha o link guardado.
+  // On mobile the navigation is iOS style: no section in the URL = section list; with a section = detail
+  // + back. `current` null means "in the list" (root). On desktop the side rail always shows
+  // everything, and the section shown by default is General.
+  // Sync stopped being its own section (it lives inside Files); the old URL keeps
+  // working instead of leading to a dead end for whoever had it bookmarked.
   const wanted = section === "sync" ? "files" : section;
   const current: Section | null = SECTIONS.includes(wanted as Section) ? (wanted as Section) : null;
   const shown: Section = current ?? "general";
@@ -52,7 +52,7 @@ export function SettingsView({ section, onSection }: { section?: string; onSecti
         ))}
       </aside>
       <section className="adm-main">
-        {/* Voltar à lista de secções (só telemóvel; escondido por CSS no desktop). */}
+        {/* Back to the section list (mobile only; hidden by CSS on desktop). */}
         <button className="adm-back" onClick={() => onSection("")}>‹ {t("settings.title")}</button>
         {shown === "general" && <GeneralSection />}
         {shown === "email" && <EmailSection />}
@@ -69,7 +69,7 @@ export function SettingsView({ section, onSection }: { section?: string; onSecti
   );
 }
 
-// Geral: idioma, tema e vista inicial. Seguem o utilizador entre aparelhos (settings.general).
+// General: language, theme and default view. Follow the user across devices (settings.general).
 function GeneralSection() {
   const { t, i18n } = useTranslation();
   const { value, save } = useSection("general");
@@ -77,16 +77,16 @@ function GeneralSection() {
   const changeLang = (l: string) => {
     setLang(l);
     void i18n.changeLanguage(l);
-    try { localStorage.setItem("mailin.lang", l); } catch { /* modo privado */ }
+    try { localStorage.setItem("mailin.lang", l); } catch { /* private mode */ }
     save({ language: l });
   };
   const changeTheme = (th: "light" | "dark") => {
-    try { localStorage.setItem("mailin.theme", th); } catch { /* modo privado */ }
-    document.documentElement.setAttribute("data-theme", th); // aplica já; o App reconcilia pela cache
+    try { localStorage.setItem("mailin.theme", th); } catch { /* private mode */ }
+    document.documentElement.setAttribute("data-theme", th); // applies immediately; App reconciles it via the cache
     save({ theme: th });
   };
   const theme = value.theme ?? (document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light");
-  // id da vista ⇄ chave de tradução do nav (kanban→board, cal→calendar).
+  // view id <-> nav translation key (kanban->board, cal->calendar).
   const VIEWS: { id: string; key: string }[] = [
     { id: "today", key: "today" }, { id: "mail", key: "mail" }, { id: "chat", key: "chat" },
     { id: "kanban", key: "board" }, { id: "cal", key: "calendar" }, { id: "files", key: "files" },
@@ -122,9 +122,9 @@ function GeneralSection() {
   );
 }
 
-// Chat: Enter envia. O som das mensagens vive em Notificações, com os restantes — é lá que se
-// procura quando se quer silêncio, e ter meia dúzia de interruptores de som espalhados pelas
-// secções obrigaria a caçá-los um a um.
+// Chat: Enter sends. The message sound lives in Notifications, with the rest — that's where you
+// look when you want silence, and having half a dozen sound toggles scattered across
+// sections would force you to hunt them down one by one.
 function ChatSection() {
   const { t } = useTranslation();
   const { value, save } = useSection("chat");
@@ -146,17 +146,17 @@ function ChatSection() {
   );
 }
 
-// Calendário: início da semana, dias de trabalho, vista inicial, duração e lembrete por defeito.
+// Calendar: week start, working days, default view, default duration and reminder.
 function CalendarSection() {
   const { t, i18n } = useTranslation();
   const { value, save } = useSection("calendar");
-  // Dias de trabalho (0=domingo…6=sábado): fora deles o calendário fica desabilitado para criar.
+  // Working days (0=Sunday...6=Saturday): outside them the calendar is disabled for creating events.
   const work = value.workDays ?? [0, 1, 2, 3, 4, 5, 6];
   const first = value.weekStart === "sunday" ? 0 : 1;
-  const dayName = (d: number) => new Date(2026, 2, 1 + d).toLocaleDateString(i18n.language, { weekday: "short" }); // 01/03/2026 = domingo
+  const dayName = (d: number) => new Date(2026, 2, 1 + d).toLocaleDateString(i18n.language, { weekday: "short" }); // March 1, 2026 = Sunday
   const toggleDay = (d: number) => {
     const next = work.includes(d) ? work.filter((x) => x !== d) : [...work, d].sort();
-    if (next.length === 0) return; // pelo menos um dia útil
+    if (next.length === 0) return; // at least one working day
     save({ workDays: next });
   };
   return (
@@ -213,7 +213,7 @@ function CalendarSection() {
   );
 }
 
-// Ficheiros: vista por defeito + expiração por defeito do link partilhado.
+// Files: default view + default expiry for the shared link.
 function FilesSection() {
   const { t } = useTranslation();
   const { value, save } = useSection("files");
@@ -239,15 +239,15 @@ function FilesSection() {
         </label>
       </div>
 
-      {/* Sincronização de pastas: é uma definição DO Drive, não uma app à parte — por isso vive
-          aqui em vez de numa secção própria. Fora do app de desktop, o próprio bloco explica que
-          só existe lá. */}
+      {/* Folder sync: it's a setting OF Drive, not a separate app — that's why it lives
+          here instead of in its own section. Outside the desktop app, the block itself explains that
+          it only exists there. */}
       <SyncSection />
     </div>
   );
 }
 
-// Meet: entrar com micro/câmara desligados por defeito.
+// Meet: join with mic/camera off by default.
 function MeetSection() {
   const { t } = useTranslation();
   const { value, save } = useSection("meet");
@@ -270,7 +270,7 @@ function MeetSection() {
   );
 }
 
-// Kanban: quadro inicial (ou o primeiro).
+// Kanban: default board (or the first one).
 function KanbanSection() {
   const { t } = useTranslation();
   const { value, save } = useSection("kanban");
@@ -292,21 +292,21 @@ function KanbanSection() {
   );
 }
 
-// Sincronização de ficheiros: o motor corre DENTRO desta app (Tauri). O modelo é por PARES —
-// escolhe-se uma pasta local, ela é criada no Drive, e só o que lá está sincroniza. Na web não há
-// sync local, por isso mostra-se uma nota.
+// File sync: the engine runs INSIDE this app (Tauri). The model is by PAIRS —
+// a local folder is picked, it gets created in Drive, and only what's there syncs. On the web there's
+// no local sync, so a note is shown instead.
 function SyncSection() {
   const { t } = useTranslation();
   const supported = syncSupported();
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [bandwidth, setBandwidth] = useState(0);
   const [busy, setBusy] = useState(false);
-  // Conta atual (e-mail): isola o sync por utilizador. Sem isto, ao trocar de conta na mesma máquina
-  // apareciam as pastas da conta anterior. O daemon compara e esconde a config de outra conta.
+  // Current account (email): isolates sync per user. Without this, switching accounts on the same machine
+  // would show the previous account's folders. The daemon compares and hides another account's config.
   const [account, setAccount] = useState("");
   useEffect(() => { if (supported) backend.me().then((m) => setAccount(m.email || "")).catch(() => {}); }, [supported]);
 
-  // Sonda o estado enquanto a página está aberta (o motor corre em fundo e vai mudando).
+  // Probes the state while the page is open (the engine runs in the background and keeps changing).
   useEffect(() => {
     if (!supported) return;
     let alive = true;
@@ -413,8 +413,8 @@ function SyncSection() {
   );
 }
 
-// Dispositivos: tokens para clientes de sincronização (inclui esta app). O token cru só aparece
-// uma vez, na criação — mostramos num bloco copiável com aviso de que não será exibido de novo.
+// Devices: tokens for sync clients (includes this app). The raw token only appears
+// once, on creation — we show it in a copyable block with a warning that it won't be shown again.
 function DevicesSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -432,10 +432,10 @@ function DevicesSection() {
     <div className="set-page">
       <h2>{t("settings.devices")}</h2>
       <div className="set-card">
-        {/* Criar um token à mão saiu daqui: a app de desktop cria-o sozinha ao ligar a
-            sincronização (syncClient.connect), e não havia onde colar um token feito à mão — o
-            motor de sync é uma biblioteca da app, não um daemon separado. O endpoint continua a
-            existir, para automações e para quando voltar a fazer sentido na UI. */}
+        {/* Creating a token by hand was removed from here: the desktop app creates it on its own when
+            turning on sync (syncClient.connect), and there was nowhere to paste a hand-made token — the
+            sync engine is a library of the app, not a separate daemon. The endpoint still
+            exists, for automation and for whenever it makes sense in the UI again. */}
         <p className="desc">{t("settings.devicesHint")}</p>
 
         {q.isLoading ? <div className="loading">…</div> : devices.length === 0 ? (
@@ -460,7 +460,7 @@ function DevicesSection() {
   );
 }
 
-// E-mail: a assinatura. Guardada em settings.email; anexada a cada envio pelo compositor.
+// Email: the signature. Stored in settings.email; attached to every send by the composer.
 function EmailSection() {
   const { t } = useTranslation();
   const qc = useQueryClient();
@@ -510,10 +510,10 @@ function EmailSection() {
   );
 }
 
-// Dados de ligação para clientes externos e para enviar por SMTP a partir de outro sítio (o site da
-// empresa, por exemplo). É informação pública — porta, host e nome de utilizador; a senha é a da
-// caixa e nunca aparece aqui. O nome de utilizador é o endereço COMPLETO: é o que o servidor espera,
-// e é o erro mais comum de quem configura à mão.
+// Connection details for external clients and for sending via SMTP from somewhere else (the
+// company's website, for example). It's public information — port, host and username; the password is the
+// mailbox's own and never appears here. The username is the FULL address: that's what the server expects,
+// and it's the most common mistake among those configuring it by hand.
 function MailConnectionCard() {
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["mail-connection"], queryFn: () => backend.mailConnection(), retry: false, staleTime: Infinity });

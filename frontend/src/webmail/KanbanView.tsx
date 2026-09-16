@@ -14,10 +14,10 @@ import { IcPlus, IcTrash, IcPencil, IcChat, IcArchive , IcShare } from "../panel
 
 type Modal = { card?: Card | null; columnId?: string } | null;
 
-// Kanban estilo Trello: cria/edita tarefas em modal, arrasta entre colunas, cria/renomeia/exclui
-// colunas. Tudo persiste no backend (queries filtram tenant).
-// A tarefa aberta vive na URL (/mail/kanban/<quadro>/<tarefa>): o link é partilhável, o refresh
-// não perde o lugar, e é o mesmo endereço que a notificação por e-mail aponta.
+// Trello-style Kanban: creates/edits tasks in a modal, drags between columns, creates/renames/
+// deletes columns. Everything persists on the backend (queries filter by tenant).
+// The open task lives in the URL (/mail/kanban/<board>/<task>): the link is shareable, refreshing
+// doesn't lose the place, and it's the same address the email notification points to.
 export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
   search: string; boardParam?: string; cardParam?: string;
   onBoard: (id: string) => void; onCard: (boardId: string, cardId: string | null) => void;
@@ -26,8 +26,8 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
   const qc = useQueryClient();
   const settings = useUserSettings(); // settings.kanban.defaultBoard
   const boardsQ = useQuery({ queryKey: ["boards"], queryFn: () => backend.boards() });
-  // Ordem dos quadros é POR UTILIZADOR (settings.kanban.boardOrder): quadros fora da lista mantêm a
-  // ordem original no fim. Reordena-se arrastando as tabs; persiste na conta.
+  // Board order is PER USER (settings.kanban.boardOrder): boards outside the list keep their
+  // original order at the end. Reordered by dragging the tabs; persists on the account.
   const boardOrder = settings.kanban?.boardOrder ?? [];
   const boards = (() => {
     const base = boardsQ.data ?? [];
@@ -49,7 +49,8 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
     saveBoardOrder(ids);
     setDragBoard(null);
   };
-  // O quadro ativo vem da URL; sem ele, cai no quadro inicial das Definições (se existir), senão no 1º.
+  // The active board comes from the URL; without it, it falls back to the default board from
+  // Settings (if it exists), otherwise the 1st one.
   const preferred = settings.kanban?.defaultBoard && boards.some((b) => b.id === settings.kanban!.defaultBoard)
     ? settings.kanban!.defaultBoard : boards[0]?.id;
   const boardId = boardParam && boards.some((b) => b.id === boardParam) ? boardParam : preferred;
@@ -57,12 +58,13 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
   const boardRole = accessQ.data?.role ?? 0;
   const setActiveBoard = onBoard;
   const boardQ = useQuery({ queryKey: ["board", boardId], queryFn: () => backend.board(boardId!), enabled: !!boardId });
-  // Tempo real: reusa o WebSocket do chat (mesmo hub). Cada mutação de card publica um evento "board";
-  // ao recebê-lo, revalida o quadro — assim quem está a ver o mesmo quadro vê o movimento do outro.
+  // Real time: reuses the chat's WebSocket (same hub). Every card mutation publishes a "board"
+  // event; on receiving it, the board is revalidated — so whoever is looking at the same board
+  // sees the other person's move.
   useChatSocket((ev) => {
     if (ev.type === "board" && ev.channel_id === boardId) void qc.invalidateQueries({ queryKey: ["board", boardId] });
   });
-  // Catálogo de etiquetas do tenant, para colorir o rótulo do card conforme a etiqueta escolhida.
+  // Tenant's label catalog, to color the card's label according to the chosen label.
   const labelsCat = useQuery({ queryKey: ["labels"], queryFn: () => backend.labels(), retry: false });
   const labelColor = (name: string) => labelsCat.data?.find((l) => l.name === name)?.color;
 
@@ -70,7 +72,7 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
   const [dragCol, setDragCol] = useState<string | null>(null);
   const [modal, setModal] = useState<Modal>(null);
 
-  // Card na URL → abre a tarefa. Cobre o link partilhado e o clique no e-mail de notificação.
+  // Card in the URL → opens the task. Covers the shared link and clicking the notification email.
   const cards = useMemo(() => (boardQ.data?.columns ?? []).flatMap((c) => c.cards ?? []), [boardQ.data]);
   const urlCard = cardParam ? cards.find((c) => c.id === cardParam) : undefined;
   const [addingCol, setAddingCol] = useState(false);
@@ -78,13 +80,13 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
   const [addingBoard, setAddingBoard] = useState(false);
   const [newBoard, setNewBoard] = useState("");
   const [renaming, setRenaming] = useState<string | null>(null);
-  const [who, setWho] = useState<string | null>(null); // filtro por responsável (a busca vem da barra de cima)
+  const [who, setWho] = useState<string | null>(null); // filter by assignee (the search comes from the top bar)
   const [view, setView] = useState<BoardView>("board");
   const [swim, setSwim] = useState(false);
   const [autos, setAutos] = useState(false);
 
-  // Participantes do quadro = quem tem card atribuído nele (não há membership de quadro; os
-  // quadros são compartilhados por tenant). Clicar no avatar filtra, como no Trello.
+  // Board participants = whoever has a card assigned on it (there's no board membership; boards
+  // are shared per tenant). Clicking the avatar filters, like in Trello.
   const participants = useMemo(() => {
     const set = new Set<string>();
     boardQ.data?.columns.forEach(({ cards }) => (cards ?? []).forEach((c) => { const n = c.assignee_name || c.assignee; if (n) set.add(n); }));
@@ -101,11 +103,11 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
   const reorder = useMutation({
     mutationFn: ({ columnId, ids }: { columnId: string; ids: string[] }) => backend.reorderColumn(columnId, ids),
     onSuccess: refresh,
-    onError: (e) => { toast((e as Error).message); refresh(); }, // ex.: limite WIP → reverte a vista
+    onError: (e) => { toast((e as Error).message); refresh(); }, // e.g.: WIP limit → reverts the view
   });
-  // dropCard monta a nova ordem da coluna de destino (removendo o card arrastado de onde estava e
-  // inserindo-o antes de beforeCardId, ou no fim se null) e persiste — usa a lista COMPLETA (não a
-  // filtrada) para a posição bater com o servidor.
+  // dropCard builds the target column's new order (removing the dragged card from where it was
+  // and inserting it before beforeCardId, or at the end if null) and persists it — uses the FULL
+  // list (not the filtered one) so the position matches the server.
   const dropInto = (columnId: string, beforeCardId: string | null) => {
     if (!dragCard) return;
     const col = boardQ.data?.columns.find((c) => c.column.id === columnId);
@@ -116,8 +118,8 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
     reorder.mutate({ columnId, ids });
     setDragCard(null);
   };
-  // Reordenar as próprias colunas (drag pelo cabeçalho). Monta a nova ordem inserindo a coluna
-  // arrastada antes da coluna-alvo e persiste — usa a ordem COMPLETA para bater com o servidor.
+  // Reordering the columns themselves (drag by the header). Builds the new order by inserting the
+  // dragged column before the target column and persists it — uses the FULL order to match the server.
   const reorderCols = useMutation({
     mutationFn: (ids: string[]) => backend.reorderColumns(boardId!, ids),
     onSuccess: refresh,
@@ -161,7 +163,7 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
     mutationFn: (id: string) => backend.deleteBoard(id),
     onSuccess: (_r, deletedId) => {
       refreshBoards();
-      // A URL apontava para o quadro que sumiu → vai para o primeiro que sobrou.
+      // The URL pointed to the board that just disappeared → go to the first one left.
       const next = boards.find((b) => b.id !== deletedId);
       if (next) setActiveBoard(next.id);
       toast(t("webmail.kanban.boardDeleted"));
@@ -269,15 +271,15 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
             <div className={"kcol" + (dragCol === column.id ? " col-dragging" : "")} key={column.id}
               onDragOver={(e) => {
                 e.preventDefault();
-                if (dragCol) e.currentTarget.classList.add("col-over"); // arrastando coluna → alvo de reordenação
+                if (dragCol) e.currentTarget.classList.add("col-over"); // dragging a column → reorder target
                 else e.currentTarget.querySelector(".kcards")?.classList.add("drop");
               }}
               onDragLeave={(e) => { e.currentTarget.classList.remove("col-over"); e.currentTarget.querySelector(".kcards")?.classList.remove("drop"); }}
               onDrop={(e) => {
                 e.currentTarget.classList.remove("col-over");
                 e.currentTarget.querySelector(".kcards")?.classList.remove("drop");
-                if (dragCol) dropColBefore(column.id); // solto sobre outra coluna → reordena colunas
-                else dropInto(column.id, null); // solto na coluna (fora de um card) → vai para o fim
+                if (dragCol) dropColBefore(column.id); // dropped onto another column → reorders columns
+                else dropInto(column.id, null); // dropped on the column (outside a card) → goes to the end
               }}>
               <ColumnHeader column={column} count={list.length} onChanged={refresh}
                 onDragStart={() => setDragCol(column.id)} onDragEnd={() => setDragCol(null)} />
@@ -321,7 +323,7 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
       )}
       {autos && boardId && <AutomationsModal boardId={boardId} cols={boardQ.data.columns} onClose={() => setAutos(false)} />}
 
-      {/* A tarefa da URL ganha do estado local: quem chega pelo link tem de ver aquela tarefa. */}
+      {/* The URL's task wins over local state: whoever arrives via the link must see that task. */}
       {(urlCard || modal) && boardId && (
         <TaskModal boardId={boardId} columns={columns}
           card={urlCard ?? modal?.card} columnId={modal?.columnId}
@@ -334,7 +336,7 @@ export function KanbanView({ search, boardParam, cardParam, onBoard, onCard }: {
   );
 }
 
-// Cabeçalho da coluna: renomear inline (duplo-clique), trocar cor e excluir via menu.
+// Column header: inline rename (double-click), change color, and delete via menu.
 function ColumnHeader({ column, count, onChanged, onDragStart, onDragEnd }: {
   column: Column; count: number; onChanged: () => void; onDragStart: () => void; onDragEnd: () => void;
 }) {
@@ -344,7 +346,7 @@ function ColumnHeader({ column, count, onChanged, onDragStart, onDragEnd }: {
   const [menu, setMenu] = useState(false);
 
   const update = useMutation({
-    // Preserva os campos não tocados (senão renomear zeraria o limite WIP e vice-versa).
+    // Preserves untouched fields (otherwise renaming would zero out the WIP limit and vice versa).
     mutationFn: (patch: { name?: string; color?: string; wip_limit?: number }) =>
       backend.updateColumn(column.id, patch.name ?? column.name, patch.color ?? column.color, patch.wip_limit ?? column.wip_limit ?? 0),
     onSuccess: () => { onChanged(); setEditing(false); setMenu(false); },
@@ -389,8 +391,8 @@ function ColumnHeader({ column, count, onChanged, onDragStart, onDragEnd }: {
   );
 }
 
-// Prefixo do quadro (QUA-12). A chave é derivada do prefixo + número, então mudar aqui renomeia
-// todas as tarefas do quadro de uma vez — e não parte link nenhum, porque o link usa o id.
+// Board prefix (QUA-12). The key is derived from the prefix + number, so changing it here renames
+// every task on the board at once — and doesn't break any link, because the link uses the id.
 function PrefixEditor({ board, onChanged }: { board: Board; onChanged: () => void }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);

@@ -17,8 +17,8 @@ import type { EmailSummary, EmailAddress } from "../jmap/types";
 
 type Tab = "pessoas" | "notas" | "tarefas" | "emails";
 
-// Ficha do contato: dashboard + abas. Empresa mostra as pessoas dela; pessoa não tem essa aba.
-// Editar só aparece para o dono — e a API recusa os outros de qualquer forma.
+// Contact profile: dashboard + tabs. A company shows its people; a person does not have that tab.
+// Edit only shows up for the owner — and the API refuses everyone else anyway.
 export function ContactPage({ id, onBack, onOpenContact }: {
   id: string; onBack: () => void; onOpenContact: (id: string) => void;
 }) {
@@ -27,8 +27,8 @@ export function ContactPage({ id, onBack, onOpenContact }: {
   const [editing, setEditing] = useState(false);
   const [merging, setMerging] = useState(false);
   const [transferring, setTransferring] = useState(false);
-  // Kanban ligado? A associação de tarefas (cards) ao contacto só faz sentido com a app ligada —
-  // senão a aba e o contador de tarefas nem aparecem.
+  // Kanban enabled? Associating tasks (cards) with the contact only makes sense with the app enabled —
+  // otherwise the tab and the task counter do not even show up.
   const kanbanOn = !useDisabledApps().includes("kanban");
   const q = useQuery({ queryKey: ["contact", id], queryFn: () => contactsApi.get(id), retry: false });
   const notes = useQuery({ queryKey: ["contact-notes", id], queryFn: () => contactsApi.notes(id), retry: false });
@@ -41,14 +41,14 @@ export function ContactPage({ id, onBack, onOpenContact }: {
   const isCompany = c.kind === "company";
   const site = c.domain ? (c.domain.startsWith("http") ? c.domain : `https://${c.domain}`) : null;
   const last = notes.data?.[0];
-  // Aba de e-mails só faz sentido quando há endereço para cruzar com a caixa (from:/to:).
+  // The emails tab only makes sense when there is an address to cross-reference with the mailbox (from:/to:).
   const tabs: Tab[] = [
     ...(isCompany ? (["pessoas"] as Tab[]) : []),
     "notas",
     ...(kanbanOn ? (["tarefas"] as Tab[]) : []),
     ...(c.email ? (["emails"] as Tab[]) : []),
   ];
-  // Abre na primeira aba do tipo: empresa começa nas pessoas, pessoa começa nas notas.
+  // Opens on the first tab of its type: a company starts on people, a person starts on notes.
   const active: Tab = tab && tabs.includes(tab) ? tab : tabs[0];
 
   return (
@@ -109,7 +109,7 @@ export function ContactPage({ id, onBack, onOpenContact }: {
   );
 }
 
-// Transfere a posse do contato para um colega do mesmo tenant (só o dono atual).
+// Transfers ownership of the contact to a colleague in the same tenant (only the current owner can).
 function TransferModal({ contact, onClose, onDone }: { contact: Contact; onClose: () => void; onDone: () => void }) {
   const { t } = useTranslation();
   const people = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false });
@@ -138,12 +138,12 @@ function TransferModal({ contact, onClose, onDone }: { contact: Contact; onClose
   );
 }
 
-// Avatar do contato: mostra a foto (via /thumb) ou as iniciais; o dono clica para trocar a foto
-// (envia a imagem por /api/files e liga ao contato — reusa o storage).
+// Contact avatar: shows the photo (via /thumb) or the initials; the owner clicks to change the photo
+// (uploads the image via /api/files and links it to the contact — reuses the storage).
 function ContactAvatar({ c, isOwner, isCompany, onChanged }: { c: Contact; isOwner: boolean; isCompany: boolean; onChanged: () => void }) {
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
-  // Logo por domínio: favicon do próprio site da empresa (sem provedor externo). Falha → monograma.
+  // Logo by domain: the company's own site favicon (no external provider). Fails -> initials monogram.
   const [logoFail, setLogoFail] = useState(false);
   const showLogo = isCompany && !c.avatar_file_id && !!c.domain && !logoFail;
   const up = useMutation({
@@ -161,7 +161,7 @@ function ContactAvatar({ c, isOwner, isCompany, onChanged }: { c: Contact; isOwn
   );
 }
 
-// Fusão de duplicados: escolhe outro contato do mesmo tipo para fundir NESTE (o escolhido é apagado).
+// Duplicate merge: picks another contact of the same type to merge INTO this one (the picked one is deleted).
 function MergeModal({ keep, onClose, onMerged }: { keep: Contact; onClose: () => void; onMerged: () => void }) {
   const { t } = useTranslation();
   const [term, setTerm] = useState("");
@@ -194,7 +194,7 @@ function MergeModal({ keep, onClose, onMerged }: { keep: Contact; onClose: () =>
   );
 }
 
-// Pessoas da empresa: cada uma é um contato próprio — clicar abre a ficha dela.
+// The company's people: each one is its own contact — clicking opens their profile.
 function People({ company, people, onOpen }: { company: Contact; people: Contact[]; onOpen: (id: string) => void }) {
   const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
@@ -217,16 +217,16 @@ function People({ company, people, onOpen }: { company: Contact; people: Contact
           ))}
         </div>
       )}
-      {/* contact=null → é criação; `initial` já liga a pessoa a esta empresa e herda os grupos dela
-          (senão a pessoa nova nascia invisível para quem vê a empresa). */}
+      {/* contact=null -> this is a creation; `initial` already links the person to this company and inherits its groups
+          (otherwise the new person would start out invisible to whoever sees the company). */}
       {adding && <ContactDrawer contact={null} onClose={() => setAdding(false)} onOpen={onOpen}
         initial={{ kind: "person", company_id: company.id, group_ids: company.group_ids ?? [] }} />}
     </>
   );
 }
 
-// Histórico de e-mails do contato: cruza o endereço dele com a caixa (from:/to:) via JMAP. Paginado
-// (25/página, server-side) e clicável — abre o e-mail no correio.
+// Contact's email history: cross-references their address with the mailbox (from:/to:) via JMAP. Paginated
+// (25/page, server-side) and clickable — opens the email in the mail app.
 function EmailHistory({ email, locale }: { email: string; locale: string }) {
   const { t } = useTranslation();
   const nav = useNavigate();
@@ -318,7 +318,7 @@ function Notes({ id, locale, contact }: { id: string; locale: string; contact: C
 
 const CRM_PER = 25;
 
-// Paginador compacto (‹ x / y ›) partilhado pelas abas Tarefas e E-mails.
+// Compact pager (‹ x / y ›) shared by the Tasks and Emails tabs.
 function CrmPager({ page, total, per, onPage }: { page: number; total: number; per: number; onPage: (p: number) => void }) {
   const { t } = useTranslation();
   const pages = Math.ceil(total / per);
@@ -343,7 +343,7 @@ function Tasks({ id, contactName }: { id: string; contactName: string }) {
   const list = all.slice((page - 1) * CRM_PER, page * CRM_PER);
   return (
     <div className="cd-tasks">
-      {/* Ação no topo, alinhada à direita (padrão pedido). */}
+      {/* Action at the top, right-aligned (the requested pattern). */}
       <div className="cd-tab-head">
         <button className="chipbtn" onClick={() => setCreating(true)}><IcPlus size={14} /> {t("crm.newTask")}</button>
       </div>

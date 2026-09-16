@@ -3,17 +3,17 @@ import { useTranslation } from "react-i18next";
 import { measure, type Strength } from "./passwordStrength";
 import "./password.css";
 
-// Campo de palavra-passe com medidor. Um só componente para todos os sítios onde se DEFINE uma
-// senha (primeiro acesso, perfil, admin a criar/repor, convite): a regra é a mesma em todos, e
-// tê-la escrita quatro vezes era garantir que um dia deixavam de coincidir.
+// Password field with a strength meter. A single component for every place where a password
+// is SET (first access, profile, admin create/reset, invite): the rule is the same everywhere,
+// and having it written four times was a guarantee that they'd eventually stop matching.
 //
-// Quem usa recebe a avaliação por `onStrength` e desativa o botão enquanto `ok` for falso — o
-// servidor recusa na mesma, mas a pessoa fica a saber antes de submeter, e porquê.
+// The caller gets the evaluation via `onStrength` and disables the button while `ok` is false — the
+// server rejects it either way, but the person finds out before submitting, and why.
 export function PasswordField({ value, onChange, label, userInputs = [], autoFocus, autoComplete = "new-password", onStrength }: {
   value: string;
   onChange: (v: string) => void;
   label: string;
-  /** E-mail, nome, domínio: penalizam a senha (é o que o zxcvbn do servidor também faz). */
+  /** Email, name, domain: penalize the password (it's what the server's zxcvbn also does). */
   userInputs?: string[];
   autoFocus?: boolean;
   autoComplete?: string;
@@ -25,7 +25,7 @@ export function PasswordField({ value, onChange, label, userInputs = [], autoFoc
     const s = measure(value, userInputs);
     onStrength?.(s);
     return s;
-    // onStrength fora das deps de propósito: é uma função nova a cada render de quem usa.
+    // onStrength deliberately left out of the deps: it's a new function on every render of the caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, userInputs.join("|")]);
 
@@ -41,7 +41,7 @@ export function PasswordField({ value, onChange, label, userInputs = [], autoFoc
           {show ? t("webmail.pwHide") : t("webmail.pwShow")}
         </button>
       </div>
-      {/* Quatro traços: enchem-se com a força e ficam vermelhos enquanto não passa. */}
+      {/* Four bars: they fill up with strength and stay red until it passes. */}
       <div className={"pwf-bar s" + st.score}>
         {[1, 2, 3, 4].map((i) => <i key={i} className={st.score >= i ? "on" : ""} />)}
       </div>
