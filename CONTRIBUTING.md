@@ -23,10 +23,13 @@ English here; the canonical, longer version lives in [CLAUDE.md](CLAUDE.md).
 git clone https://github.com/beskosorg/beskos.git
 cd beskos
 cp deploy/.env.example deploy/.env   # fill in the values you need
-docker compose -f deploy/docker-compose.yml up -d stalwart postgres minio
+docker compose -f deploy/docker-compose.community.yml up -d stalwart postgres minio
 cd backend && go run ./cmd/bootstrap   # first-time Stalwart setup
 go run ./cmd/api &
 go run ./cmd/worker &
+# First login needs an organization + owner account -- there is no public sign-up page
+# (that's hosted-only). Create one:
+OWNER_ORG_NAME="Dev" OWNER_DOMAIN="dev.local" OWNER_LOGIN="admin" go run ./cmd/bootstrap-owner
 cd ../frontend && npm install --legacy-peer-deps && npm run dev
 ```
 

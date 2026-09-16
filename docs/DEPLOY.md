@@ -1,6 +1,9 @@
 # Beskos — Production Architecture & Deploy Runbook
 
-> Status: **PLAN under review**. Nothing runs on the VPSs until approved.
+> Status: **live** -- this stopped being a plan under review once F0-F4 shipped (see §14); treat
+> this doc as the current production topology, not a proposal awaiting approval. Some later
+> phases in §14 may be ahead of what's checked off there -- verify against the running cluster
+> before relying on an unchecked box to mean "not done."
 > Decisions made: **CapRover** (over Docker Swarm) · storage on **Cloudflare R2** (no MinIO) ·
 > **Stalwart receives + SES sends** · DNS/TLS on **Cloudflare** · Postgres with **replica + daily
 > backup**.
@@ -68,8 +71,9 @@ Contents:
 - `livekit` + `egress` — **host network** on VPS-3 (WebRTC needs direct UDP), pointed to by a
   DNS-only record.
 
-> These live in `deploy/swarm/mail.yml` and `deploy/swarm/media.yml`, applied with
-> `docker stack deploy`. They coexist with CapRover on the same Swarm.
+> These are created by hand with `docker service create` (no committed stack file exists for
+> them yet -- `deploy/stalwart/` and `deploy/livekit/` hold their config, not a deploy manifest).
+> They coexist with CapRover on the same Swarm.
 
 ### Webmail routing (same origin)
 The web frontend assumes **same origin** (cookie + `X-Mailin-Client` CSRF header). So
