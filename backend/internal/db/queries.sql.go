@@ -121,7 +121,7 @@ type AddGifParams struct {
 	Name        string    `json:"name"`
 }
 
-// ON CONFLICT: guardar duas vezes o mesmo GIF não é erro nem duplicado — é a mesma gaveta.
+// ON CONFLICT: saving the same GIF twice is neither an error nor a duplicate — it's the same drawer.
 func (q *Queries) AddGif(ctx context.Context, arg AddGifParams) (GifLibrary, error) {
 	row := q.db.QueryRow(ctx, addGif,
 		arg.TenantID,
@@ -212,8 +212,8 @@ type AppendAssistantMessageParams struct {
 	Agent          string          `json:"agent"`
 }
 
-// Acrescenta uma mensagem ao fio. `steps` são os cartões de ação da resposta (§3.3); `agent` é quem
-// respondeu — a escolha do encaminhamento é sempre visível (§3.2).
+// Appends a message to the thread. `steps` are the response's action cards (§3.3); `agent` is who
+// answered — the routing choice is always visible (§3.2).
 func (q *Queries) AppendAssistantMessage(ctx context.Context, arg AppendAssistantMessageParams) (AssistantMessage, error) {
 	row := q.db.QueryRow(ctx, appendAssistantMessage,
 		arg.TenantID,
@@ -265,8 +265,8 @@ type BookingBusyRow struct {
 	EndsAt   time.Time `json:"ends_at"`
 }
 
-// Ocupação COMPLETA de um colaborador para o booking: eventos próprios (com hora E dia inteiro)
-// + eventos onde é convidado e não recusou. Recorrentes entram via expansão no handler.
+// A collaborator's FULL busy time for booking: their own events (timed AND all-day)
+// + events where they are invited and haven't declined. Recurring ones come in via expansion in the handler.
 func (q *Queries) BookingBusy(ctx context.Context, arg BookingBusyParams) ([]BookingBusyRow, error) {
 	rows, err := q.db.Query(ctx, bookingBusy,
 		arg.OwnerID,
@@ -304,7 +304,7 @@ type CancelOutboxParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Cancela um envio pendente do dono (undo ou "cancelar agendado"). Só afeta pendentes (idempotente).
+// Cancels a pending send owned by the user (undo or "cancel scheduled"). Only affects pending ones (idempotent).
 func (q *Queries) CancelOutbox(ctx context.Context, arg CancelOutboxParams) (int64, error) {
 	result, err := q.db.Exec(ctx, cancelOutbox, arg.ID, arg.UserID, arg.TenantID)
 	if err != nil {
@@ -326,11 +326,11 @@ WHERE id = (
 RETURNING id, tenant_id, mail_user_id, conversation_id, agent, message, status, steps, answer, error_code, stopped, run_id, cancel_requested, claimed_at, created_at, updated_at
 `
 
-// Tira UMA tarefa da fila para este worker. SKIP LOCKED deixa vários workers correr sem se
-// pisarem; o arrendamento (claimed_at) é o que permite recuperar de um worker que morra.
+// Claims ONE task from the queue for this worker. SKIP LOCKED lets several workers run without
+// stepping on each other; the lease (claimed_at) is what allows recovery from a worker that dies.
 //
-// Uma tarefa 'running' com arrendamento mais velho do que o limite volta a ser elegível: é
-// exatamente o caso do reinício a meio (§7.5).
+// A 'running' task whose lease is older than the limit becomes eligible again: this is exactly
+// the mid-run restart case (§7.5).
 func (q *Queries) ClaimAssistantTask(ctx context.Context, lease pgtype.Interval) (AssistantTask, error) {
 	row := q.db.QueryRow(ctx, claimAssistantTask, lease)
 	var i AssistantTask
@@ -397,8 +397,8 @@ WHERE token = $1 AND accepted_at IS NULL AND expires_at > now()
 RETURNING id, tenant_id, email, role, token, invited_by, expires_at, accepted_at, created_at
 `
 
-// Marca o convite como aceito ATOMICAMENTE e devolve-o só se ainda estava válido (uso único, sem
-// corrida): dois aceites concorrentes com o mesmo token — só um recebe a linha.
+// Marks the invite as accepted ATOMICALLY and returns it only if it was still valid (single use,
+// no race): two concurrent acceptances with the same token — only one gets the row.
 func (q *Queries) ConsumeInvite(ctx context.Context, token string) (Invite, error) {
 	row := q.db.QueryRow(ctx, consumeInvite, token)
 	var i Invite
@@ -462,8 +462,8 @@ type CountBlobRefsAllParams struct {
 	BlobKey  string    `json:"blob_key"`
 }
 
-// Blob em uso por QUALQUER registo: ficheiro atual OU versão histórica. A purga só remove o blob do
-// MinIO quando isto é 0 (senão apagaria conteúdo ainda referenciado por outra versão/ficheiro dedup).
+// Blob in use by ANY record: current file OR historical version. The purge only removes the blob
+// from MinIO when this is 0 (otherwise it would delete content still referenced by another version/deduplicated file).
 func (q *Queries) CountBlobRefsAll(ctx context.Context, arg CountBlobRefsAllParams) (int32, error) {
 	row := q.db.QueryRow(ctx, countBlobRefsAll, arg.TenantID, arg.BlobKey)
 	var total int32
@@ -509,7 +509,7 @@ type CountMailUsersOnDomainParams struct {
 	Domain   *string   `json:"domain"`
 }
 
-// Utilizadores/caixas cujo e-mail pertence ao domínio (não há FK; o vínculo é o sufixo do e-mail).
+// Users/mailboxes whose email belongs to the domain (no FK; the link is the email suffix).
 func (q *Queries) CountMailUsersOnDomain(ctx context.Context, arg CountMailUsersOnDomainParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countMailUsersOnDomain, arg.TenantID, arg.Domain)
 	var count int64
@@ -523,7 +523,7 @@ SELECT (SELECT count(*) FROM mail_users u WHERE u.tenant_id = $1)
      + (SELECT count(*) FROM email_aliases a WHERE a.tenant_id = $1)
 `
 
-// ===== Billing e cotas =====
+// ===== Billing and quotas =====
 // Counts mailboxes AND aliases: an alias is billed as a mailbox. This is the count that feeds
 // the plan limit, the billed seats, and the mailbox cap, so aliases must be included here and
 // not only in the usage report.
@@ -568,7 +568,7 @@ type CreateAccountParams struct {
 	Role         string    `json:"role"`
 }
 
-// Usuário com senha e SEM caixa (signup/convite: o tenant ainda não tem domínio).
+// User with a password and NO mailbox (signup/invite: the tenant does not have a domain yet).
 func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) (MailUser, error) {
 	row := q.db.QueryRow(ctx, createAccount,
 		arg.TenantID,
@@ -697,7 +697,7 @@ type CreateAssistantMemoryParams struct {
 	SourceMessageID pgtype.UUID `json:"source_message_id"`
 }
 
-// Guarda um facto. A origem é sempre uma mensagem do utilizador (§6.5).
+// Stores a fact. The source is always a message from the user (§6.5).
 func (q *Queries) CreateAssistantMemory(ctx context.Context, arg CreateAssistantMemoryParams) (AssistantMemory, error) {
 	row := q.db.QueryRow(ctx, createAssistantMemory,
 		arg.TenantID,
@@ -735,7 +735,7 @@ type CreateAssistantPendingActionParams struct {
 	Args       json.RawMessage `json:"args"`
 }
 
-// Regista uma ação à espera de aprovação. Durável: sobrevive a um reinício do servidor (§6.3).
+// Records an action awaiting approval. Durable: survives a server restart (§6.3).
 func (q *Queries) CreateAssistantPendingAction(ctx context.Context, arg CreateAssistantPendingActionParams) (AssistantPendingAction, error) {
 	row := q.db.QueryRow(ctx, createAssistantPendingAction,
 		arg.TaskID,
@@ -900,7 +900,7 @@ type CreateBotMessageParams struct {
 	BotName   string    `json:"bot_name"`
 }
 
-// ===== Webhooks de entrada (bots) =====
+// ===== Incoming webhooks (bots) =====
 func (q *Queries) CreateBotMessage(ctx context.Context, arg CreateBotMessageParams) (Message, error) {
 	row := q.db.QueryRow(ctx, createBotMessage,
 		arg.TenantID,
@@ -1307,7 +1307,7 @@ type CreateEmailAliasParams struct {
 	Address    string    `json:"address"`
 }
 
-// ---------- Aliases de e-mail ----------
+// ---------- Email aliases ----------
 func (q *Queries) CreateEmailAlias(ctx context.Context, arg CreateEmailAliasParams) (EmailAlias, error) {
 	row := q.db.QueryRow(ctx, createEmailAlias,
 		arg.TenantID,
@@ -1485,8 +1485,8 @@ type CreateGeneralChannelParams struct {
 	CreatedBy uuid.UUID `json:"created_by"`
 }
 
-// Canal por defeito do tenant. O índice parcial garante um só por tenant; numa corrida, o segundo
-// INSERT não devolve linha e o chamador volta a ler o que ficou.
+// Tenant's default channel. The partial index guarantees only one per tenant; in a race, the
+// second INSERT returns no row and the caller reads back whatever ended up there.
 func (q *Queries) CreateGeneralChannel(ctx context.Context, arg CreateGeneralChannelParams) (Channel, error) {
 	row := q.db.QueryRow(ctx, createGeneralChannel, arg.TenantID, arg.Name, arg.CreatedBy)
 	var i Channel
@@ -1524,7 +1524,7 @@ type CreateInviteParams struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// ===== RBAC: convites e membros =====
+// ===== RBAC: invites and members =====
 func (q *Queries) CreateInvite(ctx context.Context, arg CreateInviteParams) (Invite, error) {
 	row := q.db.QueryRow(ctx, createInvite,
 		arg.TenantID,
@@ -1563,7 +1563,7 @@ type CreateKnockParams struct {
 	Identity  string    `json:"identity"`
 }
 
-// ===== Meet: lobby (sala de espera / aprovação) =====
+// ===== Meet: lobby (waiting room / approval) =====
 func (q *Queries) CreateKnock(ctx context.Context, arg CreateKnockParams) (MeetingLobby, error) {
 	row := q.db.QueryRow(ctx, createKnock,
 		arg.MeetingID,
@@ -1828,7 +1828,7 @@ type CreateOutboxParams struct {
 	SendAt     time.Time `json:"send_at"`
 }
 
-// ===== Outbox de envio server-side (undo-send + agendados) =====
+// ===== Server-side send outbox (undo-send + scheduled) =====
 func (q *Queries) CreateOutbox(ctx context.Context, arg CreateOutboxParams) (OutboxEmail, error) {
 	row := q.db.QueryRow(ctx, createOutbox,
 		arg.TenantID,
@@ -1872,7 +1872,7 @@ type CreateRecordingParams struct {
 	StartedBy string      `json:"started_by"`
 }
 
-// ===== Gravações de reunião (LiveKit Egress) =====
+// ===== Meeting recordings (LiveKit Egress) =====
 func (q *Queries) CreateRecording(ctx context.Context, arg CreateRecordingParams) (Recording, error) {
 	row := q.db.QueryRow(ctx, createRecording,
 		arg.TenantID,
@@ -1917,7 +1917,7 @@ type CreateScheduledMessageParams struct {
 	SendAt    time.Time `json:"send_at"`
 }
 
-// ===== Mensagens agendadas + lembretes de mensagem =====
+// ===== Scheduled messages + message reminders =====
 func (q *Queries) CreateScheduledMessage(ctx context.Context, arg CreateScheduledMessageParams) (ScheduledMessage, error) {
 	row := q.db.QueryRow(ctx, createScheduledMessage,
 		arg.TenantID,
@@ -1974,8 +1974,8 @@ type CreateShareParams struct {
 	Level     string    `json:"level"`
 }
 
-// Upsert: voltar a partilhar com a mesma pessoa MUDA a permissão em vez de criar outra linha — é
-// assim que se troca "leitor" por "editor" sem apagar e refazer a partilha.
+// Upsert: sharing again with the same person CHANGES the permission instead of creating another
+// row — this is how "reader" is swapped for "editor" without deleting and redoing the share.
 func (q *Queries) CreateShare(ctx context.Context, arg CreateShareParams) (StorageShare, error) {
 	row := q.db.QueryRow(ctx, createShare,
 		arg.FileID,
@@ -2042,7 +2042,7 @@ type CreateStorageFileParams struct {
 	FolderID    pgtype.UUID `json:"folder_id"`
 }
 
-// ===== Armazenamento (MinIO) =====
+// ===== Storage (MinIO) =====
 func (q *Queries) CreateStorageFile(ctx context.Context, arg CreateStorageFileParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, createStorageFile,
 		arg.TenantID,
@@ -2119,8 +2119,8 @@ type CreateTenantParams struct {
 	Plan string `json:"plan"`
 }
 
-// Queries do control plane. sqlc gera código tipado a partir daqui.
-// REGRA: toda query que toca dados de cliente filtra por tenant_id (brief §5/§10).
+// Control plane queries. sqlc generates typed code from here.
+// RULE: every query touching customer data filters by tenant_id (brief §5/§10).
 func (q *Queries) CreateTenant(ctx context.Context, arg CreateTenantParams) (Tenant, error) {
 	row := q.db.QueryRow(ctx, createTenant, arg.Name, arg.Plan)
 	var i Tenant
@@ -2212,7 +2212,7 @@ type CreateWebmailSessionParams struct {
 	ExpiresAt  time.Time `json:"expires_at"`
 }
 
-// ===== Webmail session (usuário final na nossa API) =====
+// ===== Webmail session (end user on our API) =====
 func (q *Queries) CreateWebmailSession(ctx context.Context, arg CreateWebmailSessionParams) (WebmailSession, error) {
 	row := q.db.QueryRow(ctx, createWebmailSession, arg.Token, arg.MailUserID, arg.ExpiresAt)
 	var i WebmailSession
@@ -2268,8 +2268,8 @@ type DecideAssistantPendingActionParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Decide UMA ação. A condição `decision = ”` torna-a de uso único: aprovar duas vezes não envia
-// duas vezes. Filtra por utilizador — a aprovação é de quem tem a ação (lei 5.1).
+// Decides on ONE action. The `decision = ”` condition makes it single-use: approving twice does
+// not send twice. Filters by user — the approval belongs to whoever owns the action (law 5.1).
 func (q *Queries) DecideAssistantPendingAction(ctx context.Context, arg DecideAssistantPendingActionParams) (AssistantPendingAction, error) {
 	row := q.db.QueryRow(ctx, decideAssistantPendingAction,
 		arg.Decision,
@@ -2302,7 +2302,7 @@ type DeleteAllAssistantMemoryParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Apagar tudo de uma vez (§8.4). Direito do utilizador (RGPD).
+// Deletes everything at once (§8.4). A right of the user (GDPR).
 func (q *Queries) DeleteAllAssistantMemory(ctx context.Context, arg DeleteAllAssistantMemoryParams) error {
 	_, err := q.db.Exec(ctx, deleteAllAssistantMemory, arg.TenantID, arg.MailUserID)
 	return err
@@ -2333,7 +2333,7 @@ type DeleteAssistantConversationParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Apagar leva as mensagens atrás (ON DELETE CASCADE).
+// Deleting takes the messages with it (ON DELETE CASCADE).
 func (q *Queries) DeleteAssistantConversation(ctx context.Context, arg DeleteAssistantConversationParams) error {
 	_, err := q.db.Exec(ctx, deleteAssistantConversation, arg.ID, arg.TenantID, arg.MailUserID)
 	return err
@@ -2392,7 +2392,7 @@ type DeleteChannelParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Exclui o canal (cascata remove membros/mensagens). Só o owner, verificado no handler.
+// Deletes the channel (cascade removes members/messages). Owner only, checked in the handler.
 func (q *Queries) DeleteChannel(ctx context.Context, arg DeleteChannelParams) error {
 	_, err := q.db.Exec(ctx, deleteChannel, arg.ID, arg.TenantID)
 	return err
@@ -2506,7 +2506,7 @@ type DeleteEventParams struct {
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
 }
 
-// Soft-delete: marca deleted_at (permite desfazer via RestoreEvent). Só o dono, no seu tenant.
+// Soft-delete: sets deleted_at (can be undone via RestoreEvent). Owner only, within their tenant.
 func (q *Queries) DeleteEvent(ctx context.Context, arg DeleteEventParams) error {
 	_, err := q.db.Exec(ctx, deleteEvent, arg.ID, arg.TenantID, arg.OwnerUserID)
 	return err
@@ -2530,7 +2530,7 @@ type DeleteFileLinkByFileParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Revoga o link público de um ficheiro (do dono).
+// Revokes a file's public link (owner's own).
 func (q *Queries) DeleteFileLinkByFile(ctx context.Context, arg DeleteFileLinkByFileParams) error {
 	_, err := q.db.Exec(ctx, deleteFileLinkByFile, arg.FileID, arg.TenantID)
 	return err
@@ -2624,7 +2624,7 @@ type DeleteMessageAnyParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Apaga (soft) por id, sem exigir autoria — para moderação por gestor/owner do canal.
+// Soft-deletes by id, without requiring authorship — for moderation by a manager/channel owner.
 func (q *Queries) DeleteMessageAny(ctx context.Context, arg DeleteMessageAnyParams) error {
 	_, err := q.db.Exec(ctx, deleteMessageAny, arg.ID, arg.TenantID)
 	return err
@@ -2634,7 +2634,7 @@ const deleteOldAssistantUsage = `-- name: DeleteOldAssistantUsage :exec
 DELETE FROM assistant_usage WHERE created_at < $1
 `
 
-// Limpa o que já saiu da janela — a tabela não precisa de crescer para sempre.
+// Clears out whatever has fallen out of the window — the table doesn't need to grow forever.
 func (q *Queries) DeleteOldAssistantUsage(ctx context.Context, before time.Time) error {
 	_, err := q.db.Exec(ctx, deleteOldAssistantUsage, before)
 	return err
@@ -2759,8 +2759,8 @@ const deleteTenant = `-- name: DeleteTenant :exec
 DELETE FROM tenants WHERE id = $1
 `
 
-// Só o registo self-service usa isto, para desfazer um signup que falhou a meio (o resto cai em
-// cascata). Nunca é exposto numa rota: apagar uma organização viva é operação do manager.
+// Only self-service registration uses this, to undo a signup that failed halfway through (the
+// rest cascades). Never exposed on a route: deleting a live organization is a manager operation.
 func (q *Queries) DeleteTenant(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteTenant, id)
 	return err
@@ -2776,8 +2776,8 @@ type DeleteTenantWebmailSessionsParams struct {
 	KeepToken string    `json:"keep_token"`
 }
 
-// Mata TODAS as sessões do tenant menos a atual (ao ligar a política de MFA: todos são forçados
-// a re-entrar e caem no gate de enrollment).
+// Kills ALL of the tenant's sessions except the current one (when turning on the MFA policy:
+// everyone is forced to sign in again and lands on the enrollment gate).
 func (q *Queries) DeleteTenantWebmailSessions(ctx context.Context, arg DeleteTenantWebmailSessionsParams) error {
 	_, err := q.db.Exec(ctx, deleteTenantWebmailSessions, arg.TenantID, arg.KeepToken)
 	return err
@@ -2820,7 +2820,7 @@ type DeleteUserWebmailSessionsExceptParams struct {
 	KeepToken  string    `json:"keep_token"`
 }
 
-// Troca de senha: derruba as OUTRAS sessões do utilizador (a atual continua).
+// Password change: drops the user's OTHER sessions (the current one stays).
 func (q *Queries) DeleteUserWebmailSessionsExcept(ctx context.Context, arg DeleteUserWebmailSessionsExceptParams) error {
 	_, err := q.db.Exec(ctx, deleteUserWebmailSessionsExcept, arg.MailUserID, arg.KeepToken)
 	return err
@@ -2951,8 +2951,8 @@ type DueOutboxRow struct {
 	JmapCred   string    `json:"jmap_cred"`
 }
 
-// Envios vencidos (send_at passou) ainda pendentes, com a credencial JMAP cifrada do dono para o
-// worker submeter (EmailSubmission/set). Limite protege o tick de uma fila gigante.
+// Sends that are due (send_at has passed) and still pending, with the owner's encrypted JMAP
+// credential for the worker to submit (EmailSubmission/set). The limit protects the tick from a giant queue.
 func (q *Queries) DueOutbox(ctx context.Context) ([]DueOutboxRow, error) {
 	rows, err := q.db.Query(ctx, dueOutbox)
 	if err != nil {
@@ -3041,8 +3041,8 @@ type DueSnoozesRow struct {
 	JmapCred string    `json:"jmap_cred"`
 }
 
-// Snoozes vencidos (wake_at passou) ainda não processados, com a credencial JMAP cifrada do dono
-// para o worker mover a mensagem de volta à Caixa de entrada.
+// Snoozes that are due (wake_at has passed) and not yet processed, with the owner's encrypted
+// JMAP credential so the worker can move the message back to the Inbox.
 func (q *Queries) DueSnoozes(ctx context.Context) ([]DueSnoozesRow, error) {
 	rows, err := q.db.Query(ctx, dueSnoozes)
 	if err != nil {
@@ -3073,8 +3073,8 @@ type EditCrmNoteParams struct {
 	Body     string    `json:"body"`
 }
 
-// ===== CRM: edição de nota + transferência de dono =====
-// Só o autor edita a própria nota.
+// ===== CRM: note editing + owner transfer =====
+// Only the author edits their own note.
 func (q *Queries) EditCrmNote(ctx context.Context, arg EditCrmNoteParams) (CrmNote, error) {
 	row := q.db.QueryRow(ctx, editCrmNote, arg.ID, arg.AuthorID, arg.Body)
 	var i CrmNote
@@ -3202,7 +3202,7 @@ type EventsOverlappingExceptParams struct {
 	ID          uuid.UUID   `json:"id"`
 }
 
-// Como EventsOverlapping, mas ignora um evento (o que está sendo editado) para não conflitar consigo.
+// Like EventsOverlapping, but ignores one event (the one being edited) so it doesn't conflict with itself.
 func (q *Queries) EventsOverlappingExcept(ctx context.Context, arg EventsOverlappingExceptParams) ([]Event, error) {
 	rows, err := q.db.Query(ctx, eventsOverlappingExcept,
 		arg.OwnerUserID,
@@ -3266,8 +3266,8 @@ type EventsToRemindRow struct {
 	StartsAt    time.Time   `json:"starts_at"`
 }
 
-// Eventos cujo lembrete deve disparar agora: início dentro da antecedência (remind_minutes), ainda
-// futuros, com lembrete ligado e não avisados. Traz o dono para notificar.
+// Events whose reminder should fire now: start within the lead time (remind_minutes), still in
+// the future, with the reminder on and not yet notified. Brings along the owner, to notify them.
 func (q *Queries) EventsToRemind(ctx context.Context) ([]EventsToRemindRow, error) {
 	rows, err := q.db.Query(ctx, eventsToRemind)
 	if err != nil {
@@ -3307,7 +3307,7 @@ type FindCompanyByDomainParams struct {
 	Domain      string    `json:"domain"`
 }
 
-// Empresa (kind='company') do dono com este domínio — base do vínculo pessoa↔empresa automático.
+// Company (kind='company') owned by this user with this domain — the basis for the automatic person↔company link.
 func (q *Queries) FindCompanyByDomain(ctx context.Context, arg FindCompanyByDomainParams) (Contact, error) {
 	row := q.db.QueryRow(ctx, findCompanyByDomain, arg.TenantID, arg.OwnerUserID, arg.Domain)
 	var i Contact
@@ -3425,8 +3425,8 @@ type FreeBusyRow struct {
 	EndsAt   time.Time `json:"ends_at"`
 }
 
-// Blocos ocupados de um colega (só início/fim, sem detalhes) num intervalo. O handler valida que o
-// alvo é do mesmo tenant. Ignora eventos na lixeira.
+// A colleague's busy blocks (start/end only, no details) within a range. The handler validates
+// that the target is in the same tenant. Ignores trashed events.
 func (q *Queries) FreeBusy(ctx context.Context, arg FreeBusyParams) ([]FreeBusyRow, error) {
 	rows, err := q.db.Query(ctx, freeBusy,
 		arg.OwnerUserID,
@@ -3491,8 +3491,8 @@ type GetAssistantConversationParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Uma conversa DO utilizador autenticado. O filtro duplo (tenant + utilizador) é deliberado: a
-// conversa é pessoal e não é partilhada nem dentro da mesma organização (§3.5).
+// A conversation belonging to the authenticated user. The double filter (tenant + user) is
+// deliberate: the conversation is personal and is not shared, not even within the same organization (§3.5).
 func (q *Queries) GetAssistantConversation(ctx context.Context, arg GetAssistantConversationParams) (AssistantConversation, error) {
 	row := q.db.QueryRow(ctx, getAssistantConversation, arg.ID, arg.TenantID, arg.MailUserID)
 	var i AssistantConversation
@@ -3575,7 +3575,7 @@ type GetAssistantTaskEffectParams struct {
 	Fingerprint string    `json:"fingerprint"`
 }
 
-// Um efeito já produzido por esta tarefa. É a guarda de idempotência da retoma (lei 5.3).
+// An effect already produced by this task. This is the idempotency guard for resuming (law 5.3).
 func (q *Queries) GetAssistantTaskEffect(ctx context.Context, arg GetAssistantTaskEffectParams) (string, error) {
 	row := q.db.QueryRow(ctx, getAssistantTaskEffect, arg.TaskID, arg.Fingerprint)
 	var summary string
@@ -3771,7 +3771,7 @@ type GetChannelMetaRow struct {
 	Name string `json:"name"`
 }
 
-// Metadados do canal p/ decidir a notificação de mensagem (DM sempre avisa; canal pelo nome).
+// Channel metadata for deciding the message notification (a DM always notifies; a channel by name).
 func (q *Queries) GetChannelMeta(ctx context.Context, id uuid.UUID) (GetChannelMetaRow, error) {
 	row := q.db.QueryRow(ctx, getChannelMeta, id)
 	var i GetChannelMetaRow
@@ -3926,7 +3926,7 @@ type GetContactGroupOwnedParams struct {
 	OwnerUserID uuid.UUID `json:"owner_user_id"`
 }
 
-// Grupo de contatos do próprio dono — usado antes de mexer na partilha dele.
+// Contact group belonging to the owner themselves — used before touching its sharing.
 func (q *Queries) GetContactGroupOwned(ctx context.Context, arg GetContactGroupOwnedParams) (ContactGroup, error) {
 	row := q.db.QueryRow(ctx, getContactGroupOwned, arg.ID, arg.OwnerUserID)
 	var i ContactGroup
@@ -4051,7 +4051,7 @@ const getDomainByName = `-- name: GetDomainByName :one
 SELECT id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains WHERE domain = $1
 `
 
-// Um domínio só pode existir uma vez na plataforma (é a caixa de correio de alguém).
+// A domain can only exist once on the platform (it is someone's mailbox).
 func (q *Queries) GetDomainByName(ctx context.Context, domain string) (Domain, error) {
 	row := q.db.QueryRow(ctx, getDomainByName, domain)
 	var i Domain
@@ -4178,8 +4178,8 @@ type GetFileByLinkTokenRow struct {
 	AllowDownload bool               `json:"allow_download"`
 }
 
-// Resolve o token público → ficheiro (+ hash da senha do link). Sem filtro de tenant/dono: o token
-// É a autorização. Mas o link precisa estar dentro da validade (expires_at futuro ou NULL).
+// Resolves the public token → file (+ the link's password hash). No tenant/owner filter: the token
+// IS the authorization. But the link must still be within its validity (expires_at in the future or NULL).
 func (q *Queries) GetFileByLinkToken(ctx context.Context, token string) (GetFileByLinkTokenRow, error) {
 	row := q.db.QueryRow(ctx, getFileByLinkToken, token)
 	var i GetFileByLinkTokenRow
@@ -4215,8 +4215,8 @@ type GetFileIfSharedWithMeParams struct {
 	Principal string    `json:"principal"`
 }
 
-// O ficheiro, se me foi partilhado (principal = o meu e-mail, mesmo tenant). Autoriza o download
-// de quem não é dono mas recebeu a partilha.
+// The file, if it was shared with me (principal = my email, same tenant). Authorizes the download
+// for someone who is not the owner but received the share.
 func (q *Queries) GetFileIfSharedWithMe(ctx context.Context, arg GetFileIfSharedWithMeParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, getFileIfSharedWithMe, arg.ID, arg.TenantID, arg.Principal)
 	var i StorageFile
@@ -4242,7 +4242,7 @@ const getFileLinkByFile = `-- name: GetFileLinkByFile :one
 SELECT id, tenant_id, file_id, token, created_by, created_at, expires_at, password_hash, permission, allow_download FROM file_links WHERE file_id = $1 AND (expires_at IS NULL OR expires_at > now())
 `
 
-// Reaproveita só um link ainda válido (não expirado); expirado conta como inexistente.
+// Reuses only a link that is still valid (not expired); an expired one counts as nonexistent.
 func (q *Queries) GetFileLinkByFile(ctx context.Context, fileID uuid.UUID) (FileLink, error) {
 	row := q.db.QueryRow(ctx, getFileLinkByFile, fileID)
 	var i FileLink
@@ -4448,8 +4448,8 @@ type GetMailUserByEmailInTenantParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Variante tenant-scoped de GetMailUserByEmail: para caminhos onde o alvo TEM de ser do mesmo
-// tenant (assistente: convidar/partilhar), sem depender de um post-check no chamador.
+// Tenant-scoped variant of GetMailUserByEmail: for paths where the target MUST be in the same
+// tenant (assistant: invite/share), without relying on a post-check in the caller.
 func (q *Queries) GetMailUserByEmailInTenant(ctx context.Context, arg GetMailUserByEmailInTenantParams) (MailUser, error) {
 	row := q.db.QueryRow(ctx, getMailUserByEmailInTenant, arg.Email, arg.TenantID)
 	var i MailUser
@@ -4798,7 +4798,7 @@ type GetTenantBrandingByEmailRow struct {
 	BrandLogo  string `json:"brand_logo"`
 }
 
-// Marca da organização a partir do e-mail de um utilizador (para o ecrã de login, pré-auth).
+// Organization's brand from a user's email (for the login screen, pre-auth).
 func (q *Queries) GetTenantBrandingByEmail(ctx context.Context, email string) (GetTenantBrandingByEmailRow, error) {
 	row := q.db.QueryRow(ctx, getTenantBrandingByEmail, email)
 	var i GetTenantBrandingByEmailRow
@@ -4821,7 +4821,7 @@ const getTenantOwner = `-- name: GetTenantOwner :one
 SELECT id, tenant_id, email, name, role, stalwart_account_id, quota_bytes, created_at, password_hash, language, totp_secret, mfa_totp_enabled, phone, mfa_sms_enabled, notify_email, settings, status_emoji, status_text, last_totp_step, jmap_cred, presence, mail_seen_at, job_title, avatar, status, deleted_at, successor_email, purge_warned_at, recovery_email FROM mail_users WHERE tenant_id = $1 AND role = 'owner' ORDER BY created_at ASC LIMIT 1
 `
 
-// Dono da organização: quem recebe os avisos quando não há contacto de faturação definido.
+// Organization owner: who receives the alerts when no billing contact is set.
 func (q *Queries) GetTenantOwner(ctx context.Context, tenantID uuid.UUID) (MailUser, error) {
 	row := q.db.QueryRow(ctx, getTenantOwner, tenantID)
 	var i MailUser
@@ -5048,8 +5048,7 @@ WHERE id = $1
 RETURNING id, tenant_id, mail_user_id, conversation_id, agent, message, status, steps, answer, error_code, stopped, run_id, cancel_requested, claimed_at, created_at, updated_at
 `
 
-// Renova o arrendamento e devolve a tarefa, para o worker ver o pedido de cancelamento sem uma
-// segunda consulta.
+// Renews the lease and returns the task, so the worker can see the cancellation request without a second query.
 func (q *Queries) HeartbeatAssistantTask(ctx context.Context, id uuid.UUID) (AssistantTask, error) {
 	row := q.db.QueryRow(ctx, heartbeatAssistantTask, id)
 	var i AssistantTask
@@ -5159,7 +5158,7 @@ type LinkPeopleByDomainParams struct {
 	OwnerUserID uuid.UUID `json:"owner_user_id"`
 }
 
-// Liga pessoas sem empresa a uma empresa pelo domínio (idempotente). Usado no "enriquecer agora".
+// Links people without a company to a company by domain (idempotent). Used by "enrich now".
 func (q *Queries) LinkPeopleByDomain(ctx context.Context, arg LinkPeopleByDomainParams) (int64, error) {
 	result, err := q.db.Exec(ctx, linkPeopleByDomain, arg.TenantID, arg.OwnerUserID)
 	if err != nil {
@@ -5215,8 +5214,8 @@ type ListAliasesForStalwartRow struct {
 	StalwartDomainID string `json:"stalwart_domain_id"`
 }
 
-// Aliases de uma pessoa no formato que o Stalwart quer: parte local + id do domínio LÁ (não o
-// nosso). Ver DIVERGENCES §D4b — o alias é um objeto {name, domainId}, não um endereço em texto.
+// One person's aliases in the format Stalwart wants: local part + the domain's id THERE (not
+// ours). See DIVERGENCES §D4b — the alias is an object {name, domainId}, not a text address.
 func (q *Queries) ListAliasesForStalwart(ctx context.Context, arg ListAliasesForStalwartParams) ([]ListAliasesForStalwartRow, error) {
 	rows, err := q.db.Query(ctx, listAliasesForStalwart, arg.TenantID, arg.UserID)
 	if err != nil {
@@ -5246,7 +5245,7 @@ type ListAliasesForUserParams struct {
 	UserID   uuid.UUID `json:"user_id"`
 }
 
-// Endereços extra de UMA pessoa: é o que o compositor mostra no "De:".
+// One person's extra addresses: this is what the composer shows in "From:".
 func (q *Queries) ListAliasesForUser(ctx context.Context, arg ListAliasesForUserParams) ([]string, error) {
 	rows, err := q.db.Query(ctx, listAliasesForUser, arg.TenantID, arg.UserID)
 	if err != nil {
@@ -5271,8 +5270,8 @@ const listAllDomains = `-- name: ListAllDomains :many
 SELECT id, tenant_id, domain, stalwart_id, dkim_status, dns_status, provision_state, dns_zone, created_at FROM domains ORDER BY created_at
 `
 
-// Todos os domínios, para tarefas de manutenção que têm de passar por cada um (ex.: garantir o
-// tenant SES dos que foram provisionados antes de o isolamento existir).
+// All domains, for maintenance tasks that have to go through each one (e.g., ensuring the SES
+// tenant for domains provisioned before isolation existed).
 func (q *Queries) ListAllDomains(ctx context.Context) ([]Domain, error) {
 	rows, err := q.db.Query(ctx, listAllDomains)
 	if err != nil {
@@ -5307,7 +5306,7 @@ const listAllFoldersByOwner = `-- name: ListAllFoldersByOwner :many
 SELECT id, tenant_id, owner_user_id, parent_id, name, created_at FROM storage_folders WHERE owner_user_id = $1
 `
 
-// Todas as pastas do dono (qualquer nível) — o backend monta a árvore em memória (ex.: zip recursivo).
+// All of the owner's folders (any level) — the backend builds the tree in memory (e.g., recursive zip).
 func (q *Queries) ListAllFoldersByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]StorageFolder, error) {
 	rows, err := q.db.Query(ctx, listAllFoldersByOwner, ownerUserID)
 	if err != nil {
@@ -5352,8 +5351,8 @@ type ListAnnouncementsParams struct {
 	Column5  interface{} `json:"column_5"`
 }
 
-// Avisos do tenant: busca (título/corpo), paginação e visibilidade. $5 = ver também os não
-// publicados (só admin); membros veem apenas os publicados.
+// Tenant announcements: search (title/body), pagination and visibility. $5 = also see the
+// unpublished ones (admin only); members see only the published ones.
 func (q *Queries) ListAnnouncements(ctx context.Context, arg ListAnnouncementsParams) ([]Announcement, error) {
 	rows, err := q.db.Query(ctx, listAnnouncements,
 		arg.TenantID,
@@ -5405,8 +5404,8 @@ type ListArchivedChannelsParams struct {
 	UserID   uuid.UUID `json:"user_id"`
 }
 
-// Só lista a quem PODE restaurar: admin da organização ou dono do canal. Assim tudo o que aparece
-// é acionável, e para os restantes o canal arquivado desaparece (é o efeito que se quer).
+// Only lists it for someone who CAN restore it: organization admin or channel owner. That way
+// everything shown is actionable, and for everyone else the archived channel disappears (which is the intended effect).
 func (q *Queries) ListArchivedChannels(ctx context.Context, arg ListArchivedChannelsParams) ([]Channel, error) {
 	rows, err := q.db.Query(ctx, listArchivedChannels, arg.TenantID, arg.IsAdmin, arg.UserID)
 	if err != nil {
@@ -5455,7 +5454,7 @@ type ListAssistantConversationsParams struct {
 	Lim        int32     `json:"lim"`
 }
 
-// Histórico do próprio utilizador, mais recente primeiro.
+// The user's own history, most recent first.
 func (q *Queries) ListAssistantConversations(ctx context.Context, arg ListAssistantConversationsParams) ([]AssistantConversation, error) {
 	rows, err := q.db.Query(ctx, listAssistantConversations, arg.TenantID, arg.MailUserID, arg.Lim)
 	if err != nil {
@@ -5496,7 +5495,7 @@ type ListAssistantMemoryParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Todos os factos do próprio utilizador. Pequena por natureza, cabe inteira (§8.3).
+// All of the user's own facts. Small by nature, fits entirely (§8.3).
 func (q *Queries) ListAssistantMemory(ctx context.Context, arg ListAssistantMemoryParams) ([]AssistantMemory, error) {
 	rows, err := q.db.Query(ctx, listAssistantMemory, arg.TenantID, arg.MailUserID)
 	if err != nil {
@@ -5543,8 +5542,8 @@ type ListAssistantMessagesParams struct {
 	Lim            int32     `json:"lim"`
 }
 
-// Mensagens de uma conversa, por ordem. O JOIN garante que a conversa é mesmo do utilizador — sem
-// ele, um conversation_id adivinhado leria o fio de outra pessoa.
+// Messages of a conversation, in order. The JOIN guarantees the conversation really belongs to
+// the user — without it, a guessed conversation_id would read someone else's thread.
 func (q *Queries) ListAssistantMessages(ctx context.Context, arg ListAssistantMessagesParams) ([]AssistantMessage, error) {
 	rows, err := q.db.Query(ctx, listAssistantMessages,
 		arg.ConversationID,
@@ -5592,7 +5591,7 @@ type ListAssistantPendingActionsParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// O que está à espera da decisão DESTE utilizador.
+// What is waiting on a decision from THIS user.
 func (q *Queries) ListAssistantPendingActions(ctx context.Context, arg ListAssistantPendingActionsParams) ([]AssistantPendingAction, error) {
 	rows, err := q.db.Query(ctx, listAssistantPendingActions, arg.TenantID, arg.MailUserID)
 	if err != nil {
@@ -5636,7 +5635,7 @@ type ListAssistantTasksParams struct {
 	Lim        int32     `json:"lim"`
 }
 
-// As tarefas do próprio utilizador, mais recentes primeiro.
+// The user's own tasks, most recent first.
 func (q *Queries) ListAssistantTasks(ctx context.Context, arg ListAssistantTasksParams) ([]AssistantTask, error) {
 	rows, err := q.db.Query(ctx, listAssistantTasks, arg.TenantID, arg.MailUserID, arg.Lim)
 	if err != nil {
@@ -5685,7 +5684,7 @@ type ListAssistantToolCallsByRunParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Cartões de ação de uma execução, por ordem cronológica. Filtra por tenant (lei 5.1).
+// Action cards for a run, in chronological order. Filters by tenant (law 5.1).
 func (q *Queries) ListAssistantToolCallsByRun(ctx context.Context, arg ListAssistantToolCallsByRunParams) ([]AssistantToolCall, error) {
 	rows, err := q.db.Query(ctx, listAssistantToolCallsByRun, arg.RunID, arg.TenantID)
 	if err != nil {
@@ -5732,8 +5731,8 @@ type ListAssistantToolCallsByUserParams struct {
 	Lim        int32     `json:"lim"`
 }
 
-// Registo de auditoria do PRÓPRIO utilizador, mais recente primeiro (§6.4). Legível por ele, não só
-// pelo administrador — daí filtrar por mail_user_id e não só por tenant.
+// Audit log of the user's OWN activity, most recent first (§6.4). Readable by them, not only by
+// the administrator — hence filtering by mail_user_id and not only by tenant.
 func (q *Queries) ListAssistantToolCallsByUser(ctx context.Context, arg ListAssistantToolCallsByUserParams) ([]AssistantToolCall, error) {
 	rows, err := q.db.Query(ctx, listAssistantToolCallsByUser, arg.TenantID, arg.MailUserID, arg.Lim)
 	if err != nil {
@@ -5780,7 +5779,7 @@ type ListAttachmentsByChannelRow struct {
 	Size      int64     `json:"size"`
 }
 
-// Anexos de mensagem apagada não voltam (a mensagem vira só o marcador "apagada").
+// A deleted message's attachments do not come back (the message becomes just the "deleted" marker).
 func (q *Queries) ListAttachmentsByChannel(ctx context.Context, channelID uuid.UUID) ([]ListAttachmentsByChannelRow, error) {
 	rows, err := q.db.Query(ctx, listAttachmentsByChannel, channelID)
 	if err != nil {
@@ -5810,7 +5809,7 @@ const listAutomations = `-- name: ListAutomations :many
 SELECT id, board_id, tenant_id, trigger_column_id, action, action_value, created_at FROM board_automations WHERE board_id = $1 ORDER BY created_at
 `
 
-// ===== Automações do quadro =====
+// ===== Board automations =====
 func (q *Queries) ListAutomations(ctx context.Context, boardID uuid.UUID) ([]BoardAutomation, error) {
 	rows, err := q.db.Query(ctx, listAutomations, boardID)
 	if err != nil {
@@ -5843,7 +5842,7 @@ const listCalendars = `-- name: ListCalendars :many
 SELECT id, tenant_id, owner_user_id, name, color, created_at FROM calendars WHERE owner_user_id = $1 ORDER BY created_at
 `
 
-// ===== Múltiplos calendários + free-busy =====
+// ===== Multiple calendars + free-busy =====
 func (q *Queries) ListCalendars(ctx context.Context, ownerUserID uuid.UUID) ([]Calendar, error) {
 	rows, err := q.db.Query(ctx, listCalendars, ownerUserID)
 	if err != nil {
@@ -5916,7 +5915,7 @@ type ListChannelMemberPrefsRow struct {
 	NotifPref string    `json:"notif_pref"`
 }
 
-// Membros do canal + preferência de notificação, para o fan-out de "mensagem nova".
+// Channel members + notification preference, for the "new message" fan-out.
 func (q *Queries) ListChannelMemberPrefs(ctx context.Context, channelID uuid.UUID) ([]ListChannelMemberPrefsRow, error) {
 	rows, err := q.db.Query(ctx, listChannelMemberPrefs, channelID)
 	if err != nil {
@@ -6056,7 +6055,7 @@ const listClientAgents = `-- name: ListClientAgents :many
 SELECT id, tenant_id, name, purpose, instructions, tools, created_at, updated_at FROM assistant_agents WHERE tenant_id = $1 ORDER BY name
 `
 
-// Perfis criados pelo cliente, por ordem de nome. Filtra por tenant (lei 5.1).
+// Profiles created by the customer, ordered by name. Filters by tenant (law 5.1).
 func (q *Queries) ListClientAgents(ctx context.Context, tenantID uuid.UUID) ([]AssistantAgent, error) {
 	rows, err := q.db.Query(ctx, listClientAgents, tenantID)
 	if err != nil {
@@ -6097,8 +6096,8 @@ type ListColleaguesRow struct {
 	Avatar string    `json:"avatar"`
 }
 
-// Colegas do mesmo tenant: só o mínimo para atribuir trabalho (id/nome/e-mail). NÃO expõe papel,
-// MFA nem nada do painel — por isso não precisa de members.view.
+// Colleagues in the same tenant: only the minimum needed to assign work (id/name/email). Does
+// NOT expose role, MFA, or anything from the admin panel — that's why it doesn't need members.view.
 func (q *Queries) ListColleagues(ctx context.Context, tenantID uuid.UUID) ([]ListColleaguesRow, error) {
 	rows, err := q.db.Query(ctx, listColleagues, tenantID)
 	if err != nil {
@@ -6134,8 +6133,8 @@ type ListCommentAuthorsParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// ---- Comentários da tarefa ----
-// Quem já comentou nesta tarefa — são os interessados na conversa.
+// ---- Card comments ----
+// Who has already commented on this card — they are the ones interested in the conversation.
 func (q *Queries) ListCommentAuthors(ctx context.Context, arg ListCommentAuthorsParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listCommentAuthors, arg.CardID, arg.TenantID)
 	if err != nil {
@@ -6165,8 +6164,8 @@ type ListCompanyPeopleParams struct {
 	TenantID  uuid.UUID   `json:"tenant_id"`
 }
 
-// Pessoas de uma empresa. Sem filtro de visibilidade: quem chegou à ficha da empresa já passou
-// pelo GetContact — e as pessoas dela fazem parte do registo.
+// People belonging to a company. No visibility filter: whoever reached the company's record
+// already went through GetContact — and its people are part of that same record.
 func (q *Queries) ListCompanyPeople(ctx context.Context, arg ListCompanyPeopleParams) ([]Contact, error) {
 	rows, err := q.db.Query(ctx, listCompanyPeople, arg.CompanyID, arg.TenantID)
 	if err != nil {
@@ -6226,8 +6225,8 @@ type ListContactGroupEmailsRow struct {
 	Email string `json:"email"`
 }
 
-// E-mails dos contatos de um grupo (lista de distribuição): escrever ao grupo inteiro de uma vez.
-// Só contatos do próprio dono e com e-mail preenchido.
+// Emails of a group's contacts (distribution list): write to the whole group at once.
+// Only the owner's own contacts, and only those with an email filled in.
 func (q *Queries) ListContactGroupEmails(ctx context.Context, arg ListContactGroupEmailsParams) ([]ListContactGroupEmailsRow, error) {
 	rows, err := q.db.Query(ctx, listContactGroupEmails, arg.GroupID, arg.OwnerUserID)
 	if err != nil {
@@ -6431,18 +6430,18 @@ type ListContactsRow struct {
 	CompanyName  *string         `json:"company_name"`
 }
 
-// ===== Contatos (grupos N:N + tags) =====
-// REGRA DE VISIBILIDADE (repetida em toda leitura de contato):
+// ===== Contacts (N:N groups + tags) =====
+// VISIBILITY RULE (repeated in every contact read):
 //
-//	tenant  → todos da organização veem
-//	private → só o dono
-//	groups  → o dono + quem está num grupo com quem o contato foi compartilhado
+//	tenant  → everyone in the organization sees it
+//	private → owner only
+//	groups  → the owner + anyone in a group the contact was shared with
 //
-// Ler SEMPRE por aqui; nunca por owner_user_id sozinho (esconderia o que é compartilhado) nem
-// por tenant_id sozinho (vazaria o que é privado).
-// VISIBILIDADE PELO GRUPO: vejo o contato se sou o dono, ou se estou numa EQUIPA com que algum
-// GRUPO dele foi partilhado. Uma pessoa herda da empresa: ver a Acme é ver quem trabalha nela —
-// senão a lista mostraria a empresa e escondia as pessoas dela (o bug "de —" de volta).
+// ALWAYS read through here; never by owner_user_id alone (it would hide what is shared) nor
+// by tenant_id alone (it would leak what is private).
+// VISIBILITY BY GROUP: I see the contact if I am the owner, or if I am on a TEAM that one of its
+// GROUPS was shared with. A person inherits from the company: seeing Acme means seeing who works
+// there — otherwise the list would show the company and hide its people (the "of —" bug coming back).
 func (q *Queries) ListContacts(ctx context.Context, arg ListContactsParams) ([]ListContactsRow, error) {
 	rows, err := q.db.Query(ctx, listContacts, arg.OwnerUserID, arg.TenantID)
 	if err != nil {
@@ -6503,7 +6502,7 @@ type ListDeviceTokensRow struct {
 	CreatedAt   time.Time          `json:"created_at"`
 }
 
-// Dispositivos do próprio utilizador (a UI de Definições lista/revoga). Nunca expõe o hash.
+// The user's own devices (the Settings UI lists/revokes them). Never exposes the hash.
 func (q *Queries) ListDeviceTokens(ctx context.Context, mailUserID uuid.UUID) ([]ListDeviceTokensRow, error) {
 	rows, err := q.db.Query(ctx, listDeviceTokens, mailUserID)
 	if err != nil {
@@ -6538,7 +6537,7 @@ const listDisabledAssistantTools = `-- name: ListDisabledAssistantTools :many
 SELECT tool FROM assistant_tool_settings WHERE tenant_id = $1 AND enabled = false ORDER BY tool
 `
 
-// ---------- Ferramentas do assistente desligadas (governança fina) ----------
+// ---------- Disabled assistant tools (fine-grained governance) ----------
 func (q *Queries) ListDisabledAssistantTools(ctx context.Context, tenantID uuid.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, listDisabledAssistantTools, tenantID)
 	if err != nil {
@@ -6564,7 +6563,7 @@ SELECT agent_key FROM assistant_builtin_settings
 WHERE tenant_id = $1 AND enabled = FALSE
 `
 
-// Só o que diverge do padrão: ausência = ligado.
+// Only what diverges from the default: absence means enabled.
 func (q *Queries) ListDisabledBuiltinAgents(ctx context.Context, tenantID uuid.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, listDisabledBuiltinAgents, tenantID)
 	if err != nil {
@@ -6679,7 +6678,7 @@ type ListEmailAliasesRow struct {
 	Domain     string    `json:"domain"`
 }
 
-// Aliases do tenant com o dono, para o painel. O nome do dono vem junto para não ser N+1 na UI.
+// Tenant's aliases with their owner, for the admin panel. The owner's name comes along to avoid an N+1 in the UI.
 func (q *Queries) ListEmailAliases(ctx context.Context, tenantID uuid.UUID) ([]ListEmailAliasesRow, error) {
 	rows, err := q.db.Query(ctx, listEmailAliases, tenantID)
 	if err != nil {
@@ -6954,12 +6953,13 @@ type ListFileChangesRow struct {
 	Owned     bool               `json:"owned"`
 }
 
-// Feed incremental para o cliente de sync (daemon). Keyset por (updated_at, id): o cursor é opaco
-// no cliente e nunca salta nem repete linhas no limite da página. Inclui os da lixeira (deleted_at
-// != NULL) como tombstones — o cliente remove-os localmente. `hash` serve de ETag do conteúdo.
-// Inclui os MEUS ficheiros e os que me foram PARTILHADOS (principal = o meu e-mail), num único
-// keyset — assim o cursor continua a ser um só. `owned` diz ao cliente se pode escrever: um
-// partilhado é só-leitura no sync (vai para uma pasta reservada e não sobe alterações).
+// Incremental feed for the sync client (daemon). Keyset on (updated_at, id): the cursor is opaque
+// to the client and never skips or repeats rows at the page boundary. Includes trashed rows
+// (deleted_at != NULL) as tombstones — the client removes them locally. `hash` acts as the
+// content's ETag.
+// Includes MY files and the ones SHARED with me (principal = my email), in a single keyset — so
+// the cursor stays a single one. `owned` tells the client whether it can write: a shared file is
+// read-only in sync (it goes to a reserved folder and does not upload changes).
 func (q *Queries) ListFileChanges(ctx context.Context, arg ListFileChangesParams) ([]ListFileChangesRow, error) {
 	rows, err := q.db.Query(ctx, listFileChanges,
 		arg.TenantID,
@@ -7107,8 +7107,8 @@ type ListFilesSharedWithMeParams struct {
 	Principal string    `json:"principal"`
 }
 
-// Ficheiros que outra pessoa do tenant partilhou comigo (principal = o meu e-mail). DISTINCT porque
-// a mesma pessoa pode ter partilhado o ficheiro mais de uma vez.
+// Files another person in the tenant shared with me (principal = my email). DISTINCT because
+// the same person may have shared the file more than once.
 func (q *Queries) ListFilesSharedWithMe(ctx context.Context, arg ListFilesSharedWithMeParams) ([]StorageFile, error) {
 	rows, err := q.db.Query(ctx, listFilesSharedWithMe, arg.TenantID, arg.Principal)
 	if err != nil {
@@ -7153,7 +7153,7 @@ type ListFoldersParams struct {
 	ParentID    pgtype.UUID `json:"parent_id"`
 }
 
-// ===== Pastas =====
+// ===== Folders =====
 func (q *Queries) ListFolders(ctx context.Context, arg ListFoldersParams) ([]StorageFolder, error) {
 	rows, err := q.db.Query(ctx, listFolders, arg.OwnerUserID, arg.ParentID)
 	if err != nil {
@@ -7271,7 +7271,7 @@ type ListGroupSharesRow struct {
 	Name        string    `json:"name"`
 }
 
-// ---- Partilha de GRUPO DE CONTATOS com EQUIPA ----
+// ---- Sharing a CONTACT GROUP with a TEAM ----
 func (q *Queries) ListGroupShares(ctx context.Context, groupID uuid.UUID) ([]ListGroupSharesRow, error) {
 	rows, err := q.db.Query(ctx, listGroupShares, groupID)
 	if err != nil {
@@ -7302,7 +7302,7 @@ type ListGroupUserSharesRow struct {
 	Name   string    `json:"name"`
 }
 
-// Partilha de GRUPO DE CONTATOS com um UTILIZADOR específico (além de equipas).
+// Sharing a CONTACT GROUP with a specific USER (in addition to teams).
 func (q *Queries) ListGroupUserShares(ctx context.Context, groupID uuid.UUID) ([]ListGroupUserSharesRow, error) {
 	rows, err := q.db.Query(ctx, listGroupUserShares, groupID)
 	if err != nil {
@@ -7383,7 +7383,7 @@ type ListInvitedEventsRow struct {
 	MyRsvp        string             `json:"my_rsvp"`
 }
 
-// Eventos a que o utilizador foi convidado (com o seu status), para entrarem na agenda dele.
+// Events the user was invited to (with their status), so they show up on their calendar.
 func (q *Queries) ListInvitedEvents(ctx context.Context, userID uuid.UUID) ([]ListInvitedEventsRow, error) {
 	rows, err := q.db.Query(ctx, listInvitedEvents, userID)
 	if err != nil {
@@ -7433,7 +7433,7 @@ const listLabels = `-- name: ListLabels :many
 SELECT id, tenant_id, name, color, created_at FROM labels WHERE tenant_id = $1 ORDER BY name
 `
 
-// ===== Marcadores =====
+// ===== Labels =====
 func (q *Queries) ListLabels(ctx context.Context, tenantID uuid.UUID) ([]Label, error) {
 	rows, err := q.db.Query(ctx, listLabels, tenantID)
 	if err != nil {
@@ -7531,8 +7531,8 @@ type ListMemberPermissionsRow struct {
 	Allow      bool   `json:"allow"`
 }
 
-// ---------- Exceções de permissão por membro (RBAC granular) ----------
-// Exceções de UMA pessoa. Filtra tenant: um user_id de outro tenant não devolve nada.
+// ---------- Per-member permission exceptions (granular RBAC) ----------
+// One person's exceptions. Filters by tenant: a user_id from another tenant returns nothing.
 func (q *Queries) ListMemberPermissions(ctx context.Context, arg ListMemberPermissionsParams) ([]ListMemberPermissionsRow, error) {
 	rows, err := q.db.Query(ctx, listMemberPermissions, arg.TenantID, arg.UserID)
 	if err != nil {
@@ -7648,7 +7648,7 @@ type ListMessagesAfterByChannelRow struct {
 	BotName     string             `json:"bot_name"`
 }
 
-// Mensagens POSTERIORES a um instante (lado novo da janela "saltar para a mensagem"), em ordem.
+// Messages AFTER a given instant (the new side of the "jump to message" window), in order.
 func (q *Queries) ListMessagesAfterByChannel(ctx context.Context, arg ListMessagesAfterByChannelParams) ([]ListMessagesAfterByChannelRow, error) {
 	rows, err := q.db.Query(ctx, listMessagesAfterByChannel, arg.ChannelID, arg.CreatedAt, arg.Limit)
 	if err != nil {
@@ -7712,7 +7712,7 @@ type ListMessagesBeforeByChannelRow struct {
 	BotName     string             `json:"bot_name"`
 }
 
-// Página de histórico ANTERIOR a um instante (cursor por created_at) — carrega mensagens antigas.
+// History page BEFORE a given instant (cursor on created_at) — loads older messages.
 func (q *Queries) ListMessagesBeforeByChannel(ctx context.Context, arg ListMessagesBeforeByChannelParams) ([]ListMessagesBeforeByChannelRow, error) {
 	rows, err := q.db.Query(ctx, listMessagesBeforeByChannel, arg.ChannelID, arg.CreatedAt, arg.Limit)
 	if err != nil {
@@ -7939,7 +7939,7 @@ type ListPendingOutboxRow struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// E-mails ainda por enviar (agendados) do dono — para a UI de gestão. Ordena pelo horário de envio.
+// Owner's emails still to be sent (scheduled) — for the management UI. Ordered by send time.
 func (q *Queries) ListPendingOutbox(ctx context.Context, arg ListPendingOutboxParams) ([]ListPendingOutboxRow, error) {
 	rows, err := q.db.Query(ctx, listPendingOutbox, arg.UserID, arg.TenantID)
 	if err != nil {
@@ -8024,7 +8024,7 @@ type ListPublicChannelsParams struct {
 	UserID   uuid.UUID `json:"user_id"`
 }
 
-// Só canais públicos E listados aparecem na descoberta. Não listados = fechados (só por convite).
+// Only public AND listed channels show up in discovery. Unlisted = closed (invite-only).
 func (q *Queries) ListPublicChannels(ctx context.Context, arg ListPublicChannelsParams) ([]Channel, error) {
 	rows, err := q.db.Query(ctx, listPublicChannels, arg.TenantID, arg.UserID)
 	if err != nil {
@@ -8243,7 +8243,7 @@ const listRecurringByOwner = `-- name: ListRecurringByOwner :many
 SELECT id, tenant_id, owner_user_id, title, description, location, color, starts_at, ends_at, source_email_id, created_at, tags, meeting_room, remind_minutes, reminded, all_day, recur, recur_until, deleted_at, calendar_id, booking_id, kind FROM events WHERE owner_user_id = $1 AND recur <> '' AND deleted_at IS NULL ORDER BY starts_at
 `
 
-// Mestres recorrentes do dono (recur <> ”); o backend expande as ocorrências no intervalo pedido.
+// Owner's recurring masters (recur <> ”); the backend expands the occurrences within the requested range.
 func (q *Queries) ListRecurringByOwner(ctx context.Context, ownerUserID pgtype.UUID) ([]Event, error) {
 	rows, err := q.db.Query(ctx, listRecurringByOwner, ownerUserID)
 	if err != nil {
@@ -8297,7 +8297,7 @@ type ListSavedIDsInChannelParams struct {
 	ChannelID uuid.UUID `json:"channel_id"`
 }
 
-// Ids das mensagens salvas pelo usuário DENTRO de um canal (marca o estado na lista de mensagens).
+// IDs of the messages the user saved WITHIN a channel (marks the state in the message list).
 func (q *Queries) ListSavedIDsInChannel(ctx context.Context, arg ListSavedIDsInChannelParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, listSavedIDsInChannel, arg.UserID, arg.ChannelID)
 	if err != nil {
@@ -8341,7 +8341,7 @@ type ListSavedMessagesRow struct {
 	SavedAt     time.Time `json:"saved_at"`
 }
 
-// Mensagens salvas do usuário (painel "Salvos"), com autor e canal, mais recentes primeiro.
+// User's saved messages (the "Saved" panel), with author and channel, most recent first.
 func (q *Queries) ListSavedMessages(ctx context.Context, userID uuid.UUID) ([]ListSavedMessagesRow, error) {
 	rows, err := q.db.Query(ctx, listSavedMessages, userID)
 	if err != nil {
@@ -8495,7 +8495,7 @@ const listTags = `-- name: ListTags :many
 SELECT id, tenant_id, name, color, created_at FROM tags WHERE tenant_id = $1 ORDER BY name
 `
 
-// ===== Tags (catálogo compartilhado) =====
+// ===== Tags (shared catalog) =====
 func (q *Queries) ListTags(ctx context.Context, tenantID uuid.UUID) ([]Tag, error) {
 	rows, err := q.db.Query(ctx, listTags, tenantID)
 	if err != nil {
@@ -8531,9 +8531,9 @@ type ListTeamsForShareRow struct {
 	Name string    `json:"name"`
 }
 
-// Equipas do tenant (id+nome) para o PICKER de partilha — sem exigir permissão de admin, ao
-// contrário de ListUserGroups (que é para a gestão de membros). Escolher com quem partilhar o meu
-// próprio grupo não é uma operação de administração.
+// Tenant's teams (id+name) for the share PICKER — without requiring admin permission, unlike
+// ListUserGroups (which is for member management). Choosing who to share my own group with is
+// not an administration operation.
 func (q *Queries) ListTeamsForShare(ctx context.Context, tenantID uuid.UUID) ([]ListTeamsForShareRow, error) {
 	rows, err := q.db.Query(ctx, listTeamsForShare, tenantID)
 	if err != nil {
@@ -8566,7 +8566,7 @@ type ListTemplatesParams struct {
 	TenantID    uuid.UUID `json:"tenant_id"`
 }
 
-// ===== Templates de resposta (canned responses) =====
+// ===== Reply templates (canned responses) =====
 func (q *Queries) ListTemplates(ctx context.Context, arg ListTemplatesParams) ([]MailTemplate, error) {
 	rows, err := q.db.Query(ctx, listTemplates, arg.OwnerUserID, arg.TenantID)
 	if err != nil {
@@ -8652,7 +8652,7 @@ const listTrashedFiles = `-- name: ListTrashedFiles :many
 SELECT id, tenant_id, owner_user_id, name, blob_key, hash, size, version, created_at, folder_id, deleted_at, starred, updated_at FROM storage_files WHERE owner_user_id = $1 AND deleted_at IS NOT NULL ORDER BY deleted_at DESC
 `
 
-// Lixeira do dono: só os soft-deleted, mais recentes primeiro.
+// Owner's trash: only the soft-deleted ones, most recent first.
 func (q *Queries) ListTrashedFiles(ctx context.Context, ownerUserID pgtype.UUID) ([]StorageFile, error) {
 	rows, err := q.db.Query(ctx, listTrashedFiles, ownerUserID)
 	if err != nil {
@@ -8802,7 +8802,7 @@ type ListWorkspaceEmojisRow struct {
 	CreatedBy uuid.UUID `json:"created_by"`
 }
 
-// ===== Emojis customizados do workspace =====
+// ===== Custom workspace emojis =====
 func (q *Queries) ListWorkspaceEmojis(ctx context.Context, tenantID uuid.UUID) ([]ListWorkspaceEmojisRow, error) {
 	rows, err := q.db.Query(ctx, listWorkspaceEmojis, tenantID)
 	if err != nil {
@@ -8939,7 +8939,7 @@ type MergeReassignGroupsParams struct {
 	Merge uuid.UUID `json:"merge"`
 }
 
-// Move as filiações de grupo (evita duplicar a PK contact_id+group_id com ON CONFLICT).
+// Moves the group memberships (avoids duplicating the contact_id+group_id PK via ON CONFLICT).
 func (q *Queries) MergeReassignGroups(ctx context.Context, arg MergeReassignGroupsParams) error {
 	_, err := q.db.Exec(ctx, mergeReassignGroups, arg.Keep, arg.Merge)
 	return err
@@ -8970,7 +8970,7 @@ type MoveFolderParams struct {
 	ParentID    pgtype.UUID `json:"parent_id"`
 }
 
-// Move a pasta para outro pai (null = raiz). O handler barra ciclo (mover para dentro de si/descendente).
+// Moves the folder to another parent (null = root). The handler blocks cycles (moving into itself/a descendant).
 func (q *Queries) MoveFolder(ctx context.Context, arg MoveFolderParams) (StorageFolder, error) {
 	row := q.db.QueryRow(ctx, moveFolder, arg.ID, arg.OwnerUserID, arg.ParentID)
 	var i StorageFolder
@@ -8996,7 +8996,7 @@ type MoveRenameStorageFileParams struct {
 	Name        string      `json:"name"`
 }
 
-// Move E renomeia num só UPDATE (o daemon de sync trata mover/renomear local como uma operação).
+// Moves AND renames in a single UPDATE (the sync daemon treats a local move/rename as one operation).
 func (q *Queries) MoveRenameStorageFile(ctx context.Context, arg MoveRenameStorageFileParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, moveRenameStorageFile,
 		arg.ID,
@@ -9058,8 +9058,8 @@ const nextOutboxDue = `-- name: NextOutboxDue :one
 SELECT MIN(send_at)::timestamptz AS next_at FROM outbox_emails WHERE status = 'pending'
 `
 
-// O send_at mais próximo ainda pendente — o worker dorme exatamente até aí (sem polling). NULL se
-// não há nada em fila.
+// The nearest send_at still pending — the worker sleeps exactly until then (no polling). NULL
+// if there is nothing queued.
 func (q *Queries) NextOutboxDue(ctx context.Context) (time.Time, error) {
 	row := q.db.QueryRow(ctx, nextOutboxDue)
 	var next_at time.Time
@@ -9071,7 +9071,7 @@ const notifyOutbox = `-- name: NotifyOutbox :exec
 SELECT pg_notify('outbox_new', '')
 `
 
-// Acorda o worker de envio: a API chama isto ao enfileirar um e-mail (undo-send/agendado).
+// Wakes up the send worker: the API calls this when queuing an email (undo-send/scheduled).
 func (q *Queries) NotifyOutbox(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, notifyOutbox)
 	return err
@@ -9089,7 +9089,7 @@ type PinAssistantConversationAgentParams struct {
 	MailUserID  uuid.UUID `json:"mail_user_id"`
 }
 
-// Fixa (ou desfixa, com vazio) o agente para o resto do fio. Só o dono da conversa o faz.
+// Pins (or unpins, with an empty value) the agent for the rest of the thread. Only the conversation's owner can do this.
 func (q *Queries) PinAssistantConversationAgent(ctx context.Context, arg PinAssistantConversationAgentParams) error {
 	_, err := q.db.Exec(ctx, pinAssistantConversationAgent,
 		arg.PinnedAgent,
@@ -9130,8 +9130,8 @@ type RecordAssistantTaskEffectParams struct {
 	Summary     string    `json:"summary"`
 }
 
-// Marca o efeito como feito. ON CONFLICT DO NOTHING porque uma corrida entre dois workers não pode
-// transformar-se em erro: o que importa é que fique marcado uma vez.
+// Marks the effect as done. ON CONFLICT DO NOTHING because a race between two workers must not
+// turn into an error: what matters is that it ends up marked once.
 func (q *Queries) RecordAssistantTaskEffect(ctx context.Context, arg RecordAssistantTaskEffectParams) error {
 	_, err := q.db.Exec(ctx, recordAssistantTaskEffect, arg.TaskID, arg.Fingerprint, arg.Summary)
 	return err
@@ -9157,7 +9157,7 @@ type RecordAssistantToolCallParams struct {
 	DurationMs     int32           `json:"duration_ms"`
 }
 
-// ===== Co-hosts de reunião =====
+// ===== Meeting co-hosts =====
 // Audit record for a tool call, written for both success and error cases.
 // conversation_id is nullable because earlier data recorded runs with no conversation at all.
 func (q *Queries) RecordAssistantToolCall(ctx context.Context, arg RecordAssistantToolCallParams) error {
@@ -9187,7 +9187,7 @@ type RecordAssistantUsageParams struct {
 	Tokens     int32     `json:"tokens"`
 }
 
-// Regista os tokens de um turno para a quota (§9.2).
+// Records a turn's tokens for the quota (§9.2).
 func (q *Queries) RecordAssistantUsage(ctx context.Context, arg RecordAssistantUsageParams) error {
 	_, err := q.db.Exec(ctx, recordAssistantUsage, arg.TenantID, arg.MailUserID, arg.Tokens)
 	return err
@@ -9317,7 +9317,7 @@ type RequestAssistantTaskCancelParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Cancelar é um PEDIDO: o worker vê a bandeira no passo seguinte. O que já foi feito fica.
+// Canceling is a REQUEST: the worker sees the flag on the next step. Whatever was already done stays done.
 func (q *Queries) RequestAssistantTaskCancel(ctx context.Context, arg RequestAssistantTaskCancelParams) error {
 	_, err := q.db.Exec(ctx, requestAssistantTaskCancel, arg.ID, arg.TenantID, arg.MailUserID)
 	return err
@@ -9333,7 +9333,7 @@ type RestoreEventParams struct {
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
 }
 
-// Desfaz a exclusão dentro da janela de undo. Devolve o evento restaurado (ou nada se não achar).
+// Undoes the deletion within the undo window. Returns the restored event (or nothing if not found).
 func (q *Queries) RestoreEvent(ctx context.Context, arg RestoreEventParams) (Event, error) {
 	row := q.db.QueryRow(ctx, restoreEvent, arg.ID, arg.TenantID, arg.OwnerUserID)
 	var i Event
@@ -9373,7 +9373,7 @@ type RestoreFileParams struct {
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
 }
 
-// Restaura da lixeira: volta a ser ativo.
+// Restores from the trash: becomes active again.
 func (q *Queries) RestoreFile(ctx context.Context, arg RestoreFileParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, restoreFile, arg.ID, arg.OwnerUserID)
 	var i StorageFile
@@ -9405,7 +9405,7 @@ type RevokeDeviceTokenParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Revoga um dispositivo do próprio utilizador (owner-scoped). Idempotente.
+// Revokes a device belonging to the user themselves (owner-scoped). Idempotent.
 func (q *Queries) RevokeDeviceToken(ctx context.Context, arg RevokeDeviceTokenParams) error {
 	_, err := q.db.Exec(ctx, revokeDeviceToken, arg.ID, arg.MailUserID)
 	return err
@@ -9436,7 +9436,7 @@ type SaveAssistantTaskProgressParams struct {
 	ID     uuid.UUID       `json:"id"`
 }
 
-// Grava o progresso a cada passo: é isto que permite retomar e é isto que a bolha mostra.
+// Saves progress at each step: this is what allows resuming and what the bubble displays.
 func (q *Queries) SaveAssistantTaskProgress(ctx context.Context, arg SaveAssistantTaskProgressParams) error {
 	_, err := q.db.Exec(ctx, saveAssistantTaskProgress, arg.Steps, arg.Status, arg.ID)
 	return err
@@ -9483,7 +9483,7 @@ type SearchChannelMembersRow struct {
 	StatusText  string    `json:"status_text"`
 }
 
-// Membros de um canal, com busca opcional por nome/e-mail e paginação (para canais grandes).
+// Members of a channel, with optional search by name/email and pagination (for large channels).
 func (q *Queries) SearchChannelMembers(ctx context.Context, arg SearchChannelMembersParams) ([]SearchChannelMembersRow, error) {
 	rows, err := q.db.Query(ctx, searchChannelMembers,
 		arg.ChannelID,
@@ -9557,8 +9557,8 @@ type SearchMessagesRow struct {
 	AuthorEmail string    `json:"author_email"`
 }
 
-// Busca de mensagens (FTS via body_tsv) com filtros opcionais estilo Slack: from:<autor>,
-// before:/after:<data>. Os flags ligam cada filtro; termo vazio = só filtros.
+// Message search (FTS via body_tsv) with optional Slack-style filters: from:<author>,
+// before:/after:<date>. The flags turn each filter on; an empty term means filters only.
 func (q *Queries) SearchMessages(ctx context.Context, arg SearchMessagesParams) ([]SearchMessagesRow, error) {
 	rows, err := q.db.Query(ctx, searchMessages,
 		arg.UserID,
@@ -9655,8 +9655,8 @@ type SearchStorageFilesParams struct {
 	Name        string      `json:"name"`
 }
 
-// Busca global (recursiva): casa o nome em TODAS as pastas do dono, não só na atual. LIMIT p/ teto.
-// Ignora a lixeira (deleted_at IS NULL).
+// Global (recursive) search: matches the name in ALL of the owner's folders, not just the
+// current one. LIMIT as a cap. Ignores the trash (deleted_at IS NULL).
 func (q *Queries) SearchStorageFiles(ctx context.Context, arg SearchStorageFilesParams) ([]StorageFile, error) {
 	rows, err := q.db.Query(ctx, searchStorageFiles, arg.OwnerUserID, arg.Name)
 	if err != nil {
@@ -9700,7 +9700,7 @@ type SearchStorageFoldersParams struct {
 	Name        string    `json:"name"`
 }
 
-// Pastas cujo nome casa a busca, em qualquer nível (para a busca global também achar pastas).
+// Folders whose name matches the search, at any level (so global search also finds folders).
 func (q *Queries) SearchStorageFolders(ctx context.Context, arg SearchStorageFoldersParams) ([]StorageFolder, error) {
 	rows, err := q.db.Query(ctx, searchStorageFolders, arg.OwnerUserID, arg.Name)
 	if err != nil {
@@ -9786,8 +9786,8 @@ type SetBuiltinAgentEnabledParams struct {
 	Enabled  bool      `json:"enabled"`
 }
 
-// Liga ou desliga um agente de origem para a organização. Controla a DISPONIBILIDADE, nunca o
-// comportamento: as instruções e as ferramentas continuam a ser nossas (§3.2).
+// Turns a built-in agent on or off for the organization. Controls AVAILABILITY only, never
+// behavior: the instructions and tools remain ours (§3.2).
 func (q *Queries) SetBuiltinAgentEnabled(ctx context.Context, arg SetBuiltinAgentEnabledParams) error {
 	_, err := q.db.Exec(ctx, setBuiltinAgentEnabled, arg.TenantID, arg.AgentKey, arg.Enabled)
 	return err
@@ -9804,8 +9804,8 @@ type SetChannelArchivedParams struct {
 	Archived bool      `json:"archived"`
 }
 
-// Arquiva (true) ou restaura (false). Arquivado sai das listas e fica só de leitura; o histórico
-// fica intacto, ao contrário do apagar.
+// Archives (true) or restores (false). Archived leaves the lists and becomes read-only; the
+// history stays intact, unlike deleting.
 func (q *Queries) SetChannelArchived(ctx context.Context, arg SetChannelArchivedParams) (Channel, error) {
 	row := q.db.QueryRow(ctx, setChannelArchived, arg.ID, arg.TenantID, arg.Archived)
 	var i Channel
@@ -9853,7 +9853,7 @@ type SetContactAvatarParams struct {
 	AvatarFileID pgtype.UUID `json:"avatar_file_id"`
 }
 
-// Define/remove a foto do contato (aponta para um storage_files do dono). Só o dono.
+// Sets/removes the contact's photo (points to one of the owner's storage_files). Owner only.
 func (q *Queries) SetContactAvatar(ctx context.Context, arg SetContactAvatarParams) (Contact, error) {
 	row := q.db.QueryRow(ctx, setContactAvatar, arg.ID, arg.OwnerUserID, arg.AvatarFileID)
 	var i Contact
@@ -9923,7 +9923,7 @@ type SetEventTimesParams struct {
 	EndsAt   time.Time `json:"ends_at"`
 }
 
-// Sincroniza o evento de calendário ligado à reunião quando ela é reagendada (re-arma o lembrete).
+// Syncs the calendar event linked to the meeting when it is rescheduled (re-arms the reminder).
 func (q *Queries) SetEventTimes(ctx context.Context, arg SetEventTimesParams) error {
 	_, err := q.db.Exec(ctx, setEventTimes, arg.ID, arg.StartsAt, arg.EndsAt)
 	return err
@@ -9939,7 +9939,7 @@ type SetFileStarredParams struct {
 	Starred     bool        `json:"starred"`
 }
 
-// Marca/desmarca favorito. Só o dono (multi-tenant via owner_user_id).
+// Marks/unmarks as favorite. Owner only (multi-tenant via owner_user_id).
 func (q *Queries) SetFileStarred(ctx context.Context, arg SetFileStarredParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, setFileStarred, arg.ID, arg.OwnerUserID, arg.Starred)
 	var i StorageFile
@@ -10013,7 +10013,7 @@ type SetJmapCredParams struct {
 	JmapCred string    `json:"jmap_cred"`
 }
 
-// Guarda a credencial JMAP (Basic) cifrada, para o proxy injetar server-to-server (brokering H11).
+// Stores the encrypted JMAP (Basic) credential, for the proxy to inject server-to-server (brokering H11).
 func (q *Queries) SetJmapCred(ctx context.Context, arg SetJmapCredParams) error {
 	_, err := q.db.Exec(ctx, setJmapCred, arg.ID, arg.JmapCred)
 	return err
@@ -10054,7 +10054,7 @@ type SetLastReadAtParams struct {
 	LastReadAt time.Time `json:"last_read_at"`
 }
 
-// Define o marcador de leitura num instante específico (usado por "marcar como não lido").
+// Sets the read marker to a specific instant (used by "mark as unread").
 func (q *Queries) SetLastReadAt(ctx context.Context, arg SetLastReadAtParams) error {
 	_, err := q.db.Exec(ctx, setLastReadAt, arg.ChannelID, arg.UserID, arg.LastReadAt)
 	return err
@@ -10114,7 +10114,7 @@ type SetRSVPParams struct {
 	Rsvp      string    `json:"rsvp"`
 }
 
-// ===== Meet (reuniões + participantes) =====
+// ===== Meet (meetings + participants) =====
 func (q *Queries) SetRSVP(ctx context.Context, arg SetRSVPParams) (MeetingParticipant, error) {
 	row := q.db.QueryRow(ctx, setRSVP, arg.MeetingID, arg.Email, arg.Rsvp)
 	var i MeetingParticipant
@@ -10167,7 +10167,7 @@ type SetTOTPLastStepParams struct {
 	LastTotpStep int64     `json:"last_totp_step"`
 }
 
-// Regista o passo de tempo aceito (anti-replay): só avança, nunca recua.
+// Records the accepted time step (anti-replay): only moves forward, never back.
 func (q *Queries) SetTOTPLastStep(ctx context.Context, arg SetTOTPLastStepParams) error {
 	_, err := q.db.Exec(ctx, setTOTPLastStep, arg.ID, arg.LastTotpStep)
 	return err
@@ -10213,7 +10213,7 @@ type SetTenantMFAPolicyParams struct {
 	ID          uuid.UUID `json:"id"`
 }
 
-// Política de MFA obrigatório da organização: ligada/desligada + método exigido (migração 00110).
+// Organization's mandatory MFA policy: on/off + required method (migration 00110).
 func (q *Queries) SetTenantMFAPolicy(ctx context.Context, arg SetTenantMFAPolicyParams) error {
 	_, err := q.db.Exec(ctx, setTenantMFAPolicy, arg.MfaRequired, arg.MfaMethod, arg.ID)
 	return err
@@ -10287,7 +10287,7 @@ type SnapshotFileVersionParams struct {
 	CreatedBy pgtype.UUID `json:"created_by"`
 }
 
-// Fotografa uma versão no histórico (o estado corrente, antes de sobrescrever).
+// Snapshots a version into the history (the current state, before overwriting).
 func (q *Queries) SnapshotFileVersion(ctx context.Context, arg SnapshotFileVersionParams) error {
 	_, err := q.db.Exec(ctx, snapshotFileVersion,
 		arg.FileID,
@@ -10318,7 +10318,7 @@ type SumAssistantUsageWindowRow struct {
 	Oldest interface{} `json:"oldest"`
 }
 
-// Soma os tokens do utilizador na janela deslizante. @since é o início da janela (agora menos 6h).
+// Sums the user's tokens over the sliding window. @since is the start of the window (now minus 6h).
 func (q *Queries) SumAssistantUsageWindow(ctx context.Context, arg SumAssistantUsageWindowParams) (SumAssistantUsageWindowRow, error) {
 	row := q.db.QueryRow(ctx, sumAssistantUsageWindow, arg.MailUserID, arg.Since)
 	var i SumAssistantUsageWindowRow
@@ -10366,8 +10366,9 @@ type TimeOffConflictsRow struct {
 	Own      bool      `json:"own"`
 }
 
-// Eventos que colidem com uma ausência a marcar: os PRÓPRIOS (own=true, canceláveis) e os em que
-// sou convidado e não recusei (own=false, só dá para recusar). Ausências (kind<>”) não contam.
+// Events that collide with a time-off being scheduled: the user's OWN ones (own=true,
+// cancellable) and the ones where they are invited and haven't declined (own=false, can only be
+// declined). Time-off entries (kind<>”) don't count.
 func (q *Queries) TimeOffConflicts(ctx context.Context, arg TimeOffConflictsParams) ([]TimeOffConflictsRow, error) {
 	rows, err := q.db.Query(ctx, timeOffConflicts,
 		arg.OwnerID,
@@ -10411,7 +10412,7 @@ type TouchAssistantConversationParams struct {
 	MailUserID uuid.UUID `json:"mail_user_id"`
 }
 
-// Sobe a conversa na lista quando lhe chega mensagem nova.
+// Bumps the conversation up the list when a new message arrives.
 func (q *Queries) TouchAssistantConversation(ctx context.Context, arg TouchAssistantConversationParams) error {
 	_, err := q.db.Exec(ctx, touchAssistantConversation, arg.ID, arg.TenantID, arg.MailUserID)
 	return err
@@ -10427,8 +10428,7 @@ type TouchAssistantMemoryUsedParams struct {
 	Ids        []uuid.UUID `json:"ids"`
 }
 
-// Marca factos como usados quando entram numa execução — alimenta a proposta de remoção do que
-// nunca é usado (§8.4).
+// Marks facts as used when they enter a run — feeds the proposal to remove whatever is never used (§8.4).
 func (q *Queries) TouchAssistantMemoryUsed(ctx context.Context, arg TouchAssistantMemoryUsedParams) error {
 	_, err := q.db.Exec(ctx, touchAssistantMemoryUsed, arg.MailUserID, arg.Ids)
 	return err
@@ -10453,7 +10453,7 @@ type TransferContactOwnerParams struct {
 	OwnerUserID_2 uuid.UUID `json:"owner_user_id_2"`
 }
 
-// Transfere a posse do contato: só o dono atual pode, e para um colega do mesmo tenant (validado no handler).
+// Transfers ownership of the contact: only the current owner can, and only to a colleague in the same tenant (validated in the handler).
 func (q *Queries) TransferContactOwner(ctx context.Context, arg TransferContactOwnerParams) (Contact, error) {
 	row := q.db.QueryRow(ctx, transferContactOwner, arg.ID, arg.OwnerUserID, arg.OwnerUserID_2)
 	var i Contact
@@ -10493,7 +10493,7 @@ type TrashFileParams struct {
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
 }
 
-// Soft delete: manda para a lixeira (não apaga blob). now() marca quando foi.
+// Soft delete: sends to the trash (does not delete the blob). now() marks when it happened.
 func (q *Queries) TrashFile(ctx context.Context, arg TrashFileParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, trashFile, arg.ID, arg.OwnerUserID)
 	var i StorageFile
@@ -10545,8 +10545,8 @@ type UpdateAssistantMemoryParams struct {
 	MailUserID      uuid.UUID   `json:"mail_user_id"`
 }
 
-// Edita um facto. Factos que se contradizem substituem o anterior (§8.2) — o cliente da UI faz isso
-// com este update; a origem passa a ser a nova mensagem.
+// Edits a fact. Contradicting facts replace the previous one (§8.2) — the UI client does this
+// with this update; the source becomes the new message.
 func (q *Queries) UpdateAssistantMemory(ctx context.Context, arg UpdateAssistantMemoryParams) (AssistantMemory, error) {
 	row := q.db.QueryRow(ctx, updateAssistantMemory,
 		arg.Fact,
@@ -10762,7 +10762,7 @@ type UpdateContactParams struct {
 	CustomFields json.RawMessage `json:"custom_fields"`
 }
 
-// EDITAR é só do dono (ver ≠ mexer).
+// EDITING is owner-only (viewing ≠ modifying).
 func (q *Queries) UpdateContact(ctx context.Context, arg UpdateContactParams) (Contact, error) {
 	row := q.db.QueryRow(ctx, updateContact,
 		arg.ID,
@@ -10905,7 +10905,7 @@ type UpdateEventParams struct {
 	CalendarID    pgtype.UUID        `json:"calendar_id"`
 }
 
-// reminded = false: editar re-arma o lembrete (ex.: mudou a hora, avisa de novo).
+// reminded = false: editing re-arms the reminder (e.g., time changed, notify again).
 func (q *Queries) UpdateEvent(ctx context.Context, arg UpdateEventParams) (Event, error) {
 	row := q.db.QueryRow(ctx, updateEvent,
 		arg.ID,
@@ -10966,7 +10966,7 @@ type UpdateFileLinkParams struct {
 	AllowDownload bool               `json:"allow_download"`
 }
 
-// Reconfigura um link existente (validade, senha, permissão, descarga) sem trocar o token. Só do dono.
+// Reconfigures an existing link (expiry, password, permission, download) without changing the token. Owner only.
 func (q *Queries) UpdateFileLink(ctx context.Context, arg UpdateFileLinkParams) (FileLink, error) {
 	row := q.db.QueryRow(ctx, updateFileLink,
 		arg.FileID,
@@ -11144,9 +11144,9 @@ type UpdateStorageFileContentIfVersionParams struct {
 	ExpectedVersion int32       `json:"expected_version"`
 }
 
-// Grava conteúdo novo SÓ SE a versão corrente for a esperada (§5.1: editar em cima da versão que se
-// leu). Se outra pessoa gravou entretanto, a versão já não bate e nenhuma linha é atualizada — a
-// escrita é recusada em vez de perder trabalho alheio em silêncio.
+// Saves new content ONLY IF the current version is the expected one (§5.1: edit on top of the
+// version you read). If someone else saved in the meantime, the version no longer matches and no
+// row is updated — the write is refused instead of silently losing someone else's work.
 func (q *Queries) UpdateStorageFileContentIfVersion(ctx context.Context, arg UpdateStorageFileContentIfVersionParams) (StorageFile, error) {
 	row := q.db.QueryRow(ctx, updateStorageFileContentIfVersion,
 		arg.BlobKey,
@@ -11386,8 +11386,8 @@ type UpdateUserSettingsParams struct {
 	Settings []byte    `json:"settings"`
 }
 
-// Merge no nível de topo (||): gravar {"email":{…}} não apaga {"chat":{…}}. Cada app grava a sua
-// secção sem pisar as outras.
+// Top-level merge (||): saving {"email":{…}} does not erase {"chat":{…}}. Each app writes its own
+// section without stepping on the others.
 func (q *Queries) UpdateUserSettings(ctx context.Context, arg UpdateUserSettingsParams) error {
 	_, err := q.db.Exec(ctx, updateUserSettings, arg.ID, arg.Settings)
 	return err
@@ -11422,8 +11422,8 @@ type UpsertBillingProfileParams struct {
 	Phone        string    `json:"phone"`
 }
 
-// O stripe_customer NÃO entra aqui: é escrito só pelo checkout (SetBillingStripeCustomer). Se
-// viesse no upsert, guardar a morada apagava a ligação ao cliente da Stripe.
+// stripe_customer does NOT go in here: it is written only by checkout (SetBillingStripeCustomer).
+// If it were included in the upsert, saving the address would wipe out the link to the Stripe customer.
 func (q *Queries) UpsertBillingProfile(ctx context.Context, arg UpsertBillingProfileParams) (BillingProfile, error) {
 	row := q.db.QueryRow(ctx, upsertBillingProfile,
 		arg.TenantID,
@@ -11479,7 +11479,7 @@ type UpsertBookingPageParams struct {
 	Windows      []byte    `json:"windows"`
 }
 
-// ===== Booking (agenda pública estilo Calendly) =====
+// ===== Booking (Calendly-style public schedule) =====
 func (q *Queries) UpsertBookingPage(ctx context.Context, arg UpsertBookingPageParams) (BookingPage, error) {
 	row := q.db.QueryRow(ctx, upsertBookingPage,
 		arg.TenantID,
@@ -11525,7 +11525,7 @@ type UpsertPushSubscriptionParams struct {
 	Auth     string    `json:"auth"`
 }
 
-// ON CONFLICT: reactivar o push no mesmo browser reaproveita a linha (as chaves podem rodar).
+// ON CONFLICT: reactivating push on the same browser reuses the row (the keys may rotate).
 func (q *Queries) UpsertPushSubscription(ctx context.Context, arg UpsertPushSubscriptionParams) error {
 	_, err := q.db.Exec(ctx, upsertPushSubscription,
 		arg.TenantID,
@@ -11583,8 +11583,8 @@ type UsersForMailPushRow struct {
 	MailSeenAt pgtype.Timestamptz `json:"mail_seen_at"`
 }
 
-// Utilizadores elegíveis para push de e-mail novo: têm credencial JMAP (brokering), pelo menos uma
-// subscrição de push, e não estão em Não Perturbe. mail_seen_at é a base da última verificação.
+// Users eligible for new-email push: they have a JMAP credential (brokering), at least one push
+// subscription, and are not in Do Not Disturb. mail_seen_at is the basis for the last check.
 func (q *Queries) UsersForMailPush(ctx context.Context) ([]UsersForMailPushRow, error) {
 	rows, err := q.db.Query(ctx, usersForMailPush)
 	if err != nil {
