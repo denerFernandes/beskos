@@ -79,7 +79,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request) {
 	// Disk quota: only counted if the blob is new (dedup doesn't consume extra space).
 	if !exists {
 		plan := s.tenantPlan(r, mu.TenantID)
-		if used, _ := s.q.SumStorageBytes(r.Context(), mu.TenantID); used+header.Size > plan.MaxStorageBytes {
+		if used, _ := s.q.SumStorageBytes(r.Context(), mu.TenantID); plan.StorageExceeded(used, header.Size) {
 			writeErr(w, http.StatusPaymentRequired, "quota.storage")
 			return
 		}

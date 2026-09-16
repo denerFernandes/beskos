@@ -18,14 +18,7 @@ func (s *Server) mountPublic(r chi.Router) {
 	// before any middleware runs, which is exactly how this shipped broken.
 	r.With(publicCORS, s.publicRateLimit).Get("/public/mail-audit", s.handleMailAudit)
 	r.With(publicCORS).Options("/public/mail-audit", func(http.ResponseWriter, *http.Request) {})
-	// The waiting list, posted from the marketing site. Same cross-origin shape as mail-audit above,
-	// including the registered preflight -- for exactly the reason written there.
-	r.With(publicCORS, s.publicRateLimit).Post("/public/waitlist", s.handleJoinWaitlist)
-	r.With(publicCORS).Options("/public/waitlist", func(http.ResponseWriter, *http.Request) {})
-	// The contact form, relayed to the sales mailbox. Same cross-origin shape, same registered
-	// preflight.
-	r.With(publicCORS, s.publicRateLimit).Post("/public/contact", s.handleContactForm)
-	r.With(publicCORS).Options("/public/contact", func(http.ResponseWriter, *http.Request) {})
+	s.mountHostedPublic(r)
 	// Asked by the policy server before it issues a certificate for a customer's mta-sts hostname.
 	r.With(s.publicRateLimit).Get("/public/mta-sts-allowed", s.handleMTASTSAllowed)
 	r.With(s.publicRateLimit).Get("/public/meet/{room}", s.handlePublicMeetInfo)
@@ -37,12 +30,6 @@ func (s *Server) mountPublic(r chi.Router) {
 
 	// Download público de anexo grande por token (SEM login) — o token é a autorização.
 	r.With(s.publicRateLimit).Post("/public/chat/hook/{token}", s.handleInboundWebhook) // webhook de entrada (bot)
-	// Eventos do SES via SNS (assinatura verificada dentro do handler).
-	r.With(s.publicRateLimit).Post("/webhooks/ses", s.handleSESWebhook)
-	// Registo self-service (/signup): catálogo, simulação com IVA e a criação da organização.
-	r.With(s.publicRateLimit).Get("/public/plans", s.handlePublicPlans)
-	r.With(s.publicRateLimit).Post("/public/quote", s.handlePublicQuote)
-	r.With(s.publicRateLimit).Post("/public/signup", s.handlePublicSignup)
 	// Forgot your password. Public out of necessity: somebody locked out has no session. The answer
 	// is always the same, whether or not the account exists -- see password_recovery.go.
 	r.With(s.publicRateLimit).Post("/public/password/forgot", s.handleForgotPassword)

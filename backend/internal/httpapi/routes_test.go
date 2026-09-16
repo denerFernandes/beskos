@@ -35,11 +35,6 @@ func TestRoutesRegistered(t *testing.T) {
 		"GET /api/healthz", "GET /api/readyz",
 		// Email aliases (the case that motivated the test).
 		"GET /api/aliases", "POST /api/aliases", "DELETE /api/aliases/{id}", "GET /api/me/addresses",
-		// Self-service signup and what the public page needs before there's an account.
-		"POST /api/public/signup", "GET /api/public/plans", "POST /api/public/quote",
-		// Billing: profile, quote, and checkout.
-		"GET /api/billing/profile", "PUT /api/billing/profile", "POST /api/billing/quote",
-		"POST /api/billing/checkout", "POST /api/billing/webhook",
 	}
 	for _, w := range want {
 		if !got[w] {

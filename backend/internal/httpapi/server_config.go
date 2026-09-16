@@ -13,7 +13,6 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/chat"
 	"github.com/beskosorg/beskos/backend/internal/notify"
 	"github.com/beskosorg/beskos/backend/internal/secretbox"
-	"github.com/beskosorg/beskos/backend/internal/ses"
 )
 
 // SetReadiness wires the readiness probe (/readyz): the function should fail if a critical
@@ -34,9 +33,6 @@ func (s *Server) handleReadyz(w http.ResponseWriter, r *http.Request) {
 
 // SetSalesEmail sets where the website's contact form delivers. Empty disables the form.
 func (s *Server) SetSalesEmail(addr string) { s.salesEmail = addr }
-
-// EnableSES wires the cleanup of SES identities when a domain is deleted.
-func (s *Server) EnableSES(c *ses.Client) { s.sesRelay = c }
 
 // EnableTOTPEncryption enables encryption of the TOTP secret at rest (MFA_ENC_KEY). Empty = off.
 func (s *Server) EnableTOTPEncryption(key string) { s.totpBox = secretbox.New(key) }

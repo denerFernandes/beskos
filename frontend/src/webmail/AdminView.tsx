@@ -6,7 +6,7 @@ import { OverviewSection } from "../panel/OverviewSection";
 import { DomainsSection } from "../panel/DomainsSection";
 import { UsersSection } from "../panel/UsersSection";
 import { OrgSecuritySection } from "../panel/OrgSecuritySection";
-import { BillingSection } from "../panel/BillingSection";
+import { hostedBilling, hostedPages } from "../edition";
 import { GroupsSection } from "../panel/GroupsSection";
 import { BrandingSection } from "../panel/BrandingSection";
 import { AppsSection } from "../panel/AppsSection";
@@ -39,7 +39,7 @@ export function AdminView({ section: param, detail, onSection, onDetail }: {
     { id: "domains", label: t("panel.domains"), icon: <IcGlobe size={17} />, show: hasPerm(d, "domains.view") },
     { id: "users", label: t("panel.users"), icon: <IcUsers size={17} />, show: hasPerm(d, "members.view") || hasPerm(d, "domains.view") },
     { id: "groups", label: t("panel.groups"), icon: <IcColumns size={17} />, show: hasPerm(d, "members.view") || hasPerm(d, "groups.manage") },
-    { id: "billing", label: t("panel.billing"), icon: <IcCard size={17} />, show: hasPerm(d, "billing.view") || hasPerm(d, "usage.view") },
+    { id: "billing", label: t("panel.billing"), icon: <IcCard size={17} />, show: hostedBilling && (hasPerm(d, "billing.view") || hasPerm(d, "usage.view")) },
     { id: "branding", label: t("panel.branding"), icon: <IcStar size={17} />, show: hasPerm(d, "org.branding") },
     { id: "apps", label: t("panel.apps"), icon: <IcColumns size={17} />, show: hasPerm(d, "org.branding") },
     { id: "agents", label: t("agents.title"), icon: <IcSparkle size={17} />, show: hasPerm(d, "assistant.manage") },
@@ -66,7 +66,7 @@ export function AdminView({ section: param, detail, onSection, onDetail }: {
           {shown === "domains" && <DomainsSection me={d} detail={detail} onOpen={(id) => onDetail("domains", id)} />}
           {shown === "users" && <UsersSection me={d} />}
           {shown === "groups" && <GroupsSection me={d} />}
-          {shown === "billing" && <BillingSection me={d} detail={detail} onDetail={(id) => onDetail("billing", id)} />}
+          {shown === "billing" && hostedPages.billing && <hostedPages.billing me={d} detail={detail} onDetail={(id) => onDetail("billing", id)} />}
           {shown === "branding" && <BrandingSection />}
           {shown === "apps" && <AppsSection />}
           {shown === "agents" && <AssistantAgentsSection />}
