@@ -23,7 +23,7 @@ import (
 // envs, so it doesn't break `go test ./...` on a machine without containers.
 //
 //	STORAGE_TEST_ENDPOINT=localhost:9000 STORAGE_TEST_KEY=… STORAGE_TEST_SECRET=… \
-//	STORAGE_TEST_BUCKET=mailin STORAGE_TEST_DB=postgres://… \
+//	STORAGE_TEST_BUCKET=beskos STORAGE_TEST_DB=postgres://… \
 //	go test ./internal/storage -run TestIntegration -v
 //
 // What this test proves, and what the filecrypt tests cannot prove: that what ends up IN THE BUCKET
