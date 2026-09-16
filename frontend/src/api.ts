@@ -15,6 +15,10 @@ export interface Edition {
   audit_log: boolean;
   org_policies: boolean;
   agents: boolean;
+  // Build metadata (internal/version, stamped by GoReleaser's ldflags): "dev" outside a release.
+  version: string;
+  commit: string;
+  build_date: string;
 }
 
 export interface Me {

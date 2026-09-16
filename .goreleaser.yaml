@@ -16,6 +16,10 @@ builds:
   # a separately-built artifact. Building without the tag would mean the ee package's real Pro
   # logic never links into any released binary at all, so a paying customer's license key would
   # have nothing to unlock no matter what they configure.
+  #
+  # ldflags stamp internal/version so a running instance can report what it actually is (GET
+  # /api/edition, and each binary's own startup log) -- without this there was no way to tell a
+  # release binary's version apart from any other build of the same commit.
   - id: api
     dir: backend
     main: ./cmd/api
@@ -24,6 +28,11 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
     tags: [pro]
+    ldflags:
+      - -s -w
+      - -X github.com/beskosorg/beskos/backend/internal/version.Version={{.Version}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Date={{.Date}}
   - id: worker
     dir: backend
     main: ./cmd/worker
@@ -32,6 +41,11 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
     tags: [pro]
+    ldflags:
+      - -s -w
+      - -X github.com/beskosorg/beskos/backend/internal/version.Version={{.Version}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Date={{.Date}}
   - id: bootstrap
     dir: backend
     main: ./cmd/bootstrap
@@ -40,6 +54,11 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
     tags: [pro]
+    ldflags:
+      - -s -w
+      - -X github.com/beskosorg/beskos/backend/internal/version.Version={{.Version}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Date={{.Date}}
   - id: bootstrap-owner
     dir: backend
     main: ./cmd/bootstrap-owner
@@ -48,6 +67,11 @@ builds:
     goos: [linux, darwin]
     goarch: [amd64, arm64]
     tags: [pro]
+    ldflags:
+      - -s -w
+      - -X github.com/beskosorg/beskos/backend/internal/version.Version={{.Version}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Commit={{.ShortCommit}}
+      - -X github.com/beskosorg/beskos/backend/internal/version.Date={{.Date}}
 
 archives:
   - id: default
