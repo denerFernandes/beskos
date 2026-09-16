@@ -9,11 +9,13 @@ English here; the canonical, longer version lives in [CLAUDE.md](CLAUDE.md).
 - **One phase at a time.** For anything beyond a small fix, open an issue or a draft PR
   describing the change before writing a lot of code. A structural decision (a new dependency, a
   schema change, an authentication change) gets discussed there first.
-- **Contributor License Agreement.** A PR triggers a CLA check on first contribution. Beskos
-  ships under a dual-license model (see [docs/editions.md](docs/editions.md)): the CLA
-  lets us offer commercial licenses that include your contribution, and lets us relicense the
-  project if that ever becomes necessary (e.g. once a Business Source License version converts
-  to Apache 2.0). Signing it does not transfer copyright; you keep it.
+- **Contributor License Agreement.** A CLA will be required on first contribution once the
+  process is finalized and wired up as an automated check -- it is not active yet, so no bot
+  comments on a PR today. Beskos ships under a dual-license model (see
+  [docs/editions.md](docs/editions.md)): the CLA lets us offer commercial licenses that include
+  your contribution, and lets us relicense the project if that ever becomes necessary (e.g. once
+  a Business Source License version converts to Apache 2.0). Signing it will not transfer
+  copyright; you keep it.
 
 ## Development setup
 
