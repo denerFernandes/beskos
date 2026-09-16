@@ -13,6 +13,7 @@ import (
 
 	"github.com/beskosorg/beskos/backend/internal/auth"
 	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/notify"
 	"github.com/beskosorg/beskos/backend/internal/totp"
 )
 
@@ -41,7 +42,7 @@ func (s *Server) startMFAChallenge(w http.ResponseWriter, r *http.Request, u db.
 		code := numericCode(6)
 		if h, err := auth.HashPassword(code); err == nil {
 			smsHash = h
-			_ = s.sms.Send(r.Context(), u.Phone, "Seu código de acesso Beskos: "+code)
+			_ = s.sms.Send(r.Context(), u.Phone, notify.MFACode(u.Language, code))
 		}
 	}
 	if err := s.q.CreateMFAChallenge(r.Context(), db.CreateMFAChallengeParams{
@@ -208,7 +209,7 @@ func (s *Server) handleSMSStart(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "mfa.failed")
 		return
 	}
-	_ = s.sms.Send(r.Context(), req.Phone, "Seu código de verificação Beskos: "+code)
+	_ = s.sms.Send(r.Context(), req.Phone, notify.MFAEnrollCode(u.Language, code))
 	writeJSON(w, http.StatusOK, map[string]string{"challenge": token})
 }
 

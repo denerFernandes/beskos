@@ -45,10 +45,10 @@ func scanReminders(ctx context.Context, q *db.Queries, v vapidKeys) {
 	}
 	for _, e := range rows {
 		owner := uuid.UUID(e.OwnerUserID.Bytes)
-		body := "Começa às " + e.StartsAt.Format("15:04")
+		body := "Starts at " + e.StartsAt.Format("15:04")
 		if _, nerr := q.CreateNotification(ctx, db.CreateNotificationParams{
 			TenantID: e.TenantID, UserID: owner, Kind: "event_reminder",
-			Title: "Lembrete: " + e.Title, Body: body, Link: "/mail/calendar", MeetingID: pgtype.UUID{},
+			Title: "Reminder: " + e.Title, Body: body, Link: "/mail/calendar", MeetingID: pgtype.UUID{},
 		}); nerr != nil {
 			log.Printf("reminder-scan: notify failed for event %s: %v", e.ID, nerr)
 			continue
@@ -337,9 +337,9 @@ func scanDueCards(ctx context.Context, q *db.Queries) {
 		return
 	}
 	for _, c := range cards {
-		title := "Prazo próximo"
+		title := "Due soon"
 		if c.Due < today {
-			title = "Prazo vencido"
+			title = "Overdue"
 		}
 		link := fmt.Sprintf("/mail/kanban/%s/%s", c.BoardID, c.ID)
 		if _, err := q.CreateNotification(ctx, db.CreateNotificationParams{
