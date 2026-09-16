@@ -85,16 +85,22 @@ Community and let the difference go unnoticed.
 
 ## What Pro actually gates today
 
-Nothing yet. `backend/ee` -- where Pro-only backend routes are meant to live, gated by both the
-`pro` Go build tag and the relevant `Capabilities` field -- is a scaffold: its `Register` function
-is a documented no-op in both the Community and Pro builds. See
-[`backend/ee/README.md`](../../backend/ee/README.md) for the exact mechanism a feature is
-expected to follow once one moves there (extract the handler, add a `Deps` field, register the
-route only when its capability is true, and prove with a test that the route answers
-`403 edition_required` without it) -- and note that this is a plan for how the seam works, not a
-description of a shipped feature. `frontend/src/ee` is the equivalent seam on the frontend side,
-gated at render time by what `GET /api/edition` reports.
+Three capabilities, each with a real `-tags pro`/`Capabilities`-field gate and a matching
+Community build that refuses unconditionally: **organization AI agents** (create/update/delete/
+toggle, `backend/ee/agents_pro.go` vs. `agents_community.go`, gated on `Capabilities.Agents`),
+**custom branding** (color/logo, `branding_pro.go` vs. `branding_community.go`, gated on
+`Capabilities.Branding`), and **organization security policy** (mandatory MFA,
+`security_policy_pro.go` vs. `security_policy_community.go`, gated on `Capabilities.OrgPolicies`).
+`backend/ee`'s `Register` function stays a documented no-op in both builds -- these three don't
+route through it. See [`backend/ee/README.md`](../../backend/ee/README.md) for the actual
+mechanism (a small `handle<Feature>Gate` method on `*Server` checks `s.edition.<Field>` before
+calling into the `ee`-exported function; the Community build of that function refuses regardless
+of what any gate above it decided) and the same pattern to follow for the next feature that moves
+here. `frontend/src/ee` is the equivalent seam on the frontend side, gated at render time by what
+`GET /api/edition` reports.
 
-Do not describe a Pro feature as available in any other documentation unless you can point at the
-code that actually gates it on the `Capabilities` struct -- as of this writing, that code does
-not exist for any feature in the table in [docs/editions.md](../editions.md).
+Everything else in the table in [docs/editions.md](../editions.md) either reads data that stays
+free either way (e.g. recording, gated differently -- see `meet_recording.go`) or is marked
+`(planned)` there because the code for it does not exist yet, including audit log and bulk
+migration. Do not describe a Pro feature as available in any other documentation unless you can
+point at the code that actually gates it on the `Capabilities` struct.

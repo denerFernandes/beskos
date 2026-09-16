@@ -176,6 +176,46 @@ policy on for a not-yet-compliant team. **Not fixed blind:** closing it means de
 `/mfa/*` enrollment endpoints accept, an immediate hard lockout, or a grace period -- which is a
 product/UX call (law 6.2), not a pure security patch. Tracked here until that decision is made.
 
+## 9. License enforcement (Ed25519-signed Pro license)
+
+**Boundary is different from every other section above: this is a piracy/business-honesty
+boundary, not a data-confidentiality one.** The "attacker" here is a self-hosted operator of
+*their own* deployment trying to unlock Pro capabilities without a valid license, not a party
+trying to reach another tenant's or another customer's data. Read this section with that in mind
+-- a finding here does not mean any customer's data or any other deployment is at risk.
+
+**Control:** `internal/edition.Verify` checks a real Ed25519 signature over the license payload
+(seats, expiry, capabilities); a build without `-tags pro` has no code path that can execute any
+Enterprise logic regardless of what the license says -- confirmed for all three currently gated
+capabilities (agents, branding, org security policy; see [docs/pro/README.md](../pro/README.md))
+by checking each has a `_community.go` counterpart under `//go:build !pro` that refuses
+unconditionally. `s.edition` is populated once from `Load()` at process boot and never
+reassigned; nothing in `httpapi` accepts a client-supplied capability flag, and `GET /api/edition`
+is read-only. Missing vs. invalid license is handled correctly (law 2.9): both env vars empty
+boots as Community with no error; a configured-but-invalid or past-grace-period key refuses to
+boot at all, rather than silently downgrading.
+
+**Residual risk 1 (by design, not a bug):** `EDITION_PUBLIC_KEY` is read from the environment at
+boot, not compiled into the binary. An operator with control of their own deployment's environment
+could sign their own license with their own keypair and unlock Pro features without paying. This
+is not a security bypass in the sense the rest of this document is concerned with: whoever
+controls that environment already has root-equivalent access to that one deployment (database
+credentials, `MFA_ENC_KEY`, everything), and the actual signing key -- the only secret this scheme
+depends on -- never leaves the private issuer repository. Compiling the public key into the binary
+instead would raise the bar for a self-hosted operator's own binary, but closes no cross-tenant or
+cross-customer exposure, so it's a business decision, not a security fix.
+
+**Residual risk 2 (open, low severity):** the license's `Seats` field is parsed but never compared
+against a tenant's actual user count anywhere in the codebase -- a self-hosted operator can add
+unlimited users on a seat-limited license and nothing will notice. Contract-compliance gap, not an
+access-control one.
+
+**Residual risk 3 (open, deliberate tradeoff):** expiry is checked once at boot; a long-running
+process keeps granting Pro capabilities until its next restart even if the license is revoked or
+expires mid-process (beyond the 14-day grace period). Consistent with the documented "no
+phone-home, edition is a startup problem" design in `docs/pro/README.md`, but means there is no
+same-day revocation channel for a canceled subscription.
+
 ## Out of scope for this document
 
 Stalwart's and OnlyOffice's and LiveKit's own internal security are their upstream projects'
@@ -196,3 +236,6 @@ A vulnerability in how this project configures or calls one of them is in scope;
 - Row-level security in Postgres as a second line of defense behind the query-level `tenant_id`
   filter, if the manual/heuristic checking in `scripts/check_tenant_scoping.py` proves
   insufficient at scale.
+- License `Seats` enforcement against actual user count, and a same-day revocation channel for a
+  canceled subscription against an already-running process (§9, residual risks 2 and 3) -- both
+  license-compliance/business-continuity gaps, not access-control ones.
