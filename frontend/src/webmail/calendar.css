@@ -1,14 +1,14 @@
-/* Calendário (24/07/2026): layout inspirado na referência SyncWise (cartões com fundo suave da
-   categoria, pilha de avatares, linha do "agora", pill de próximo evento), mas com o CHROME no
-   padrão da casa — mesmo desenho da página de Contactos: sidebar clara com rlabel/grp-item/newg,
-   cores e bordas do tema, acento = cor da marca. */
+/* Calendar layout inspired by the SyncWise reference (cards with a soft category background,
+   avatar stack, "now" line, next-event pill), but with the house CHROME -- same design as the
+   Contacts page: light sidebar with rlabel/grp-item/newg, the theme's colors and borders, accent
+   = brand color. */
 
 .wm .calsw{height:100%;display:flex;position:relative;}
 
-/* ── Sidebar (igual à de Contactos) ── */
+/* -- Sidebar (same as Contacts') -- */
 .wm .csw-side{width:224px;flex:none;border-right:1px solid var(--border);background:var(--surface);padding:14px 12px;overflow-y:auto;}
 .wm .csw-side .grp-item.dim .gn,.wm .csw-side .grp-item.dim .dot{opacity:.38;}
-/* o estilo do "newg" em webmail.css está preso a .cts-side — replica-se aqui para a nossa sidebar */
+/* the "newg" style in webmail.css is scoped to .cts-side -- replicated here for our own sidebar */
 .wm .csw-side .newg{width:100%;border:1px dashed var(--border-strong);background:none;color:var(--muted);border-radius:10px;padding:8px;font-size:12.5px;font-weight:600;margin-top:10px;cursor:pointer;}
 .wm .csw-side .newg:hover{border-color:var(--accent);color:var(--accent-ink);}
 .wm .csw-side .grp-item .dot{width:9px;height:9px;border-radius:50%;flex:none;}
@@ -37,7 +37,7 @@
 .wm .csw-add:hover{filter:brightness(1.07);}
 .wm .csw-gmt{font-size:10.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:3px 7px;}
 
-/* ── Cartões de evento: fundo suave da cor da categoria, borda subtil, texto do tema ── */
+/* -- Event cards: soft category-color background, subtle border, theme text -- */
 .wm .csw-ev{border:1px solid color-mix(in srgb,var(--evc,var(--accent)) 30%,transparent);background:color-mix(in srgb,var(--evc,var(--accent)) 16%,var(--surface));color:var(--ink);text-align:left;cursor:pointer;border-radius:12px;overflow:hidden;}
 .wm .csw-ev .csw-ev-t{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:650;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 .wm .csw-ev .csw-ev-t svg{flex:none;opacity:.75;}
@@ -50,7 +50,7 @@
 .wm .csw-ev.block.draggable{cursor:grab;}
 .wm .csw-ev.block.dragging{cursor:grabbing;z-index:6;box-shadow:0 12px 28px rgba(20,17,24,.22);}
 .wm .csw-ev-foot{margin-top:auto;display:flex;}
-/* mês: cartão compacto em fluxo */
+/* month view: compact card in flow */
 .wm .csw-ev.sm{display:flex;flex-direction:column;gap:3px;padding:6px 9px;border-radius:10px;width:100%;}
 .wm .csw-ev-b{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0;}
 .wm .csw-ev.sm.allday{background:var(--evc,var(--accent));border-color:transparent;}
@@ -83,10 +83,10 @@
 .wm .csw-now{position:absolute;left:0;right:0;height:2px;background:var(--accent);z-index:3;pointer-events:none;}
 .wm .csw-now i{position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--accent);}
 
-/* faixa dia inteiro */
+/* all-day strip */
 .wm .calsw .cta-ev{border:1px solid color-mix(in srgb,var(--evc,var(--accent)) 30%,transparent);border-left:none;background:color-mix(in srgb,var(--evc,var(--accent)) 16%,var(--surface));color:var(--ink);border-radius:8px;padding:3px 8px;font-weight:650;}
 
-/* próximo evento (flutuante, semana/dia) */
+/* next event (floating, week/day view) */
 .wm .csw-upnext{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:7;display:flex;align-items:center;gap:11px;border:1px solid var(--border);background:var(--paper);border-radius:16px;padding:9px 14px;cursor:pointer;box-shadow:0 14px 34px rgba(20,17,24,.14);max-width:min(420px,80%);}
 .wm .csw-upnext .ic{width:34px;height:34px;flex:none;border-radius:50%;background:#2D8CFF;color:#fff;display:grid;place-items:center;}
 .wm .csw-upnext .tx{min-width:0;text-align:left;}
@@ -97,15 +97,15 @@
   .wm .csw-side{display:none;}
 }
 
-/* evento vindo de uma RESERVA pública: destaque — borda forte na cor + etiqueta */
+/* event coming from a public BOOKING: highlighted -- strong colored border + tag */
 .wm .csw-ev.bkd{border-width:2px;border-style:solid;border-color:var(--evc,var(--accent));}
 .wm .csw-ev .bkd-tag{font-style:normal;flex:none;font-size:9px;font-weight:750;letter-spacing:.04em;text-transform:uppercase;background:var(--evc,var(--accent));color:#fff;border-radius:6px;padding:2px 6px;}
 
-/* ausências (day off / férias): banner listrado, distinto de evento normal */
+/* absences (day off / vacation): striped banner, distinct from a normal event */
 .wm .csw-ev.koff{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--evc,#9AA0A6) 30%,var(--surface)),color-mix(in srgb,var(--evc,#9AA0A6) 30%,var(--surface)) 8px,color-mix(in srgb,var(--evc,#9AA0A6) 16%,var(--surface)) 8px,color-mix(in srgb,var(--evc,#9AA0A6) 16%,var(--surface)) 16px);border-color:color-mix(in srgb,var(--evc,#9AA0A6) 45%,transparent);}
 .wm .csw-ev.sm.allday.koff .csw-ev-t{color:var(--ink);}
 
-/* dias fora do horário de trabalho (Definições → Calendário): desabilitados para criar */
+/* days outside working hours (Settings -> Calendar): disabled for creating events */
 .wm .calsw .ct-col.offwork{background:repeating-linear-gradient(45deg,transparent,transparent 9px,color-mix(in srgb,var(--border) 45%,transparent) 9px,color-mix(in srgb,var(--border) 45%,transparent) 10px);}
 .wm .calsw .ct-col.offwork .ct-cell{cursor:default;}
 .wm .calsw .ct-col.offwork .ct-cell:hover{background:transparent;}
