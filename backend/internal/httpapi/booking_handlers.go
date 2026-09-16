@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/notify"
 )
 
 // Booking: a public Calendly-style page per collaborator. The owner configures weekly windows
@@ -413,16 +414,16 @@ func (s *Server) handlePublicBookingCreate(w http.ResponseWriter, r *http.Reques
 		if who == "" {
 			who = owner.Email
 		}
-		body := fmt.Sprintf("A sua reunião com %s está confirmada.\r\nQuando: %s\r\nDuração: %d min\r\n",
-			who, starts.Format("02/01/2006 15:04"), page.DurationMin)
+		meetURL := ""
 		if room != "" && s.publicURL != "" {
-			body += "Videochamada: " + s.publicURL + "/j/" + room + "\r\n"
+			meetURL = s.publicURL + "/j/" + room
 		}
+		subject, body := notify.BookingConfirmed(owner.Language, title, who, starts.Format("02/01/2006 15:04"), int(page.DurationMin), meetURL)
 		go func(to, subject, body string) {
 			if err := s.email.Send(to, subject, body); err != nil {
 				log.Printf("booking confirmation to %s: %v", to, err)
 			}
-		}(req.Email, "Reunião confirmada: "+title, body)
+		}(req.Email, subject, body)
 	}
 	// In-app + push notification to the collaborator (the frontend translates by kind+args).
 	s.notifyUser(ctx, page.TenantID, owner.ID, "booking_new",
