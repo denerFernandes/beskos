@@ -61,7 +61,7 @@ export function SignatureEditor({ value, onChange }: { value: string; onChange: 
           {SIGNATURE_TEMPLATES.map((tpl) => (
             <button key={tpl.id} className="sig-card" onClick={() => loadTemplate(tpl.html)}>
               <div className="sig-preview" dangerouslySetInnerHTML={{ __html: tpl.html }} />
-              <span className="sig-name">{tpl.name}</span>
+              <span className="sig-name">{t(tpl.name)}</span>
             </button>
           ))}
         </div>

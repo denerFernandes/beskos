@@ -36,7 +36,7 @@ const wpath = new URLSearchParams(window.location.search).get("wpath");
 if (wpath && wpath.startsWith("/")) {
   // Marks this as a dedicated window (room/editor): the close button should close the native
   // window instead of navigating to Drive. See isDedicatedWindow()/closeSelfWindow() in nativeWindow.ts.
-  (window as unknown as { __mailinDedicated?: boolean }).__mailinDedicated = true;
+  (window as unknown as { __beskosDedicated?: boolean }).__beskosDedicated = true;
   window.history.replaceState(null, "", wpath);
 }
 

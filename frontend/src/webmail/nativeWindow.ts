@@ -1,5 +1,6 @@
 import { isTauri } from "./tauriNotify";
 import { toast } from "./toast";
+import i18n from "../i18n";
 
 // openInWindow opens an app route in a NATIVE Tauri window (desktop). Returns true if it handled
 // it (we're in the native app); false on the web, where the caller should follow the normal flow
@@ -11,7 +12,7 @@ import { toast } from "./toast";
 // Meet room). isDedicatedWindow tells (synchronously) whether we're in a dedicated window opened
 // by openInWindow (room/editor). The flag is set in main.tsx when the window loads via ?wpath=.
 export function isDedicatedWindow(): boolean {
-  return typeof window !== "undefined" && (window as unknown as { __mailinDedicated?: boolean }).__mailinDedicated === true;
+  return typeof window !== "undefined" && (window as unknown as { __beskosDedicated?: boolean }).__beskosDedicated === true;
 }
 
 // closeSelfWindow closes the current window: via the Tauri API in the native app; via window.close() on the web.
@@ -38,9 +39,9 @@ export function openInWindow(label: string, path: string, title: string): boolea
       if (existing) { await existing.setFocus(); return; }
       const url = `index.html?wpath=${encodeURIComponent(path)}`;
       const win = new WebviewWindow(safe, { url, title, width: 1280, height: 800, resizable: true, focus: true });
-      win.once("tauri://error", (e) => toast(String((e as { payload?: unknown }).payload ?? "erro ao abrir a janela")));
+      win.once("tauri://error", (e) => toast(String((e as { payload?: unknown }).payload ?? i18n.t("native.windowOpenFailed"))));
     } catch {
-      toast("Não foi possível abrir a janela.");
+      toast(i18n.t("native.windowOpenFailed"));
     }
   })();
   return true;

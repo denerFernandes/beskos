@@ -103,7 +103,7 @@ export function ChannelPanel({ channel, me, onClose }: { channel: ChatChannel; m
                   {candidates.map((c) => (
                     <button key={c.id} type="button" onMouseDown={(e) => { e.preventDefault(); add(c.email); }}>
                       <Avatar name={c.name} email={c.email} size={28} />
-                      <span className="nm">{c.name || c.email}{c.email === me ? " (você)" : ""}</span><span className="em">{c.email}</span>
+                      <span className="nm">{c.name || c.email}{c.email === me ? t("chat.youSuffix") : ""}</span><span className="em">{c.email}</span>
                     </button>
                   ))}
                 </div>
