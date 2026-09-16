@@ -53,6 +53,9 @@ services:
     # Docker network. Use `docker exec beskos-postgres psql ...` to inspect it directly.
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Creates the separate database Stalwart's own config.json expects (see the script for
+      # why) -- runs once, only against an empty data volume.
+      - ./postgres-initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s

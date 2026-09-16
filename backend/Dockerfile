@@ -1,4 +1,4 @@
-# Build do control plane (api + worker + bootstrap) num único binário multi-comando.
+# Builds the control plane (api, worker, and the CLI tools) as one multi-command image.
 FROM golang:1.25-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
@@ -18,11 +18,11 @@ RUN CGO_ENABLED=0 go build -o /out/api ./cmd/api \
  && CGO_ENABLED=0 go build -o /out/stalwart-sieve ./cmd/stalwart-sieve
 
 FROM alpine:3.20
-# ffmpeg/ffprobe: montagem offline das gravações no worker (docs/manager.md §1).
+# ffmpeg/ffprobe: the worker's offline recording assembly needs both.
 RUN apk add --no-cache ca-certificates curl ffmpeg
 COPY --from=build /out/api /out/worker /out/bootstrap /out/bootstrap-owner /out/manager-api /out/blobgw /out/stalwart-blobstore /out/blobmigrate /out/mailprobe /out/swprobe /out/ses-tenants /out/stalwart-sieve /usr/local/bin/
-# Roda como usuário sem privilégios (não-root): um comprometimento não vira root no container.
-RUN adduser -D -H -u 10001 mailin
-USER mailin
-# 'api' por padrão; override com `command:` para worker/bootstrap.
+# Runs as an unprivileged user: a compromise here does not become root on the host.
+RUN adduser -D -H -u 10001 beskos
+USER beskos
+# 'api' by default; override with `command:` for worker/bootstrap/bootstrap-owner.
 CMD ["/usr/local/bin/api"]
