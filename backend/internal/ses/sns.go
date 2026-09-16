@@ -18,12 +18,12 @@ import (
 	"time"
 )
 
-// Verificação de mensagens do Amazon SNS (webhook de bounces/complaints do SES). Segue o processo
-// oficial: string canónica por tipo de mensagem, assinatura RSA (SHA1 na SignatureVersion 1,
-// SHA256 na 2) com o certificado de SigningCertURL — que TEM de vir de um host *.amazonaws.com
-// em HTTPS (senão qualquer um assinaria com o próprio cert e forjaria bounces).
+// Verification of Amazon SNS messages (the SES bounces/complaints webhook). Follows the official
+// process: canonical string per message type, RSA signature (SHA1 on SignatureVersion 1, SHA256
+// on 2) with the SigningCertURL certificate — which MUST come from a *.amazonaws.com host over
+// HTTPS (otherwise anyone could sign with their own cert and forge bounces).
 
-// SNSMessage é o envelope do SNS (campos usados na verificação + no processamento).
+// SNSMessage is the SNS envelope (fields used in verification + processing).
 type SNSMessage struct {
 	Type             string `json:"Type"`
 	MessageID        string `json:"MessageId"`
@@ -38,7 +38,7 @@ type SNSMessage struct {
 	Token            string `json:"Token"`
 }
 
-// SNSVerifier valida assinaturas SNS. fetch é injetável nos testes (cert de fixture).
+// SNSVerifier validates SNS signatures. fetch is injectable in tests (fixture cert).
 type SNSVerifier struct {
 	fetch func(url string) ([]byte, error)
 	mu    sync.Mutex
@@ -49,7 +49,7 @@ func NewSNSVerifier() *SNSVerifier {
 	return &SNSVerifier{fetch: fetchHTTPS, cache: map[string]*rsa.PublicKey{}}
 }
 
-// Verify decodifica e valida a mensagem; erro = rejeitar o webhook.
+// Verify decodes and validates the message; error = reject the webhook.
 func (v *SNSVerifier) Verify(body []byte) (*SNSMessage, error) {
 	var m SNSMessage
 	if err := json.Unmarshal(body, &m); err != nil {
@@ -82,7 +82,7 @@ func (v *SNSVerifier) Verify(body []byte) (*SNSMessage, error) {
 	return &m, nil
 }
 
-// canonicalString monta a string assinada (pares chave\nvalor ordenados, por tipo de mensagem).
+// canonicalString builds the signed string (ordered key\nvalue pairs, per message type).
 func canonicalString(m *SNSMessage) string {
 	var pairs [][2]string
 	if m.Type == "Notification" {
@@ -104,7 +104,7 @@ func canonicalString(m *SNSMessage) string {
 	return b.String()
 }
 
-// validCertURL exige HTTPS + host da AWS (sns.<região>.amazonaws.com).
+// validCertURL requires HTTPS + an AWS host (sns.<region>.amazonaws.com).
 func validCertURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "https" {
@@ -159,7 +159,7 @@ func fetchHTTPS(url string) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 }
 
-// ConfirmSubscription visita o SubscribeURL (mesma allowlist de host) para ativar a subscrição.
+// ConfirmSubscription visits the SubscribeURL (same host allowlist) to activate the subscription.
 func ConfirmSubscription(subscribeURL string) error {
 	if err := validCertURL(subscribeURL); err != nil {
 		return err
@@ -168,10 +168,10 @@ func ConfirmSubscription(subscribeURL string) error {
 	return err
 }
 
-// SESEvent é o Message interno de uma Notification do SES (campos usados).
+// SESEvent is the inner Message of an SES Notification (fields used).
 type SESEvent struct {
 	NotificationType string `json:"notificationType"`
-	EventType        string `json:"eventType"` // formato "event publishing" usa eventType
+	EventType        string `json:"eventType"` // the "event publishing" format uses eventType
 	Mail             struct {
 		Source      string   `json:"source"`
 		Destination []string `json:"destination"`
@@ -190,7 +190,7 @@ type SESEvent struct {
 	} `json:"complaint"`
 }
 
-// Kind normaliza o tipo do evento ("" = ignorar).
+// Kind normalizes the event type ("" = ignore).
 func (e *SESEvent) Kind() string {
 	t := e.NotificationType
 	if t == "" {

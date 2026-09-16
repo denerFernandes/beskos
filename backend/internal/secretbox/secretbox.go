@@ -1,7 +1,7 @@
-// Package secretbox cifra segredos pequenos em repouso (ex.: o segredo TOTP) com AES-256-GCM.
-// A chave vem de uma string de ambiente, derivada por SHA-256. Um valor cifrado carrega o prefixo
-// "enc:"; valores sem o prefixo são tratados como texto claro (compat. com dados legados e com
-// ambientes sem chave configurada).
+// Package secretbox encrypts small secrets at rest (e.g. the TOTP secret) with AES-256-GCM.
+// The key comes from an environment string, derived via SHA-256. An encrypted value carries the
+// "enc:" prefix; values without the prefix are treated as plaintext (compat. with legacy data and
+// with environments that have no key configured).
 package secretbox
 
 import (
@@ -16,10 +16,10 @@ import (
 
 const prefix = "enc:"
 
-// Box cifra/decifra com uma chave fixa. nil = sem cifra (no-op): ver New.
+// Box encrypts/decrypts with a fixed key. nil = no encryption (no-op): see New.
 type Box struct{ key [32]byte }
 
-// New devolve um Box a partir da string de chave. Vazia → nil (cifra desligada; guarda em claro).
+// New returns a Box from the key string. Empty → nil (encryption off; stores in plaintext).
 func New(secret string) *Box {
 	if secret == "" {
 		return nil
@@ -27,7 +27,7 @@ func New(secret string) *Box {
 	return &Box{key: sha256.Sum256([]byte(secret))}
 }
 
-// Encrypt devolve "enc:" + base64(nonce||ciphertext). Com Box nil, devolve o texto em claro.
+// Encrypt returns "enc:" + base64(nonce||ciphertext). With a nil Box, returns the plaintext.
 func (b *Box) Encrypt(plain string) (string, error) {
 	if b == nil {
 		return plain, nil
@@ -44,7 +44,7 @@ func (b *Box) Encrypt(plain string) (string, error) {
 	return prefix + base64.RawURLEncoding.EncodeToString(ct), nil
 }
 
-// Decrypt reverte Encrypt. Um valor sem o prefixo "enc:" é devolvido como está (legado/claro).
+// Decrypt reverses Encrypt. A value without the "enc:" prefix is returned as-is (legacy/plaintext).
 func (b *Box) Decrypt(stored string) (string, error) {
 	if !strings.HasPrefix(stored, prefix) {
 		return stored, nil

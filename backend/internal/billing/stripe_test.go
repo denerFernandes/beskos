@@ -19,20 +19,20 @@ func TestWebhookSignatureValid(t *testing.T) {
 	payload, secret := `{"type":"checkout.session.completed"}`, "whsec_test"
 	hdr := sign(payload, secret, time.Now().Unix())
 	if err := verifyStripeSignature([]byte(payload), hdr, secret, 5*time.Minute); err != nil {
-		t.Errorf("assinatura válida rejeitada: %v", err)
+		t.Errorf("valid signature rejected: %v", err)
 	}
 }
 
 func TestWebhookSignatureTampered(t *testing.T) {
 	secret := "whsec_test"
 	hdr := sign(`{"a":1}`, secret, time.Now().Unix())
-	// Payload diferente do assinado → deve falhar.
+	// Payload different from the signed one → must fail.
 	if err := verifyStripeSignature([]byte(`{"a":2}`), hdr, secret, 5*time.Minute); err == nil {
-		t.Error("payload adulterado deveria falhar")
+		t.Error("tampered payload should fail")
 	}
-	// Segredo errado → deve falhar.
+	// Wrong secret → must fail.
 	if err := verifyStripeSignature([]byte(`{"a":1}`), hdr, "whsec_outro", 5*time.Minute); err == nil {
-		t.Error("segredo errado deveria falhar")
+		t.Error("wrong secret should fail")
 	}
 }
 
@@ -40,12 +40,12 @@ func TestWebhookSignatureExpired(t *testing.T) {
 	payload, secret := `{}`, "whsec_test"
 	hdr := sign(payload, secret, time.Now().Add(-10*time.Minute).Unix())
 	if err := verifyStripeSignature([]byte(payload), hdr, secret, 5*time.Minute); err == nil {
-		t.Error("timestamp velho deveria falhar (replay)")
+		t.Error("old timestamp should fail (replay)")
 	}
 }
 
 func TestWebhookMalformedHeader(t *testing.T) {
 	if err := verifyStripeSignature([]byte(`{}`), "garbage", "s", time.Minute); err == nil {
-		t.Error("cabeçalho malformado deveria falhar")
+		t.Error("malformed header should fail")
 	}
 }

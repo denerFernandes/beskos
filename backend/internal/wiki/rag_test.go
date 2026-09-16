@@ -44,7 +44,7 @@ func TestChunkTextEmptyAndTiny(t *testing.T) {
 }
 
 func TestChunkTextCap(t *testing.T) {
-	// 200 parágrafos de ~1000 chars → estouraria o teto sem o cap.
+	// 200 paragraphs of ~1000 chars each → would blow past the ceiling without the cap.
 	text := strings.Repeat(strings.Repeat("y", 1000)+"\n", 200)
 	if got := chunkText(text); len(got) > maxChunks {
 		t.Fatalf("chunks above cap: %d > %d", len(got), maxChunks)

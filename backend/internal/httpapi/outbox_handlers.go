@@ -10,9 +10,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Outbox de envio server-side: o cliente cria o rascunho no JMAP e regista aqui o envio (email_id +
-// envelope + send_at). O worker submete quando vence. Serve undo-send (janela curta, cancelável) e
-// agendamento gerenciável. Ver mailbox.UserClient.SubmitEmail e cmd/worker (scanOutbox).
+// Server-side send outbox: the client creates the draft in JMAP and registers the send here
+// (email_id + envelope + send_at). The worker submits it when it's due. Powers undo-send (short,
+// cancelable window) and manageable scheduling. See mailbox.UserClient.SubmitEmail and cmd/worker
+// (scanOutbox).
 
 func (s *Server) handleCreateOutbox(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -78,7 +79,7 @@ func (s *Server) handleCancelOutbox(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n == 0 {
-		// Já enviado ou inexistente: nada a cancelar (a janela de undo pode ter passado).
+		// Already sent or nonexistent: nothing to cancel (the undo window may have passed).
 		writeErr(w, http.StatusConflict, "outbox.too_late")
 		return
 	}

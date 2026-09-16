@@ -9,8 +9,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Múltiplos responsáveis e dependências de card. O responsável "principal" continua em assignee_id;
-// estes são adicionais. Dependência = card é bloqueado por outro card do MESMO quadro.
+// Multiple assignees and card dependencies. The "primary" assignee stays in assignee_id; these
+// are additional. Dependency = the card is blocked by another card in the SAME board.
 
 func (s *Server) cardInTenant(r *http.Request, mu db.MailUser) (db.Card, bool) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -43,7 +43,7 @@ func (s *Server) handleAddCardAssignee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := s.q.GetMailUserInTenant(r.Context(), db.GetMailUserInTenantParams{ID: uid, TenantID: mu.TenantID}); err != nil {
-		writeErr(w, http.StatusNotFound, "cards.not_found") // só colega do tenant
+		writeErr(w, http.StatusNotFound, "cards.not_found") // must be a colleague in the tenant
 		return
 	}
 	_ = s.q.AddCardAssignee(r.Context(), db.AddCardAssigneeParams{CardID: card.ID, UserID: uid})
@@ -87,7 +87,7 @@ func (s *Server) handleAddCardDep(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	depCard, err := s.q.GetCard(r.Context(), db.GetCardParams{ID: dep, TenantID: mu.TenantID})
-	if err != nil || depCard.BoardID != card.BoardID { // só depende de card do mesmo quadro
+	if err != nil || depCard.BoardID != card.BoardID { // may only depend on a card from the same board
 		writeErr(w, http.StatusBadRequest, "cards.dep_invalid")
 		return
 	}

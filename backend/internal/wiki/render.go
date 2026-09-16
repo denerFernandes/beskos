@@ -34,8 +34,8 @@ func Derive(bodyJSON []byte) (text, html string) { return derive(bodyJSON) }
 
 // derive parses body_json and returns (body_text, body_html). Invalid JSON yields empty derivations
 // rather than an error — the caller keeps body_json as the source of truth regardless.
-// Dois formatos: ARRAY de blocos = BlockNote (o atual, B2); objeto {type:"doc"} = ProseMirror/TipTap
-// legado (páginas antigas continuam a renderizar).
+// Two formats: block ARRAY = BlockNote (the current one, B2); {type:"doc"} object = legacy
+// ProseMirror/TipTap (old pages keep rendering).
 func derive(bodyJSON []byte) (string, string) {
 	trimmed := strings.TrimSpace(string(bodyJSON))
 	if len(trimmed) == 0 {
@@ -127,12 +127,12 @@ func renderNode(n *pmNode, b *strings.Builder) {
 		b.WriteString(escapeAttr(attrStr(n.Attrs, "alt")))
 		b.WriteString(`">`)
 	case "mention":
-		// Menção a uma pessoa: nó folha com attrs {id,label}. Render seguro (texto escapado).
+		// Mention of a person: leaf node with attrs {id,label}. Safe render (escaped text).
 		b.WriteString(`<span class="wiki-mention">@`)
 		b.WriteString(escapeText(nodeLabel(n.Attrs)))
 		b.WriteString(`</span>`)
 	case "pageLink":
-		// Link interno [[página]]: nó folha com attrs {id,label}. data-page-id deixa a UI navegar.
+		// Internal [[page]] link: leaf node with attrs {id,label}. data-page-id lets the UI navigate.
 		b.WriteString(`<span class="wiki-pagelink" data-page-id="`)
 		b.WriteString(escapeAttr(attrStr(n.Attrs, "id")))
 		b.WriteString(`">`)

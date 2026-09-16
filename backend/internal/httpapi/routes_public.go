@@ -10,7 +10,7 @@ import (
 // mail audit on the landing page. Every one of them is rate limited, because anything reachable
 // without an account is reachable by everybody.
 func (s *Server) mountPublic(r chi.Router) {
-	// Meet público (convidados externos, SEM login) — entra por link. Rate-limited por IP.
+	// Public Meet (external guests, NO login) — joins via link. Rate-limited per IP.
 	// Mail configuration audit: the landing's lead tool. Public DNS only, rate limited so it
 	// cannot be turned into a scanner.
 	// The landing calls this from beskos.com, a different origin from the API, so it needs its own
@@ -28,8 +28,8 @@ func (s *Server) mountPublic(r chi.Router) {
 	// Authorized by the HMAC token (the token is the authorization; no session).
 	r.With(s.presentationRateLimit).Get("/public/meet/presentation/{id}/pdf", s.handlePresentationPDF)
 
-	// Download público de anexo grande por token (SEM login) — o token é a autorização.
-	r.With(s.publicRateLimit).Post("/public/chat/hook/{token}", s.handleInboundWebhook) // webhook de entrada (bot)
+	// Public download of a large attachment by token (NO login) — the token is the authorization.
+	r.With(s.publicRateLimit).Post("/public/chat/hook/{token}", s.handleInboundWebhook) // inbound webhook (bot)
 	// Forgot your password. Public out of necessity: somebody locked out has no session. The answer
 	// is always the same, whether or not the account exists -- see password_recovery.go.
 	r.With(s.publicRateLimit).Post("/public/password/forgot", s.handleForgotPassword)
@@ -40,7 +40,7 @@ func (s *Server) mountPublic(r chi.Router) {
 	r.With(s.publicRateLimit).Get("/public/wiki/{slug}", s.handlePublicWikiSpace)
 	r.With(s.publicRateLimit).Get("/public/wiki/{slug}/{pageSlug}", s.handlePublicWikiPage)
 	r.With(s.publicRateLimit).Get("/public/files/{token}/download", s.handlePublicFileDownload)
-	r.With(s.publicRateLimit).Get("/public/files/{token}/session", s.handlePublicDocSession) // abre no OnlyOffice (anónimo)
+	r.With(s.publicRateLimit).Get("/public/files/{token}/session", s.handlePublicDocSession) // opens in OnlyOffice (anonymous)
 
 	// Branding by email (login screen, NO session): loads the organization's logo/color.
 	r.Get("/public/branding", s.handleResolveBranding)

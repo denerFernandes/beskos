@@ -4,13 +4,13 @@ import "testing"
 
 func TestPlanLookup(t *testing.T) {
 	if _, ok := PlanByID("base"); !ok {
-		t.Error("base deveria existir")
+		t.Error("base should exist")
 	}
 	if _, ok := PlanByID("inexistente"); ok {
-		t.Error("plano inexistente não deveria existir")
+		t.Error("nonexistent plan should not exist")
 	}
 	if PlanOrDefault("xpto").ID != DefaultPlanID {
-		t.Error("plano desconhecido deveria cair no trial (fail-safe)")
+		t.Error("unknown plan should fall back to trial (fail-safe)")
 	}
 }
 
@@ -18,10 +18,10 @@ func TestPlansAreOrderedByCapacity(t *testing.T) {
 	ps := Plans()
 	for i := 1; i < len(ps); i++ {
 		if ps[i].MaxMailboxes < ps[i-1].MaxMailboxes {
-			t.Errorf("planos fora de ordem de capacidade: %s < %s", ps[i].ID, ps[i-1].ID)
+			t.Errorf("plans out of capacity order: %s < %s", ps[i].ID, ps[i-1].ID)
 		}
 		if ps[i].MaxStorageBytes < ps[i-1].MaxStorageBytes {
-			t.Errorf("storage fora de ordem: %s", ps[i].ID)
+			t.Errorf("storage out of order: %s", ps[i].ID)
 		}
 	}
 }
@@ -29,16 +29,16 @@ func TestPlansAreOrderedByCapacity(t *testing.T) {
 func TestTrialIsFreeAndLimited(t *testing.T) {
 	trial := PlanOrDefault("trial")
 	if trial.PriceCentsPerUser != 0 {
-		t.Error("trial deve ser grátis")
+		t.Error("trial must be free")
 	}
 	if trial.MaxMailboxes <= 0 || trial.MaxStorageBytes <= 0 {
-		t.Error("trial precisa ter limites positivos")
+		t.Error("trial needs positive limits")
 	}
 }
 
 func TestIsValidPlan(t *testing.T) {
 	if !IsValidPlan("business") || IsValidPlan("") {
-		t.Error("validação de plano incorreta")
+		t.Error("incorrect plan validation")
 	}
 }
 

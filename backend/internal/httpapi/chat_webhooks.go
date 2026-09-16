@@ -10,8 +10,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Webhooks de entrada (bots/integrações): um POST externo com {text} vira mensagem no canal, com o
-// nome do webhook como autor (bot). O token é a autorização; sem login. CRUD só para membros.
+// Inbound webhooks (bots/integrations): an external POST with {text} becomes a message in the
+// channel, with the webhook's name as author (bot). The token is the authorization; no login.
+// CRUD is members only.
 
 func (s *Server) handleCreateWebhook(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -80,7 +81,7 @@ func (s *Server) handleDeleteWebhook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleInboundWebhook (PÚBLICO, rate-limited): recebe {text} e publica como mensagem-bot no canal.
+// handleInboundWebhook (PUBLIC, rate-limited): receives {text} and publishes it as a bot message in the channel.
 func (s *Server) handleInboundWebhook(w http.ResponseWriter, r *http.Request) {
 	token := chi.URLParam(r, "token")
 	hook, err := s.q.GetWebhookByToken(r.Context(), token)

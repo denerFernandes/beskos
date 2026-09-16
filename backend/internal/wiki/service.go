@@ -59,7 +59,8 @@ func (s *Service) pageRole(ctx context.Context, tenantID, userID, pageID uuid.UU
 	return int(r), nil
 }
 
-// PageRole expõe o papel efetivo numa página (para gates fora do serviço, ex.: WS de colaboração).
+// PageRole exposes the effective role on a page (for gates outside the service, e.g. the
+// collaboration WS).
 func (s *Service) PageRole(ctx context.Context, tenantID, userID, pageID uuid.UUID) (int, error) {
 	return s.pageRole(ctx, tenantID, userID, pageID)
 }

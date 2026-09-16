@@ -12,9 +12,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Acesso público só-leitura (docs/wiki-features.md §5.4): um espaço com visibility=public fica
-// acessível por um link anónimo /w/<public_slug>. A rota pública resolve o tenant pelo slug (nunca do
-// request), serve só páginas published e nunca expõe editar/histórico/comentários/anexos/RAG.
+// Public read-only access (docs/wiki-features.md §5.4): a space with visibility=public becomes
+// reachable via an anonymous link /w/<public_slug>. The public route resolves the tenant by the
+// slug (never from the request), serves only published pages, and never exposes
+// edit/history/comments/attachments/RAG.
 
 // SetPublicAccess turns anonymous read-only access on/off for a space (role >= manager). Enabling
 // mints a fresh, hard-to-enumerate slug; regenerate mints a new one (invalidating the old link);

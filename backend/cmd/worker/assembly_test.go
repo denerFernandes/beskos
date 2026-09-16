@@ -20,7 +20,7 @@ func TestXstackLayout(t *testing.T) {
 }
 
 func TestFfmpegArgsShapes(t *testing.T) {
-	// 2 vídeos + 2 áudios com offset → xstack + amix, com tpad/adelay.
+	// 2 videos + 2 audios with offset → xstack + amix, with tpad/adelay.
 	args := strings.Join(ffmpegArgs([]trackInput{
 		{path: "a.mp4", kind: "video", offset: 0},
 		{path: "b.mp4", kind: "video", offset: 2.5},
@@ -36,7 +36,7 @@ func TestFfmpegArgsShapes(t *testing.T) {
 		}
 	}
 
-	// Só áudio → sem vídeo mapeado nem libx264.
+	// Audio only → no mapped video nor libx264.
 	audioOnly := strings.Join(ffmpegArgs([]trackInput{{path: "a.ogg", kind: "audio"}}, "out.mp4"), " ")
 	if strings.Contains(audioOnly, "libx264") || strings.Contains(audioOnly, "[vout]") {
 		t.Errorf("audio-only should not map video: %s", audioOnly)

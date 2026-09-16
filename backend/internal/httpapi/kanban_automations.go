@@ -11,12 +11,12 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Automações do quadro: quando um card entra numa coluna-gatilho, aplica a ação (atribuir / rotular /
-// arquivar). Avaliadas no move e no reorder (drag), só para os cards que ENTRARAM na coluna.
+// Board automations: when a card enters a trigger column, apply the action (assign / label /
+// archive). Evaluated on move and on reorder (drag), only for cards that ENTERED the column.
 
 var automationActions = map[string]bool{"assign": true, "label": true, "archive": true}
 
-// applyAutomations roda as regras da coluna sobre um card que acabou de entrar nela.
+// applyAutomations runs the column's rules on a card that has just entered it.
 func (s *Server) applyAutomations(ctx context.Context, tenantID, colID, cardID uuid.UUID) {
 	rules, err := s.q.AutomationsForColumn(ctx, colID)
 	if err != nil {
@@ -82,7 +82,7 @@ func (s *Server) handleCreateAutomation(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "boards.automation_invalid")
 		return
 	}
-	// A coluna-gatilho tem de ser deste quadro/tenant.
+	// The trigger column must belong to this board/tenant.
 	if col, cerr := s.q.GetColumn(r.Context(), db.GetColumnParams{ID: colID, TenantID: mu.TenantID}); cerr != nil || col.BoardID != boardID {
 		writeErr(w, http.StatusBadRequest, "boards.automation_invalid")
 		return

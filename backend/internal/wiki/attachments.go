@@ -11,8 +11,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Anexos de páginas (docs/wiki-features.md §3.6): reúsa o Files (storage_files). Anexar/desanexar
-// exige editor; listar e descarregar exigem viewer da página (a mesma superfície `vis`).
+// Page attachments (docs/wiki-features.md §3.6): reuses Files (storage_files). Attaching/detaching
+// requires editor; listing and downloading require viewer on the page (the same `vis` surface).
 
 // ListAttachments returns a page's attachments (role >= viewer).
 func (s *Service) ListAttachments(ctx context.Context, tenantID, userID, pageID uuid.UUID) ([]db.ListWikiAttachmentsRow, error) {
