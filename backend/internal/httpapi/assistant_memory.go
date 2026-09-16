@@ -15,11 +15,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// assistantMemoryInject carrega os factos do utilizador para injetar numa execução (§8.3).
+// assistantMemoryInject loads the user's facts to inject into a run (§8.3).
 //
-// Marca-os como usados: alimenta a proposta de remover o que nunca serve (§8.4). Com poucos factos
-// entram todos; a filtragem por uso recente para quando forem muitas dezenas é trabalho de afinar
-// depois — hoje a memória é pequena por natureza e cabe inteira.
+// Marks them as used: this feeds the proposal to remove whatever never gets used (§8.4). With few
+// facts they all go in; filtering by recent use for when there are many dozens is tuning work for
+// later — today memory is small by nature and fits whole.
 func (s *Server) assistantMemoryInject(ctx context.Context, id assistant.Identity) []assistant.Fact {
 	rows, err := s.q.ListAssistantMemory(ctx, db.ListAssistantMemoryParams{
 		TenantID: id.TenantID, MailUserID: id.UserID,
@@ -44,15 +44,15 @@ func (s *Server) assistantMemoryInject(ctx context.Context, id assistant.Identit
 	return facts
 }
 
-// assistantExtractMemory corre a passagem de extração sobre a MENSAGEM DO UTILIZADOR e guarda os
-// factos novos. Depois de cada turno, barata e separada (§8.2).
+// assistantExtractMemory runs the extraction pass over the USER'S MESSAGE and saves new facts.
+// After each turn, cheap and separate (§8.2).
 //
-// A regra dura de §6.5 está na assinatura: recebe `userMessage`, uma string, e mais nada. Não há por
-// onde lhe entrar um resultado de ferramenta ou a resposta do assistente. Só o utilizador escreve na
-// memória.
+// The hard rule from §6.5 is baked into the signature: it receives `userMessage`, a string, and
+// nothing else. There's no way for a tool result or the assistant's response to get in. Only the
+// user writes to memory.
 //
-// Devolve os factos guardados e as recusas, para o handler os anunciar ao utilizador (§8.2): quando
-// guarda algo, a conversa mostra-o; quando recusa, di-lo.
+// Returns the saved facts and the refusals, so the handler can announce them to the user (§8.2):
+// when it saves something, the conversation shows it; when it refuses, it says so.
 func (s *Server) assistantExtractMemory(ctx context.Context, id assistant.Identity, userMessage string, sourceMsg pgtype.UUID) ([]assistant.Fact, []assistant.Refusal) {
 	if s.ai == nil {
 		return nil, nil
@@ -69,7 +69,7 @@ func (s *Server) assistantExtractMemory(ctx context.Context, id assistant.Identi
 	return facts, refusals
 }
 
-// --- Ecrã de gestão (§3.5, §8.4) ---
+// --- Management screen (§3.5, §8.4) ---
 
 type memoryJSON struct {
 	ID         uuid.UUID  `json:"id"`
@@ -79,8 +79,9 @@ type memoryJSON struct {
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
 }
 
-// handleAssistantMemory lista tudo o que a aplicação sabe sobre o utilizador. Sem isto é um arquivo
-// de dados pessoais que cresce sem ninguém ver — e o RGPD dá o direito de o ver e apagar (§3.5).
+// handleAssistantMemory lists everything the application knows about the user. Without this it's
+// a store of personal data that grows without anyone seeing it — and GDPR grants the right to see
+// and delete it (§3.5).
 func (s *Server) handleAssistantMemory(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListAssistantMemory(r.Context(), db.ListAssistantMemoryParams{
@@ -108,9 +109,9 @@ type memoryWriteReq struct {
 	Category string `json:"category"`
 }
 
-// handleAssistantMemoryCreate deixa o utilizador acrescentar um facto À MÃO. É a via mais pura da
-// regra de §6.5: só o utilizador escreve na memória, e aqui escreve-a diretamente. As categorias
-// proibidas são recusadas mesmo assim — nem a pedido explícito se guarda uma senha (§6.5).
+// handleAssistantMemoryCreate lets the user add a fact BY HAND. It's the purest form of the §6.5
+// rule: only the user writes to memory, and here they write it directly. Forbidden categories are
+// still refused — not even an explicit request gets a password saved (§6.5).
 func (s *Server) handleAssistantMemoryCreate(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req memoryWriteReq
@@ -155,7 +156,7 @@ func (s *Server) handleAssistantMemoryDelete(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleAssistantMemoryClear apaga tudo de uma vez (§8.4). Direito do utilizador.
+// handleAssistantMemoryClear deletes everything at once (§8.4). The user's right.
 func (s *Server) handleAssistantMemoryClear(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	if err := s.q.DeleteAllAssistantMemory(r.Context(), db.DeleteAllAssistantMemoryParams{

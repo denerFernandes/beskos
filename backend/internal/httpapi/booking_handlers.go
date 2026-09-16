@@ -20,8 +20,8 @@ import (
 // plus required fields; outsiders book at /b/<org>/<collaborator>. Each booking creates the
 // event (with a Meet room), emails whoever booked, and notifies the collaborator.
 
-// bookingWindow é uma janela semanal de disponibilidade, em minutos desde as 00:00 locais do
-// servidor. weekday segue time.Weekday/JS: 0 = domingo.
+// bookingWindow is a weekly availability window, in minutes since 00:00 local server time.
+// weekday follows time.Weekday/JS: 0 = Sunday.
 type bookingWindow struct {
 	Weekday int `json:"weekday"`
 	Start   int `json:"start"`
@@ -81,7 +81,7 @@ func parseBookingWindows(raw []byte) []bookingWindow {
 	return out
 }
 
-// bookingOut é a configuração como o dono a vê (inclui a URL pública).
+// bookingOut is the configuration as the owner sees it (includes the public URL).
 func (s *Server) bookingOut(p db.BookingPage) map[string]any {
 	url := ""
 	if s.publicURL != "" {
@@ -94,7 +94,7 @@ func (s *Server) bookingOut(p db.BookingPage) map[string]any {
 	}
 }
 
-// GET /api/booking/page — a minha configuração (defaults se ainda não existe).
+// GET /api/booking/page — my configuration (defaults if it doesn't exist yet).
 func (s *Server) handleGetBookingPage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	p, err := s.q.GetBookingPageByUser(r.Context(), mu.ID)
@@ -118,8 +118,8 @@ type saveBookingPageReq struct {
 	Windows      []bookingWindow `json:"windows"`
 }
 
-// PUT /api/booking/page — grava a configuração; os slugs são gerados na primeira gravação e
-// ficam estáveis (a URL pública não muda ao renomear).
+// PUT /api/booking/page — saves the configuration; slugs are generated on the first save and
+// stay stable (the public URL doesn't change on rename).
 func (s *Server) handleSaveBookingPage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req saveBookingPageReq
@@ -145,7 +145,7 @@ func (s *Server) handleSaveBookingPage(w http.ResponseWriter, r *http.Request) {
 	}
 	wsJSON, _ := json.Marshal(clean)
 
-	// Slugs: mantém os existentes; senão deriva do nome do tenant e do colaborador.
+	// Slugs: keep the existing ones; otherwise derive from the tenant name and the collaborator's name.
 	orgSlug, userSlug := "", ""
 	if prev, err := s.q.GetBookingPageByUser(r.Context(), mu.ID); err == nil {
 		orgSlug, userSlug = prev.OrgSlug, prev.UserSlug
@@ -167,7 +167,7 @@ func (s *Server) handleSaveBookingPage(w http.ResponseWriter, r *http.Request) {
 			userSlug = "u-" + mu.ID.String()[:8]
 		}
 	}
-	// Colisão de par (org, user) entre tenants homónimos: sufixa e tenta de novo.
+	// Collision of the (org, user) pair between same-named tenants: append a suffix and retry.
 	base := userSlug
 	var page db.BookingPage
 	var err error
@@ -207,7 +207,7 @@ func (s *Server) publicBookingPage(w http.ResponseWriter, r *http.Request) (db.B
 	return page, owner, true
 }
 
-// GET /api/public/booking/{org}/{user} — dados para montar a página pública.
+// GET /api/public/booking/{org}/{user} — data to build the public page.
 func (s *Server) handlePublicBookingInfo(w http.ResponseWriter, r *http.Request) {
 	page, owner, ok := s.publicBookingPage(w, r)
 	if !ok {
@@ -228,14 +228,14 @@ func (s *Server) handlePublicBookingInfo(w http.ResponseWriter, r *http.Request)
 		"org": ten.Name, "name": owner.Name, "avatar": owner.Avatar, "title": page.Title,
 		"duration_min": page.DurationMin, "phone_field": page.PhoneField, "company_field": page.CompanyField,
 		"weekdays": weekdays,
-		// Marca da organização: a página pública veste as cores/logo do cliente.
+		// Organization branding: the public page wears the customer's colors/logo.
 		"brand": map[string]any{"color": ten.BrandColor, "logo": ten.BrandLogo, "logo_white_dark": ten.BrandLogoWhiteDark},
 	})
 }
 
-// bookingSlotsFor calcula os inícios livres de um dia, INTEGRADO com o calendário completo do
-// colaborador: eventos próprios (com hora e dia inteiro), convites não recusados e recorrentes
-// expandidos. Passo = duração; antecedência mínima de 30 min.
+// bookingSlotsFor computes the free start times of a day, INTEGRATED with the collaborator's full
+// calendar: own events (timed and all-day), non-declined invites, and expanded recurring events.
+// Step = duration; minimum 30-minute lead time.
 func (s *Server) bookingSlotsFor(r *http.Request, page db.BookingPage, day time.Time) []time.Time {
 	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.Local)
 	dayEnd := dayStart.Add(24 * time.Hour)
@@ -249,7 +249,7 @@ func (s *Server) bookingSlotsFor(r *http.Request, page db.BookingPage, day time.
 			blocks = append(blocks, block{b.StartsAt, b.EndsAt})
 		}
 	}
-	// Recorrentes: o mestre pode ter começado meses antes — expande as ocorrências para o dia.
+	// Recurring events: the master might have started months earlier — expand the occurrences for the day.
 	if masters, err := s.q.ListRecurringByOwner(r.Context(), pgUUID(page.UserID)); err == nil {
 		for _, m := range masters {
 			if m.TenantID != page.TenantID {
@@ -316,8 +316,9 @@ type publicBookReq struct {
 	StartsAt string `json:"starts_at"`
 }
 
-// POST /api/public/booking/{org}/{user}/book — cria a reserva: evento + sala Meet + e-mail a quem
-// marcou + notificação ao colaborador. Revalida o slot no servidor (o cliente nunca decide).
+// POST /api/public/booking/{org}/{user}/book — creates the booking: event + Meet room + email to
+// whoever booked + notification to the collaborator. Revalidates the slot on the server (the client
+// never decides).
 func (s *Server) handlePublicBookingCreate(w http.ResponseWriter, r *http.Request) {
 	page, owner, ok := s.publicBookingPage(w, r)
 	if !ok {
@@ -354,7 +355,7 @@ func (s *Server) handlePublicBookingCreate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	starts = starts.In(time.Local)
-	// O slot pedido tem de estar na lista calculada AGORA (janela + livre + antecedência).
+	// The requested slot must be in the list computed RIGHT NOW (window + free + lead time).
 	okSlot := false
 	for _, t := range s.bookingSlotsFor(r, page, starts) {
 		if t.Equal(starts) {
@@ -406,7 +407,7 @@ func (s *Server) handlePublicBookingCreate(w http.ResponseWriter, r *http.Reques
 	room := s.attachMeetToEvent(ctx, owner, ev.ID, title, starts, ends)
 	_ = s.q.AddEventExternal(ctx, db.AddEventExternalParams{EventID: ev.ID, TenantID: page.TenantID, Email: req.Email})
 
-	// E-mail de confirmação a quem marcou (best-effort, assíncrono).
+	// Confirmation email to whoever booked (best-effort, asynchronous).
 	if s.email != nil {
 		who := owner.Name
 		if who == "" {
@@ -423,7 +424,7 @@ func (s *Server) handlePublicBookingCreate(w http.ResponseWriter, r *http.Reques
 			}
 		}(req.Email, "Reunião confirmada: "+title, body)
 	}
-	// Notificação in-app + push ao colaborador (o frontend traduz por kind+args).
+	// In-app + push notification to the collaborator (the frontend translates by kind+args).
 	s.notifyUser(ctx, page.TenantID, owner.ID, "booking_new",
 		"New booking: "+req.Name, req.Name+" ("+req.Email+") booked "+starts.Format("02/01/2006 15:04"),
 		eventLink(ev.ID, starts), uuid.Nil, map[string]string{"name": req.Name, "email": req.Email, "when": starts.Format(time.RFC3339)})

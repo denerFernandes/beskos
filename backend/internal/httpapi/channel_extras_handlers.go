@@ -12,7 +12,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// isoPtr formata um timestamp nulável (nil quando ausente).
+// isoPtr formats a nullable timestamp (nil when absent).
 func isoPtr(t pgtype.Timestamptz) any {
 	if !t.Valid {
 		return nil
@@ -20,7 +20,7 @@ func isoPtr(t pgtype.Timestamptz) any {
 	return t.Time.UTC().Format(time.RFC3339)
 }
 
-// Recursos do canal estilo Slack: canvas (doc partilhado), pinos, e as vistas de ficheiros e links.
+// Slack-style channel extras: canvas (shared doc), pins, and the file and link views.
 
 // ---- Canvas ----
 
@@ -66,7 +66,7 @@ func (s *Server) handleSaveCanvas(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// ---- Pinos ----
+// ---- Pins ----
 
 func (s *Server) handlePinMessage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -117,7 +117,7 @@ func (s *Server) handleListPins(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"pins": out})
 }
 
-// ---- Bookmarks (ficheiros & links curados) ----
+// ---- Bookmarks (curated files & links) ----
 
 func (s *Server) handleListBookmarks(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -202,8 +202,8 @@ func (s *Server) handleDeleteBookmark(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleBookmarkDownload serve o ficheiro de um bookmark — autorizado por PARTICIPAÇÃO no canal
-// (qualquer membro baixa, mesmo não sendo dono do ficheiro).
+// handleBookmarkDownload serves the file behind a bookmark — authorized by channel MEMBERSHIP
+// (any member can download it, even if they don't own the file).
 func (s *Server) handleBookmarkDownload(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -233,7 +233,7 @@ func (s *Server) handleBookmarkDownload(w http.ResponseWriter, r *http.Request) 
 	_, _ = io.Copy(w, obj)
 }
 
-// ---- Notificações do canal + busca ----
+// ---- Channel notifications + search ----
 
 func (s *Server) handleSetChannelNotifPref(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())

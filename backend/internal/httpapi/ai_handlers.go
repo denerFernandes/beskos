@@ -9,17 +9,17 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
-// Endpoints de IA sobre e-mail. O conteúdo do e-mail chega no corpo do request (o frontend
-// o obtém via JMAP direto). A chave da IA fica só aqui no backend (lei §3.5).
-// Idioma padrão pt-BR (mail_users ainda não guarda preferência de idioma).
+// AI endpoints for email. The email content arrives in the request body (the frontend
+// fetches it via JMAP directly). The AI key stays only here in the backend (law §3.5).
+// Default language pt-BR (mail_users doesn't store a language preference yet).
 
-// aiMaxBody limita o corpo de cada request de IA — o input vai para a API paga e é faturável,
-// então sem teto um usuário dispararia custo ilimitado com corpos enormes (auditoria M — abuso de custo).
+// aiMaxBody limits the body of each AI request — the input goes to the paid API and is billable,
+// so without a cap a user could trigger unlimited cost with huge bodies (audit M — cost abuse).
 const aiMaxBody = 256 << 10 // 256 KiB
 
-// localeFromRequest lê o idioma da PÁGINA (header X-Locale, ex.: "pt-BR", "en") para a IA gerar o
-// conteúdo nesse idioma. Sanitiza (só letras e "-", 2–10 chars) — o valor entra num prompt, por isso
-// nunca deve poder injetar instruções. Vazio/invalido → pt-BR.
+// localeFromRequest reads the PAGE's language (X-Locale header, e.g. "pt-BR", "en") so the AI
+// generates content in that language. Sanitizes it (only letters and "-", 2-10 chars) — the value
+// goes into a prompt, so it must never be able to inject instructions. Empty/invalid → pt-BR.
 func localeFromRequest(r *http.Request) string {
 	v := strings.TrimSpace(r.Header.Get("X-Locale"))
 	if v == "" || len(v) > 10 {
@@ -38,7 +38,7 @@ func (s *Server) assistant(w http.ResponseWriter, r *http.Request) (*ai.Assistan
 		writeErr(w, http.StatusServiceUnavailable, "ai.disabled")
 		return nil, false
 	}
-	// Rate limit por usuário (custo/abuso) + teto de corpo. O limiter conta por mail_user.
+	// Rate limit per user (cost/abuse) + body cap. The limiter counts per mail_user.
 	mu := mailUserFrom(r.Context())
 	if !s.aiLimiter.allow("ai:"+mu.ID.String(), time.Now()) {
 		writeErr(w, http.StatusTooManyRequests, "ai.rate_limited")
@@ -53,9 +53,10 @@ func (s *Server) assistant(w http.ResponseWriter, r *http.Request) (*ai.Assistan
 		return nil, false
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, aiMaxBody)
-	// Idioma do CONTEÚDO gerado (briefing, resumos, tarefas…) = idioma da PÁGINA, enviado pelo
-	// frontend em X-Locale. Assim o resumo segue a UI do utilizador, não um idioma fixo. (O chat é
-	// à parte: espelha o idioma que a pessoa escreve — ver assistant/engine.go.)
+	// Language of the GENERATED content (briefing, summaries, tasks…) = the PAGE's language, sent
+	// by the frontend in X-Locale. This way the summary follows the user's UI, not a fixed
+	// language. (The chat is separate: it mirrors the language the person writes in — see
+	// assistant/engine.go.)
 	a := ai.NewAssistant(s.ai, localeFromRequest(r))
 	ctx := r.Context()
 	a.SetUsageHook(func(tokens int) { s.recordAssistantUsage(ctx, id, tokens) })
@@ -67,7 +68,7 @@ type aiEmailReq struct {
 	Body    string `json:"body"`
 }
 
-// handleAIPlanTask expande uma ideia curta num título + descrição de tarefa (Kanban).
+// handleAIPlanTask expands a short idea into a title + task description (Kanban).
 func (s *Server) handleAIPlanTask(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.assistant(w, r)
 	if !ok {

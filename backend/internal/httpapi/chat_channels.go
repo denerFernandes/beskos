@@ -19,7 +19,7 @@ func (s *Server) handleListChannels(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "chat.failed")
 		return
 	}
-	// Nome de exibição da DM = o outro participante (com id para presença).
+	// DM display name = the other participant (with id for presence).
 	out := make([]map[string]any, 0, len(mine))
 	for _, c := range mine {
 		name, otherID := c.Name, ""
@@ -28,8 +28,8 @@ func (s *Server) handleListChannels(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, map[string]any{
 			"id": c.ID, "kind": c.Kind, "name": name, "topic": c.Topic, "other_id": otherID,
-			// Só marcamos como "o canal por defeito" enquanto o nome for o de origem: renomeado,
-			// o utilizador escolheu um nome e é esse que a UI deve mostrar (sem tradução).
+			// We only mark it as "the default channel" while the name is still the original one:
+			// once renamed, the user chose a name and that's what the UI should show (no translation).
 			"is_general": c.IsGeneral && c.Name == generalChannelName,
 			"unread":     c.Unread, "last_read_at": iso(c.LastReadAt),
 			"listed": c.Listed, "add_policy": c.AddPolicy, "my_role": c.Role, "notif_pref": c.NotifPref,
@@ -47,7 +47,7 @@ type openGroupDMReq struct {
 	Emails []string `json:"emails"`
 }
 
-// handleOpenGroupDM abre (ou reutiliza) uma DM de GRUPO (3+ pessoas, incluindo quem abre).
+// handleOpenGroupDM opens (or reuses) a GROUP DM (3+ people, including whoever opens it).
 func (s *Server) handleOpenGroupDM(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req openGroupDMReq
@@ -62,7 +62,7 @@ func (s *Server) handleOpenGroupDM(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(idset) < 3 {
-		writeErr(w, http.StatusBadRequest, "chat.group_min") // 2 pessoas = DM normal (/chat/dm)
+		writeErr(w, http.StatusBadRequest, "chat.group_min") // 2 people = regular DM (/chat/dm)
 		return
 	}
 	ids := make([]uuid.UUID, 0, len(idset))
@@ -91,7 +91,7 @@ type createChannelReq struct {
 	Name      string `json:"name"`
 	Topic     string `json:"topic"`
 	Kind      string `json:"kind"`       // public | private
-	Listed    *bool  `json:"listed"`     // false = não listado (só por convite); default true
+	Listed    *bool  `json:"listed"`     // false = not listed (invite only); default true
 	AddPolicy string `json:"add_policy"` // open | restricted; default open
 }
 
@@ -117,7 +117,7 @@ func (s *Server) handleCreateChannel(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "chat.create_failed")
 		return
 	}
-	// Acesso: listado (default) e política de adição. Um canal privado é sempre não listado.
+	// Access: listed (default) and add policy. A private channel is always unlisted.
 	listed := kind == "public" && (req.Listed == nil || *req.Listed)
 	policy := "open"
 	if req.AddPolicy == "restricted" {
@@ -136,7 +136,7 @@ func (s *Server) handleJoinChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ch, err := s.q.GetChannel(r.Context(), db.GetChannelParams{ID: id, TenantID: mu.TenantID})
-	// Auto-entrada só em canais públicos E listados. Privados e não listados são só por convite.
+	// Self-join only on channels that are public AND listed. Private and unlisted are invite-only.
 	if err != nil || ch.Kind != "public" || !ch.Listed {
 		writeErr(w, http.StatusNotFound, "chat.not_found")
 		return
@@ -149,8 +149,8 @@ func (s *Server) handleJoinChannel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "joined"})
 }
 
-// handleAddMember adiciona um utilizador (do mesmo tenant) ao canal. Se a política é "restricted",
-// só gestores adicionam; se "open", qualquer membro adiciona.
+// handleAddMember adds a user (from the same tenant) to the channel. If the policy is "restricted",
+// only managers can add; if "open", any member can add.
 func (s *Server) handleChatAddMember(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -163,7 +163,7 @@ func (s *Server) handleChatAddMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "chat.not_found")
 		return
 	}
-	// Autorização conforme a política do canal.
+	// Authorization according to the channel's policy.
 	if ch.AddPolicy == "restricted" {
 		if _, ok := s.managerOr403(w, r, id); !ok {
 			return
@@ -190,8 +190,8 @@ func (s *Server) handleChatAddMember(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "added"})
 }
 
-// handleRemoveMember remove um membro. Gestores removem qualquer um; um membro pode sair sozinho.
-// O dono (created_by) não pode ser removido.
+// handleRemoveMember removes a member. Managers can remove anyone; a member can leave on their own.
+// The owner (created_by) cannot be removed.
 func (s *Server) handleChatRemoveMember(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -209,7 +209,7 @@ func (s *Server) handleChatRemoveMember(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusBadRequest, "chat.cannot_remove_owner")
 		return
 	}
-	if target == mu.ID { // sair do canal
+	if target == mu.ID { // leave the channel
 		if _, ok := s.memberOr403(w, r, id); !ok {
 			return
 		}
@@ -224,7 +224,7 @@ func (s *Server) handleChatRemoveMember(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "removed"})
 }
 
-// handleSetMemberRole promove/despromove um membro a gestor (só gestores). O dono não muda.
+// handleSetMemberRole promotes/demotes a member to manager (managers only). The owner doesn't change.
 func (s *Server) handleChatSetMemberRole(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -259,7 +259,7 @@ func (s *Server) handleChatSetMemberRole(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleUpdateChannel altera nome/tópico/visibilidade/política (só gestores).
+// handleUpdateChannel changes name/topic/visibility/policy (managers only).
 func (s *Server) handleUpdateChannel(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -307,7 +307,7 @@ type openDMReq struct {
 	Email string `json:"email"`
 }
 
-// handleOpenDM cria (ou reabre) a conversa direta com outro usuário do tenant.
+// handleOpenDM creates (or reopens) the direct conversation with another tenant user.
 func (s *Server) handleOpenDM(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req openDMReq
@@ -356,7 +356,7 @@ func (s *Server) handleListChannelMembers(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleSearchChannelMembers: membros com busca (nome/e-mail) e paginação — para canais grandes.
+// handleSearchChannelMembers: members with search (name/email) and pagination — for large channels.
 func (s *Server) handleSearchChannelMembers(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -387,8 +387,8 @@ func (s *Server) handleSearchChannelMembers(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{"members": out, "total": total, "page": page})
 }
 
-// handleArchiveChannel arquiva/restaura um canal. Arquivado sai das listas e ninguém escreve nele —
-// mas o histórico fica e dá para restaurar, ao contrário de apagar.
+// handleArchiveChannel archives/restores a channel. Archived leaves the lists and nobody can write
+// to it — but the history stays and can be restored, unlike deleting.
 func (s *Server) handleArchiveChannel(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -411,7 +411,7 @@ func (s *Server) handleArchiveChannel(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &req) {
 		return
 	}
-	// Mesma razão do apagar: o canal por defeito voltaria na listagem seguinte (ensureGeneral).
+	// Same reason as deleting: the default channel would come back on the next listing (ensureGeneral).
 	if req.Archived && ch.IsGeneral {
 		writeErr(w, http.StatusBadRequest, "chat.cannot_archive_general")
 		return
@@ -424,7 +424,7 @@ func (s *Server) handleArchiveChannel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"id": out.ID, "archived": out.ArchivedAt.Valid})
 }
 
-// handleListArchivedChannels lista os canais arquivados que a pessoa pode restaurar.
+// handleListArchivedChannels lists the archived channels the person can restore.
 func (s *Server) handleListArchivedChannels(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	isAdmin := mu.Role == "owner" || mu.Role == "admin" || mu.Role == "internal_admin"
@@ -461,8 +461,8 @@ func (s *Server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "chat.not_owner")
 		return
 	}
-	// O canal por defeito não se apaga: seria recriado na listagem seguinte e o dono ficaria a
-	// olhar para um canal que "voltou". Dizemos porquê em vez de deixar acontecer.
+	// The default channel can't be deleted: it would be recreated on the next listing and the owner
+	// would be left looking at a channel that "came back". We say why instead of letting it happen.
 	if ch, err := s.q.GetChannel(r.Context(), db.GetChannelParams{ID: id, TenantID: mu.TenantID}); err == nil && ch.IsGeneral {
 		writeErr(w, http.StatusBadRequest, "chat.cannot_delete_general")
 		return
@@ -476,8 +476,8 @@ func (s *Server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// handleMarkChannelUnread marca o canal como não lido A PARTIR de uma mensagem: recua o last_read_at
-// para logo antes dela, para a divisória "novas mensagens" aparecer ali no próximo abrir.
+// handleMarkChannelUnread marks the channel as unread STARTING FROM a message: it rewinds last_read_at
+// to just before it, so the "new messages" divider shows up there the next time it's opened.
 func (s *Server) handleMarkChannelUnread(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	mid, err := uuid.Parse(chi.URLParam(r, "id"))

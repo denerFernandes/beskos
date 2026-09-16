@@ -12,11 +12,11 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// assistantConvListLimit é quantas conversas a lista mostra. Chega para o histórico recente; a
-// pesquisa no histórico é trabalho de outra fase.
+// assistantConvListLimit is how many conversations the list shows. Enough for recent history;
+// searching the history is work for another phase.
 const assistantConvListLimit = 50
 
-// assistantMsgLimit trava quanto de uma conversa se devolve de uma vez.
+// assistantMsgLimit caps how much of a conversation is returned at once.
 const assistantMsgLimit = 200
 
 type assistantConvJSON struct {
@@ -38,8 +38,8 @@ type assistantMsgJSON struct {
 	CreatedAt time.Time       `json:"created_at"`
 }
 
-// handleAssistantConversations lista o histórico do PRÓPRIO utilizador. A conversa é pessoal e não
-// é partilhada nem dentro da mesma organização (§3.5) — daí o filtro por (tenant, utilizador).
+// handleAssistantConversations lists the history of the user THEMSELVES. The conversation is
+// personal and isn't shared even within the same organization (§3.5) — hence the filter by (tenant, user).
 func (s *Server) handleAssistantConversations(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListAssistantConversations(r.Context(), db.ListAssistantConversationsParams{
@@ -57,8 +57,8 @@ func (s *Server) handleAssistantConversations(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
-// handleAssistantConversation devolve um fio com as suas mensagens e cartões de ação. Reabrir uma
-// conversa tem de mostrar o mesmo que se viu ao vivo, incluindo o registo das chamadas (§3.3).
+// handleAssistantConversation returns a thread with its messages and action cards. Reopening a
+// conversation has to show the same thing that was seen live, including the record of calls (§3.3).
 func (s *Server) handleAssistantConversation(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -70,8 +70,8 @@ func (s *Server) handleAssistantConversation(w http.ResponseWriter, r *http.Requ
 		ID: id, TenantID: mu.TenantID, MailUserID: mu.ID,
 	})
 	if err != nil {
-		// "Não existe" e "não é tua" respondem igual: distingui-las diria a quem adivinhasse um id
-		// que ele existe noutra conta.
+		// "Doesn't exist" and "isn't yours" respond the same way: distinguishing them would tell
+		// anyone guessing an id that it exists on another account.
 		writeErr(w, http.StatusNotFound, "assistant.unknown_conversation")
 		return
 	}
@@ -100,9 +100,9 @@ func (s *Server) handleAssistantConversation(w http.ResponseWriter, r *http.Requ
 	})
 }
 
-// handleAssistantConversationDelete apaga um fio. As mensagens vão atrás (ON DELETE CASCADE); o
-// registo de auditoria NÃO vai — fica com a conversa a NULL, porque "porque é que isto aconteceu?"
-// tem de continuar a ter resposta depois de a conversa desaparecer (§6.4).
+// handleAssistantConversationDelete deletes a thread. The messages go with it (ON DELETE CASCADE);
+// the audit record does NOT — it keeps the conversation reference as NULL, because "why did this
+// happen?" has to keep having an answer after the conversation is gone (§6.4).
 func (s *Server) handleAssistantConversationDelete(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))

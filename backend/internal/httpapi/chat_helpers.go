@@ -15,9 +15,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// Chat estilo Slack. REST para dados + WebSocket (hub Redis) para tempo real. Tudo filtra tenant.
+// Slack-style chat. REST for data + WebSocket (Redis hub) for real time. Everything filters by tenant.
 
-// ---- DTOs (achatam pgtype para JSON limpo que o frontend consome) ----
+// ---- DTOs (flatten pgtype into clean JSON for the frontend to consume) ----
 
 type reactionDTO struct {
 	Emoji string   `json:"emoji"`
@@ -50,7 +50,7 @@ type messageDTO struct {
 	Saved       bool            `json:"saved"`
 }
 
-// markSaved marca o campo Saved das mensagens conforme o que o usuário salvou naquele canal.
+// markSaved sets the Saved field on messages based on what the user saved in that channel.
 func (s *Server) markSaved(ctx context.Context, userID, channelID uuid.UUID, msgs []messageDTO) []messageDTO {
 	ids, _ := s.q.ListSavedIDsInChannel(ctx, db.ListSavedIDsInChannelParams{UserID: userID, ChannelID: channelID})
 	if len(ids) == 0 {
@@ -68,7 +68,7 @@ func (s *Server) markSaved(ctx context.Context, userID, channelID uuid.UUID, msg
 	return msgs
 }
 
-// rawMsg é o intermediário comum entre a lista do canal e a lista de respostas da thread.
+// rawMsg is the common intermediate representation between the channel list and the thread reply list.
 type rawMsg struct {
 	ID, ChannelID, UserID   uuid.UUID
 	ParentID                pgtype.UUID
@@ -80,11 +80,12 @@ type rawMsg struct {
 	BotName                 string
 }
 
-// RFC3339Nano (não RFC3339): preserva os sub-segundos. É o timestamp que a paginação usa como
-// cursor (?before=) — em segundos, mensagens do mesmo segundo empatam e a página anterior vem vazia.
+// RFC3339Nano (not RFC3339): preserves sub-second precision. This is the timestamp the pagination
+// uses as a cursor (?before=) — at second resolution, messages from the same second tie and the
+// previous page comes back empty.
 func iso(t time.Time) string { return t.UTC().Format(time.RFC3339Nano) }
 
-// pgUUID embrulha um uuid para os campos nuláveis do pgx.
+// pgUUID wraps a uuid for pgx's nullable fields.
 func pgUUID(u uuid.UUID) pgtype.UUID { return pgtype.UUID{Bytes: u, Valid: true} }
 
 func uuidStr(u pgtype.UUID) string {
@@ -94,9 +95,9 @@ func uuidStr(u pgtype.UUID) string {
 	return uuid.UUID(u.Bytes).String()
 }
 
-// ---- helpers de autorização / destinatários ----
+// ---- authorization / recipients helpers ----
 
-// memberOr403 garante que o usuário é membro do canal; devolve a associação.
+// memberOr403 ensures the user is a member of the channel; returns the membership.
 func (s *Server) memberOr403(w http.ResponseWriter, r *http.Request, channelID uuid.UUID) (db.ChannelMember, bool) {
 	mu := mailUserFrom(r.Context())
 	m, err := s.q.GetMembership(r.Context(), db.GetMembershipParams{ChannelID: channelID, UserID: mu.ID})
@@ -124,15 +125,16 @@ func (s *Server) publish(ctx context.Context, evType string, channelID uuid.UUID
 	s.hub.Publish(ctx, chat.Event{Type: evType, ChannelID: channelID.String(), Recipients: recipients, Payload: raw})
 }
 
-// ---- Canais ----
+// ---- Channels ----
 
-// generalChannelName é o nome GUARDADO do canal por defeito. Fica em inglês (lei §4.6): o frontend
-// mostra a tradução enquanto o nome estiver intacto — se alguém o renomear, vale o nome escolhido.
+// generalChannelName is the STORED name of the default channel. It stays in English (law §4.6):
+// the frontend shows the translation as long as the name is untouched — if someone renames it,
+// the chosen name wins.
 const generalChannelName = "General"
 
-// ensureGeneral garante que o tenant tem o canal por defeito e que quem está a pedir a lista é
-// membro dele. Fazer isto na listagem (e não só no provisionamento) cobre também os tenants e os
-// utilizadores que já existiam. São duas leituras indexadas no caso normal, sem escrita.
+// ensureGeneral ensures the tenant has the default channel and that whoever is requesting the
+// list is a member of it. Doing this at listing time (and not only at provisioning) also covers
+// tenants and users that already existed. It's two indexed reads in the normal case, no write.
 func (s *Server) ensureGeneral(ctx context.Context, tenant, user uuid.UUID) {
 	ch, err := s.q.GetGeneralChannel(ctx, tenant)
 	if err != nil {
@@ -140,7 +142,7 @@ func (s *Server) ensureGeneral(ctx context.Context, tenant, user uuid.UUID) {
 			TenantID: tenant, Name: generalChannelName, CreatedBy: user,
 		})
 		if cerr != nil {
-			// Corrida com outro pedido: o índice parcial deixou passar só um. Lê o que ficou.
+			// Race with another request: the partial index let only one through. Read what's there.
 			if ch, err = s.q.GetGeneralChannel(ctx, tenant); err != nil {
 				log.Printf("chat: ensure general channel: %v", cerr)
 				return
@@ -150,7 +152,7 @@ func (s *Server) ensureGeneral(ctx context.Context, tenant, user uuid.UUID) {
 		}
 	}
 	if _, err := s.q.GetMembership(ctx, db.GetMembershipParams{ChannelID: ch.ID, UserID: user}); err == nil {
-		return // já é membro
+		return // already a member
 	}
 	if err := s.q.AddChannelMember(ctx, db.AddChannelMemberParams{
 		ChannelID: ch.ID, TenantID: tenant, UserID: user, Role: "member",
@@ -164,8 +166,8 @@ func (s *Server) dmDisplayName(ctx context.Context, channelID, me uuid.UUID) str
 	return name
 }
 
-// dmOther devolve o nome de exibição e o id do "outro" de uma DM. Numa DM de grupo (3+), junta os
-// nomes dos demais ("Bob, Carol") e não devolve um id de presença (não há um único outro).
+// dmOther returns the display name and id of the "other" party in a DM. In a group DM (3+), it
+// joins the other names ("Bob, Carol") and doesn't return a presence id (there's no single other).
 func (s *Server) dmOther(ctx context.Context, channelID, me uuid.UUID) (string, string) {
 	members, _ := s.q.ListChannelMembers(ctx, channelID)
 	names := make([]string, 0, len(members))
@@ -191,8 +193,8 @@ func (s *Server) dmOther(ctx context.Context, channelID, me uuid.UUID) (string, 
 	}
 }
 
-// dmKeyN é a chave canônica de uma DM (par ou grupo): ids ordenados e juntos. O mesmo conjunto de
-// pessoas resolve sempre para a mesma chave → reutiliza o canal em vez de duplicar.
+// dmKeyN is the canonical key of a DM (pair or group): sorted ids joined together. The same set of
+// people always resolves to the same key → reuses the channel instead of duplicating it.
 func dmKeyN(ids []uuid.UUID) string {
 	ss := make([]string, len(ids))
 	for i, id := range ids {
@@ -202,8 +204,8 @@ func dmKeyN(ids []uuid.UUID) string {
 	return strings.Join(ss, ":")
 }
 
-// managerOr403 garante que o utilizador é gestor do canal (owner ou manager) — a permissão DO
-// canal, independente da role da organização. Devolve a associação.
+// managerOr403 ensures the user is a manager of the channel (owner or manager) — the permission
+// OF the channel, independent of the organization role. Returns the membership.
 func (s *Server) managerOr403(w http.ResponseWriter, r *http.Request, channelID uuid.UUID) (db.ChannelMember, bool) {
 	m, ok := s.memberOr403(w, r, channelID)
 	if !ok {
@@ -222,8 +224,8 @@ func dmKey(a, b uuid.UUID) string {
 	return strings.Join(ids, ":")
 }
 
-// buildMessages transforma linhas + reações + anexos em DTOs em ordem cronológica. reverse=true
-// quando as linhas vêm em ordem desc (lista do canal); false quando já vêm asc (thread).
+// buildMessages transforms rows + reactions + attachments into DTOs in chronological order.
+// reverse=true when rows come in desc order (channel list); false when they already come asc (thread).
 func buildMessages(rows []rawMsg, reactions []db.ListReactionsByChannelRow, atts []db.ListAttachmentsByChannelRow, me uuid.UUID, reverse bool) []messageDTO {
 	type key struct{ msg, emoji string }
 	grouped := map[key]*reactionDTO{}
@@ -285,8 +287,9 @@ func tsStr(t pgtype.Timestamptz) string {
 	return iso(t.Time)
 }
 
-// hasMentionToken diz se o corpo contém @channel/@here como token (precedido de início/espaço e
-// seguido de fim/espaço/pontuação) — evita casar "@channel.com" ou "email@here.io".
+// hasMentionToken reports whether the body contains @channel/@here as a token (preceded by
+// start/whitespace and followed by end/whitespace/punctuation) — avoids matching "@channel.com" or
+// "email@here.io".
 func hasMentionToken(body, tok string) bool {
 	at := "@" + tok
 	low := strings.ToLower(body)
@@ -313,9 +316,9 @@ func trim(s string, n int) string {
 	return s[:n] + "…"
 }
 
-// handleDeleteChannel exclui um canal — só o OWNER. A cascata remove membros e mensagens.
-// canArchiveChannel: o DONO do canal ou um admin/dono da organização. O admin da organização pode
-// não ser membro do canal (privado) — daí a elevação vir antes da associação.
+// handleDeleteChannel deletes a channel — OWNER only. The cascade removes members and messages.
+// canArchiveChannel: the channel OWNER or an organization admin/owner. The organization admin might
+// not be a member of the (private) channel — hence the elevation check comes before the membership one.
 func (s *Server) canArchiveChannel(r *http.Request, channelID uuid.UUID) bool {
 	mu := mailUserFrom(r.Context())
 	if mu.Role == "owner" || mu.Role == "admin" || mu.Role == "internal_admin" {
@@ -325,9 +328,9 @@ func (s *Server) canArchiveChannel(r *http.Request, channelID uuid.UUID) bool {
 	return err == nil && m.Role == "owner"
 }
 
-// ---- Busca de mensagens ----
+// ---- Message search ----
 
-// resolveColleague acha um usuário do tenant por e-mail/nome (exato, depois contém). uuid.Nil se não achar.
+// resolveColleague finds a tenant user by email/name (exact match, then contains). uuid.Nil if not found.
 func (s *Server) resolveColleague(ctx context.Context, tenant uuid.UUID, who string) uuid.UUID {
 	who = strings.ToLower(strings.TrimSpace(who))
 	if who == "" {

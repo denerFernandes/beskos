@@ -12,7 +12,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Fusão de duplicados + foto/avatar do contato.
+// Merging duplicates + contact photo/avatar.
 
 func orDefault(a, b string) string {
 	if strings.TrimSpace(a) == "" {
@@ -21,7 +21,7 @@ func orDefault(a, b string) string {
 	return a
 }
 
-// unionStr junta duas listas sem duplicar (preserva a ordem: a primeiro).
+// unionStr joins two lists without duplicating (preserves order: a first).
 func unionStr(a, b []string) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0, len(a)+len(b))
@@ -35,7 +35,7 @@ func unionStr(a, b []string) []string {
 	return out
 }
 
-// mergeCustom une dois objetos JSON de campos customizados; em conflito, o "keep" vence.
+// mergeCustom merges two JSON objects of custom fields; on conflict, "keep" wins.
 func mergeCustom(keep, merge json.RawMessage) json.RawMessage {
 	km, mm := map[string]string{}, map[string]string{}
 	_ = json.Unmarshal(keep, &km)
@@ -55,8 +55,9 @@ func mergeCustom(keep, merge json.RawMessage) json.RawMessage {
 	return b
 }
 
-// handleMergeContacts funde o contato `merge_id` no `id` (keep): preenche vazios do keep, une listas
-// e campos customizados, reatribui cards/notas/grupos e apaga o duplicado. Ambos têm de ser do dono.
+// handleMergeContacts merges the `merge_id` contact into `id` (keep): fills in keep's blanks, unions
+// lists and custom fields, reassigns cards/notes/groups, and deletes the duplicate. Both must belong
+// to the owner.
 func (s *Server) handleMergeContacts(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	keepID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -77,7 +78,7 @@ func (s *Server) handleMergeContacts(w http.ResponseWriter, r *http.Request) {
 	}
 	keep, err1 := s.q.GetContact(r.Context(), db.GetContactParams{ID: keepID, OwnerUserID: mu.ID, TenantID: mu.TenantID})
 	merge, err2 := s.q.GetContact(r.Context(), db.GetContactParams{ID: mergeID, OwnerUserID: mu.ID, TenantID: mu.TenantID})
-	// Só o dono funde (editar ≠ ver): exige owner_user_id do próprio nos dois.
+	// Only the owner can merge (editing ≠ viewing): requires their own owner_user_id on both.
 	if err1 != nil || err2 != nil || keep.OwnerUserID != mu.ID || merge.OwnerUserID != mu.ID {
 		writeErr(w, http.StatusNotFound, "contacts.not_owner")
 		return
@@ -105,7 +106,7 @@ func (s *Server) handleMergeContacts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "contacts.merge_failed")
 		return
 	}
-	// Reatribui as referências do duplicado para o mantido, depois apaga o duplicado.
+	// Reassigns the duplicate's references to the kept contact, then deletes the duplicate.
 	_ = s.q.MergeReassignCards(r.Context(), db.MergeReassignCardsParams{Keep: pgUUID(keepID), Merge: pgUUID(mergeID), Tenant: mu.TenantID})
 	_ = s.q.MergeReassignNotes(r.Context(), db.MergeReassignNotesParams{Keep: keepID, Merge: mergeID, Tenant: mu.TenantID})
 	_ = s.q.MergeReassignGroups(r.Context(), db.MergeReassignGroupsParams{Keep: keepID, Merge: mergeID})
@@ -118,8 +119,8 @@ func (s *Server) handleMergeContacts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleSetContactAvatar liga (ou desliga) a foto do contato a um ficheiro já enviado pelo dono via
-// /api/files. Reutiliza o storage e o endpoint /thumb — nada de novo pipeline de imagem.
+// handleSetContactAvatar links (or unlinks) the contact's photo to a file already uploaded by the
+// owner via /api/files. Reuses storage and the /thumb endpoint — no new image pipeline.
 func (s *Server) handleSetContactAvatar(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -128,7 +129,7 @@ func (s *Server) handleSetContactAvatar(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var req struct {
-		FileID string `json:"file_id"` // vazio = remover a foto
+		FileID string `json:"file_id"` // empty = remove the photo
 	}
 	if !decode(w, r, &req) {
 		return
@@ -141,7 +142,7 @@ func (s *Server) handleSetContactAvatar(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		if _, ferr := s.q.GetStorageFile(r.Context(), db.GetStorageFileParams{ID: fid, OwnerUserID: ownerPg(mu)}); ferr != nil {
-			writeErr(w, http.StatusNotFound, "storage.not_found") // o ficheiro tem de ser do dono
+			writeErr(w, http.StatusNotFound, "storage.not_found") // the file must belong to the owner
 			return
 		}
 		avatar = pgtype.UUID{Bytes: fid, Valid: true}

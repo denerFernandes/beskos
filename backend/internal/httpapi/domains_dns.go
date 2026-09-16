@@ -13,14 +13,14 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/provisioning"
 )
 
-// Verificação de DNS a pedido + exportação da zona (docs/DNS-PAGE.md).
+// On-demand DNS verification + zone export (docs/DNS-PAGE.md).
 //
-// Isto é INFORMATIVO: quem promove o domínio de `dns_pending` para `dns_verified` continua a ser o
-// worker (stepVerifyDNS). A página diz o que falta; não altera o estado do domínio. Assim uma
-// consulta com cache envenenada não pode "ativar" um domínio por engano.
+// This is INFORMATIONAL: whoever promotes the domain from `dns_pending` to `dns_verified` is still
+// the worker (stepVerifyDNS). The page says what's missing; it doesn't change the domain's state.
+// This way a lookup hitting a poisoned cache can't "activate" a domain by mistake.
 
-// dnsCheckTTL: o DNS não muda de segundo a segundo e cada verificação são N consultas de rede.
-// Uma janela curta chega para o botão "verificar agora" não virar uma alavanca de carga.
+// dnsCheckTTL: DNS doesn't change from second to second, and each check is N network lookups.
+// A short window is enough to keep the "check now" button from turning into a load lever.
 const dnsCheckTTL = 30 * time.Second
 
 type dnsCheckEntry struct {
@@ -56,9 +56,9 @@ func (c *dnsCheckCache) put(id uuid.UUID, recs []provisioning.RecordCheck) time.
 
 var dnsChecks dnsCheckCache
 
-// handleCheckDomainDNS verifica registo a registo e devolve o estado de cada um.
+// handleCheckDomainDNS checks record by record and returns the status of each one.
 func (s *Server) handleCheckDomainDNS(w http.ResponseWriter, r *http.Request) {
-	d, ok := s.ownedDomain(w, r) // posse do tenant primeiro: isto resolve DNS, não pode virar scanner alheio
+	d, ok := s.ownedDomain(w, r) // tenant ownership first: this resolves DNS, it can't become someone else's scanner
 	if !ok {
 		return
 	}
@@ -69,8 +69,8 @@ func (s *Server) handleCheckDomainDNS(w http.ResponseWriter, r *http.Request) {
 	}
 	recs, at, cached := dnsChecks.get(d.ID)
 	if !cached {
-		// Teto de tempo: um domínio mal configurado pode ter vários registos a bater no timeout do
-		// resolver, e a página não pode ficar pendurada por causa disso.
+		// Time cap: a misconfigured domain can have several records hitting the resolver's timeout,
+		// and the page can't be left hanging because of it.
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		defer cancel()
 		recs = provisioning.NewNetDNSVerifier().CheckZone(ctx, zone)
@@ -84,7 +84,7 @@ func (s *Server) handleCheckDomainDNS(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// dnsSummary conta o que interessa ao cabeçalho da página: o que falta e se o que falta é essencial.
+// dnsSummary counts what matters to the page's header: what's missing and whether what's missing is required.
 func dnsSummary(recs []provisioning.RecordCheck) map[string]any {
 	var ok, missing, mismatch, requiredPending int
 	for _, r := range recs {
@@ -106,8 +106,8 @@ func dnsSummary(recs []provisioning.RecordCheck) map[string]any {
 	}
 }
 
-// handleExportDomainDNS devolve a zona para importar no fornecedor. `zone` (BIND) é o que o
-// Cloudflare e o Route 53 importam; `csv` é para quem prefere editar à mão.
+// handleExportDomainDNS returns the zone for importing into the provider. `zone` (BIND) is what
+// Cloudflare and Route 53 import; `csv` is for whoever prefers to edit it by hand.
 func (s *Server) handleExportDomainDNS(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.ownedDomain(w, r)
 	if !ok {

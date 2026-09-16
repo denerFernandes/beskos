@@ -13,20 +13,20 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
-// Aliases de e-mail: um endereço extra que entrega na caixa de outra pessoa (contacto@empresa.com →
-// caixa da Ana). O alias NÃO é um membro da organização — não entra no chat, nem nos grupos, nem na
-// lista de pessoas. É só correio, e por isso vive em tabela própria em vez de numa linha de
-// mail_users: a separação fica na estrutura, não num filtro que uma query nova podia esquecer.
+// Email aliases: an extra address that delivers to someone else's mailbox (contact@company.com →
+// Ana's mailbox). The alias is NOT a member of the organization — it doesn't join chat, or groups,
+// or the people list. It's just mail, and that's why it lives in its own table instead of a row in
+// mail_users: the separation lives in the structure, not in a filter a new query could forget.
 //
-// No Stalwart, aliases são um campo da conta do dono (x:Account, DIVERGENCES §D4). A nossa tabela é
-// a fonte de verdade da lista: cada alteração reescreve o conjunto todo na conta, o que torna a
-// operação idempotente — e faz da reconciliação um simples "voltar a gravar".
+// In Stalwart, aliases are a field on the owner's account (x:Account, DIVERGENCES §D4). Our table
+// is the source of truth for the list: every change rewrites the whole set on the account, which
+// makes the operation idempotent — and turns reconciliation into a plain "write it back again".
 
-// syncAliasesToStalwart reescreve no Stalwart o conjunto de aliases de uma caixa a partir da nossa
-// base. Chamar depois de criar ou apagar.
+// syncAliasesToStalwart rewrites the set of aliases for a mailbox in Stalwart based on our
+// database. Call it after creating or deleting.
 func (s *Server) syncAliasesToStalwart(ctx context.Context, tenant uuid.UUID, mu db.MailUser) error {
 	if s.sw == nil || mu.StalwartAccountID == nil {
-		return nil // sem servidor de correio ligado (dev) ou caixa por provisionar
+		return nil // no mail server connected (dev) or mailbox not yet provisioned
 	}
 	rows, err := s.q.ListAliasesForStalwart(ctx, db.ListAliasesForStalwartParams{TenantID: tenant, UserID: mu.ID})
 	if err != nil {
@@ -35,14 +35,14 @@ func (s *Server) syncAliasesToStalwart(ctx context.Context, tenant uuid.UUID, mu
 	aliases := make([]stalwart.Alias, 0, len(rows))
 	for _, a := range rows {
 		if a.StalwartDomainID == "" {
-			continue // domínio ainda por provisionar lá: não há a que prender o alias
+			continue // domain not yet provisioned there: nothing to attach the alias to
 		}
 		aliases = append(aliases, stalwart.Alias{Local: a.Local, DomainID: a.StalwartDomainID})
 	}
 	return s.sw.SetAccountAliases(ctx, *mu.StalwartAccountID, aliases)
 }
 
-// handleListAliases lista os aliases do tenant (painel).
+// handleListAliases lists the tenant's aliases (panel).
 func (s *Server) handleListAliases(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListEmailAliases(r.Context(), mu.TenantID)
@@ -62,12 +62,12 @@ func (s *Server) handleListAliases(w http.ResponseWriter, r *http.Request) {
 }
 
 type createAliasReq struct {
-	Local    string `json:"local"`     // parte antes do @
-	DomainID string `json:"domain_id"` // domínio do tenant
-	OwnerID  string `json:"owner_id"`  // caixa que recebe
+	Local    string `json:"local"`     // part before the @
+	DomainID string `json:"domain_id"` // tenant's domain
+	OwnerID  string `json:"owner_id"`  // mailbox that receives it
 }
 
-// handleCreateAlias cria o alias e provisiona-o no Stalwart.
+// handleCreateAlias creates the alias and provisions it in Stalwart.
 func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 	actor := mailUserFrom(r.Context())
 	var req createAliasReq
@@ -85,7 +85,7 @@ func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dom, err := s.q.GetDomainByID(r.Context(), domID)
-	// Posse do tenant é verificada aqui e não só na query: o GetDomainByID é por id apenas.
+	// Tenant ownership is checked here and not only in the query: GetDomainByID is by id alone.
 	if err != nil || dom.TenantID != actor.TenantID {
 		writeErr(w, http.StatusNotFound, "aliases.invalid_domain")
 		return
@@ -101,8 +101,8 @@ func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	address := local + "@" + dom.Domain
-	// Um alias não pode roubar o endereço de uma caixa existente: o correio deixaria de chegar a quem
-	// de direito, e o Stalwart aceitaria a criação sem dizer nada.
+	// An alias can't steal the address of an existing mailbox: mail would stop reaching its
+	// rightful owner, and Stalwart would accept the creation without saying anything.
 	if _, err := s.q.GetMailUserByEmail(r.Context(), address); err == nil {
 		writeErr(w, http.StatusConflict, "aliases.address_taken")
 		return
@@ -115,10 +115,12 @@ func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.syncAliasesToStalwart(r.Context(), actor.TenantID, owner); err != nil {
-		// O motivo TEM de ficar no log: sem ele, "provision_failed" é um beco sem saída em produção
-		// — não se sabe se o Stalwart recusou o formato, o endereço ou a conta.
-		log.Printf("alias %s para %s: provisionamento no Stalwart falhou: %v", address, owner.Email, err)
-		// Não deixa lixo: se o servidor de correio recusou, o alias não fica a existir só para nós.
+		// The reason MUST end up in the log: without it, "provision_failed" is a dead end in
+		// production — there's no way to know whether Stalwart rejected the format, the address,
+		// or the account.
+		log.Printf("alias %s for %s: Stalwart provisioning failed: %v", address, owner.Email, err)
+		// Leaves no garbage behind: if the mail server rejected it, the alias doesn't keep existing
+		// only on our side.
 		_ = s.q.DeleteEmailAlias(r.Context(), db.DeleteEmailAliasParams{ID: alias.ID, TenantID: actor.TenantID})
 		writeErr(w, http.StatusBadGateway, "aliases.provision_failed")
 		return
@@ -131,7 +133,7 @@ func (s *Server) handleCreateAlias(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleDeleteAlias remove o alias e volta a gravar a lista no Stalwart.
+// handleDeleteAlias removes the alias and writes the list back to Stalwart.
 func (s *Server) handleDeleteAlias(w http.ResponseWriter, r *http.Request) {
 	actor := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -157,8 +159,8 @@ func (s *Server) handleDeleteAlias(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok"})
 }
 
-// handleMyAddresses devolve os endereços de quem está autenticado: o próprio e os aliases que
-// entregam na sua caixa. É o que o compositor mostra no "De:".
+// handleMyAddresses returns the addresses of the authenticated user: themselves and the aliases
+// that deliver to their mailbox. This is what the composer shows in the "From:" field.
 func (s *Server) handleMyAddresses(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	aliases, _ := s.q.ListAliasesForUser(r.Context(), db.ListAliasesForUserParams{TenantID: mu.TenantID, UserID: mu.ID})

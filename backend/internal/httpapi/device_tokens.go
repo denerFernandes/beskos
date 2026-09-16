@@ -27,7 +27,7 @@ import (
 
 const deviceTokenPrefix = "mlnd_"
 
-// hashDeviceToken devolve o SHA-256 em hex do token cru — a chave de busca guardada no banco.
+// hashDeviceToken returns the SHA-256 in hex of the raw token — the lookup key stored in the database.
 func hashDeviceToken(raw string) string {
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
@@ -39,7 +39,7 @@ func newDeviceToken() (raw, prefix string, err error) {
 		return "", "", err
 	}
 	raw = deviceTokenPrefix + base64.RawURLEncoding.EncodeToString(b)
-	// Prefixo curto e não sensível, só para o utilizador reconhecer o token na lista.
+	// Short, non-sensitive prefix, just so the user can recognize the token in the list.
 	prefix = raw[:len(deviceTokenPrefix)+6]
 	return raw, prefix, nil
 }
@@ -48,7 +48,7 @@ func (s *Server) handleCreateDeviceToken(w http.ResponseWriter, r *http.Request)
 	mu := mailUserFrom(r.Context())
 	var req struct {
 		Name      string `json:"name"`
-		ExpiresIn int    `json:"expires_in_days"` // 0 = não expira
+		ExpiresIn int    `json:"expires_in_days"` // 0 = never expires
 	}
 	if !decode(w, r, &req) {
 		return
@@ -74,7 +74,7 @@ func (s *Server) handleCreateDeviceToken(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusInternalServerError, "devices.create_failed")
 		return
 	}
-	// O token cru só é devolvido AQUI (nunca mais). O cliente guarda-o; nós só temos o hash.
+	// The raw token is only ever returned HERE (never again). The client stores it; we only keep the hash.
 	writeJSON(w, http.StatusOK, map[string]any{
 		"id": row.ID, "name": row.Name, "token": raw, "prefix": row.TokenPrefix, "created_at": row.CreatedAt,
 	})
@@ -107,8 +107,8 @@ func (s *Server) handleRevokeDeviceToken(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 
-// requireDeviceToken autentica o daemon pelo token de dispositivo (Bearer ou ?access_token=) e
-// injeta a mail_user no contexto — os handlers de sync reusam mailUserFrom sem saber a origem.
+// requireDeviceToken authenticates the daemon via the device token (Bearer or ?access_token=) and
+// injects the mail_user into the context — sync handlers reuse mailUserFrom without knowing the source.
 func (s *Server) requireDeviceToken(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw := sessionToken(r)
@@ -121,7 +121,7 @@ func (s *Server) requireDeviceToken(next http.Handler) http.Handler {
 			writeErr(w, http.StatusUnauthorized, "auth.invalid_token")
 			return
 		}
-		// Regista o "visto por último" para auditoria; falha aqui não bloqueia o pedido.
+		// Records "last seen" for audit purposes; a failure here doesn't block the request.
 		_ = s.q.TouchDeviceToken(r.Context(), row.TokenID)
 		ctx := context.WithValue(r.Context(), ctxMailUser, row.MailUser)
 		next.ServeHTTP(w, r.WithContext(ctx))

@@ -13,10 +13,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Import/export de eventos em iCalendar (RFC 5545) — o formato universal de agenda (Google, Apple,
-// Outlook). Cobre o essencial: VEVENT com data/hora, dia inteiro, título, local e descrição.
+// Import/export of events in iCalendar (RFC 5545) — the universal calendar format (Google, Apple,
+// Outlook). Covers the essentials: VEVENT with date/time, all-day, title, location, and description.
 
-const icsWide = 100 * 365 * 24 * time.Hour // janela "tudo" para exportar a agenda inteira
+const icsWide = 100 * 365 * 24 * time.Hour // "everything" window to export the entire calendar
 
 func (s *Server) handleExportEvents(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -53,7 +53,7 @@ func writeVEvent(b *bytes.Buffer, e db.Event, stamp string) {
 	fmt.Fprintf(b, "UID:%s@mailin\r\n", e.ID)
 	fmt.Fprintf(b, "DTSTAMP:%s\r\n", stamp)
 	if e.AllDay {
-		// Dia inteiro: DATE sem hora. DTEND é EXCLUSIVO no iCal → fim + 1 dia.
+		// All-day: DATE with no time. DTEND is EXCLUSIVE in iCal → end + 1 day.
 		fmt.Fprintf(b, "DTSTART;VALUE=DATE:%s\r\n", e.StartsAt.UTC().Format("20060102"))
 		fmt.Fprintf(b, "DTEND;VALUE=DATE:%s\r\n", e.EndsAt.UTC().AddDate(0, 0, 1).Format("20060102"))
 	} else {
@@ -110,8 +110,8 @@ func (s *Server) handleImportEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"imported": imported})
 }
 
-// parseICS extrai os VEVENT de um ficheiro iCalendar. Faz unfold de linhas (continuação começa com
-// espaço/tab), separa propriedade/params/valor e trata as datas com/sem hora.
+// parseICS extracts the VEVENTs from an iCalendar file. Unfolds lines (continuation starts with a
+// space/tab), splits property/params/value, and handles dates with/without time.
 func parseICS(data []byte) []icsEvent {
 	var out []icsEvent
 	var cur *icsEvent
@@ -176,7 +176,7 @@ func applyICSLine(e *icsEvent, line string) {
 		}
 	case "DTEND":
 		if t, _, ok := parseICSTime(value, isDate); ok {
-			// DTEND de dia inteiro é EXCLUSIVO → recua 1 dia para o nosso fim inclusivo.
+			// All-day DTEND is EXCLUSIVE → step back 1 day for our inclusive end.
 			if isDate {
 				t = t.AddDate(0, 0, -1)
 			}
@@ -185,8 +185,8 @@ func applyICSLine(e *icsEvent, line string) {
 	}
 }
 
-// parseICSTime lê os formatos comuns: 20300310T140000Z (UTC), 20300310T140000 (flutuante→UTC) e
-// 20300310 (DATE, dia inteiro). Ignora TZID (trata como UTC) — suficiente para o essencial.
+// parseICSTime reads the common formats: 20300310T140000Z (UTC), 20300310T140000 (floating→UTC), and
+// 20300310 (DATE, all-day). Ignores TZID (treats it as UTC) — enough for the essentials.
 func parseICSTime(v string, isDate bool) (time.Time, bool, bool) {
 	if isDate || (len(v) == 8 && !strings.Contains(v, "T")) {
 		if t, err := time.Parse("20060102", v); err == nil {

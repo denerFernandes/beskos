@@ -11,9 +11,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Comentários de uma tarefa + os avisos que eles disparam (ver tasks_notify.go para as regras).
+// Comments on a task + the notifications they trigger (see tasks_notify.go for the rules).
 
-// cardOr404 carrega o card do tenant do usuário autenticado.
+// cardOr404 loads the card from the authenticated user's tenant.
 func (s *Server) cardOr404(w http.ResponseWriter, r *http.Request) (db.Card, bool) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -58,8 +58,8 @@ func (s *Server) handleCreateCardComment(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// parent só vale se for comentário DESTA tarefa — senão dava para responder (e notificar) numa
-	// conversa de outro quadro só forjando o id.
+	// parent is only valid if it's a comment on THIS task — otherwise you could reply to (and notify)
+	// a thread on another board just by forging the id.
 	var parent pgtype.UUID
 	var parentAuthor uuid.UUID
 	if req.ParentID != "" {
@@ -75,14 +75,14 @@ func (s *Server) handleCreateCardComment(w http.ResponseWriter, r *http.Request)
 	mentions := s.parseMentions(r.Context(), mu.TenantID, body)
 	cm, err := s.q.CreateCardComment(r.Context(), db.CreateCardCommentParams{
 		TenantID: mu.TenantID, CardID: card.ID, AuthorID: mu.ID,
-		ParentID: parent, Body: body, Mentions: orEmpty(mentions), // NOT NULL: nil viraria NULL e o insert falha
+		ParentID: parent, Body: body, Mentions: orEmpty(mentions), // NOT NULL: nil would become NULL and the insert fails
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "comments.failed")
 		return
 	}
 
-	// Quem é avisado: menções > resposta > responsável/criador > quem já comentou antes.
+	// Who gets notified: mentions > reply > assignee/creator > who already commented before.
 	targets := taskWatchers(card)
 	for _, m := range mentions {
 		targets = append(targets, notifyTarget{userID: m, kind: kindTaskMention})
@@ -107,7 +107,7 @@ func (s *Server) handleDeleteCardComment(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusBadRequest, "comments.invalid_id")
 		return
 	}
-	// Só o autor apaga o próprio comentário.
+	// Only the author can delete their own comment.
 	if err := s.q.DeleteCardComment(r.Context(), db.DeleteCardCommentParams{ID: id, AuthorID: mu.ID}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "comments.failed")
 		return

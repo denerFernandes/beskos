@@ -15,17 +15,17 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/assistant"
 )
 
-// Proxy OpenAI-compatível para o plugin de IA do OnlyOffice usar o DeepSeek SEM que a chave real saia
-// do servidor. O plugin corre no iframe do Document Server (outra origem) e autentica com um token
-// estável do utilizador (Bearer) — que aqui vira identidade, quota e reencaminhamento com a chave
-// verdadeira. Só no editor autenticado; a quota é a do próprio utilizador (a mesma janela de 6h do
-// assistente). Ver docs/ASSISTENTE-IA.md (§9.2).
+// OpenAI-compatible proxy so the OnlyOffice AI plugin can use DeepSeek WITHOUT the real key ever
+// leaving the server. The plugin runs in the Document Server's iframe (another origin) and
+// authenticates with a stable user token (Bearer) — which here turns into identity, quota, and
+// forwarding with the real key. Only within the authenticated editor; the quota is the user's own
+// (the same 6h window as the assistant's). See docs/ASSISTENTE-IA.md (§9.2).
 
-// aiProxyHTTP tem timeout largo: uma completude de IA demora mais do que um pedido normal.
+// aiProxyHTTP has a generous timeout: an AI completion takes longer than a normal request.
 var aiProxyHTTP = &http.Client{Timeout: 120 * time.Second}
 
-// EnableAIProxy guarda o endpoint/chave/modelo do DeepSeek que o proxy reencaminha. A chave fica SÓ
-// aqui, no servidor. Sem chave, o proxy responde desligado.
+// EnableAIProxy stores the DeepSeek endpoint/key/model that the proxy forwards to. The key stays
+// ONLY here, on the server. Without a key, the proxy reports itself as disabled.
 func (s *Server) EnableAIProxy(baseURL, apiKey, model string) {
 	if baseURL == "" {
 		baseURL = "https://api.deepseek.com"
@@ -46,9 +46,9 @@ func (s *Server) aiProxyReady(w http.ResponseWriter) bool {
 	return true
 }
 
-// handleAIEditorKey devolve ao editor AUTENTICADO a config para o plugin de IA apontar ao nosso proxy:
-// URL base OpenAI-compatível + "API key" (token estável do utilizador) + modelo. A chave do DeepSeek
-// nunca aparece aqui.
+// handleAIEditorKey returns to the AUTHENTICATED editor the config for the AI plugin to point at
+// our proxy: OpenAI-compatible base URL + "API key" (stable user token) + model. The DeepSeek key
+// never appears here.
 func (s *Server) handleAIEditorKey(w http.ResponseWriter, r *http.Request) {
 	if !s.aiProxyReady(w) {
 		return
@@ -62,8 +62,9 @@ func (s *Server) handleAIEditorKey(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// aiCORS trata o cross-origin do plugin (iframe do Document Server). Responde ao preflight e põe os
-// cabeçalhos. Devolve true se já respondeu (OPTIONS) e o handler deve parar.
+// aiCORS handles the plugin's cross-origin requests (Document Server iframe). Answers the
+// preflight and sets the headers. Returns true if it already responded (OPTIONS) and the handler
+// should stop.
 func (s *Server) aiCORS(w http.ResponseWriter, r *http.Request) bool {
 	if s.office != nil && s.office.publicURL != "" {
 		w.Header().Set("Access-Control-Allow-Origin", s.office.publicURL)
@@ -79,8 +80,8 @@ func (s *Server) aiCORS(w http.ResponseWriter, r *http.Request) bool {
 	return false
 }
 
-// aiAuth valida o Bearer (token de IA do utilizador) e devolve a Identity. Sem cookie: o iframe do DS
-// não o tem.
+// aiAuth validates the Bearer (the user's AI token) and returns the Identity. No cookie: the DS
+// iframe doesn't have one.
 func (s *Server) aiAuth(r *http.Request) (assistant.Identity, bool) {
 	tok := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	userID, tenantID, ok := s.office.parseAIToken(tok)
@@ -90,8 +91,8 @@ func (s *Server) aiAuth(r *http.Request) (assistant.Identity, bool) {
 	return assistant.Identity{UserID: userID, TenantID: tenantID}, true
 }
 
-// handleAIModels responde a lista de modelos (o plugin pede /v1/models). Só o nosso modelo, para o
-// utilizador não escolher outro que o proxy não serve.
+// handleAIModels responds with the model list (the plugin requests /v1/models). Only our own
+// model, so the user can't pick another one the proxy doesn't serve.
 func (s *Server) handleAIModels(w http.ResponseWriter, r *http.Request) {
 	if s.aiCORS(w, r) || !s.aiProxyReady(w) {
 		return
@@ -106,8 +107,8 @@ func (s *Server) handleAIModels(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAIModelsEditor responde /v1/models ao ai-proxy do Document Server (só o nosso modelo). A
-// lista de modelos não é sensível; basta o proxy estar ligado.
+// handleAIModelsEditor responds to /v1/models for the Document Server's ai-proxy (only our own
+// model). The model list isn't sensitive; the proxy just needs to be enabled.
 func (s *Server) handleAIModelsEditor(w http.ResponseWriter, r *http.Request) {
 	if s.aiCORS(w, r) || !s.aiProxyReady(w) {
 		return
@@ -118,8 +119,9 @@ func (s *Server) handleAIModelsEditor(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAIChatCompletions é o coração do proxy: autentica, verifica a quota, força o nosso modelo,
-// reencaminha ao DeepSeek com a chave real e conta os tokens gastos na quota do utilizador.
+// handleAIChatCompletions is the heart of the proxy: authenticates, checks the quota, forces our
+// own model, forwards to DeepSeek with the real key, and counts the tokens spent against the
+// user's quota.
 func (s *Server) handleAIChatCompletions(w http.ResponseWriter, r *http.Request) {
 	if s.aiCORS(w, r) || !s.aiProxyReady(w) {
 		return
@@ -129,7 +131,7 @@ func (s *Server) handleAIChatCompletions(w http.ResponseWriter, r *http.Request)
 		aiError(w, http.StatusUnauthorized, "invalid api key")
 		return
 	}
-	// Quota do próprio utilizador (a mesma janela do assistente). Esgotada → recusa, como no chat.
+	// The user's own quota (same window as the assistant's). Exhausted → refuse, same as in chat.
 	if s.assistantQuotaStatus(r.Context(), id, time.Now()).Exceeded() {
 		aiError(w, http.StatusTooManyRequests, "AI quota exceeded for this period")
 		return
@@ -145,8 +147,8 @@ func (s *Server) handleAIChatCompletions(w http.ResponseWriter, r *http.Request)
 		aiError(w, http.StatusBadRequest, "invalid JSON")
 		return
 	}
-	// Força o nosso modelo (o utilizador não escolhe outro) e, em streaming, pede o uso no fim para
-	// poder contar os tokens.
+	// Forces our own model (the user doesn't get to pick another) and, in streaming mode, requests
+	// usage at the end so we can count the tokens.
 	req["model"] = s.aiProxyModel
 	stream, _ := req["stream"].(bool)
 	if stream {
@@ -177,17 +179,18 @@ func (s *Server) handleAIChatCompletions(w http.ResponseWriter, r *http.Request)
 	}
 	w.WriteHeader(resp.StatusCode)
 
-	// Grava o gasto na quota depois de a resposta passar. Um erro a contar não afeta o utilizador —
-	// mas o gasto real deve contar (por isso context.WithoutCancel: sobrevive a fechar a ligação).
+	// Records the spend against the quota after the response goes through. An error counting it
+	// doesn't affect the user — but the actual spend must still count (hence context.WithoutCancel:
+	// it survives the connection closing).
 	tokens := pipeAndCountTokens(w, resp.Body, stream)
 	if tokens > 0 {
 		s.recordAssistantUsage(context.WithoutCancel(r.Context()), id, tokens)
 	}
 }
 
-// pipeAndCountTokens copia a resposta do DeepSeek para o cliente e devolve os tokens totais. Em
-// streaming, lê linha a linha e apanha o "usage" do último pedaço (pedido com include_usage); em JSON
-// simples, desserializa e lê usage.total_tokens.
+// pipeAndCountTokens copies the DeepSeek response to the client and returns the total tokens. In
+// streaming mode, it reads line by line and picks up the "usage" from the last chunk (requested
+// with include_usage); for plain JSON, it deserializes and reads usage.total_tokens.
 func pipeAndCountTokens(w http.ResponseWriter, body io.Reader, stream bool) int {
 	flusher, _ := w.(http.Flusher)
 	if !stream {
@@ -238,7 +241,7 @@ func (s *Server) handleAIEnvelopeProxy(w http.ResponseWriter, r *http.Request) {
 	if s.aiCORS(w, r) || !s.aiProxyReady(w) {
 		return
 	}
-	// Identidade a partir do JWT do editor (assinado por nós; o segredo é partilhado com o DS).
+	// Identity from the editor's JWT (signed by us; the secret is shared with the DS).
 	jwt := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	payload, ok := s.office.jwtVerify(jwt)
 	if !ok {
@@ -261,10 +264,10 @@ func (s *Server) handleAIEnvelopeProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// O corpo pode chegar como ENVELOPE {target, headers, data} (o pedido OpenAI vai em `data`) OU já
-	// como o pedido OpenAI cru — depende de como o Document Server o reencaminha. Aceita os dois. O
-	// `target`/`headers` do envelope são ignorados de propósito: não seguimos para onde mandarem nem
-	// usamos chave de fora.
+	// The body may arrive as an ENVELOPE {target, headers, data} (the OpenAI request goes in `data`)
+	// OR already as the raw OpenAI request — depends on how the Document Server forwards it. Accepts
+	// both. The envelope's `target`/`headers` are ignored on purpose: we don't follow wherever
+	// they're told to, nor use an outside key.
 	raw, _ := io.ReadAll(io.LimitReader(r.Body, 2<<20))
 	var env struct {
 		Data json.RawMessage `json:"data"`
@@ -273,7 +276,7 @@ func (s *Server) handleAIEnvelopeProxy(w http.ResponseWriter, r *http.Request) {
 	if json.Unmarshal(raw, &env) == nil && len(env.Data) > 0 {
 		req = decodeInnerRequest(env.Data)
 	}
-	if req == nil { // sem `data`: o corpo já É o pedido OpenAI
+	if req == nil { // no `data`: the body already IS the OpenAI request
 		req = decodeInnerRequest(raw)
 	}
 	if req == nil || req["messages"] == nil {
@@ -313,13 +316,13 @@ func (s *Server) handleAIEnvelopeProxy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// userIDFromEditorJWT tira o id do utilizador do JWT que o Document Server dá ao plugin. O formato
-// não está documentado (docs têm lacuna), por isso tenta os sítios plausíveis: editorConfig.user.id,
-// user.id, userId no topo. O primeiro que for um UUID válido ganha.
+// userIDFromEditorJWT extracts the user id from the JWT the Document Server gives the plugin. The
+// format isn't documented (a gap in the docs), so it tries the plausible spots: editorConfig.user.id,
+// user.id, top-level userId. The first one that's a valid UUID wins.
 func userIDFromEditorJWT(payload map[string]any) uuid.UUID {
 	candidates := []string{}
-	// O JWT que o Document Server dá ao ai-proxy tem o utilizador em payload.user.id (confirmado ao
-	// vivo). Mantemos também os outros sítios plausíveis por robustez.
+	// The JWT the Document Server gives to the ai-proxy carries the user at payload.user.id
+	// (confirmed live). We also keep the other plausible spots for robustness.
 	if p, ok := payload["payload"].(map[string]any); ok {
 		if usr, ok := p["user"].(map[string]any); ok {
 			if s, _ := usr["id"].(string); s != "" {
@@ -352,8 +355,8 @@ func userIDFromEditorJWT(payload map[string]any) uuid.UUID {
 	return uuid.Nil
 }
 
-// decodeInnerRequest lê o pedido OpenAI de dentro do envelope. O `data` pode chegar como objeto JSON
-// ou como string com JSON (o body do fetch do plugin) — trata os dois.
+// decodeInnerRequest reads the OpenAI request from inside the envelope. The `data` field may
+// arrive as a JSON object or as a string containing JSON (the plugin's fetch body) — handles both.
 func decodeInnerRequest(data json.RawMessage) map[string]any {
 	var asStr string
 	if json.Unmarshal(data, &asStr) == nil {
@@ -366,7 +369,7 @@ func decodeInnerRequest(data json.RawMessage) map[string]any {
 	return req
 }
 
-// aiError responde no formato de erro do OpenAI, que é o que o plugin sabe ler.
+// aiError responds in OpenAI's error format, which is what the plugin knows how to read.
 func aiError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
