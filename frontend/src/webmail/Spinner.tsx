@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
 
-// Spinner de carregamento (anel girando). Usado em toda ação de IA e afins.
+// Loading spinner (spinning ring). Used across every AI action and similar ones.
 export function Spinner({ size = 15 }: { size?: number }) {
   return <span className="spin" style={{ width: size, height: size }} aria-label="loading" role="status" />;
 }
 
-// Indicador "IA pensando…" para áreas maiores (card de resumo, painéis).
+// "AI thinking…" indicator for larger areas (summary card, panels).
 export function AiThinking({ label }: { label?: string }) {
   const { t } = useTranslation();
   return (

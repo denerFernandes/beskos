@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Mailbox } from "../jmap/types";
 
-// Busca avançada estilo Gmail: monta um filtro JMAP a partir dos campos (De, Para, Assunto,
-// Contém, Não tem, Tamanho, Data, pasta, com anexo) e devolve-o ao MailView para executar.
+// Gmail-style advanced search: builds a JMAP filter from the fields (From, To, Subject,
+// Contains, Doesn't have, Size, Date, folder, has attachment) and returns it to MailView to run.
 export function MailAdvancedSearch({ folders, folderLabel, onSearch, onClose }: {
   folders: Mailbox[];
   folderLabel: (f?: Mailbox) => string;

@@ -9,7 +9,7 @@ import { IcTrash, IcSearch } from "../panel/icons";
 // Fixed pastel palette for categories: the user picks among these four; the event card gets a
 // pastel background derived from it (color-mix in CSS).
 export const CAT_COLORS = ["#F0926B", "#8B7CF6", "#62BEE9", "#53C08B"];
-// Cores dos calendários pessoais.
+// Colors for personal calendars.
 export const CAL_COLORS = ["#B4785F", "#e6a817", "#c0392b", "#2980b9", "#8e44ad", "#27ae60"];
 
 // Calendar sidebar in the SAME pattern as the Contacts page: `rlabel` sections, `grp-item` rows
@@ -101,7 +101,7 @@ function ColleaguePicker({ colleagues, value, onChange }: {
   );
 }
 
-// NewCalendarDrawer: cria um calendário num sidecar (padrão da casa — sem prompt() nativo).
+// NewCalendarDrawer: creates a calendar in a sidecar (house pattern — no native prompt()).
 export function NewCalendarDrawer({ defaultColor, pending, onClose, onCreate }: {
   defaultColor: string; pending: boolean; onClose: () => void; onCreate: (name: string, color: string) => void;
 }) {
@@ -134,7 +134,7 @@ export function NewCalendarDrawer({ defaultColor, pending, onClose, onCreate }: 
   );
 }
 
-// NewCategoryDrawer: categoria = tag partilhada do tenant com cor da paleta pastel fixa.
+// NewCategoryDrawer: category = tenant-shared tag with a color from the fixed pastel palette.
 export function NewCategoryDrawer({ pending, onClose, onCreate }: {
   pending: boolean; onClose: () => void; onCreate: (name: string, color: string) => void;
 }) {

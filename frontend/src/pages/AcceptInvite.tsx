@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { PasswordField } from "../webmail/PasswordField";
 import { useQuery } from "@tanstack/react-query";
 
-// Página pública de aceite de convite: valida o token e cria a conta do painel.
+// Public invite-acceptance page: validates the token and creates the panel account.
 export function AcceptInvitePage() {
   const { t } = useTranslation();
   const { token = "" } = useParams();
@@ -13,7 +13,7 @@ export function AcceptInvitePage() {
   const [pwd, setPwd] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const pwOk = useRef(false); // senha aceitável? (o servidor de correio recusa as fracas)
+  const pwOk = useRef(false); // password acceptable? (the mail server rejects weak ones)
 
   const invite = useQuery({
     queryKey: ["invite", token],

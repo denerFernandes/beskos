@@ -50,7 +50,7 @@ function ChatTextView({ fileId, name }: { fileId: string; name: string }) {
   });
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   let body = q.data ?? "";
-  if (ext === "json" && body) { try { body = JSON.stringify(JSON.parse(body), null, 2); } catch { /* mantém cru */ } }
+  if (ext === "json" && body) { try { body = JSON.stringify(JSON.parse(body), null, 2); } catch { /* keep raw */ } }
   return (
     <div className="viewer-text">
       {q.isLoading ? <div className="editor-msg">{t("editor.loading")}</div>

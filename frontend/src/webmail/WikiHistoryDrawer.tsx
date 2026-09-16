@@ -7,13 +7,13 @@ import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 import { IcRefresh } from "../panel/icons";
 
-// WikiHistoryDrawer mostra o histórico de revisões de uma página: lista de versões, diff textual
-// (linhas adicionadas/removidas) entre a versão escolhida e o conteúdo atual, e restaurar (que grava
-// uma NOVA versão a partir da antiga — reversível, §6). Só quem edita vê o botão de restaurar.
+// WikiHistoryDrawer shows a page's revision history: list of versions, a text diff
+// (added/removed lines) between the chosen version and the current content, and restore (which saves
+// a NEW version from the old one — reversible, §6). Only whoever can edit sees the restore button.
 
 type DiffLine = { type: "same" | "add" | "del"; text: string };
 
-// lineDiff é um diff LCS por linhas: `del` = linha só na versão antiga, `add` = só na atual.
+// lineDiff is a line-based LCS diff: `del` = line only in the old version, `add` = only in the current one.
 function lineDiff(oldText: string, newText: string): DiffLine[] {
   const a = oldText.split("\n"), b = newText.split("\n");
   const n = a.length, m = b.length;

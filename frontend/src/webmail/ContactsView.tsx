@@ -11,8 +11,8 @@ import { toast } from "./toast";
 import { triggerDownload } from "../apiBase";
 import { IcPlus, IcUpload, IcDownload, IcGlobe } from "../panel/icons";
 
-// CONTATOS: uma lista só — empresas e pessoas juntas, a pessoa mostrando a empresa ao lado.
-// Ver é regido pelo GRUPO (partilhado com equipas); editar é do dono.
+// CONTACTS: a single list — companies and people together, the person showing the company alongside.
+// Viewing is governed by GROUP (shared with teams); editing belongs to the owner.
 // URLs: /mail/contacts | /mail/contacts/<id>
 export function ContactsView({ search, sub }: { search: string; sub?: string; sub2?: string }) {
   const nav = useNavigate();
@@ -20,9 +20,9 @@ export function ContactsView({ search, sub }: { search: string; sub?: string; su
   const openContact = (id: string) => nav(`/mail/contacts/${id}`);
 
   if (sub) {
-    // Detalhe: SEM a coluna vazia de 220px que ficava onde estava a barra de grupos — dava a
-    // sensação de "menu sumiu". A ficha ocupa a largura toda da stage; o rail (menu) continua à
-    // esquerda, no shell.
+    // Detail: WITHOUT the empty 220px column that used to sit where the groups bar was — it gave
+    // the feeling that the "menu disappeared". The record takes up the stage's full width; the rail
+    // (menu) stays on the left, in the shell.
     return (
       <div className="cts cts-detail">
         <ContactPage id={sub} onBack={goContacts} onOpenContact={openContact} />
@@ -70,8 +70,8 @@ function ContactList({ search, onOpen }: { search: string; onOpen: (id: string) 
   const countIn = (gid: string) => (q.data ?? []).filter((c) => c.group_ids.includes(gid)).length;
 
   return (
-    // No telemóvel (max-md) empilha: a barra de grupos passa a topo e a lista ocupa a largura toda,
-    // em vez de espremer o conteúdo com a coluna fixa de 220px. (Tailwind, ver tailwind.config.js.)
+    // On mobile (max-md) it stacks: the groups bar moves to the top and the list takes up the full
+    // width, instead of squeezing the content with the fixed 220px column. (Tailwind, see tailwind.config.js.)
     <div className="cts max-md:grid-cols-1">
       <GroupsSidebar active={group} onSelect={setGroup} allCount={(q.data ?? []).length} count={countIn} />
 

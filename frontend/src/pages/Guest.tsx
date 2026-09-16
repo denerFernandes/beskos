@@ -30,7 +30,7 @@ export function GuestPage() {
 
   const info = useQuery({ queryKey: ["public-meet", room], queryFn: () => backend.publicMeetInfo(room!), retry: false, enabled: !!room });
   const branded = useBrandingCapability(); // Pro: no "Powered by" signature
-  // Marca da organização (cor) aplicada à página; volta ao default ao sair.
+  // Organization brand (color) applied to the page; reverts to the default on exit.
   useEffect(() => { if (info.data?.brand?.color) applyBrandColor(info.data.brand.color); return () => applyBrandColor(""); }, [info.data?.brand?.color]);
 
   async function join() {
@@ -44,7 +44,7 @@ export function GuestPage() {
     setBusy(false);
   }
 
-  // Aguardando aprovação: consulta o lobby até ser admitido (ou negado).
+  // Waiting for approval: polls the lobby until admitted (or denied).
   useEffect(() => {
     if (!waiting) return;
     const tick = async () => {
@@ -52,7 +52,7 @@ export function GuestPage() {
         const r = await backend.publicLobbyPoll(waiting);
         if (r.status === "admitted" && r.token) { setSession(r); setWaiting(null); }
         else if (r.status === "denied") { setDenied(true); setWaiting(null); }
-      } catch { /* segue tentando */ }
+      } catch { /* keep trying */ }
     };
     poll.current = window.setInterval(tick, 3000);
     return () => { if (poll.current) clearInterval(poll.current); };

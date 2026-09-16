@@ -1,5 +1,5 @@
-// Interruptor estilo iOS (on/off). Acessível: é um <button role=switch> com aria-checked, então
-// funciona por teclado e leitor de ecrã — ao contrário de um <div> pintado.
+// iOS-style toggle switch (on/off). Accessible: it's a <button role=switch> with aria-checked, so
+// it works via keyboard and screen reader — unlike a painted <div>.
 export function Switch({ checked, onChange, disabled, label }: {
   checked: boolean;
   onChange: (on: boolean) => void;

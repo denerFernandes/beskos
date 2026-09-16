@@ -6,7 +6,7 @@ import { backend } from "./backend";
 const PALETTE = ["#B4785F", "#3B6FB0", "#8257C7", "#B44D3A", "#2E7D5B", "#C0692F", "#C9871F"];
 const colorFor = (name: string) => PALETTE[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % PALETTE.length];
 
-// Seletor de tags do catálogo compartilhado (eventos, contatos…). Cria tags novas no catálogo.
+// Tag picker from the shared catalog (events, contacts…). Creates new tags in the catalog.
 export function TagPicker({ value, onChange }: { value: string[]; onChange: (t: string[]) => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

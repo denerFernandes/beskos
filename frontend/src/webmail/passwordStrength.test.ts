@@ -4,31 +4,31 @@ import { measure } from "./passwordStrength";
 // The server (Stalwart's zxcvbn) is the authority; this meter exists to warn BEFORE and is
 // intentionally stricter. The cases below are the ones we caught in production or that the user
 // naturally tries.
-describe("medidor de palavra-passe", () => {
-  it("recusa o que o Stalwart recusou (repetições)", () => {
+describe("password strength meter", () => {
+  it("rejects what Stalwart rejected (repetitions)", () => {
     expect(measure("abcabcabcabc").ok).toBe(false);
     expect(measure("noreply2026noreply2026").ok).toBe(false);
   });
 
-  it("recusa curtas, comuns e sequências", () => {
+  it("rejects short, common, and sequential passwords", () => {
     expect(measure("Ab1!xY").ok).toBe(false);            // short
     expect(measure("password12345").ok).toBe(false);     // common
     expect(measure("qwertyuiop123").ok).toBe(false);     // keyboard sequence
     expect(measure("abcdefghijkl").ok).toBe(false);      // alphabet sequence
   });
 
-  it("recusa senhas feitas do próprio endereço", () => {
+  it("rejects passwords made from the user's own address", () => {
     expect(measure("dfernandes2026!", ["dfernandes@beskos.com"]).ok).toBe(false);
     expect(measure("beskos-forte-2026", ["ana@beskos.com"]).ok).toBe(false);
   });
 
-  it("aceita frases longas e senhas variadas", () => {
+  it("accepts long passphrases and varied passwords", () => {
     expect(measure("cavalo bateria grampo correto").ok).toBe(true);
     expect(measure("Tr0vo4da-Lilas!Verde").ok).toBe(true);
     expect(measure("xJ9#pQ2vLm74Kd", ["ana@acme.pt"]).ok).toBe(true);
   });
 
-  it("vazia não acusa nada (ainda não escreveu)", () => {
+  it("empty shows nothing (hasn't typed yet)", () => {
     const s = measure("");
     expect(s.score).toBe(0);
     expect(s.hint).toBe("");

@@ -6,8 +6,8 @@ import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 import { WikiGrantsEditor } from "./WikiGrantsEditor";
 
-// WikiPageShareDrawer é a partilha de UMA PÁGINA (B3): concessões extra só desta página, que se
-// SOMAM ao acesso herdado da wiki (nunca reduzem — §5 do doc). Só managers da página a abrem.
+// WikiPageShareDrawer is the sharing for ONE PAGE (B3): extra grants scoped to this page only, which
+// ADD to the access inherited from the wiki (never reduce it — doc §5). Only page managers open it.
 
 export function WikiPageShareDrawer({ pageId, onClose }: { pageId: string; onClose: () => void }) {
   const { t } = useTranslation();

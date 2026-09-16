@@ -6,8 +6,8 @@ import { mediaUrl } from "../apiBase";
 import { toast } from "./toast";
 import { IcTrash, IcX } from "../panel/icons";
 
-// Gestão dos emojis customizados do workspace: envia a imagem por /api/files e liga um :nome:.
-// Qualquer membro adiciona/remove (é conteúdo partilhado da equipa). O nome vai só [a-z0-9_].
+// Management of the workspace's custom emoji: uploads the image via /api/files and links it to a :name:.
+// Any member can add/remove it (it's shared team content). The name only allows [a-z0-9_].
 export function EmojiManager({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

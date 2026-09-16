@@ -5,9 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import { colleaguesApi, backend } from "./backend";
 import { IcTrash } from "../panel/icons";
 
-// WikiGrantsEditor é a UI partilhada de concessões (lista + adicionar) usada pela partilha do ESPAÇO
-// (WikiShareDrawer) e da PÁGINA (WikiPageShareDrawer). Sujeitos: pessoa (colegas), equipa
-// (/api/my-groups) ou organização; papéis ver/editar/gerir. Sem diálogos nativos.
+// WikiGrantsEditor is the shared grants UI (list + add) used by SPACE sharing
+// (WikiShareDrawer) and PAGE sharing (WikiPageShareDrawer). Subjects: person (colleagues), team
+// (/api/my-groups) or organization; roles view/edit/manage. No native dialogs.
 
 export type GrantRow = { id: string; subject_type: "user" | "group" | "org"; subject_id: string | null; role: string };
 

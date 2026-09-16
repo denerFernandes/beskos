@@ -6,8 +6,8 @@ import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 import { WikiGrantsEditor } from "./WikiGrantsEditor";
 
-// WikiShareDrawer é a partilha de uma WIKI (espaço) — só managers: concessões (pessoa/equipa/org com
-// papel ver/editar/gerir, via WikiGrantsEditor) + o link público só-leitura. Sem diálogos nativos.
+// WikiShareDrawer is the sharing for a WIKI (space) — managers only: grants (person/team/org with a
+// view/edit/manage role, via WikiGrantsEditor) + the public read-only link. No native dialogs.
 
 export function WikiShareDrawer({ spaceId, onClose }: { spaceId: string; onClose: () => void }) {
   const { t } = useTranslation();

@@ -7,9 +7,9 @@ import { toast } from "./toast";
 import { Drawer } from "./Drawer";
 import { IcPencilBox } from "../panel/icons";
 
-// WikiNewPageDrawer: criar página escolhendo um MODELO — vazia ou um dos templates de origem (com
-// miniatura desenhada em CSS a representar a estrutura), mais os templates do próprio espaço
-// (páginas marcadas como template). O conteúdo dos modelos é 100% i18n.
+// WikiNewPageDrawer: create a page by choosing a TEMPLATE — blank or one of the built-in templates (with
+// a CSS-drawn thumbnail representing the structure), plus the space's own templates
+// (pages marked as a template). The templates' content is 100% i18n.
 
 type TFn = (k: string) => string;
 const bnText = (text: string) => [{ type: "text", text, styles: {} }];
@@ -19,8 +19,8 @@ const bullet = (t: string) => ({ type: "bulletListItem", props: {}, content: bnT
 const num = (t: string) => ({ type: "numberedListItem", props: {}, content: bnText(t), children: [] });
 const check = (t: string) => ({ type: "checkListItem", props: {}, content: bnText(t), children: [] });
 
-// Miniatura: sequência de traços que representa a estrutura do modelo (h=título, p=texto, b=bullet,
-// n=numerada, c=checkbox).
+// Thumbnail: sequence of strokes representing the template's structure (h=heading, p=text, b=bullet,
+// n=numbered, c=checkbox).
 type Tpl = { key: string; thumb: string[]; blocks: (t: TFn) => unknown[] };
 const BUILTIN_TEMPLATES: Tpl[] = [
   { key: "blank", thumb: ["p"], blocks: () => [{ type: "paragraph", props: {}, content: [], children: [] }] },

@@ -6,8 +6,8 @@ import { Switch } from "./Switch";
 import { toast } from "./toast";
 import { IcBell, IcSearch, IcChevron, IcTrash, IcPlus } from "../panel/icons";
 
-// Mural de avisos da organização (estilo notícias). Todos leem os publicados; admin/owner publicam,
-// despublicam, criam e apagam. Busca + paginação no servidor.
+// Organization announcements board (news-style). Everyone reads published ones; admin/owner publish,
+// unpublish, create and delete. Search + pagination on the server.
 export function AnnouncementsBoard() {
   const { t, i18n } = useTranslation();
   const [q, setQ] = useState("");
