@@ -1,16 +1,16 @@
-// ses-tenants garante que cada domínio já provisionado tem o seu isolamento no SES:
-// um conjunto de configuração predefinido na identidade (que é o que produz efeito hoje) e um
-// tenant associado (que produz efeito quando as mensagens levarem o cabeçalho X-SES-TENANT).
+// ses-tenants ensures every already-provisioned domain has its own isolation in SES:
+// a configuration set predefined on the identity (which is what takes effect today) and an
+// associated tenant (which takes effect once messages carry the X-SES-TENANT header).
 //
-// PORQUÊ UM COMANDO À PARTE: o isolamento de reputação passou a ser criado no provisionamento, mas
-// os domínios que já lá estavam nunca passam por esse passo outra vez. Sem isto, os clientes
-// antigos continuam todos na reputação da conta — que é precisamente quem tem mais correio enviado
-// e, portanto, mais probabilidade de a estragar.
+// WHY A SEPARATE COMMAND: reputation isolation started being created during provisioning, but
+// domains that were already there never go through that step again. Without this, the old
+// customers all stay on the account's reputation — which is precisely the customer with the most
+// mail sent, and therefore the most likely to spoil it.
 //
-//	ses-tenants            # mostra o estado de cada domínio
-//	ses-tenants --create    # cria o que faltar
+//	ses-tenants            # shows the status of each domain
+//	ses-tenants --create    # creates whatever is missing
 //
-// Idempotente: um tenant que já existe é sucesso. Correr duas vezes não faz mal.
+// Idempotent: a tenant that already exists is a success. Running it twice does no harm.
 package main
 
 import (
@@ -66,7 +66,7 @@ func main() {
 			continue
 		}
 
-		// O conjunto de configuração primeiro: é o que produz efeito sem depender de mais nada.
+		// The configuration set first: it's what takes effect without depending on anything else.
 		if err := relay.CreateConfigurationSet(ctx, name); err != nil {
 			log.Printf("  %-24s create configuration set: %v", d.Domain, err)
 			failures++

@@ -16,37 +16,37 @@ func TestGenerateAndValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !Validate(secret, c, now) {
-		t.Errorf("código válido rejeitado")
+		t.Errorf("valid code rejected")
 	}
 	if Validate(secret, "000000", now) && c != "000000" {
-		t.Errorf("código errado aceito")
+		t.Errorf("wrong code accepted")
 	}
 }
 
 func TestWindowTolerance(t *testing.T) {
 	secret, _ := GenerateSecret()
 	now := time.Unix(1_700_000_000, 0)
-	prev, _ := code(secret, uint64(now.Unix())/period-1) // passo anterior
+	prev, _ := code(secret, uint64(now.Unix())/period-1) // previous step
 	if !Validate(secret, prev, now) {
-		t.Errorf("passo anterior (±1) deveria ser aceito")
+		t.Errorf("previous step (±1) should be accepted")
 	}
-	old, _ := code(secret, uint64(now.Unix())/period-5) // fora da janela
+	old, _ := code(secret, uint64(now.Unix())/period-5) // outside the window
 	if Validate(secret, old, now) {
-		t.Errorf("passo distante NÃO deveria ser aceito")
+		t.Errorf("distant step should NOT be accepted")
 	}
 }
 
 func TestRFC6238Vector(t *testing.T) {
-	// Vetor de teste do RFC 6238 (SHA1): secret ASCII "12345678901234567890".
-	// Base32 do ASCII acima:
+	// RFC 6238 test vector (SHA1): ASCII secret "12345678901234567890".
+	// Base32 of the ASCII above:
 	secret := "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ"
-	// Em T=59s (contador 1) o código de 8 dígitos é 94287082; 6 dígitos = 287082.
+	// At T=59s (counter 1) the 8-digit code is 94287082; 6 digits = 287082.
 	got, err := code(secret, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got != "287082" {
-		t.Errorf("vetor RFC 6238: got %s, quer 287082", got)
+		t.Errorf("RFC 6238 vector: got %s, want 287082", got)
 	}
 }
 
@@ -55,7 +55,7 @@ func TestBadInputs(t *testing.T) {
 	now := time.Now()
 	for _, in := range []string{"", "12345", "1234567", "abcdef"} {
 		if Validate(secret, in, now) {
-			t.Errorf("entrada inválida %q aceita", in)
+			t.Errorf("invalid input %q accepted", in)
 		}
 	}
 }
@@ -63,7 +63,7 @@ func TestBadInputs(t *testing.T) {
 func TestProvisioningURI(t *testing.T) {
 	uri := ProvisioningURI("ABC", "user@x.com")
 	if !contains(uri, "otpauth://totp/") || !contains(uri, "secret=ABC") || !contains(uri, "issuer=Beskos") {
-		t.Errorf("URI inesperada: %s", uri)
+		t.Errorf("unexpected URI: %s", uri)
 	}
 }
 

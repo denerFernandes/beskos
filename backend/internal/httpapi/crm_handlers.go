@@ -10,7 +10,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// handleEditCrmNote edita o corpo de uma nota de CRM (só o autor).
+// handleEditCrmNote edits the body of a CRM note (author only).
 func (s *Server) handleEditCrmNote(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	nid, err := uuid.Parse(chi.URLParam(r, "noteId"))
@@ -36,7 +36,7 @@ func (s *Server) handleEditCrmNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, n)
 }
 
-// handleTransferContact passa a posse do contato para um colega do mesmo tenant. Só o dono atual pode.
+// handleTransferContact passes ownership of the contact to a colleague in the same tenant. Only the current owner may.
 func (s *Server) handleTransferContact(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -56,12 +56,12 @@ func (s *Server) handleTransferContact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := s.q.GetMailUserInTenant(r.Context(), db.GetMailUserInTenantParams{ID: newOwner, TenantID: mu.TenantID}); err != nil {
-		writeErr(w, http.StatusNotFound, "contacts.not_found") // novo dono tem de ser colega do tenant
+		writeErr(w, http.StatusNotFound, "contacts.not_found") // the new owner must be a colleague in the tenant
 		return
 	}
 	c, err := s.q.TransferContactOwner(r.Context(), db.TransferContactOwnerParams{ID: id, OwnerUserID: mu.ID, OwnerUserID_2: newOwner})
 	if err != nil {
-		writeErr(w, http.StatusNotFound, "contacts.not_owner") // só o dono atual transfere
+		writeErr(w, http.StatusNotFound, "contacts.not_owner") // only the current owner may transfer
 		return
 	}
 	writeJSON(w, http.StatusOK, c)

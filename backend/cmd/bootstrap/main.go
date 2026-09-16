@@ -1,8 +1,8 @@
-// cmd/bootstrap: completa o bootstrap inicial do Stalwart (uma vez por instância).
-// Necessário antes de qualquer provisionamento (DIVERGENCES §D3). Após rodar, REINICIE
-// o processo do Stalwart (docker restart) para o bootstrap valer.
+// cmd/bootstrap: completes the initial Stalwart bootstrap (once per instance).
+// Required before any provisioning (DIVERGENCES §D3). After running, RESTART
+// the Stalwart process (docker restart) for the bootstrap to take effect.
 //
-// Uso:
+// Usage:
 //
 //	STALWART_URL=... STALWART_ADMIN_ID=admin STALWART_ADMIN_SECRET=... \
 //	STALWART_HOSTNAME=mail.beskos.app STALWART_DEFAULT_DOMAIN=beskos.app \

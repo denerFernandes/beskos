@@ -50,12 +50,12 @@ func (s *Server) handleSESWebhook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// recordSESEvent grava um mail_event por destinatário afetado, resolvendo o tenant pelo domínio
-// do remetente. Domínio desconhecido → tenant NULL (fica visível como "sem tenant" no manager).
+// recordSESEvent writes a mail_event per affected recipient, resolving the tenant by the
+// sender's domain. Unknown domain → tenant NULL (shows up as "no tenant" in the manager).
 func (s *Server) recordSESEvent(r *http.Request, ev *ses.SESEvent) {
 	kind := ev.Kind()
 	if kind == "" {
-		return // evento sem interesse (open/click/etc.)
+		return // event of no interest (open/click/etc.)
 	}
 	tenant := pgtype.UUID{}
 	if at := strings.LastIndex(ev.Mail.Source, "@"); at >= 0 {

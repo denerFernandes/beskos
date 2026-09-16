@@ -10,7 +10,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Catálogo de tags por tenant — compartilhado entre eventos, contatos e (futuro) tarefas.
+// Per-tenant tag catalog — shared across events, contacts and (future) tasks.
 
 func (s *Server) handleListTags(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())

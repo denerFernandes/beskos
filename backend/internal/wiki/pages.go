@@ -223,7 +223,7 @@ func (s *Service) RestoreVersion(ctx context.Context, tenantID, userID, pageID u
 	}, expectedVersion)
 }
 
-// SetTemplate marca/desmarca uma página como template do espaço (role >= editor). B7.
+// SetTemplate marks/unmarks a page as a space template (role >= editor). B7.
 func (s *Service) SetTemplate(ctx context.Context, tenantID, userID, pageID uuid.UUID, isTemplate bool) (db.WikiPage, error) {
 	if err := s.requirePageRole(ctx, tenantID, userID, pageID, RoleEditor); err != nil {
 		return db.WikiPage{}, err
@@ -233,8 +233,8 @@ func (s *Service) SetTemplate(ctx context.Context, tenantID, userID, pageID uuid
 	})
 }
 
-// ListTemplates lista os templates de um espaço (role >= viewer; usá-los para criar exige editor,
-// conferido no CreatePage).
+// ListTemplates lists a space's templates (role >= viewer; using them to create requires editor,
+// checked in CreatePage).
 func (s *Service) ListTemplates(ctx context.Context, tenantID, userID, spaceID uuid.UUID) ([]db.ListWikiTemplatesRow, error) {
 	if err := s.requireSpaceRole(ctx, tenantID, userID, spaceID, RoleViewer); err != nil {
 		return nil, err

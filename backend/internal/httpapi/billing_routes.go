@@ -19,7 +19,7 @@ func (s *Server) mountBilling(r chi.Router) {
 
 func (s *Server) mountPublicBilling(r chi.Router) {
 	r.Post("/billing/webhook", s.handleBillingWebhook)
-	// Registo self-service (/signup): catálogo, simulação com IVA e a criação da organização.
+	// Self-service signup (/signup): catalog, VAT simulation, and creating the organization.
 	r.With(s.publicRateLimit).Get("/public/plans", s.handlePublicPlans)
 	r.With(s.publicRateLimit).Post("/public/quote", s.handlePublicQuote)
 	r.With(s.publicRateLimit).Post("/public/signup", s.handlePublicSignup)

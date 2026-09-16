@@ -9,7 +9,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Marcadores: catálogo por tenant. Aplicar/remover em e-mails é via keywords JMAP no frontend.
+// Labels: per-tenant catalog. Applying/removing them on emails is via JMAP keywords in the frontend.
 
 func (s *Server) handleListLabels(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())

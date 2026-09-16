@@ -12,8 +12,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Agendar envio de mensagem + "lembrar-me" de uma mensagem. Os dois são varridos pelo worker (ver
-// cmd/worker): a agendada é enviada e publicada no hub; o lembrete vira uma notificação no sino.
+// Scheduling a message send + "remind me" about a message. Both are swept by the worker (see
+// cmd/worker): the scheduled one is sent and published to the hub; the reminder becomes a
+// notification in the bell.
 
 func (s *Server) handleScheduleMessage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -79,7 +80,7 @@ func (s *Server) handleCancelScheduled(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "canceled"})
 }
 
-// handleRemindMessage cria um lembrete pessoal sobre uma mensagem (o worker notifica no momento).
+// handleRemindMessage creates a personal reminder about a message (the worker notifies at the time).
 func (s *Server) handleRemindMessage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	mid, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -104,7 +105,7 @@ func (s *Server) handleRemindMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "chat.not_found")
 		return
 	}
-	if _, ok := s.memberOr403(w, r, msg.ChannelID); !ok { // só quem vê o canal lembra da mensagem
+	if _, ok := s.memberOr403(w, r, msg.ChannelID); !ok { // only someone who can see the channel may remind about the message
 		return
 	}
 	rm, err := s.q.CreateMessageReminder(r.Context(), db.CreateMessageReminderParams{

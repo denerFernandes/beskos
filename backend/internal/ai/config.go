@@ -5,21 +5,21 @@ import (
 	"os"
 )
 
-// Config seleciona e configura o provider por ambiente. Adicionar um provider novo no futuro
-// = adicionar um case em New() + sua implementação de Provider. Nada mais muda.
+// Config selects and configures the provider per environment. Adding a new provider in the
+// future = adding a case in New() + its Provider implementation. Nothing else changes.
 type Config struct {
-	Provider string // "deepseek" (default). Futuro: "claude", "openai", ...
+	Provider string // "deepseek" (default). Future: "claude", "openai", ...
 	APIKey   string
-	BaseURL  string // opcional; cada provider tem um default
-	Model    string // opcional; cada provider tem um default
+	BaseURL  string // optional; each provider has a default
+	Model    string // optional; each provider has a default
 }
 
-// FromEnv lê a config do ambiente (segredos fora do código — lei §10).
+// FromEnv reads the config from the environment (secrets outside the code — law §10).
 //
 //	AI_PROVIDER   (default "deepseek")
-//	AI_API_KEY    (obrigatório)
-//	AI_BASE_URL   (opcional)
-//	AI_MODEL      (opcional; ex.: "deepseek-v4")
+//	AI_API_KEY    (required)
+//	AI_BASE_URL   (optional)
+//	AI_MODEL      (optional; e.g.: "deepseek-v4")
 func FromEnv() Config {
 	return Config{
 		Provider: getenv("AI_PROVIDER", "deepseek"),
@@ -29,7 +29,7 @@ func FromEnv() Config {
 	}
 }
 
-// New constrói o Provider a partir da config. É o ÚNICO ponto que conhece providers concretos.
+// New builds the Provider from the config. It's the ONLY place that knows concrete providers.
 func New(cfg Config) (Provider, error) {
 	if cfg.APIKey == "" {
 		return nil, fmt.Errorf("ai: AI_API_KEY is required")
@@ -38,9 +38,10 @@ func New(cfg Config) (Provider, error) {
 	case "deepseek", "":
 		return NewDeepSeek(cfg.APIKey, cfg.BaseURL, cfg.Model), nil
 	case "tensorx":
-		// Mesmo protocolo (compatível com OpenAI), outro destino: a TensorX serve modelos abertos
-		// em infraestrutura europeia. É a diferença entre o conteúdo do cliente ficar na UE ou ir
-		// parar ao criador do modelo — e é o que sustenta a frase da página de subprocessadores.
+		// Same protocol (OpenAI-compatible), different destination: TensorX serves open models
+		// on European infrastructure. It's the difference between the customer's content staying
+		// in the EU or ending up with the model's creator — and it's what backs the sentence on
+		// the subprocessors page.
 		base := cfg.BaseURL
 		if base == "" {
 			base = "https://api.tensorx.ai/v1"

@@ -38,7 +38,7 @@ func tr(lang, pt, en string) string {
 	return pt
 }
 
-// build monta o HTML da marca + a versão em texto. `cta`/`ctaURL` vazios = aviso sem botão.
+// build assembles the branded HTML + the text version. Empty `cta`/`ctaURL` = a notice with no button.
 func build(lang, subject, intro string, lines []Line, cta, ctaURL, footer string) Msg {
 	var rows, txt strings.Builder
 	for _, l := range lines {

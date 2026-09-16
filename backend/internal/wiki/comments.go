@@ -12,8 +12,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Comentários de páginas (docs/wiki-features.md §3.5). Ler comentários exige >= viewer (ver a página);
-// comentar exige >= commenter; apagar é do autor ou de um manager da página.
+// Page comments (docs/wiki-features.md §3.5). Reading comments requires >= viewer (see the page);
+// commenting requires >= commenter; deleting is up to the author or a manager of the page.
 
 // ListComments returns a page's comments with author name/email (role >= viewer).
 func (s *Service) ListComments(ctx context.Context, tenantID, userID, pageID uuid.UUID) ([]db.ListWikiCommentsRow, error) {
@@ -23,8 +23,8 @@ func (s *Service) ListComments(ctx context.Context, tenantID, userID, pageID uui
 	return s.q.ListWikiComments(ctx, db.ListWikiCommentsParams{TenantID: tenantID, PageID: pageID})
 }
 
-// AddComment posts a rich comment on a page (role >= commenter). body_json (blocos BlockNote) é a
-// fonte; texto e HTML derivam aqui — o mesmo caminho seguro das páginas.
+// AddComment posts a rich comment on a page (role >= commenter). body_json (BlockNote blocks) is
+// the source; text and HTML are derived here — the same safe path as pages.
 func (s *Service) AddComment(ctx context.Context, tenantID, userID, pageID uuid.UUID, bodyJSON json.RawMessage) (db.WikiComment, error) {
 	if err := s.requirePageRole(ctx, tenantID, userID, pageID, RoleCommenter); err != nil {
 		return db.WikiComment{}, err
