@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/reqauth"
 
 	"github.com/beskosorg/beskos/backend/internal/billing"
 )
@@ -14,9 +15,13 @@ import (
 // the credential is validated against Stalwart; without one, against our own signup records.
 // Email itself talks JMAP directly to Stalwart.
 
-const ctxMailUser ctxKey = "mailUser"
+// withMailUser and mailUserFrom wrap internal/reqauth: every call site in this package keeps its
+// existing shape, but the context key is now shared with ee (see reqauth's doc comment for why).
+func withMailUser(ctx context.Context, mu db.MailUser) context.Context {
+	return reqauth.WithMailUser(ctx, mu)
+}
 
-func mailUserFrom(ctx context.Context) db.MailUser { return ctx.Value(ctxMailUser).(db.MailUser) }
+func mailUserFrom(ctx context.Context) db.MailUser { return reqauth.MailUserFrom(ctx) }
 
 // sessionToken extracts the webmail session token: Bearer header (native app) > wm_session cookie
 // (web same-origin) > ?access_token= query param (WebSocket / media, which don't send Authorization).
@@ -59,7 +64,7 @@ func (s *Server) requireWebmailSession(next http.Handler) http.Handler {
 			writeErr(w, http.StatusPaymentRequired, "account.locked")
 			return
 		}
-		ctx := context.WithValue(r.Context(), ctxMailUser, row.MailUser)
+		ctx := withMailUser(r.Context(), row.MailUser)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -69,6 +68,6 @@ func (s *Server) jmapBrokerAuth(next http.Handler) http.Handler {
 		r.Header.Set("Authorization", "Basic "+cred)
 		// Injects the user into the context: the sending-quota middleware (mail_quota.go) needs
 		// the tenant to apply the plan's daily limit.
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxMailUser, row.MailUser)))
+		next.ServeHTTP(w, r.WithContext(withMailUser(r.Context(), row.MailUser)))
 	})
 }

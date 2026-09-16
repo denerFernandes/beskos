@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -123,7 +122,7 @@ func (s *Server) requireDeviceToken(next http.Handler) http.Handler {
 		}
 		// Records "last seen" for audit purposes; a failure here doesn't block the request.
 		_ = s.q.TouchDeviceToken(r.Context(), row.TokenID)
-		ctx := context.WithValue(r.Context(), ctxMailUser, row.MailUser)
+		ctx := withMailUser(r.Context(), row.MailUser)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

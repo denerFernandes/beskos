@@ -3,11 +3,12 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/ee"
 )
 
 // Organization branding (primary color + logo). Read by any tenant user (for the app's top bar);
-// write only by admin/owner (RBAC org.settings). At login, resolved by email.
+// write only by admin/owner (RBAC org.branding) AND only with the Pro Branding capability --
+// see handleUpdateBrandingGate and ee/branding.go. At login, resolved by email.
 
 type brandingResp struct {
 	Name          string `json:"name"`
@@ -27,40 +28,16 @@ func (s *Server) handleGetBranding(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, brandingResp{Name: t.Name, Color: t.BrandColor, Logo: t.BrandLogo, LogoWhiteDark: t.BrandLogoWhiteDark})
 }
 
-type updateBrandingReq struct {
-	Color         string `json:"color"`
-	Logo          string `json:"logo"`
-	LogoWhiteDark bool   `json:"logo_white_dark"`
-}
-
-const maxLogoBytes = 512 * 1024 // ~512 KB data URI — enough for a logo, keeps the row from bloating
-
-// handleUpdateBranding saves the branding (admin/owner). Validates the color and the logo size.
-func (s *Server) handleUpdateBranding(w http.ResponseWriter, r *http.Request) {
-	mu := mailUserFrom(r.Context())
-	var req updateBrandingReq
-	if !decode(w, r, &req) {
+// handleUpdateBrandingGate enforces the Pro capability before handing off to ee.UpdateBranding,
+// which holds the actual validation and persistence (Enterprise code, ee/branding.go). RBAC
+// (org.branding) is checked first by the route's own middleware, same as every other admin route;
+// this only adds the edition check on top.
+func (s *Server) handleUpdateBrandingGate(w http.ResponseWriter, r *http.Request) {
+	if !s.edition.Branding {
+		writeErr(w, http.StatusForbidden, "branding.edition_required")
 		return
 	}
-	if req.Color != "" && !isHexColor(req.Color) {
-		writeErr(w, http.StatusBadRequest, "branding.invalid_color")
-		return
-	}
-	if len(req.Logo) > maxLogoBytes {
-		writeErr(w, http.StatusRequestEntityTooLarge, "branding.logo_too_large")
-		return
-	}
-	if req.Logo != "" && !isDataImage(req.Logo) {
-		writeErr(w, http.StatusBadRequest, "branding.invalid_logo")
-		return
-	}
-	if err := s.q.UpdateTenantBranding(r.Context(), db.UpdateTenantBrandingParams{
-		ID: mu.TenantID, BrandColor: req.Color, BrandLogo: req.Logo, BrandLogoWhiteDark: req.LogoWhiteDark,
-	}); err != nil {
-		writeErr(w, http.StatusInternalServerError, "branding.save_failed")
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	ee.UpdateBranding(w, r, ee.Deps{Queries: s.q})
 }
 
 // handleResolveBranding returns the tenant's branding for an email, for the login screen before any
@@ -78,20 +55,4 @@ func (s *Server) handleResolveBranding(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, brandingResp{Name: b.Name, Color: b.BrandColor, Logo: b.BrandLogo})
-}
-
-func isHexColor(s string) bool {
-	if (len(s) != 7 && len(s) != 4) || s[0] != '#' {
-		return false
-	}
-	for _, c := range s[1:] {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
-			return false
-		}
-	}
-	return true
-}
-
-func isDataImage(s string) bool {
-	return len(s) > 11 && s[:11] == "data:image/"
 }

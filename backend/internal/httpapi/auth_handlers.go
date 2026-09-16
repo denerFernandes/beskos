@@ -15,8 +15,6 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
-type ctxKey string
-
 // dummyBcryptHash is a fixed hash used to burn bcrypt time on a login with a nonexistent email
 // (timing-based anti-enumeration). Computed once at startup.
 var dummyBcryptHash, _ = auth.HashPassword("mailin-login-timing-equalizer")
