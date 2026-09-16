@@ -1202,6 +1202,22 @@
   "branding": {
     "subtitle": "Personalize a cor e o logótipo da sua organização. Aparecem no topo e no ecrã de login.",
     "color": "Cor principal",
+    "colors": {
+      "terracotta": "Terracota",
+      "sage": "Salva",
+      "slateblue": "Ardósia",
+      "mauve": "Malva",
+      "teal": "Teal",
+      "blue": "Azul",
+      "indigo": "Índigo",
+      "violet": "Violeta",
+      "green": "Verde",
+      "red": "Vermelho",
+      "orange": "Laranja",
+      "pink": "Rosa",
+      "slate": "Ardósia",
+      "black": "Preto"
+    },
     "colorHint": "Aplica-se aos botões, links e destaques em toda a aplicação.",
     "default": "Padrão",
     "logo": "Logótipo",

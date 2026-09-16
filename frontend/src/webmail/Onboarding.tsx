@@ -127,7 +127,7 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
             <div className="ob-colors">
               {BRAND_COLORS.map((c) => (
                 <button key={c.id} className={"ob-color" + (color === c.hex ? " on" : "")} style={{ background: c.hex }}
-                  title={c.name} onClick={() => setColor(c.hex)}>{color === c.hex && <IcCheck size={14} />}</button>
+                  title={t(c.name)} onClick={() => setColor(c.hex)}>{color === c.hex && <IcCheck size={14} />}</button>
               ))}
             </div>
             {err && <p className="ob-err">{err}</p>}

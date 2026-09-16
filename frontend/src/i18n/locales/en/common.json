@@ -1202,6 +1202,22 @@
   "branding": {
     "subtitle": "Customize your organization's color and logo. They appear at the top and on the login screen.",
     "color": "Primary color",
+    "colors": {
+      "terracotta": "Terracotta",
+      "sage": "Sage",
+      "slateblue": "Slate blue",
+      "mauve": "Mauve",
+      "teal": "Teal",
+      "blue": "Blue",
+      "indigo": "Indigo",
+      "violet": "Violet",
+      "green": "Green",
+      "red": "Red",
+      "orange": "Orange",
+      "pink": "Pink",
+      "slate": "Slate",
+      "black": "Black"
+    },
     "colorHint": "Applies to buttons, links and highlights across the app.",
     "default": "Default",
     "logo": "Logo",

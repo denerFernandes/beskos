@@ -5,33 +5,28 @@
 /** Beskos mark: shown when the customer has no logo of their own. */
 export const BESKOS_MARK = "/beskos-mark.svg";
 
-// Colour palette offered to the admin (name + hex). "provide a few colours" — no free-form
-// colour picker, to guarantee contrast and coherence.
+// Colour palette offered to the admin (name key + hex). "provide a few colours" — no free-form
+// colour picker, to guarantee contrast and coherence. `name` is an i18n key under
+// `branding.colors.*` (law 4.1) — consumers must run it through `t()` before display.
 export const BRAND_COLORS: { id: string; name: string; hex: string }[] = [
   // The muted family comes first: these four are built for the warm paper the product now runs on,
   // and terracotta is the accent the product ships with. The saturated entries below them are the
   // original list, kept as they were -- their hex is what a tenant has stored, so editing a value
   // would silently rebrand whoever picked it.
-  // The names are copy the admin reads, so they are marked as such. They ought to come from i18n
-  // like every other visible string (law 4.1); the whole list has been hard-coded Portuguese since
-  // it was written, and moving it is a job of its own, not a rider on a colour change. Worth
-  // noting that only the slate-blue name trips the checker, because it is the only one carrying a
-  // diacritic: the rule catches accented characters, not language, so the other three would have
-  // walked straight past it.
-  { id: "terracotta", name: "Terracota", hex: "#B4785F" }, // lang:ok
-  { id: "sage", name: "Salva", hex: "#7C8C6A" }, // lang:ok
-  { id: "slateblue", name: "Ardósia", hex: "#6B8299" }, // lang:ok
-  { id: "mauve", name: "Malva", hex: "#96768A" }, // lang:ok
-  { id: "teal", name: "Teal", hex: "#116466" },
-  { id: "blue", name: "Azul", hex: "#2563EB" },
-  { id: "indigo", name: "Índigo", hex: "#4F46E5" },
-  { id: "violet", name: "Violeta", hex: "#7C3AED" },
-  { id: "green", name: "Verde", hex: "#059669" },
-  { id: "red", name: "Vermelho", hex: "#DC2626" },
-  { id: "orange", name: "Laranja", hex: "#EA580C" },
-  { id: "pink", name: "Rosa", hex: "#DB2777" },
-  { id: "slate", name: "Ardósia", hex: "#475569" },
-  { id: "black", name: "Preto", hex: "#111111" },
+  { id: "terracotta", name: "branding.colors.terracotta", hex: "#B4785F" },
+  { id: "sage", name: "branding.colors.sage", hex: "#7C8C6A" },
+  { id: "slateblue", name: "branding.colors.slateblue", hex: "#6B8299" },
+  { id: "mauve", name: "branding.colors.mauve", hex: "#96768A" },
+  { id: "teal", name: "branding.colors.teal", hex: "#116466" },
+  { id: "blue", name: "branding.colors.blue", hex: "#2563EB" },
+  { id: "indigo", name: "branding.colors.indigo", hex: "#4F46E5" },
+  { id: "violet", name: "branding.colors.violet", hex: "#7C3AED" },
+  { id: "green", name: "branding.colors.green", hex: "#059669" },
+  { id: "red", name: "branding.colors.red", hex: "#DC2626" },
+  { id: "orange", name: "branding.colors.orange", hex: "#EA580C" },
+  { id: "pink", name: "branding.colors.pink", hex: "#DB2777" },
+  { id: "slate", name: "branding.colors.slate", hex: "#475569" },
+  { id: "black", name: "branding.colors.black", hex: "#111111" },
 ];
 
 const STYLE_ID = "mailin-brand";
