@@ -54,7 +54,7 @@ type UpdateSubscriptionStatusParams struct {
 	TenantID uuid.UUID `json:"tenant_id"`
 }
 
-// Sincroniza só o status (customer.subscription.updated) sem tocar no plano/faixa.
+// Syncs only the status (customer.subscription.updated) without touching the plan/tier.
 func (q *Queries) UpdateSubscriptionStatus(ctx context.Context, arg UpdateSubscriptionStatusParams) error {
 	_, err := q.db.Exec(ctx, updateSubscriptionStatus, arg.Status, arg.TenantID)
 	return err

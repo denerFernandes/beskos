@@ -11,7 +11,7 @@ ON CONFLICT (tenant_id) DO UPDATE SET stripe_id = EXCLUDED.stripe_id, mailbox_ra
 SELECT * FROM subscriptions WHERE tenant_id = $1;
 
 -- name: UpdateSubscriptionStatus :exec
--- Sincroniza só o status (customer.subscription.updated) sem tocar no plano/faixa.
+-- Syncs only the status (customer.subscription.updated) without touching the plan/tier.
 UPDATE subscriptions SET status = @status WHERE tenant_id = @tenant_id;
 
 -- name: SetSubscriptionPeriodEnd :exec

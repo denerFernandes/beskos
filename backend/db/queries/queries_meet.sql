@@ -13,7 +13,7 @@ SELECT * FROM meetings WHERE room_name = $1;
 -- name: CancelMeeting :exec
 UPDATE meetings SET status = 'canceled' WHERE id = $1 AND tenant_id = $2 AND owner_user_id = $3;
 -- name: UpdateMeeting :one
--- Editar/reagendar: só o dono, e só reunião não cancelada. Devolve a linha para sincronizar o evento.
+-- Edit/reschedule: only the owner, and only a non-canceled meeting. Returns the row to sync the event.
 UPDATE meetings SET title = $4, scheduled_start = $5, scheduled_end = $6
 WHERE id = $1 AND tenant_id = $2 AND owner_user_id = $3 AND status <> 'canceled' RETURNING *;
 -- name: SetMeetingStarted :exec
@@ -54,20 +54,20 @@ ON CONFLICT (meeting_id, email) DO UPDATE SET
 UPDATE meeting_participants SET left_at = now()
 WHERE meeting_id = (SELECT id FROM meetings WHERE room_name = $1) AND user_id = $2;
 
--- ===== Notificações in-app =====
+-- ===== In-app notifications =====
 -- name: SetEventMeetingRoom :exec
 UPDATE events SET meeting_room = $3 WHERE id = $1 AND tenant_id = $2 AND owner_user_id = $4;
 
--- ===== Chat (estilo Slack) =====
+-- ===== Chat (Slack-style) =====
 -- name: UpdateMeetingControls :one
--- Só o dono (organizador) altera; o filtro por owner_user_id é a checagem de permissão.
+-- Only the owner (organizer) changes these; the owner_user_id filter is the permission check.
 UPDATE meetings SET allow_mic = $3, allow_cam = $4, allow_share = $5, allow_chat = $6,
     lock_until_host = $7, locked = $8
 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
 -- name: UpdateMeetingAccess :one
 UPDATE meetings SET access = $3 WHERE id = $1 AND owner_user_id = $2 RETURNING *;
 -- name: GetMeetingOwned :one
--- A reunião, mas só se quem pede for o dono — usado antes de expulsar alguém ou encerrar.
+-- The meeting, but only if the requester is the owner -- used before kicking someone or ending it.
 SELECT * FROM meetings WHERE id = $1 AND owner_user_id = $2;
 -- name: GetMeetingNotes :one
 SELECT * FROM meeting_notes WHERE meeting_id = $1 AND tenant_id = $2;

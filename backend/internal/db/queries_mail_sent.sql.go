@@ -47,7 +47,7 @@ FROM tenants t LEFT JOIN plans p ON p.key = t.plan
 WHERE t.id = $1
 `
 
-// Limite do plano direto da BD (para o worker, que não tem o cache do catálogo). 0 = sem teto.
+// The plan's limit straight from the DB (for the worker, which has no catalog cache). 0 = no cap.
 func (q *Queries) TenantDailySendLimit(ctx context.Context, tenantID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, tenantDailySendLimit, tenantID)
 	var column_1 int32

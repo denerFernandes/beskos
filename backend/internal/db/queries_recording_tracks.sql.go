@@ -28,8 +28,8 @@ WHERE id = (
 RETURNING id, tenant_id, room_name, meeting_id, egress_id, status, blob_key, started_by, started_at, ended_at, duration_seconds, size_bytes, mode, assembly_status, priority, assembly_claimed_at
 `
 
-// Claim atômico do próximo job: prioridade primeiro (offline_priority), depois FIFO. Só pega
-// gravações sem track ainda em 'recording'. Reanima processing órfão (>1h = worker morreu).
+// Atomic claim of the next job: priority first (offline_priority), then FIFO. Only picks
+// recordings with no track still in 'recording'. Revives an orphaned processing job (>1h = worker died).
 func (q *Queries) ClaimAssemblyJob(ctx context.Context) (Recording, error) {
 	row := q.db.QueryRow(ctx, claimAssemblyJob)
 	var i Recording
@@ -69,7 +69,7 @@ type CreateTracksRecordingParams struct {
 	Priority  int32       `json:"priority"`
 }
 
-// Pipeline de gravação offline (track egress + montagem ffmpeg no worker). Ver migração 00104.
+// Offline recording pipeline (track egress + ffmpeg assembly in the worker). See migration 00104.
 func (q *Queries) CreateTracksRecording(ctx context.Context, arg CreateTracksRecordingParams) (Recording, error) {
 	row := q.db.QueryRow(ctx, createTracksRecording,
 		arg.TenantID,
@@ -111,8 +111,8 @@ type FinishRecordingTrackParams struct {
 	EgressID string `json:"egress_id"`
 }
 
-// Chamado pelo webhook egress_ended de um track egress; devolve 0 linhas se o egress não é de
-// track (aí o chamador cai na lógica de RoomComposite).
+// Called by the egress_ended webhook for a track egress; returns 0 rows if the egress isn't a
+// track one (the caller then falls back to the RoomComposite logic).
 func (q *Queries) FinishRecordingTrack(ctx context.Context, arg FinishRecordingTrackParams) (int64, error) {
 	result, err := q.db.Exec(ctx, finishRecordingTrack, arg.Status, arg.BlobKey, arg.EgressID)
 	if err != nil {
@@ -127,7 +127,7 @@ WHERE room_name = $1 AND status = 'recording' AND mode = 'tracks'
 ORDER BY started_at DESC LIMIT 1
 `
 
-// A gravação ativa em modo tracks de uma sala (para ligar egress a tracks publicadas depois).
+// The active tracks-mode recording for a room (to link an egress to tracks published later).
 func (q *Queries) GetActiveTracksRecordingForRoom(ctx context.Context, roomName string) (Recording, error) {
 	row := q.db.QueryRow(ctx, getActiveTracksRecordingForRoom, roomName)
 	var i Recording

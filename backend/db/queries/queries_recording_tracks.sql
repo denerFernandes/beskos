@@ -1,4 +1,4 @@
--- Pipeline de gravação offline (track egress + montagem ffmpeg no worker). Ver migração 00104.
+-- Offline recording pipeline (track egress + ffmpeg assembly in the worker). See migration 00104.
 
 -- name: CreateTracksRecording :one
 INSERT INTO recordings (tenant_id, room_name, meeting_id, egress_id, blob_key, started_by, mode, priority)
@@ -11,8 +11,8 @@ VALUES (@recording_id, @egress_id, @track_id, @participant, @kind)
 RETURNING *;
 
 -- name: FinishRecordingTrack :execrows
--- Chamado pelo webhook egress_ended de um track egress; devolve 0 linhas se o egress não é de
--- track (aí o chamador cai na lógica de RoomComposite).
+-- Called by the egress_ended webhook for a track egress; returns 0 rows if the egress isn't a
+-- track one (the caller then falls back to the RoomComposite logic).
 UPDATE recording_tracks SET status = @status, blob_key = @blob_key, ended_at = now()
 WHERE egress_id = @egress_id AND status = 'recording';
 
@@ -23,7 +23,7 @@ SELECT * FROM recording_tracks WHERE recording_id = @recording_id ORDER BY start
 SELECT * FROM recording_tracks WHERE recording_id = @recording_id AND status = 'recording';
 
 -- name: GetActiveTracksRecordingForRoom :one
--- A gravação ativa em modo tracks de uma sala (para ligar egress a tracks publicadas depois).
+-- The active tracks-mode recording for a room (to link an egress to tracks published later).
 SELECT * FROM recordings
 WHERE room_name = @room_name AND status = 'recording' AND mode = 'tracks'
 ORDER BY started_at DESC LIMIT 1;
@@ -32,8 +32,8 @@ ORDER BY started_at DESC LIMIT 1;
 UPDATE recordings SET assembly_status = 'pending' WHERE id = @id AND mode = 'tracks';
 
 -- name: ClaimAssemblyJob :one
--- Claim atômico do próximo job: prioridade primeiro (offline_priority), depois FIFO. Só pega
--- gravações sem track ainda em 'recording'. Reanima processing órfão (>1h = worker morreu).
+-- Atomic claim of the next job: priority first (offline_priority), then FIFO. Only picks
+-- recordings with no track still in 'recording'. Revives an orphaned processing job (>1h = worker died).
 UPDATE recordings SET assembly_status = 'processing', assembly_claimed_at = now()
 WHERE id = (
     SELECT r.id FROM recordings r

@@ -1,13 +1,13 @@
 -- Metering: daily rollup written by the worker; the manager only reads it.
 
 -- name: RollupTenantDailyUsage :exec
--- Congela o uso de TODOS os tenants para um dia (idempotente: upsert). Contadores "de estado"
--- (users, storage, páginas, cards) refletem o momento do rollup; os "de fluxo" (ai_tokens,
--- meet_minutes, gravações) somam o que aconteceu NO dia.
+-- Freezes usage for ALL tenants for one day (idempotent: upsert). "State" counters
+-- (users, storage, pages, cards) reflect the moment of the rollup; "flow" counters (ai_tokens,
+-- meet_minutes, recordings) sum what happened DURING the day.
 INSERT INTO tenant_daily_usage (tenant_id, day, users, users_active, storage_bytes, files,
     ai_tokens, meet_minutes, recordings, recordings_bytes, wiki_pages, cards, mail_sent)
 SELECT t.id, cast(@day as date),
-    -- users inclui os ALIASES: um alias é cobrado como uma caixa (regra de negócio, 27/07/2026).
+    -- users includes ALIASES: an alias is billed as a mailbox (business rule, 2026-07-27).
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id)
         + (SELECT count(*) FROM email_aliases al WHERE al.tenant_id = t.id),
     (SELECT count(*) FROM mail_users u WHERE u.tenant_id = t.id
@@ -38,7 +38,7 @@ ON CONFLICT (tenant_id, day) DO UPDATE SET
     mail_sent = EXCLUDED.mail_sent, updated_at = now();
 
 -- name: ExpiredRecordings :many
--- Gravações além da retenção do PLANO do tenant (fallback 30 dias sem plano na tabela).
+-- Recordings past the tenant's PLAN retention (fallback: 30 days when the table has no plan).
 SELECT r.id, r.tenant_id, r.blob_key
 FROM recordings r
 JOIN tenants t ON t.id = r.tenant_id

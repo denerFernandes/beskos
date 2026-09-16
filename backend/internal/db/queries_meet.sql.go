@@ -323,7 +323,7 @@ type GetMeetingOwnedParams struct {
 	OwnerUserID uuid.UUID `json:"owner_user_id"`
 }
 
-// A reunião, mas só se quem pede for o dono — usado antes de expulsar alguém ou encerrar.
+// The meeting, but only if the requester is the owner -- used before kicking someone or ending it.
 func (q *Queries) GetMeetingOwned(ctx context.Context, arg GetMeetingOwnedParams) (Meeting, error) {
 	row := q.db.QueryRow(ctx, getMeetingOwned, arg.ID, arg.OwnerUserID)
 	var i Meeting
@@ -774,7 +774,7 @@ type SetEventMeetingRoomParams struct {
 	OwnerUserID pgtype.UUID `json:"owner_user_id"`
 }
 
-// ===== Notificações in-app =====
+// ===== In-app notifications =====
 func (q *Queries) SetEventMeetingRoom(ctx context.Context, arg SetEventMeetingRoomParams) error {
 	_, err := q.db.Exec(ctx, setEventMeetingRoom,
 		arg.ID,
@@ -819,7 +819,7 @@ type UpdateMeetingParams struct {
 	ScheduledEnd   pgtype.Timestamptz `json:"scheduled_end"`
 }
 
-// Editar/reagendar: só o dono, e só reunião não cancelada. Devolve a linha para sincronizar o evento.
+// Edit/reschedule: only the owner, and only a non-canceled meeting. Returns the row to sync the event.
 func (q *Queries) UpdateMeeting(ctx context.Context, arg UpdateMeetingParams) (Meeting, error) {
 	row := q.db.QueryRow(ctx, updateMeeting,
 		arg.ID,
@@ -908,8 +908,8 @@ type UpdateMeetingControlsParams struct {
 	Locked        bool      `json:"locked"`
 }
 
-// ===== Chat (estilo Slack) =====
-// Só o dono (organizador) altera; o filtro por owner_user_id é a checagem de permissão.
+// ===== Chat (Slack-style) =====
+// Only the owner (organizer) changes these; the owner_user_id filter is the permission check.
 func (q *Queries) UpdateMeetingControls(ctx context.Context, arg UpdateMeetingControlsParams) (Meeting, error) {
 	row := q.db.QueryRow(ctx, updateMeetingControls,
 		arg.ID,
