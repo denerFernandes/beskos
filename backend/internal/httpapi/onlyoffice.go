@@ -19,17 +19,17 @@ import (
 // both authenticated by our own HMAC token tied to file+user+tenant+permission.
 
 type onlyoffice struct {
-	publicURL    string // URL do Document Server que o BROWSER usa (api.js + editor)
-	internalURL  string // URL do DS como a NOSSA API o alcança (baixar o arquivo editado no callback)
-	filesHostURL string // URL da NOSSA API como o Document Server a alcança (download/callback)
-	jwtSecret    []byte // segredo compartilhado com o DS (assina o config; verifica o callback)
-	tokenSecret  []byte // segredo interno que assina as URLs de download/callback
-	sourceURL    string // fonte do Document Server modificado, mostrado no "Sobre" (AGPL §13)
-	brandURL     string // site para onde o logo do cabeçalho aponta
+	publicURL    string // Document Server URL that the BROWSER uses (api.js + editor)
+	internalURL  string // DS URL as reached by OUR API (downloading the edited file in the callback)
+	filesHostURL string // OUR API's URL as reached by the Document Server (download/callback)
+	jwtSecret    []byte // secret shared with the DS (signs the config; verifies the callback)
+	tokenSecret  []byte // internal secret that signs the download/callback URLs
+	sourceURL    string // source of the modified Document Server, shown in "About" (AGPL §13)
+	brandURL     string // site the header logo links to
 }
 
-// SetOfficeBranding define os endereços que acompanham a marca Beskos no editor: o fonte
-// modificado do Document Server (obrigatório em produção, ver config) e o site do logo.
+// SetOfficeBranding sets the addresses that go along with the Beskos brand in the editor: the
+// modified Document Server source (required in production, see config) and the logo's site.
 func (s *Server) SetOfficeBranding(sourceURL, brandURL string) {
 	if s.office == nil {
 		return
@@ -38,8 +38,8 @@ func (s *Server) SetOfficeBranding(sourceURL, brandURL string) {
 	s.office.brandURL = strings.TrimRight(brandURL, "/")
 }
 
-// EnableOnlyOffice liga a edição de office. Sem URLs/segredos, fica desligado. internalURL é
-// opcional (default = publicURL) e serve quando o DS gera URLs com o host do browser.
+// EnableOnlyOffice turns on office editing. Without URLs/secrets, it stays off. internalURL is
+// optional (default = publicURL) and is used when the DS generates URLs with the browser's host.
 func (s *Server) EnableOnlyOffice(publicURL, internalURL, filesHostURL, jwtSecret, tokenSecret string) {
 	if publicURL == "" || filesHostURL == "" || jwtSecret == "" || tokenSecret == "" {
 		return
@@ -56,16 +56,16 @@ func (s *Server) EnableOnlyOffice(publicURL, internalURL, filesHostURL, jwtSecre
 	}
 }
 
-// officeChrome monta os parâmetros de apresentação do editor — iguais no editor autenticado e no
-// visualizador público, para o produto ter uma cara só.
+// officeChrome builds the editor's presentation parameters — the same in the authenticated editor
+// and the public viewer, so the product has a single look.
 //
-// As abas vão para a barra CLARA com sublinhado no separador ativo. O default do Document Server
-// (`tabStyle: fill` + `tabBackground: header`) prende-as à faixa escura com o ativo preenchido, que
-// é o que fazia o editor parecer mais pesado do que o das imagens oficiais deles. São parâmetros
-// grátis (standard branding), não dependem do patch.
-// A paleta é nossa: o patch de arranque acrescenta as cores Beskos ao CSS do editor, por isso o
-// tema pedido aqui continua a ser o claro/escuro padrão — é o CSS que troca o azul do ONLYOFFICE
-// pelo petróleo. Se o patch falhar, o editor fica azul mas funciona.
+// Tabs go on the LIGHT bar with an underline on the active one. The Document Server default
+// (`tabStyle: fill` + `tabBackground: header`) pins them to the dark strip with the active one
+// filled in, which is what made the editor look heavier than the one in their official screenshots.
+// These are free parameters (standard branding); they don't depend on the patch.
+// The palette is ours: the startup patch adds the Beskos colors to the editor's CSS, so the theme
+// requested here is still the standard light/dark one — it's the CSS that swaps ONLYOFFICE's blue
+// for petrol. If the patch fails, the editor stays blue but still works.
 func officeChrome(dark bool, plugins bool) map[string]any {
 	uiTheme := "theme-light"
 	if dark {
@@ -73,9 +73,9 @@ func officeChrome(dark bool, plugins bool) map[string]any {
 	}
 	return map[string]any{
 		"uiTheme": uiTheme,
-		// Cabeçalho de dois níveis: logo + acesso rápido (guardar/imprimir/desfazer) e título em
-		// cima, abas por baixo. `compactToolbar: false` mantém a fita expandida ao abrir — senão o
-		// editor arranca só com as abas e parece "não editável" até se clicar numa.
+		// Two-level header: logo + quick access (save/print/undo) and title on top, tabs below.
+		// `compactToolbar: false` keeps the ribbon expanded on open — otherwise the editor starts
+		// with only the tabs showing and looks "non-editable" until one is clicked.
 		"compactHeader":  false,
 		"compactToolbar": false,
 		"toolbarNoTabs":  false,
@@ -91,8 +91,8 @@ func officeChrome(dark bool, plugins bool) map[string]any {
 	}
 }
 
-// reachable reescreve uma URL vinda do DS (host do browser) para o host interno alcançável
-// pela API, quando diferem.
+// reachable rewrites a URL coming from the DS (browser host) to the internal host reachable
+// by the API, when they differ.
 func (o *onlyoffice) reachable(u string) string {
 	if o.internalURL != o.publicURL && strings.HasPrefix(u, o.publicURL) {
 		return o.internalURL + strings.TrimPrefix(u, o.publicURL)
@@ -100,10 +100,11 @@ func (o *onlyoffice) reachable(u string) string {
 	return u
 }
 
-// fetchURLAllowed valida a URL do arquivo editado que o callback manda a NOSSA API buscar. O host
-// precisa ser exatamente o do Document Server interno — senão o callback (cujo token HMAC vaza em
-// logs/Referer) vira um SSRF: apontar `url` para 169.254.169.254/minio/stalwart e gravar a resposta
-// como versão do arquivo (auditoria H1). Devolve a URL reescrita (host interno) e se é permitida.
+// fetchURLAllowed validates the edited file's URL that the callback tells OUR API to fetch. The
+// host must be exactly the internal Document Server's — otherwise the callback (whose HMAC token
+// leaks in logs/Referer) turns into an SSRF: pointing `url` at 169.254.169.254/minio/stalwart and
+// storing the response as the file's version (audit H1). Returns the rewritten URL (internal host)
+// and whether it is allowed.
 func (o *onlyoffice) fetchURLAllowed(raw string) (string, bool) {
 	rewritten := o.reachable(raw)
 	pu, err := url.Parse(rewritten)
@@ -117,7 +118,7 @@ func (o *onlyoffice) fetchURLAllowed(raw string) (string, bool) {
 	return rewritten, true
 }
 
-// --- token HMAC das URLs de download/callback (arquivo+usuário+tenant+permissão) ---
+// --- HMAC token for the download/callback URLs (file+user+tenant+permission) ---
 
 type docClaims struct {
 	FileID   uuid.UUID
@@ -184,10 +185,11 @@ func (o *onlyoffice) parseToken(tok string) (docClaims, bool) {
 	return cl, true
 }
 
-// mintAIToken assina um token ESTÁVEL do utilizador para o plugin de IA do OnlyOffice o usar como
-// "API key". O plugin corre no iframe do Document Server (outra origem) e não tem o nosso cookie, por
-// isso a autorização viaja no Bearer. Leva user+tenant e uma validade longa; só serve o proxy de IA,
-// que é limitado pela quota do próprio utilizador — se o token vazar, o abuso é o dele e trava na quota.
+// mintAIToken signs a STABLE token for the user, for the OnlyOffice AI plugin to use as an
+// "API key". The plugin runs in the Document Server's iframe (a different origin) and doesn't have
+// our cookie, so authorization travels in the Bearer header. It carries user+tenant and a long
+// validity; it only serves the AI proxy, which is limited by the user's own quota — if the token
+// leaks, the abuse is theirs and it's capped by the quota.
 func (o *onlyoffice) mintAIToken(userID, tenantID uuid.UUID, exp time.Time) string {
 	payload := "ai|" + userID.String() + "|" + tenantID.String() + "|" + strconv.FormatInt(exp.Unix(), 10)
 	enc := base64.RawURLEncoding
@@ -196,7 +198,7 @@ func (o *onlyoffice) mintAIToken(userID, tenantID uuid.UUID, exp time.Time) stri
 	return enc.EncodeToString([]byte(payload)) + "." + enc.EncodeToString(mac.Sum(nil))
 }
 
-// parseAIToken valida o token de IA e devolve user+tenant. ok=false se assinatura inválida ou expirado.
+// parseAIToken validates the AI token and returns user+tenant. ok=false if the signature is invalid or it expired.
 func (o *onlyoffice) parseAIToken(tok string) (userID, tenantID uuid.UUID, ok bool) {
 	parts := strings.SplitN(strings.TrimSpace(tok), ".", 2)
 	if len(parts) != 2 {
@@ -233,7 +235,7 @@ func (o *onlyoffice) parseAIToken(tok string) (userID, tenantID uuid.UUID, ok bo
 	return userID, tenantID, true
 }
 
-// --- JWT HS256 (assina o config e verifica o callback do Document Server) ---
+// --- JWT HS256 (signs the config and verifies the Document Server's callback) ---
 
 func (o *onlyoffice) jwtSign(payload map[string]any) (string, error) {
 	enc := base64.RawURLEncoding
@@ -248,7 +250,7 @@ func (o *onlyoffice) jwtSign(payload map[string]any) (string, error) {
 	return signing + "." + enc.EncodeToString(mac.Sum(nil)), nil
 }
 
-// jwtVerify confere a assinatura HS256 e devolve o payload decodificado (para o callback).
+// jwtVerify checks the HS256 signature and returns the decoded payload (for the callback).
 func (o *onlyoffice) jwtVerify(tok string) (map[string]any, bool) {
 	parts := strings.Split(tok, ".")
 	if len(parts) != 3 {
@@ -272,7 +274,7 @@ func (o *onlyoffice) jwtVerify(tok string) (map[string]any, bool) {
 	return payload, true
 }
 
-// --- mapeamento de tipo ---
+// --- type mapping ---
 
 var officeExts = map[string]bool{
 	"docx": true, "doc": true, "odt": true, "rtf": true, "txt": true,
@@ -280,7 +282,7 @@ var officeExts = map[string]bool{
 	"pptx": true, "ppt": true, "odp": true,
 }
 
-// documentType do OnlyOffice: "word" | "cell" | "slide".
+// documentType is OnlyOffice's: "word" | "cell" | "slide".
 func documentType(ext string) string {
 	switch ext {
 	case "xlsx", "xls", "ods", "csv":

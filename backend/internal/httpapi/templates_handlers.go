@@ -10,8 +10,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Templates de resposta (canned responses): CRUD por dono. O corpo é HTML (o mesmo do editor de
-// composição). Sem partilha nesta fase — cada utilizador gere os seus.
+// Response templates (canned responses): CRUD per owner. The body is HTML (the same as the
+// compose editor). No sharing at this stage — each user manages their own.
 
 type templateReq struct {
 	Name     string `json:"name"`

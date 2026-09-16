@@ -13,7 +13,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Kanban (nossa camada). Quadros compartilhados por tenant. Todas as queries filtram tenant.
+// Kanban (our layer). Boards are shared per tenant. Every query filters by tenant.
 
 var defaultColumns = []struct {
 	Name, Color string
@@ -22,7 +22,7 @@ var defaultColumns = []struct {
 	{"Aguardando", "#C0692F"}, {"Concluído", "#2E7D5B"},
 }
 
-// seedDefaultColumns cria as colunas padrão de um quadro recém-criado.
+// seedDefaultColumns creates the default columns of a newly created board.
 func (s *Server) seedDefaultColumns(ctx context.Context, board db.Board, tenantID uuid.UUID) error {
 	for i, c := range defaultColumns {
 		if _, err := s.q.CreateColumn(ctx, db.CreateColumnParams{
@@ -34,7 +34,7 @@ func (s *Server) seedDefaultColumns(ctx context.Context, board db.Board, tenantI
 	return nil
 }
 
-// ensureDefaultBoard cria um quadro inicial com colunas se o tenant ainda não tem nenhum.
+// ensureDefaultBoard creates an initial board with columns if the tenant doesn't have any yet.
 func (s *Server) ensureDefaultBoard(ctx context.Context, tenantID, userID uuid.UUID) (db.Board, error) {
 	boards, err := s.q.ListBoards(ctx, db.ListBoardsParams{TenantID: tenantID, UserID: pgtype.UUID{Bytes: userID, Valid: true}})
 	if err != nil {
@@ -53,7 +53,7 @@ func (s *Server) ensureDefaultBoard(ctx context.Context, tenantID, userID uuid.U
 	return board, nil
 }
 
-// handleCreateBoard cria um quadro novo já com as colunas padrão.
+// handleCreateBoard creates a new board already with the default columns.
 func (s *Server) handleCreateBoard(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req struct {
@@ -70,8 +70,8 @@ func (s *Server) handleCreateBoard(w http.ResponseWriter, r *http.Request) {
 	board, err := s.createBoard(r.Context(), db.CreateBoardParams{
 		TenantID: mu.TenantID, Name: name, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true},
 	})
-	// Default colaborativo: o quadro novo nasce visível/editável pela org toda (grant removível
-	// pelo manager para restringir). Sem isto, só o dono o veria.
+	// Collaborative by default: the new board is born visible/editable by the whole org (a grant
+	// the manager can remove to restrict it). Without this, only the owner would see it.
 	if err == nil {
 		_, _ = s.q.InsertBoardGrant(r.Context(), db.InsertBoardGrantParams{
 			TenantID: mu.TenantID, BoardID: board.ID, SubjectType: "org", Role: "editor",
@@ -116,8 +116,8 @@ func (s *Server) handleUpdateBoard(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, board)
 }
 
-// handleDeleteBoard exclui um quadro (colunas e cards caem por cascata). Nunca deixa o tenant
-// sem nenhum quadro — o último não pode ser excluído.
+// handleDeleteBoard deletes a board (columns and cards cascade away). It never leaves the tenant
+// with no board at all — the last one can't be deleted.
 func (s *Server) handleDeleteBoard(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -158,7 +158,7 @@ func (s *Server) handleListBoards(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, boards)
 }
 
-// handleGetBoard devolve o quadro com colunas e cards agrupados por coluna.
+// handleGetBoard returns the board with its columns and cards grouped by column.
 func (s *Server) handleGetBoard(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -184,11 +184,11 @@ func (s *Server) handleGetBoard(w http.ResponseWriter, r *http.Request) {
 	for i, col := range cols {
 		cs := byCol[col.ID]
 		if cs == nil {
-			cs = []db.ListCardsByBoardRow{} // nunca null no JSON (o frontend faz cards.length)
+			cs = []db.ListCardsByBoardRow{} // never null in JSON (the frontend does cards.length)
 		}
 		out[i] = map[string]any{"column": col, "cards": cs}
 	}
-	// Responsáveis adicionais + dependências, agrupados por card (o frontend indexa por card_id).
+	// Additional assignees + dependencies, grouped by card (the frontend indexes by card_id).
 	assignees, _ := s.q.ListBoardAssignees(r.Context(), board.ID)
 	if assignees == nil {
 		assignees = []db.ListBoardAssigneesRow{}
@@ -213,8 +213,8 @@ type createCardReq struct {
 	StartDate   string `json:"start_date"`
 }
 
-// normalizePriority: aceita só a escala fixa; qualquer outra coisa (vazio incluso) vira 'normal'.
-// Mantém o CHECK do banco sempre satisfeito sem depender do cliente.
+// normalizePriority: accepts only the fixed scale; anything else (including empty) becomes
+// 'normal'. Keeps the database CHECK always satisfied without relying on the client.
 func normalizePriority(p string) string {
 	switch p {
 	case "low", "high", "urgent":
@@ -224,7 +224,7 @@ func normalizePriority(p string) string {
 	}
 }
 
-// contactOrZero: ausente = mantém o vínculo; "" = desliga.
+// contactOrZero: absent = keeps the link; "" = clears it.
 func contactOrZero(s *Server, r *http.Request, mu db.MailUser, raw *string) pgtype.UUID {
 	if raw == nil {
 		return pgtype.UUID{}
@@ -232,9 +232,9 @@ func contactOrZero(s *Server, r *http.Request, mu db.MailUser, raw *string) pgty
 	return s.resolveContact(r.Context(), mu, *raw)
 }
 
-// resolveContact valida o vínculo tarefa/chamado → contato: só aceita contato que o usuário VÊ
-// (GetContact aplica a visibilidade por grupo). Id inválido ou invisível → sem vínculo, nunca
-// erro silencioso de vazamento.
+// resolveContact validates the task/ticket → contact link: it only accepts a contact the user
+// CAN SEE (GetContact applies group-based visibility). An invalid or invisible id → no link,
+// never a silent leak.
 func (s *Server) resolveContact(ctx context.Context, mu db.MailUser, raw string) pgtype.UUID {
 	if raw == "" {
 		return pgtype.UUID{}
@@ -272,7 +272,7 @@ func (s *Server) handleCreateCard(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "cards.invalid")
 		return
 	}
-	// Número por quadro (QUA-12): a sequência do quadro é a fonte, nunca MAX+1.
+	// Number per board (QUA-12): the board's sequence is the source of truth, never MAX+1.
 	seq, err := s.q.NextCardNumber(r.Context(), boardID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "cards.create_failed")
@@ -291,7 +291,7 @@ func (s *Server) handleCreateCard(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "cards.create_failed")
 		return
 	}
-	// Avisa quem vai fazer a tarefa (nunca quem a criou — foi ele mesmo).
+	// Notifies whoever is going to do the task (never the creator — that was them already).
 	s.notifyTask(r.Context(), mu, card, taskWatchers(card), "New task", card.Title)
 	s.logCard(r.Context(), mu.TenantID, card.ID, mu.ID, "created", "")
 	s.publishBoard(r.Context(), mu.TenantID, card.BoardID)
@@ -322,7 +322,7 @@ func (s *Server) handleMoveCard(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "cards.invalid")
 		return
 	}
-	// Muda de coluna? Usado p/ o limite WIP e para disparar automações só na ENTRADA da coluna.
+	// Changing column? Used for the WIP limit and to fire automations only on ENTERING the column.
 	cur, _ := s.q.GetCard(r.Context(), db.GetCardParams{ID: id, TenantID: mu.TenantID})
 	entering := cur.ColumnID != colID
 	if entering {
@@ -349,11 +349,11 @@ func (s *Server) handleMoveCard(w http.ResponseWriter, r *http.Request) {
 }
 
 type reorderColumnReq struct {
-	CardIDs []string `json:"card_ids"` // ordem final dos cards da coluna (inclui os que vieram de fora)
+	CardIDs []string `json:"card_ids"` // final order of the column's cards (includes ones that came from elsewhere)
 }
 
-// handleReorderColumn define a ordem (e a coluna) dos cards a partir do array recebido — persiste a
-// posição vertical do drag-and-drop, que antes gravava sempre 0.
+// handleReorderColumn sets the order (and column) of the cards from the received array — it
+// persists the vertical drag-and-drop position, which previously always saved 0.
 func (s *Server) handleReorderColumn(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	colID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -371,12 +371,12 @@ func (s *Server) handleReorderColumn(w http.ResponseWriter, r *http.Request) {
 			ids = append(ids, id)
 		}
 	}
-	// Limite WIP: a lista final não pode exceder o limite da coluna (drag-and-drop passa por aqui).
+	// WIP limit: the final list can't exceed the column's limit (drag-and-drop goes through here).
 	if col, cerr := s.q.GetColumn(r.Context(), db.GetColumnParams{ID: colID, TenantID: mu.TenantID}); cerr == nil && col.WipLimit > 0 && len(ids) > int(col.WipLimit) {
 		writeErr(w, http.StatusConflict, "cards.wip_full")
 		return
 	}
-	// Cards que ENTRAM na coluna agora (coluna atual != destino) → disparam automações após reordenar.
+	// Cards ENTERING the column now (current column != destination) → fire automations after reordering.
 	var entered []uuid.UUID
 	for _, cid := range ids {
 		if c, e := s.q.GetCard(r.Context(), db.GetCardParams{ID: cid, TenantID: mu.TenantID}); e == nil && c.ColumnID != colID {
@@ -399,7 +399,7 @@ type reorderColumnsReq struct {
 	ColumnIDs []string `json:"column_ids"`
 }
 
-// handleReorderColumns aplica a nova ordem horizontal das colunas do quadro (drag-and-drop de coluna).
+// handleReorderColumns applies the board's new horizontal column order (column drag-and-drop).
 func (s *Server) handleReorderColumns(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	boardID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -441,7 +441,7 @@ func (s *Server) handleDeleteCard(w http.ResponseWriter, r *http.Request) {
 	if !s.requireCardEditor(w, r, id) {
 		return
 	}
-	// Captura o board antes de apagar, para avisar o quadro em tempo real.
+	// Captures the board before deleting, to notify the board in real time.
 	card, _ := s.q.GetCard(r.Context(), db.GetCardParams{ID: id, TenantID: mu.TenantID})
 	if err := s.q.DeleteCard(r.Context(), db.DeleteCardParams{ID: id, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "cards.delete_failed")
@@ -461,12 +461,12 @@ type updateCardReq struct {
 	Due         string `json:"due"`
 	Priority    string `json:"priority"`
 	StartDate   string `json:"start_date"`
-	Color       string `json:"color"` // tinta do card ('' = default); contraste garantido no frontend
-	// Ponteiro de propósito: ausente = mantém o contato ligado; "" = desliga.
+	Color       string `json:"color"` // card tint ('' = default); contrast guaranteed in the frontend
+	// Pointer on purpose: absent = keeps the contact linked; "" = clears it.
 	ContactID *string `json:"contact_id"`
 }
 
-// handleUpdateCard edita os campos de um card (título, descrição, label, responsável, prazo).
+// handleUpdateCard edits a card's fields (title, description, label, assignee, due date).
 func (s *Server) handleUpdateCard(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -507,7 +507,7 @@ type columnReq struct {
 	WipLimit int32  `json:"wip_limit"`
 }
 
-// handleCreateColumn cria uma coluna no fim do quadro (position = nº de colunas atuais).
+// handleCreateColumn creates a column at the end of the board (position = current column count).
 func (s *Server) handleCreateColumn(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	boardID, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -544,7 +544,7 @@ func (s *Server) handleCreateColumn(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, col)
 }
 
-// handleUpdateColumn renomeia / troca a cor de uma coluna.
+// handleUpdateColumn renames / changes the color of a column.
 func (s *Server) handleUpdateColumn(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -573,7 +573,7 @@ func (s *Server) handleUpdateColumn(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, col)
 }
 
-// handleDeleteColumn exclui uma coluna (os cards caem por ON DELETE CASCADE).
+// handleDeleteColumn deletes a column (its cards cascade away via ON DELETE CASCADE).
 func (s *Server) handleDeleteColumn(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))

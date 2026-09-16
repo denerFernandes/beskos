@@ -25,7 +25,7 @@ type planCatalog struct {
 	fetched time.Time
 }
 
-// catalogPlans devolve todos os planos (ativos e inativos) já convertidos para billing.Plan.
+// catalogPlans returns all plans (active and inactive) already converted to billing.Plan.
 func (s *Server) catalogPlans(ctx context.Context) []billing.Plan {
 	s.planCat.mu.Lock()
 	defer s.planCat.mu.Unlock()
@@ -34,8 +34,8 @@ func (s *Server) catalogPlans(ctx context.Context) []billing.Plan {
 	}
 	rows, err := s.q.ListPlans(ctx)
 	if err != nil || len(rows) == 0 {
-		// Fallback: catálogo em código. Não cacheia o fallback por muito tempo de propósito —
-		// assim que a tabela responder, os valores da BD assumem.
+		// Fallback: code-based catalog. Doesn't cache the fallback for long on purpose — as soon
+		// as the table responds, the DB values take over.
 		return billing.Plans()
 	}
 	out := make([]billing.Plan, 0, len(rows))
@@ -47,7 +47,7 @@ func (s *Server) catalogPlans(ctx context.Context) []billing.Plan {
 	return out
 }
 
-// activePlans filtra o catálogo para exibição (checkout/billing só mostra planos ativos).
+// activePlans filters the catalog for display (checkout/billing only shows active plans).
 func (s *Server) activePlans(ctx context.Context) []billing.Plan {
 	all := s.catalogPlans(ctx)
 	out := make([]billing.Plan, 0, len(all))
@@ -59,8 +59,8 @@ func (s *Server) activePlans(ctx context.Context) []billing.Plan {
 	return out
 }
 
-// catalogPlanByKey resolve um plano pela chave SEM fallback (ok=false se não existe) — para
-// validação de checkout/webhook, onde cair no trial silenciosamente seria errado.
+// catalogPlanByKey resolves a plan by key WITHOUT a fallback (ok=false if it doesn't exist) — for
+// checkout/webhook validation, where silently falling back to the trial would be wrong.
 func (s *Server) catalogPlanByKey(ctx context.Context, key string) (billing.Plan, bool) {
 	for _, p := range s.catalogPlans(ctx) {
 		if p.ID == key {
@@ -70,7 +70,7 @@ func (s *Server) catalogPlanByKey(ctx context.Context, key string) (billing.Plan
 	return billing.Plan{}, false
 }
 
-// planByKey resolve um plano pela chave, com o mesmo fail-safe de billing.PlanOrDefault.
+// planByKey resolves a plan by key, with the same fail-safe as billing.PlanOrDefault.
 func (s *Server) planByKey(ctx context.Context, key string) billing.Plan {
 	for _, p := range s.catalogPlans(ctx) {
 		if p.ID == key {
@@ -80,7 +80,7 @@ func (s *Server) planByKey(ctx context.Context, key string) billing.Plan {
 	return billing.PlanOrDefault(key)
 }
 
-// planFromRow converte a linha da BD no tipo que o produto consome.
+// planFromRow converts the DB row into the type the product consumes.
 func planFromRow(r db.Plan) billing.Plan {
 	return billing.Plan{
 		ID:                  r.Key,
@@ -105,7 +105,7 @@ func planFromRow(r db.Plan) billing.Plan {
 	}
 }
 
-// parsePlanPrices lê o JSONB {"USD":1900,...} (vazio/inválido = sem preços por moeda).
+// parsePlanPrices reads the JSONB {"USD":1900,...} (empty/invalid = no per-currency prices).
 func parsePlanPrices(raw []byte) map[string]int {
 	if len(raw) == 0 {
 		return nil

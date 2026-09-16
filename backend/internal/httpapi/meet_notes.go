@@ -12,10 +12,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Notas da reunião: documento compartilhado por reunião. Autosave (last-write-wins) e sincronização
-// ao vivo pelo hub (mesmo WebSocket do chat) para quem está na sala. Vira tarefa via IA no Kanban.
+// Meeting notes: a document shared per meeting. Autosave (last-write-wins) and live sync via the
+// hub (same WebSocket as chat) for whoever is in the room. Becomes a task via AI in the Kanban.
 
-// meetingForNotes garante que a reunião é do tenant do usuário.
+// meetingForNotes ensures the meeting belongs to the user's tenant.
 func (s *Server) meetingForNotes(w http.ResponseWriter, r *http.Request) (db.Meeting, bool) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -38,7 +38,7 @@ func (s *Server) handleGetMeetNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n, err := s.q.GetMeetingNotes(r.Context(), db.GetMeetingNotesParams{MeetingID: m.ID, TenantID: mu.TenantID})
-	if err != nil { // ainda não há notas: devolve vazio em vez de 404
+	if err != nil { // no notes yet: return empty instead of 404
 		writeJSON(w, http.StatusOK, map[string]any{"body": "", "title": m.Title})
 		return
 	}
@@ -69,8 +69,8 @@ func (s *Server) handleSaveMeetNotes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"body": n.Body, "updated_at": iso(n.UpdatedAt)})
 }
 
-// publishNotes empurra a nota para quem está NA SALA agora (identidades do LiveKit = ids de
-// usuário), menos quem acabou de digitar. Sem hub/LiveKit, degrada para só salvar.
+// publishNotes pushes the note to whoever is IN THE ROOM right now (LiveKit identities = user
+// ids), minus whoever just typed. Without hub/LiveKit, it degrades to just saving.
 func (s *Server) publishNotes(r *http.Request, m db.Meeting, body, author string) {
 	if s.hub == nil || s.meet == nil {
 		return

@@ -11,9 +11,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Grupos de utilizadores. Cada grupo tem um canal privado no chat criado junto — e a associação
-// grupo↔canal é mantida em sincronia: entrar no grupo entra no canal, sair sai.
-// Gestão exige members.manage (RBAC); listar exige members.view.
+// User groups. Each group has a private chat channel created alongside it — and the
+// group↔channel association is kept in sync: joining the group joins the channel, leaving leaves it.
+// Managing requires members.manage (RBAC); listing requires members.view.
 
 type groupDTO struct {
 	ID        string `json:"id"`
@@ -36,12 +36,12 @@ func (s *Server) handleListGroups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleCreateGroup cria o grupo e o canal privado do chat correspondente.
+// handleCreateGroup creates the group and its corresponding private chat channel.
 func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req struct {
 		Name    string   `json:"name"`
-		Members []string `json:"members"` // ids de usuário (opcional)
+		Members []string `json:"members"` // user ids (optional)
 	}
 	if !decode(w, r, &req) {
 		return
@@ -56,8 +56,8 @@ func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "groups.name_taken")
 		return
 	}
-	// Canal privado do grupo. Se falhar, o grupo continua válido (só sem canal) — não perdemos
-	// o grupo por causa do chat.
+	// The group's private channel. If this fails, the group is still valid (just without a
+	// channel) — we don't lose the group because of the chat.
 	ch, cerr := s.q.CreateChannel(r.Context(), db.CreateChannelParams{
 		TenantID: mu.TenantID, Kind: "private", Name: name, Topic: "", DmKey: "", CreatedBy: mu.ID,
 	})
@@ -65,7 +65,7 @@ func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		_ = s.q.SetUserGroupChannel(r.Context(), db.SetUserGroupChannelParams{ID: g.ID, ChannelID: pgUUID(ch.ID)})
 		g.ChannelID = pgUUID(ch.ID)
 	}
-	// O criador entra no grupo; os demais, se vieram no request.
+	// The creator joins the group; the rest, if they came in the request.
 	s.addMember(r.Context(), g, mu.TenantID, mu.ID)
 	for _, id := range req.Members {
 		if uid, perr := uuid.Parse(id); perr == nil {
@@ -75,7 +75,7 @@ func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, groupDTO{ID: g.ID.String(), Name: g.Name, ChannelID: uuidStr(g.ChannelID)})
 }
 
-// addMember põe o usuário no grupo E no canal do grupo (as duas coisas andam juntas).
+// addMember puts the user in the group AND in the group's channel (the two go together).
 func (s *Server) addMember(ctx context.Context, g db.UserGroup, tenantID, userID uuid.UUID) {
 	_ = s.q.AddUserToGroup(ctx, db.AddUserToGroupParams{GroupID: g.ID, UserID: userID, TenantID: tenantID})
 	if g.ChannelID.Valid {
@@ -108,15 +108,15 @@ func (s *Server) handleUpdateGroup(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "groups.not_found")
 		return
 	}
-	// O canal segue o nome do grupo.
+	// The channel follows the group's name.
 	if g.ChannelID.Valid {
 		_, _ = s.q.UpdateChannelName(r.Context(), db.UpdateChannelNameParams{ID: uuid.UUID(g.ChannelID.Bytes), TenantID: mu.TenantID, Name: name})
 	}
 	writeJSON(w, http.StatusOK, groupDTO{ID: g.ID.String(), Name: g.Name, ChannelID: uuidStr(g.ChannelID)})
 }
 
-// handleDeleteGroup apaga o grupo. O canal do chat PERMANECE (com o histórico) — apagar conversa
-// junto seria perda de dado silenciosa.
+// handleDeleteGroup deletes the group. The chat channel REMAINS (with its history) — deleting the
+// conversation along with it would be silent data loss.
 func (s *Server) handleDeleteGroup(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -169,7 +169,7 @@ func (s *Server) handleAddGroupMember(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "groups.not_found")
 		return
 	}
-	// O alvo precisa ser do MESMO tenant (nunca confiar no id vindo do request).
+	// The target must belong to the SAME tenant (never trust the id coming from the request).
 	if _, err := s.q.GetMailUserInTenant(r.Context(), db.GetMailUserInTenantParams{ID: uid, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusNotFound, "members.not_found")
 		return
@@ -178,7 +178,7 @@ func (s *Server) handleAddGroupMember(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "added"})
 }
 
-// handleUserGroups lista os grupos de UM usuário (o mesmo usuário pode estar em vários).
+// handleUserGroups lists the groups of ONE user (the same user can be in several).
 func (s *Server) handleUserGroups(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -194,8 +194,8 @@ func (s *Server) handleUserGroups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orEmpty(groups))
 }
 
-// handleSetUserGroups define de uma vez em QUAIS grupos o usuário está (o front manda a lista
-// completa). Calcula a diferença e sincroniza também os canais do chat.
+// handleSetUserGroups sets in one go WHICH groups the user is in (the frontend sends the full
+// list). It computes the difference and also syncs the chat channels.
 func (s *Server) handleSetUserGroups(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -218,8 +218,8 @@ func (s *Server) handleSetUserGroups(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orEmpty(groups))
 }
 
-// syncUserGroups põe o usuário exatamente nos grupos pedidos: entra nos que faltam, sai dos que
-// sobram — e o canal de cada grupo acompanha. Grupos de outro tenant são ignorados.
+// syncUserGroups puts the user in exactly the requested groups: joins the missing ones, leaves the
+// extra ones — and each group's channel follows along. Groups from another tenant are ignored.
 func (s *Server) syncUserGroups(ctx context.Context, tenantID, userID uuid.UUID, want []string) {
 	target := map[uuid.UUID]bool{}
 	for _, raw := range want {
@@ -228,7 +228,7 @@ func (s *Server) syncUserGroups(ctx context.Context, tenantID, userID uuid.UUID,
 			continue
 		}
 		g, err := s.q.GetUserGroup(ctx, db.GetUserGroupParams{ID: gid, TenantID: tenantID})
-		if err != nil { // não é do tenant → ignora (nunca confiar no id do request)
+		if err != nil { // not from the tenant → ignore (never trust the id from the request)
 			continue
 		}
 		target[gid] = true

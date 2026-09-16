@@ -12,21 +12,21 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Web Push: notificações desktop entregues pelo servidor quando o Beskos está fechado. Cifra o
-// payload para cada subscrição (RFC 8291) e envia ao serviço de push do browser. Desligado se as
-// chaves VAPID não estiverem configuradas — nesse caso só valem as notificações com a aba aberta.
+// Web Push: desktop notifications delivered by the server when Beskos is closed. Encrypts the
+// payload for each subscription (RFC 8291) and sends it to the browser's push service. Off if the
+// VAPID keys aren't configured — in that case only the with-tab-open notifications apply.
 type webPush struct {
 	publicKey  string
 	privateKey string
 	subject    string
 }
 
-// EnablePush liga o Web Push com o par de chaves VAPID (gerado uma vez, guardado em env).
+// EnablePush turns on Web Push with the VAPID key pair (generated once, stored in env).
 func (s *Server) EnablePush(publicKey, privateKey, subject string) {
 	s.push = &webPush{publicKey: publicKey, privateKey: privateKey, subject: subject}
 }
 
-// handlePushVapid devolve a chave pública VAPID, que o browser precisa para se subscrever.
+// handlePushVapid returns the public VAPID key, which the browser needs to subscribe.
 func (s *Server) handlePushVapid(w http.ResponseWriter, _ *http.Request) {
 	if s.push == nil {
 		writeJSON(w, http.StatusOK, map[string]any{"enabled": false})
@@ -43,7 +43,7 @@ type pushSubBody struct {
 	} `json:"keys"`
 }
 
-// handlePushSubscribe guarda a subscrição do browser para este utilizador.
+// handlePushSubscribe stores the browser's subscription for this user.
 func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var b pushSubBody
@@ -60,7 +60,7 @@ func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handlePushUnsubscribe remove a subscrição (o browser desligou o push ou revogou a permissão).
+// handlePushUnsubscribe removes the subscription (the browser turned off push or revoked the permission).
 func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	var b struct {
 		Endpoint string `json:"endpoint"`
@@ -76,7 +76,7 @@ func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// pushPayload é o que o service worker recebe e mostra como notificação.
+// pushPayload is what the service worker receives and shows as a notification.
 type pushPayload struct {
 	Kind  string `json:"kind"`
 	Title string `json:"title"`
@@ -84,13 +84,13 @@ type pushPayload struct {
 	Link  string `json:"link"`
 }
 
-// sendWebPush entrega uma notificação a todas as subscrições de um utilizador. Best-effort: uma
-// subscrição morta (404/410) é removida; os outros erros são só registados. Não bloqueia o chamador.
+// sendWebPush delivers a notification to all of a user's subscriptions. Best-effort: a dead
+// subscription (404/410) is removed; the other errors are just logged. Doesn't block the caller.
 func (s *Server) sendWebPush(ctx context.Context, userID uuid.UUID, p pushPayload) {
 	if s.push == nil {
 		return
 	}
-	// Não Perturbe: não envia push desktop (a notificação in-app do sino ainda é gravada).
+	// Do Not Disturb: doesn't send a desktop push (the in-app bell notification is still recorded).
 	if u, err := s.q.GetUserByID(ctx, userID); err == nil && u.Presence == "dnd" {
 		return
 	}
@@ -120,7 +120,7 @@ func (s *Server) sendWebPush(ctx context.Context, userID uuid.UUID, p pushPayloa
 			log.Printf("push: send failed: %v", err)
 			continue
 		}
-		// 404/410: a subscrição expirou no serviço de push — limpa para não tentar de novo.
+		// 404/410: the subscription expired in the push service — clean it up so it isn't retried.
 		if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusGone {
 			if derr := s.q.DeletePushSubscriptionByEndpoint(ctx, sub.Endpoint); derr != nil {
 				log.Printf("push: prune dead sub failed: %v", derr)

@@ -15,8 +15,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
 )
 
-// "Usuário" = caixa de email + conta do painel com um papel (RBAC). Users e Members são a mesma
-// coisa; o que os diferencia é o papel. Criar um usuário provisiona a caixa E a conta juntas.
+// "User" = e-mail mailbox + panel account with a role (RBAC). Users and Members are the same
+// thing; what tells them apart is the role. Creating a user provisions the mailbox AND the
+// account together.
 
 type createUserReq struct {
 	DomainID string   `json:"domain_id"`
@@ -25,7 +26,7 @@ type createUserReq struct {
 	Password string   `json:"password"`
 	Role     string   `json:"role"`
 	QuotaGB  int64    `json:"quota_gb"`
-	Groups   []string `json:"groups"` // o usuário pode entrar em vários grupos de uma vez
+	Groups   []string `json:"groups"` // the user can join several groups at once
 }
 
 func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +40,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "users.invalid")
 		return
 	}
-	// Anti-escalonamento: só um owner cria outro owner.
+	// Anti-escalation: only an owner can create another owner.
 	if role == rbac.RoleOwner && rbac.Role(actor.Role) != rbac.RoleOwner {
 		writeErr(w, http.StatusForbidden, "invites.owner_only")
 		return
@@ -58,7 +59,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "domains.not_active")
 		return
 	}
-	// Cota de caixas.
+	// Mailbox quota.
 	plan := s.tenantPlan(r, d.TenantID)
 	if count, _ := s.q.CountMailboxesByTenant(r.Context(), d.TenantID); int(count) >= plan.MaxMailboxes {
 		writeErr(w, http.StatusPaymentRequired, "quota.mailboxes")
@@ -70,7 +71,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	email := req.Login + "@" + d.Domain
 
-	// Caixa no Stalwart + o usuário (identidade unificada: um só registro com caixa, senha e papel).
+	// Mailbox in Stalwart + the user (unified identity: a single record with mailbox, password, and role).
 	acctID, err := s.sw.CreateAccount(r.Context(), stalwart.AccountInput{
 		Login: req.Login, DomainID: strval(d.StalwartID), DisplayName: req.Name, Password: req.Password, QuotaBytes: quota << 30,
 	})
@@ -96,12 +97,12 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "mailbox.already_exists")
 		return
 	}
-	// Grupos escolhidos na criação (entra também nos canais de chat correspondentes).
+	// Groups chosen at creation time (also joins the corresponding chat channels).
 	if len(req.Groups) > 0 {
 		s.syncUserGroups(r.Context(), d.TenantID, pu.ID, req.Groups)
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: actor.TenantID, Valid: true}, Actor: actor.Email, Action: "user.create", Target: email})
-	s.syncSeats(actor.TenantID) // seats na Stripe acompanham (rateio no período)
+	s.syncSeats(actor.TenantID) // seats in Stripe follow along (prorated within the period)
 	writeJSON(w, http.StatusCreated, map[string]any{"id": pu.ID, "email": email, "role": req.Role})
 }
 
@@ -110,7 +111,7 @@ type resetUserPwReq struct {
 	Password string `json:"password"`
 }
 
-// handleResetUserPassword troca a senha do usuário nas DUAS pontas (caixa no Stalwart + painel).
+// handleResetUserPassword changes the user's password on BOTH ends (mailbox in Stalwart + panel).
 func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request) {
 	actor := mailUserFrom(r.Context())
 	var req resetUserPwReq
@@ -126,8 +127,9 @@ func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusNotFound, "mailbox.not_found")
 		return
 	}
-	// Anti-escalonamento (lei §5.2): o ator só reseta a senha de alguém de rank inferior. Sem isto,
-	// um admin redefiniria a senha do owner e assumiria a conta + a caixa (via IMAP/JMAP, sem MFA).
+	// Anti-escalation (law §5.2): the actor can only reset the password of someone of lower rank.
+	// Without this, an admin could reset the owner's password and take over the account + mailbox
+	// (via IMAP/JMAP, without MFA).
 	if mu.ID != actor.ID && !rbac.CanManage(rbac.Role(actor.Role), rbac.Role(mu.Role)) {
 		writeErr(w, http.StatusForbidden, "rbac.forbidden")
 		return
@@ -137,14 +139,14 @@ func (s *Server) handleResetUserPassword(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 		return
 	}
-	// Atualiza também a conta do painel (mesma identidade), se existir.
+	// Also updates the panel account (same identity), if it exists.
 	if hash, err := auth.HashPassword(req.Password); err == nil {
 		_ = s.q.UpdateUserPasswordByEmail(r.Context(), db.UpdateUserPasswordByEmailParams{
 			Email: req.Email, TenantID: actor.TenantID, PasswordHash: hash,
 		})
 	}
-	// Senha PRÓPRIA: a credencial JMAP guardada (Basic com a senha antiga) deixaria de servir e o
-	// webmail passava a dar 401 até ao próximo login. Regrava-se com a nova.
+	// OWN password: the stored JMAP credential (Basic with the old password) would stop working
+	// and the webmail would start returning 401 until the next login. Rewrite it with the new one.
 	if mu.ID == actor.ID {
 		basic := base64.StdEncoding.EncodeToString([]byte(req.Email + ":" + req.Password))
 		_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: mu.ID, JmapCred: s.encTOTP(basic)})

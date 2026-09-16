@@ -17,7 +17,7 @@ import (
 // User profile (avatar menu): name, job title, phone, photo, and self-service password change.
 // PERSONAL security (MFA) uses the existing /mfa/* endpoints.
 
-const maxAvatarBytes = 150 << 10 // data-URL ~128px cabe folgado; acima disto é upload errado
+const maxAvatarBytes = 150 << 10 // a ~128px data-URL fits comfortably; above this it's the wrong upload
 
 func (s *Server) handleGetMyProfile(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
@@ -65,7 +65,7 @@ func (s *Server) handleUpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "profile.avatar_too_large")
 		return
 	}
-	// Foto: ou vazia (remover) ou um data-URL de imagem — nunca HTML/URL externa (XSS/tracking).
+	// Photo: either empty (remove) or an image data-URL — never HTML/an external URL (XSS/tracking).
 	if req.Avatar != "" && !strings.HasPrefix(req.Avatar, "data:image/") {
 		writeErr(w, http.StatusBadRequest, "profile.avatar_invalid")
 		return
@@ -80,9 +80,9 @@ func (s *Server) handleUpdateMyProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
 
-// handleChangeMyPassword troca a própria senha com STEP-UP (senha atual obrigatória). Com caixa,
-// troca no Stalwart E regrava a jmap_cred (senão o proxy JMAP ficaria com a credencial velha);
-// derruba as outras sessões do utilizador (a atual continua).
+// handleChangeMyPassword changes the user's own password with STEP-UP (current password required).
+// With a mailbox, changes it on Stalwart AND rewrites jmap_cred (otherwise the JMAP proxy would be
+// left with the old credential); drops the user's other sessions (the current one stays).
 func (s *Server) handleChangeMyPassword(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	var req struct {
@@ -103,7 +103,7 @@ func (s *Server) handleChangeMyPassword(w http.ResponseWriter, r *http.Request) 
 	}
 	if fresh.StalwartAccountID != nil {
 		if err := s.sw.SetAccountPassword(r.Context(), *fresh.StalwartAccountID, req.New); err != nil {
-			log.Printf("perfil: Stalwart recusou: %v", err)
+			log.Printf("profile: Stalwart refused: %v", err)
 			if errors.Is(err, stalwart.ErrWeakPassword) {
 				writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
 				return
@@ -111,7 +111,7 @@ func (s *Server) handleChangeMyPassword(w http.ResponseWriter, r *http.Request) 
 			writeErr(w, http.StatusBadGateway, "mailbox.stalwart_failed")
 			return
 		}
-		// Credencial JMAP acompanha a senha nova (brokering H11).
+		// JMAP credential follows the new password (brokering H11).
 		basic := base64.StdEncoding.EncodeToString([]byte(fresh.Email + ":" + req.New))
 		_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: u.ID, JmapCred: s.encTOTP(basic)})
 	}

@@ -12,9 +12,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Breakout rooms: salas paralelas dentro de uma reunião. O host cria N salas (e pode auto-distribuir
-// os presentes), atribui pessoas e fecha tudo quando acabam. Cada breakout é uma sala LiveKit própria
-// (room_name = <sala>-b<idx>); entrar num breakout = pedir um token dessa sala.
+// Breakout rooms: parallel rooms inside a meeting. The host creates N rooms (and can auto-distribute
+// those present), assigns people, and closes everything when done. Each breakout is its own LiveKit
+// room (room_name = <room>-b<idx>); joining a breakout means requesting a token for that room.
 
 const maxBreakouts = 20
 
@@ -23,11 +23,11 @@ type breakoutDTO struct {
 	Idx      int32    `json:"idx"`
 	Name     string   `json:"name"`
 	RoomName string   `json:"room_name"`
-	Members  []string `json:"members"` // ids dos utilizadores atribuídos
+	Members  []string `json:"members"` // ids of assigned users
 }
 
-// handleCreateBreakouts cria salas de breakout (host). Aceita `count` (nomes automáticos) e um
-// opcional `auto_assign` para distribuir os participantes presentes em rodízio.
+// handleCreateBreakouts creates breakout rooms (host). Accepts `count` (automatic names) and an
+// optional `auto_assign` to round-robin distribute the participants present.
 func (s *Server) handleCreateBreakouts(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -51,13 +51,13 @@ func (s *Server) handleCreateBreakouts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "meet.breakout_count")
 		return
 	}
-	// Recria do zero: fechar os antigos evita salas órfãs e mantém a numeração previsível.
+	// Recreate from scratch: closing the old ones avoids orphan rooms and keeps numbering predictable.
 	_ = s.q.DeleteBreakouts(r.Context(), m.ID)
 	created := make([]db.MeetingBreakout, 0, req.Count)
 	for i := 1; i <= req.Count; i++ {
 		b, cerr := s.q.CreateBreakout(r.Context(), db.CreateBreakoutParams{
 			MeetingID: m.ID, TenantID: mu.TenantID, Idx: int32(i),
-			Name: fmt.Sprintf("Sala %d", i), RoomName: fmt.Sprintf("%s-b%d", m.RoomName, i),
+			Name: fmt.Sprintf("Room %d", i), RoomName: fmt.Sprintf("%s-b%d", m.RoomName, i),
 		})
 		if cerr != nil {
 			writeErr(w, http.StatusInternalServerError, "meet.failed")
@@ -71,7 +71,7 @@ func (s *Server) handleCreateBreakouts(w http.ResponseWriter, r *http.Request) {
 	s.writeBreakouts(w, r, m.ID)
 }
 
-// autoAssign distribui os participantes presentes (menos o host) pelas salas, em rodízio.
+// autoAssign round-robin distributes the participants present (minus the host) across the rooms.
 func (s *Server) autoAssign(ctx context.Context, m db.Meeting, rooms []db.MeetingBreakout) {
 	ids := s.meet.presentNonHost(ctx, m.RoomName, m.OwnerUserID.String())
 	for i, uid := range ids {
@@ -89,7 +89,7 @@ func (s *Server) handleListBreakouts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "meet.invalid_id")
 		return
 	}
-	// Qualquer membro do tenant que veja a reunião pode listar (para saber a sua própria atribuição).
+	// Any tenant member who can see the meeting can list (to know their own assignment).
 	if _, err := s.q.GetMeetingInTenant(r.Context(), db.GetMeetingInTenantParams{ID: id, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusNotFound, "meet.not_found")
 		return
@@ -97,7 +97,7 @@ func (s *Server) handleListBreakouts(w http.ResponseWriter, r *http.Request) {
 	s.writeBreakouts(w, r, id)
 }
 
-// handleAssignBreakout move um participante para uma sala (host).
+// handleAssignBreakout moves a participant into a room (host).
 func (s *Server) handleAssignBreakout(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -137,7 +137,7 @@ func (s *Server) handleAssignBreakout(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "assigned"})
 }
 
-// handleCloseBreakouts fecha todas as salas (host). Os clientes detetam (poll) e voltam à principal.
+// handleCloseBreakouts closes all rooms (host). Clients detect it (poll) and return to the main room.
 func (s *Server) handleCloseBreakouts(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -154,8 +154,8 @@ func (s *Server) handleCloseBreakouts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "closed"})
 }
 
-// handleBreakoutToken devolve um token da sala de breakout. O utilizador tem de estar atribuído a
-// ela — ou ser host (que pode visitar qualquer breakout).
+// handleBreakoutToken returns a token for the breakout room. The user must be assigned to it —
+// or be the host (who can visit any breakout).
 func (s *Server) handleBreakoutToken(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -190,7 +190,7 @@ func (s *Server) handleBreakoutToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// Todos publicam plenamente dentro do breakout (é uma sala de trabalho pequena).
+	// Everyone publishes fully inside the breakout (it's a small working room).
 	tok, err := s.meet.token(mu.ID.String(), mu.Name, b.RoomName, meetTokenTTL, fullPolicy())
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "meet.token_failed")
@@ -201,7 +201,7 @@ func (s *Server) handleBreakoutToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// writeBreakouts serializa as salas + membros atribuídos.
+// writeBreakouts serializes the rooms + assigned members.
 func (s *Server) writeBreakouts(w http.ResponseWriter, r *http.Request, meetingID uuid.UUID) {
 	rooms, err := s.q.ListBreakouts(r.Context(), meetingID)
 	if err != nil {

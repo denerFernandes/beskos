@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-// rateLimiter é um limitador em memória (janela deslizante por chave). Trava brute-force/credential
-// stuffing no login e no 2º fator numa instância. Multi-instância exigiria um store partilhado
-// (Redis) — registado como limitação conhecida, não como bloqueio deste fix (auditoria H5).
+// rateLimiter is an in-memory limiter (sliding window per key). Blocks brute-force/credential
+// stuffing on login and on the 2nd factor within one instance. Multi-instance would require a
+// shared store (Redis) — logged as a known limitation, not as a blocker for this fix (audit H5).
 type rateLimiter struct {
 	mu     sync.Mutex
-	hits   map[string][]int64 // chave -> instantes (unix nanos) ainda dentro da janela
+	hits   map[string][]int64 // key -> instants (unix nanos) still within the window
 	limit  int
 	window time.Duration
 }
@@ -21,12 +21,12 @@ func newRateLimiter(limit int, window time.Duration) *rateLimiter {
 	return &rateLimiter{hits: make(map[string][]int64), limit: limit, window: window}
 }
 
-// allow regista uma tentativa para a chave e devolve false se ela excede o limite na janela.
+// allow records an attempt for the key and returns false if it exceeds the limit within the window.
 func (rl *rateLimiter) allow(key string, now time.Time) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	cutoff := now.Add(-rl.window).UnixNano()
-	// Filtra in-place os instantes ainda válidos.
+	// Filters the still-valid instants in place.
 	kept := rl.hits[key][:0]
 	for _, t := range rl.hits[key] {
 		if t >= cutoff {
@@ -38,7 +38,7 @@ func (rl *rateLimiter) allow(key string, now time.Time) bool {
 		return false
 	}
 	rl.hits[key] = append(kept, now.UnixNano())
-	// Poda preguiçosa: se o mapa cresceu muito, remove chaves totalmente expiradas.
+	// Lazy pruning: if the map has grown too large, remove keys that are fully expired.
 	if len(rl.hits) > 10000 {
 		for k, ts := range rl.hits {
 			if len(ts) == 0 || ts[len(ts)-1] < cutoff {
@@ -49,8 +49,8 @@ func (rl *rateLimiter) allow(key string, now time.Time) bool {
 	return true
 }
 
-// clientIP devolve o IP do cliente. middleware.RealIP já resolve X-Forwarded-For quando atrás do
-// nosso proxy (Caddy); fora dele, cai no RemoteAddr.
+// clientIP returns the client's IP. middleware.RealIP already resolves X-Forwarded-For when
+// behind our proxy (Caddy); outside of it, it falls back to RemoteAddr.
 func clientIP(r *http.Request) string {
 	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
 		return host

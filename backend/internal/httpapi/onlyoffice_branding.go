@@ -1,36 +1,36 @@
 package httpapi
 
-// Marca Beskos no cabeçalho e no "Sobre" do editor de office.
+// Beskos branding in the office editor's header and "About" dialog.
 //
-// O Document Server Community só honra estes parâmetros com o patch de branding do arranque
-// (deploy/onlyoffice-branding-patch.sh). Sem o patch, o editor descarta-os em silêncio e o
-// cabeçalho fica com a marca original — a app continua a funcionar na mesma.
+// The Document Server Community only honors these parameters with the startup branding patch
+// (deploy/onlyoffice-branding-patch.sh). Without the patch, the editor silently drops them and the
+// header keeps the original brand — the app still works all the same.
 //
-// As imagens são URLs servidas pelo PRÓPRIO Document Server (o mesmo patch copia-as para o
-// webroot dele). Não usar data: URI aqui: o api.js do DS passa logo.{image,imageDark,imageLight}
-// na query string do iframe do editor, e três data URIs percent-encoded estouram o limite da
-// linha de pedido do nginx — o editor abre com "414 Request-URI Too Large".
+// The images are URLs served by the Document Server ITSELF (the same patch copies them into its
+// webroot). Don't use a data: URI here: the DS's api.js passes logo.{image,imageDark,imageLight}
+// in the editor iframe's query string, and three percent-encoded data URIs exceed nginx's request
+// line limit — the editor opens with "414 Request-URI Too Large".
 //
-// Atribuição (AGPL v3 §5 e §13, mais a política de marcas da Ascensio System SIA): o diálogo
-// "Sobre" continua a mostrar "Powered by / Ascensio System SIA / onlyoffice.com" — é o próprio
-// Document Server que o revela quando enviamos `customer` — e nós acrescentamos em `customer.info`
-// a nota de versão modificada, com data e o endereço do fonte modificado. Nada disto é opcional:
-// servimos o editor pela rede, logo devemos o aviso e a oferta de fonte a quem o usa.
+// Attribution (AGPL v3 §5 and §13, plus Ascensio System SIA's trademark policy): the "About"
+// dialog keeps showing "Powered by / Ascensio System SIA / onlyoffice.com" — the Document Server
+// itself reveals it when we send `customer` — and we add, in `customer.info`, the modified-version
+// notice, with the date and the address of the modified source. None of this is optional: we serve
+// the editor over the network, so we owe the notice and the source offer to whoever uses it.
 
-// brandLogoPath é onde o patch de arranque deixa os logos dentro do Document Server.
+// brandLogoPath is where the startup patch leaves the logos inside the Document Server.
 const brandLogoPath = "/web-apps/apps/common/main/resources/img/beskos/"
 
-// officeModifiedOn é a data da modificação do Document Server, exigida pelos termos adicionais
-// da AGPL ("prominent notices ... including the date of such modification"). Atualizar sempre
-// que o patch de branding mudar.
+// officeModifiedOn is the Document Server's modification date, required by the AGPL's additional
+// terms ("prominent notices ... including the date of such modification"). Always update it
+// whenever the branding patch changes.
 const officeModifiedOn = "2026-07-27"
 
-const officeUpstreamNotice = "Baseado em ONLYOFFICE® Docs Community Edition, da Ascensio System SIA. " +
-	"Versão modificada por Beskos (interface e marca) em " + officeModifiedOn + " — não é o software " +
-	"original nem é endossada pela Ascensio System SIA. Licença: GNU AGPL v3."
+const officeUpstreamNotice = "Based on ONLYOFFICE® Docs Community Edition, by Ascensio System SIA. " +
+	"Version modified by Beskos (interface and branding) on " + officeModifiedOn + " — this is not the " +
+	"original software and is not endorsed by Ascensio System SIA. License: GNU AGPL v3."
 
-// applyBranding acrescenta a marca Beskos ao objeto customization do config do editor. Recebe o
-// mapa já montado pelo handler para não duplicar a construção do config em dois sítios.
+// applyBranding adds the Beskos brand to the editor config's customization object. Receives the
+// map already built by the handler, to avoid duplicating the config construction in two places.
 func (o *onlyoffice) applyBranding(customization map[string]any) {
 	light := o.publicURL + brandLogoPath + "wordmark-light.svg"
 	dark := o.publicURL + brandLogoPath + "wordmark-dark.svg"
@@ -41,9 +41,10 @@ func (o *onlyoffice) applyBranding(customization map[string]any) {
 		"imageDark":  dark,
 		"url":        o.brandSiteURL(),
 	}
-	// O "Sobre" é onde vive o aviso legal, por isso é ligado EXPLICITAMENTE. Com o patch, o
-	// `canBrandingExt` fica true e o Document Server deixa de o forçar sozinho — sem esta linha,
-	// bastava alguém pôr `about: false` na customização para a atribuição desaparecer da UI.
+	// "About" is where the legal notice lives, so it's turned on EXPLICITLY. With the patch,
+	// `canBrandingExt` becomes true and the Document Server stops forcing it on its own — without
+	// this line, all it would take is someone setting `about: false` in the customization for the
+	// attribution to disappear from the UI.
 	customization["about"] = true
 	customization["customer"] = map[string]any{
 		"name":     "Beskos",
@@ -54,14 +55,14 @@ func (o *onlyoffice) applyBranding(customization map[string]any) {
 	}
 }
 
-// attributionNotice é o texto que aparece no "Sobre". Junta a oferta de fonte modificada (§13)
-// quando ONLYOFFICE_SOURCE_URL está configurado; sem ela, o aviso sai na mesma, mas incompleto —
-// por isso a config recusa arrancar sem o endereço em produção.
+// attributionNotice is the text shown in "About". Adds the modified-source offer (§13) when
+// ONLYOFFICE_SOURCE_URL is configured; without it, the notice still goes out, but incomplete —
+// which is why the config refuses to start without the address in production.
 func (o *onlyoffice) attributionNotice() string {
 	if o.sourceURL == "" {
 		return officeUpstreamNotice
 	}
-	return officeUpstreamNotice + " Fonte das modificações: " + o.sourceURL
+	return officeUpstreamNotice + " Source of the modifications: " + o.sourceURL
 }
 
 // brandSiteURL is what the editor's logo links to. Its caller (cmd/api's main) already resolves

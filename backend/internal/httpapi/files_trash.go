@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// handleListTrash lista os ficheiros na lixeira do dono (restauráveis).
+// handleListTrash lists the files in the owner's trash (restorable).
 func (s *Server) handleListTrash(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	files, err := s.q.ListTrashedFiles(r.Context(), ownerPg(mu))
@@ -24,7 +24,7 @@ func (s *Server) handleListTrash(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"files": files, "owner": map[string]string{"name": mu.Name, "email": mu.Email}})
 }
 
-// handleRestoreFile tira o ficheiro da lixeira (volta a ser ativo).
+// handleRestoreFile takes the file out of the trash (becomes active again).
 func (s *Server) handleRestoreFile(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -40,8 +40,8 @@ func (s *Server) handleRestoreFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, f)
 }
 
-// handlePurgeFile apaga um ficheiro de vez (só faz sentido a partir da lixeira) e liberta o blob se
-// nenhum outro registo (dedup/versão) ainda o referencia. Irreversível.
+// handlePurgeFile permanently deletes a file (only makes sense from the trash) and frees the blob
+// if no other record (dedup/version) still references it. Irreversible.
 func (s *Server) handlePurgeFile(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -55,9 +55,10 @@ func (s *Server) handlePurgeFile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
-// purgeFileAndBlobs apaga o ficheiro de vez e liberta os blobs (o do ficheiro e os das versões) que
-// NENHUM outro registo referencia. Recolhe os blobs das versões ANTES do delete (o cascade some com
-// as linhas), e usa CountBlobRefsAll para não apagar conteúdo ainda partilhado por dedup.
+// purgeFileAndBlobs permanently deletes the file and frees the blobs (the file's own and the
+// versions') that NO other record references. It collects the version blobs BEFORE the delete (the
+// cascade removes the rows), and uses CountBlobRefsAll to avoid deleting content still shared via
+// dedup.
 func (s *Server) purgeFileAndBlobs(r *http.Request, mu db.MailUser, f db.StorageFile) {
 	cands := map[string]bool{f.BlobKey: true}
 	if vblobs, err := s.q.ListVersionBlobs(r.Context(), db.ListVersionBlobsParams{FileID: f.ID, TenantID: f.TenantID}); err == nil {
@@ -75,7 +76,7 @@ func (s *Server) purgeFileAndBlobs(r *http.Request, mu db.MailUser, f db.Storage
 	}
 }
 
-// handleEmptyTrash purga TODOS os ficheiros na lixeira do dono, libertando os blobs órfãos.
+// handleEmptyTrash purges ALL files in the owner's trash, freeing the orphaned blobs.
 func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -92,7 +93,7 @@ func (s *Server) handleEmptyTrash(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"status": "emptied", "count": len(files)})
 }
 
-// handleListVersions lista o histórico de versões de um ficheiro (mais recente primeiro).
+// handleListVersions lists a file's version history (most recent first).
 func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request) {
 	f, ok := s.fileOwned(w, r)
 	if !ok {
@@ -106,8 +107,8 @@ func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"current_version": f.Version, "versions": orEmpty(vs)})
 }
 
-// handleRestoreVersion volta o ficheiro ao conteúdo de uma versão antiga. Fotografa a versão corrente
-// antes (o restaurar é, ele próprio, uma nova versão — reversível).
+// handleRestoreVersion reverts the file to the content of an older version. It snapshots the
+// current version first (restoring is itself a new version — reversible).
 func (s *Server) handleRestoreVersion(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -139,7 +140,7 @@ func (s *Server) handleRestoreVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, updated)
 }
 
-// handleDownloadVersion serve o conteúdo de uma versão antiga (para inspecionar antes de restaurar).
+// handleDownloadVersion serves the content of an older version (to inspect before restoring).
 func (s *Server) handleDownloadVersion(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
 		return
@@ -164,7 +165,7 @@ func (s *Server) handleDownloadVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer obj.Close()
-	// Versão antiga: sempre download (nunca inline), com nome sufixado pela versão.
+	// Older version: always a download (never inline), with the name suffixed by the version.
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fmt.Sprintf("v%d-%s", v.Version, f.Name)))

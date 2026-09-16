@@ -13,14 +13,14 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Meet — persistência de reuniões: agendar, listar (minhas + convidadas), RSVP, cancelar.
-// Integra com o calendário (event_id) e o LiveKit (room_name + webhooks de tempo real).
+// Meet — meeting persistence: schedule, list (mine + invited), RSVP, cancel.
+// Integrates with the calendar (event_id) and LiveKit (room_name + real-time webhooks).
 
 type createMeetingReq struct {
 	Title          string   `json:"title"`
-	ScheduledStart string   `json:"scheduled_start"` // RFC3339; vazio = instantânea
+	ScheduledStart string   `json:"scheduled_start"` // RFC3339; empty = instant
 	ScheduledEnd   string   `json:"scheduled_end"`
-	Participants   []string `json:"participants"` // e-mails convidados
+	Participants   []string `json:"participants"` // invited emails
 	AddToCalendar  bool     `json:"add_to_calendar"`
 	Access         string   `json:"access"` // public | approval
 }
@@ -44,8 +44,8 @@ func parseTS(s string) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t, Valid: true}
 }
 
-// handleCreateMeeting agenda (ou cria instantânea) uma reunião, adiciona o dono como host e os
-// convidados como participantes, e opcionalmente cria o evento no calendário.
+// handleCreateMeeting schedules (or creates an instant) meeting, adds the owner as host and the
+// invitees as participants, and optionally creates the calendar event.
 func (s *Server) handleCreateMeeting(w http.ResponseWriter, r *http.Request) {
 	if s.meet == nil {
 		writeErr(w, http.StatusServiceUnavailable, "meet.disabled")
@@ -63,7 +63,7 @@ func (s *Server) handleCreateMeeting(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	start, end := parseTS(req.ScheduledStart), parseTS(req.ScheduledEnd)
 
-	// Evento no calendário (opcional) quando há horário.
+	// Calendar event (optional) when a time is set.
 	var eventID pgtype.UUID
 	if req.AddToCalendar && start.Valid && end.Valid {
 		ev, err := s.q.CreateEvent(r.Context(), db.CreateEventParams{
@@ -86,14 +86,14 @@ func (s *Server) handleCreateMeeting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Dono = host, já aceito.
+	// Owner = host, already accepted.
 	_, _ = s.q.AddParticipant(r.Context(), db.AddParticipantParams{
 		MeetingID: m.ID, TenantID: mu.TenantID, Email: mu.Email,
 		UserID: pgtype.UUID{Bytes: mu.ID, Valid: true}, Role: "host",
 	})
 	_, _ = s.q.SetRSVP(r.Context(), db.SetRSVPParams{MeetingID: m.ID, Email: mu.Email, Rsvp: "accepted"})
 
-	// Convidados (deduplicados; casa com mail_user do tenant quando existir).
+	// Invitees (deduplicated; matches the tenant's mail_user when one exists).
 	seen := map[string]bool{strings.ToLower(mu.Email): true}
 	for _, raw := range req.Participants {
 		email := strings.ToLower(strings.TrimSpace(raw))
@@ -118,12 +118,12 @@ func (s *Server) handleCreateMeeting(w http.ResponseWriter, r *http.Request) {
 	s.writeMeetingDetail(w, r, m, mu)
 }
 
-// handleListMeetings lista as reuniões do usuário (que ele criou ou foi convidado), cada uma com
-// meu RSVP e a lista de participantes (para ver quem confirmou / foi notificado).
+// handleListMeetings lists the user's meetings (that they created or were invited to), each with
+// my RSVP and the participant list (to see who confirmed / was notified).
 func (s *Server) handleListMeetings(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
-	// Com ?bucket=upcoming|past a resposta é PAGINADA no servidor (home do Meet). Sem bucket,
-	// devolve tudo — a agenda (dia/semana/mês) precisa do conjunto completo do período.
+	// With ?bucket=upcoming|past the response is PAGINATED server-side (Meet home). Without a bucket,
+	// return everything — the agenda (day/week/month) needs the full set for the period.
 	if bucket := r.URL.Query().Get("bucket"); bucket == "upcoming" || bucket == "past" {
 		// Upper-bounded too: an unbounded page overflows the int32 offset below.
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
@@ -173,7 +173,7 @@ func pageRow(r db.ListMyMeetingsPageRow) db.Meeting {
 	}
 }
 
-// handleRSVP muda a participação do usuário (aceito / recusado / talvez).
+// handleRSVP changes the user's participation (accepted / declined / tentative).
 func (s *Server) handleRSVP(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -193,7 +193,7 @@ func (s *Server) handleRSVP(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "meet.invalid_rsvp")
 		return
 	}
-	// Só posso mudar a MINHA participação (por e-mail), e apenas se fui convidado (isolado por tenant).
+	// I can only change MY OWN participation (by email), and only if I was invited (isolated by tenant).
 	if _, err := s.q.GetMeetingInTenant(r.Context(), db.GetMeetingInTenantParams{ID: id, TenantID: mu.TenantID}); err != nil {
 		writeErr(w, http.StatusNotFound, "meet.not_found")
 		return
@@ -206,15 +206,15 @@ func (s *Server) handleRSVP(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"rsvp": p.Rsvp})
 }
 
-// handleCancelMeeting cancela a reunião (só o dono).
+// handleCancelMeeting cancels the meeting (owner only).
 type updateMeetingReq struct {
 	Title          string `json:"title"`
 	ScheduledStart string `json:"scheduled_start"`
 	ScheduledEnd   string `json:"scheduled_end"`
 }
 
-// handleUpdateMeeting edita/reagenda uma reunião (só o dono). Sincroniza o evento de calendário ligado
-// e avisa os convidados da mudança.
+// handleUpdateMeeting edits/reschedules a meeting (owner only). Syncs the linked calendar event
+// and notifies invitees of the change.
 func (s *Server) handleUpdateMeeting(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
@@ -239,7 +239,7 @@ func (s *Server) handleUpdateMeeting(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "meet.not_found")
 		return
 	}
-	// Evento de calendário ligado segue a reunião (título + horário).
+	// The linked calendar event follows the meeting (title + time).
 	if m.EventID.Valid && start.Valid && end.Valid {
 		_ = s.q.SetEventTimes(r.Context(), db.SetEventTimesParams{ID: uuid.UUID(m.EventID.Bytes), StartsAt: start.Time, EndsAt: end.Time})
 	}
@@ -261,15 +261,15 @@ func (s *Server) handleCancelMeeting(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "canceled"})
 }
 
-// notifyMeetingInvitees avisa cada convidado: notificação in-app (se for do tenant) + e-mail
-// (se configurado). Marca notified_at quando qualquer canal foi entregue.
+// notifyMeetingInvitees notifies each invitee: in-app notification (if they're in the tenant) +
+// email (if configured). Marks notified_at once any channel was delivered.
 func (s *Server) notifyMeetingInvitees(r *http.Request, m db.Meeting, mu db.MailUser) {
 	parts, _ := s.q.ListParticipants(r.Context(), m.ID)
 	when := ""
 	if m.ScheduledStart.Valid {
 		when = m.ScheduledStart.Time.UTC().Format(time.RFC3339)
 	}
-	// title/body em inglês (fallback + e-mail/push); o sino traduz por server.notif.meeting_invite.
+	// title/body in English (fallback + email/push); the bell translates via server.notif.meeting_invite.
 	title := mu.Name + " invited you: " + m.Title
 	body := "You were invited to the meeting \"" + m.Title + "\" on Beskos Meet."
 	args := map[string]string{"actor": mu.Name, "title": m.Title, "when": when}
@@ -278,7 +278,7 @@ func (s *Server) notifyMeetingInvitees(r *http.Request, m db.Meeting, mu db.Mail
 			continue
 		}
 		delivered := false
-		if p.UserID.Valid { // usuário do tenant → notificação in-app
+		if p.UserID.Valid { // tenant user → in-app notification
 			s.notifyUser(r.Context(), m.TenantID, p.UserID.Bytes, "meeting_invite", title, body, meetingLink(m.ID), m.ID, args)
 			delivered = true
 		}
@@ -302,7 +302,7 @@ func (s *Server) writeMeetingDetail(w http.ResponseWriter, r *http.Request, m db
 	writeJSON(w, http.StatusCreated, meetingJSON(m, myRsvp, m.OwnerUserID == mu.ID, parts))
 }
 
-// meetingRow converte a linha da listagem (colunas achatadas) num db.Meeting.
+// meetingRow converts the listing row (flattened columns) into a db.Meeting.
 func meetingRow(r db.ListMyMeetingsRow) db.Meeting {
 	return db.Meeting{
 		ID: r.ID, TenantID: r.TenantID, OwnerUserID: r.OwnerUserID, Title: r.Title, RoomName: r.RoomName,
@@ -319,7 +319,7 @@ func tsPtr(t pgtype.Timestamptz) *string {
 	return &s
 }
 
-// meetingJSON monta o JSON de uma reunião com participantes e duração (das já encerradas).
+// meetingJSON builds the JSON for a meeting with participants and duration (for those already ended).
 func meetingJSON(m db.Meeting, myRsvp string, isOwner bool, parts []db.MeetingParticipant) map[string]any {
 	var durationSec *int64
 	if m.ActualStart.Valid && m.ActualEnd.Valid {

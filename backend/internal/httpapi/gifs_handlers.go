@@ -11,8 +11,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Biblioteca de GIFs pessoal. O GIF é um ficheiro do Drive (storage_files) — isto só marca quais
-// estão na gaveta de quem os guardou. Nada sai para serviços de terceiros.
+// Personal GIF library. The GIF is a Drive file (storage_files) — this only marks which
+// ones are in the drawer of whoever saved them. Nothing goes out to third-party services.
 
 func (s *Server) handleListGifs(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -38,9 +38,9 @@ func (s *Server) handleAddGif(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "gifs.invalid_file")
 		return
 	}
-	// Só um ficheiro DELE entra na gaveta dele — nunca confiar no id do request. GetStorageFile
-	// filtra por owner: guardar o GIF de outra pessoa na minha gaveta daria acesso ao ficheiro
-	// dela quando eu o enviasse.
+	// Only a file that belongs to THEM enters their drawer — never trust the request's id.
+	// GetStorageFile filters by owner: saving someone else's GIF in my drawer would give me
+	// access to their file when I send it.
 	f, err := s.q.GetStorageFile(r.Context(), db.GetStorageFileParams{ID: fid, OwnerUserID: pgtype.UUID{Bytes: mu.ID, Valid: true}})
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "gifs.file_not_found")
@@ -64,7 +64,7 @@ func (s *Server) handleDeleteGif(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "gifs.invalid_id")
 		return
 	}
-	// Tirar da gaveta NÃO apaga o ficheiro do Drive: são coisas diferentes.
+	// Removing it from the drawer does NOT delete the Drive file: they are different things.
 	if err := s.q.DeleteGif(r.Context(), db.DeleteGifParams{ID: id, OwnerUserID: mu.ID}); err != nil {
 		writeErr(w, http.StatusInternalServerError, "gifs.failed")
 		return

@@ -13,18 +13,18 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/wiki"
 )
 
-// Colaboração em tempo real da wiki (Bloco 2 B10, decisão do utilizador: relay em GO, sem container
-// novo). O servidor NÃO entende Yjs: retransmite as mensagens binárias do protocolo y-websocket aos
-// pares da mesma sala (página) — os próprios clientes respondem aos pedidos de sync uns dos outros.
-// A fonte de verdade persistida continua a ser wiki_pages.body_json (autosave via UpdatePage), com o
-// RAG/versões/render intactos; isto é só a camada "ao vivo".
+// Wiki real-time collaboration (Block 2 B10, user decision: relay in GO, no new container). The
+// server does NOT understand Yjs: it relays the binary y-websocket protocol messages to the peers
+// in the same room (page) — the clients themselves answer each other's sync requests. The
+// persisted source of truth remains wiki_pages.body_json (autosave via UpdatePage), with
+// RAG/versions/render untouched; this is only the "live" layer.
 //
-// Regra de seed (anti-duplicação): o 1º frame que o servidor envia é {"type":"hello","peers":N}.
-// peers==0 → o cliente semeia o Y.Doc a partir do body_json; peers>0 → começa VAZIO e sincroniza dos
-// pares. Semear duas vezes duplicaria o conteúdo (docs Yjs independentes fundidos).
+// Seed rule (anti-duplication): the 1st frame the server sends is {"type":"hello","peers":N}.
+// peers==0 → the client seeds the Y.Doc from body_json; peers>0 → it starts EMPTY and syncs from
+// the peers. Seeding twice would duplicate the content (independent Yjs docs merged together).
 //
-// Escala: as salas são in-process — o deploy corre UMA instância da api. Se um dia houver várias,
-// acrescenta-se fan-out por Redis (padrão do chat.Hub) sem mudar o protocolo do cliente.
+// Scale: rooms are in-process — the deploy runs ONE instance of the api. If there's ever more
+// than one, add Redis fan-out (the chat.Hub pattern) without changing the client protocol.
 
 type collabPeer struct {
 	send chan collabFrame
@@ -42,7 +42,7 @@ type collabRooms struct {
 
 var wikiCollab = &collabRooms{rooms: map[uuid.UUID]map[*collabPeer]bool{}}
 
-// join regista o peer e devolve quantos pares JÁ estavam na sala (para a regra de seed).
+// join registers the peer and returns how many peers were ALREADY in the room (for the seed rule).
 func (c *collabRooms) join(page uuid.UUID, p *collabPeer) int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -68,8 +68,8 @@ func (c *collabRooms) leave(page uuid.UUID, p *collabPeer) {
 	close(p.send)
 }
 
-// broadcast entrega a mensagem a todos os OUTROS peers da sala; peer lento (buffer cheio) perde o
-// frame — o protocolo Yjs resincroniza sozinho (state vectors), nunca corrompe.
+// broadcast delivers the message to every OTHER peer in the room; a slow peer (full buffer) drops
+// the frame — the Yjs protocol resyncs on its own (state vectors), never corrupting anything.
 func (c *collabRooms) broadcast(page uuid.UUID, from *collabPeer, f collabFrame) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -106,7 +106,7 @@ func (s *Server) handleWikiCollabWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer ws.CloseNow()
-	// Updates Yjs podem ser grandes (colagens, imagens base64 não — só texto); 4 MiB de teto.
+	// Yjs updates can be large (pastes, though not base64 images — text only); 4 MiB cap.
 	ws.SetReadLimit(4 << 20)
 
 	rctx, cancel := context.WithCancel(r.Context())
@@ -115,7 +115,7 @@ func (s *Server) handleWikiCollabWS(w http.ResponseWriter, r *http.Request) {
 	existing := wikiCollab.join(pid, peer)
 	defer wikiCollab.leave(pid, peer)
 
-	// Writer: única goroutine a escrever neste socket.
+	// Writer: the only goroutine that writes to this socket.
 	go func() {
 		for {
 			select {
@@ -136,11 +136,11 @@ func (s *Server) handleWikiCollabWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// 1º frame: hello com a contagem de pares (regra de seed do cliente).
+	// 1st frame: hello with the peer count (client seed rule).
 	hello, _ := json.Marshal(map[string]any{"type": "hello", "peers": existing})
 	peer.send <- collabFrame{kind: websocket.MessageText, data: hello}
 
-	// Reader: retransmite tudo (sync/awareness Yjs são opacos para nós) aos restantes da sala.
+	// Reader: relays everything (Yjs sync/awareness are opaque to us) to the rest of the room.
 	for {
 		kind, data, rerr := ws.Read(rctx)
 		if rerr != nil {

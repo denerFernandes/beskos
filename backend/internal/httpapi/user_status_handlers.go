@@ -6,8 +6,8 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Status do utilizador (estilo Slack): emoji + texto curto. Definido por si próprio; visível aos
-// colegas no cartão de perfil e na lista de membros.
+// User status (Slack-style): emoji + short text. Set by the user themselves; visible to
+// colleagues on the profile card and the members list.
 
 func (s *Server) handleSetMyStatus(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -31,7 +31,7 @@ func (s *Server) handleSetMyStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"emoji": req.Emoji, "text": req.Text})
 }
 
-// handleSetPresence define a presença rica (active | away | dnd). dnd suprime o web push.
+// handleSetPresence sets the rich presence (active | away | dnd). dnd suppresses web push.
 func (s *Server) handleSetPresence(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	var req struct {
