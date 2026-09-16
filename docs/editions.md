@@ -19,15 +19,19 @@ free in Community:
 |---|---|
 | Email, calendar, contacts, Drive, chat, wiki, Kanban | Meeting recording (LiveKit Egress + offline compose) |
 | Video meetings, without recording | White-label branding: your logo, colors, domain, no "Powered by" |
-| Office editing (OnlyOffice) | Audit log and retention policy UI |
+| Office editing (OnlyOffice) | Audit log and retention policy UI *(planned)* |
 | AI assistant, with your own provider key | Organization-wide security policies (mandatory MFA, session limits) |
 | RBAC, groups, invitations, MFA (TOTP/SMS) | AI agents (org-wide automations) |
-| IMAP and file migration | Bulk-assisted migration across several domains |
+| IMAP and file migration | Bulk-assisted migration across several domains *(planned)* |
 | Desktop app and folder sync | Priority support, SLA |
 | pt-BR / en | |
 
 The rule of thumb: a feature stays Pro when a business would pay for it without hesitation and a
 small team or an individual wouldn't miss it. Nothing that affects basic security is ever Pro.
+
+*(planned)* marks two rows above that are not implemented yet -- everything else in the Pro
+column is built and enforced server-side (a Community build does not link the code at all; see
+`backend/ee/`), independent of whether a licensing portal exists to actually sell a key yet.
 
 ## Offering Beskos as a service
 
