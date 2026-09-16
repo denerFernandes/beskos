@@ -285,6 +285,39 @@ func TestExtractTextRefusesNonOffice(t *testing.T) {
 	}
 }
 
+// A document.xml that decompresses well past maxDecompressedPart must fail cleanly instead of
+// allocating an unbounded string -- the concrete risk a highly-compressible crafted part poses,
+// since the outer file size limit at ExtractText's caller does nothing to cap a single member's
+// decompression ratio.
+func TestExtractTextCapsADecompressionBomb(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.CreateHeader(&zip.FileHeader{Name: "word/document.xml", Method: zip.Deflate})
+	if err != nil {
+		t.Fatalf("CreateHeader: %v", err)
+	}
+	if _, err := io.WriteString(w, "<w:document><w:body><w:p><w:r><w:t>"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	// Highly repetitive text compresses to almost nothing but decompresses to well over the cap.
+	chunk := strings.Repeat("A", 1<<20)
+	for i := 0; i < 16; i++ {
+		if _, err := io.WriteString(w, chunk); err != nil {
+			t.Fatalf("write chunk %d: %v", i, err)
+		}
+	}
+	if _, err := io.WriteString(w, "</w:t></w:r></w:p></w:body></w:document>"); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("zw.Close: %v", err)
+	}
+
+	if _, err := ExtractText(KindDocument, buf.Bytes()); err == nil {
+		t.Error("ExtractText accepted a part that decompresses past the cap")
+	}
+}
+
 func TestKindFromName(t *testing.T) {
 	cases := map[string]string{"a.docx": KindDocument, "b.XLSX": KindSpreadsheet, "c.pptx": KindPresentation}
 	for name, want := range cases {
