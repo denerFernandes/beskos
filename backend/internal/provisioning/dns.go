@@ -46,7 +46,7 @@ func (v *NetDNSVerifier) Verify(ctx context.Context, domain, zone string) (bool,
 	// Looks for the expected DKIM selector from Stalwart's zonefile.
 	selector := dkimHost(zone, domain)
 	if selector == "" {
-		return len(mx) > 0, nil // no known selector: MX is enough in Fase 1
+		return len(mx) > 0, nil // no known selector yet: MX alone is enough for now
 	}
 	txts, err := v.resolver.LookupTXT(ctx, selector)
 	if err != nil || len(txts) == 0 {

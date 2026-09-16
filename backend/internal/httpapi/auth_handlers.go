@@ -164,7 +164,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
-	disabled := s.disabledAppsEffective(r.Context(), u.TenantID) // org admin + plan exclusions (M2)
+	disabled := s.disabledAppsEffective(r.Context(), u.TenantID) // org admin + plan exclusions
 	// Assistant enabled: the AI must be configured AND the admin must not have turned it off. False
 	// in either case → the frontend hides the assistant bubble (no point offering what it will refuse).
 	assistantEnabled := s.ai != nil && s.agent != nil && !s.assistantDisabled(r.Context(), u.TenantID)
