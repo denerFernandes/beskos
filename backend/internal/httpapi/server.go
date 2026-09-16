@@ -270,7 +270,7 @@ func (s *Server) Router() http.Handler {
 			// Wiki / knowledge base (N wikis per tenant; access resolved in the service via SQL `vis`).
 			s.mountWiki(r)
 			s.mountNotes(r)
-			ee.Register(r, s.edition, ee.Deps{Queries: s.q}) // no-op until a Pro feature moves here (F2)
+			ee.Register(r, s.edition, ee.Deps{Queries: s.q}) // no-op until a Pro feature moves here
 			// Sharing a contact group with teams AND/OR people — only the group's owner decides.
 			r.Get("/contact-groups/{id}/shares", s.handleListGroupShares)
 			r.Put("/contact-groups/{id}/shares", s.handleSetGroupShares)
@@ -315,7 +315,7 @@ func (s *Server) Router() http.Handler {
 			// Storage (files over MinIO) — folders, move, share.
 			r.Get("/files", s.handleListFiles)
 			r.Get("/files/search", s.handleSearchFiles)      // recursive global search by name
-			r.Get("/files/changes", s.handleListFileChanges) // incremental feed for the sync daemon (M0)
+			r.Get("/files/changes", s.handleListFileChanges) // incremental feed for the sync daemon
 			r.Get("/files/trash", s.handleListTrash)         // trash (soft-deleted)
 			r.Delete("/files/trash", s.handleEmptyTrash)     // empty trash (purges everything)
 			r.Post("/files", s.handleUploadFile)

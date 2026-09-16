@@ -60,55 +60,56 @@ async function setup(withAudio = true) {
 beforeEach(() => vi.unstubAllGlobals());
 afterEach(() => vi.unstubAllGlobals());
 
-describe("preferências", () => {
-  it("vêm ligadas por omissão — um produto que chega mudo parece avariado", async () => {
+describe("preferences", () => {
+  it("are on by default — a product that arrives mute looks broken", async () => {
     const { soundPrefs } = await setup();
     expect(soundPrefs()).toEqual({ notify: true, meet: true });
   });
 
-  it("guarda e relê", async () => {
+  it("save and read back", async () => {
     const { soundPrefs, setSoundPref } = await setup();
     setSoundPref("notify", false);
     expect(soundPrefs()).toEqual({ notify: false, meet: true });
   });
 
-  it("desligar um não desliga o outro — é a razão de serem dois interruptores", async () => {
+  it("turning one off does not turn the other off — that is why there are two switches", async () => {
     const { soundPrefs, setSoundPref } = await setup();
     setSoundPref("notify", false);
     expect(soundPrefs().meet).toBe(true);
   });
 
-  it("localStorage corrompido cai no padrão em vez de rebentar", async () => {
+  it("corrupted localStorage falls back to the default instead of throwing", async () => {
     const { soundPrefs } = await setup();
-    localStorage.setItem("mailin.sound.prefs", "{isto não é json");
+    localStorage.setItem("mailin.sound.prefs", "{this is not json");
     expect(soundPrefs()).toEqual({ notify: true, meet: true });
   });
 });
 
 describe("playSound", () => {
-  it("toca quando o interruptor correspondente está ligado", async () => {
+  it("plays when the matching switch is on", async () => {
     const { playSound, started } = await setup();
     playSound("notify");
     expect(started.length).toBeGreaterThan(0);
   });
 
-  it("não toca com o interruptor desligado", async () => {
+  it("does not play with the switch off", async () => {
     const { playSound, setSoundPref, started } = await setup();
     setSoundPref("notify", false);
     playSound("notify");
     expect(started).toHaveLength(0);
   });
 
-  // O e-mail é governado pelo interruptor de avisos, não por um terceiro. Se isto se separar sem
-  // querer, desligar os avisos deixaria o e-mail a tocar — o oposto do que foi pedido.
-  it("o e-mail obedece ao interruptor dos avisos", async () => {
+  // Mail is governed by the notify switch, not a third one of its own. If this were to drift
+  // apart by accident, turning notifications off would leave mail still sounding -- the opposite
+  // of what was asked.
+  it("mail obeys the notify switch", async () => {
     const { playSound, setSoundPref, started } = await setup();
     setSoundPref("notify", false);
     playSound("email");
     expect(started).toHaveLength(0);
   });
 
-  it("os sons do Meet obedecem ao interruptor do Meet, não ao dos avisos", async () => {
+  it("Meet sounds obey the Meet switch, not the notify one", async () => {
     const { playSound, setSoundPref, started } = await setup();
     setSoundPref("notify", false);
     playSound("meetKnock");
@@ -119,23 +120,23 @@ describe("playSound", () => {
     expect(started).toHaveLength(0);
   });
 
-  // O pedido de entrada é o único que o anfitrião TEM de ouvir: se lhe escapa, fica alguém à espera
-  // sem saber porquê. Duas batidas distinguem-no de um bip qualquer.
-  it("o pedido de entrada tem duas batidas", async () => {
+  // The knock is the one sound the host HAS to hear: if it slips past them, someone is left
+  // waiting without knowing why. Two beats set it apart from any ordinary chime.
+  it("the knock request has two beats", async () => {
     const { playSound, started } = await setup();
     playSound("meetKnock");
     expect(started).toHaveLength(2);
     expect(started[1]).toBeGreaterThan(started[0]);
   });
 
-  it("sem Web Audio no ambiente, não lança — um aviso falhado não pode partir quem o disparou", async () => {
+  it("with no Web Audio in the environment, it does not throw — a failed chime can't take down whoever triggered it", async () => {
     const { playSound } = await setup(false);
     expect(() => playSound("notify")).not.toThrow();
   });
 });
 
 describe("unlockSounds", () => {
-  it("espera pelo gesto nos três tipos de entrada, uma vez cada", async () => {
+  it("waits for the gesture on all three input types, once each", async () => {
     const { unlockSounds, listeners } = await setup();
     unlockSounds();
     expect(listeners).toEqual(["pointerdown", "keydown", "touchstart"]);
