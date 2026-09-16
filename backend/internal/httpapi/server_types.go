@@ -55,6 +55,8 @@ type Server struct {
 	loginIP    *rateLimiter // login attempts per IP
 	loginUser  *rateLimiter // login attempts per account (e-mail)
 	mfaIP      *rateLimiter // second-factor checks per IP (locks down challenge rotation)
+	smsIP      *rateLimiter // SMS MFA enrollment sends per IP (cost/abuse)
+	smsUser    *rateLimiter // SMS MFA enrollment sends per account (a phone is user-supplied, not yet trusted)
 	aiLimiter  *rateLimiter // AI calls per user (cost/abuse)
 	pubLimiter *rateLimiter // public endpoints (Meet without login) per IP
 	// presLimiter: its own bucket for the presentation PDF. A PDF is read in BURSTS (dozens of
@@ -96,6 +98,8 @@ func NewServer(q *db.Queries, sw *stalwart.Client, aiProvider ai.Provider, smsSe
 		loginIP:        newRateLimiter(30, 5*time.Minute),
 		loginUser:      newRateLimiter(8, 5*time.Minute),
 		mfaIP:          newRateLimiter(20, 5*time.Minute),
+		smsIP:          newRateLimiter(10, time.Hour),
+		smsUser:        newRateLimiter(5, time.Hour),
 		aiLimiter:      newRateLimiter(30, time.Minute),
 		pubLimiter:     newRateLimiter(60, time.Minute),
 		presLimiter:    newRateLimiter(600, time.Minute),

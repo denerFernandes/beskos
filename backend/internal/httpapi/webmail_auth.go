@@ -70,10 +70,10 @@ func (s *Server) requireWebmailSession(next http.Handler) http.Handler {
 }
 
 func (s *Server) handleWebmailLogout(w http.ResponseWriter, r *http.Request) {
-	if c, err := r.Cookie("wm_session"); err == nil {
-		_ = s.q.DeleteWebmailSession(r.Context(), c.Value)
-	}
-	http.SetCookie(w, &http.Cookie{Name: "wm_session", Value: "", Path: "/", MaxAge: -1})
+	// sessionToken, not the raw cookie: the native app authenticates over Authorization: Bearer,
+	// never the cookie, so reading only the cookie left its session alive in the DB after "log
+	// out" -- a stolen Bearer token from before this fix would have outlived the user's own logout.
+	s.endSession(w, sessionToken(r))
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 

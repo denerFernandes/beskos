@@ -131,10 +131,50 @@ for the scheme and close this gap there, not here.
 
 ## 7. Rate limiting and abuse
 
-Present today: MFA verification capped at 5 attempts per challenge. **Not yet present:** a global
-per-IP or per-account limit on login, signup, or password recovery -- see the roadmap in the
-project README. An attacker with no rate limit on `/auth/login` can brute-force a weak password at whatever rate
-the server can answer; this is the single highest-priority item left on this list.
+**Present today (this section was stale before the 2026-09-16 P5 audit -- corrected):** login is
+rate-limited per IP (`loginIP`, 30/5min) and per account (`loginUser`, 8/5min) before spending
+bcrypt time or a round trip to Stalwart, with a fixed dummy-bcrypt comparison equalizing timing
+between existing and nonexistent accounts (`auth_handlers.go`, audit finding H5). Signup and
+password recovery (`/auth/forgot`, `/auth/reset`) share the same limiters. MFA verification is
+capped at 5 attempts per challenge (`mfaMaxAttempts`) *and* 20 checks/5min per IP (`mfaIP`) --
+the second limiter specifically closes the loophole of requesting a fresh challenge every 5
+guesses to reset the per-challenge counter. SMS MFA *enrollment* (`/mfa/sms/start`) has its own
+per-IP and per-account hourly limiters (`smsIP`/`smsUser`, added 2026-09-16 P5 audit) after the
+audit found it was reachable by any authenticated account with an arbitrary phone number and no
+throttle at all -- an SMS-bombing/cost-abuse vector, not an account-takeover one, but real.
+
+## 8. Sessions and MFA policy enforcement
+
+**Boundary:** the webmail session token (`auth.NewSessionToken`, 256-bit `crypto/rand`,
+base64 URL-safe) authorizes every authenticated API call, via a `wm_session` cookie (web) or
+`Authorization: Bearer` (native app). **Control:** login always mints a fresh token
+(`issueSession`) -- no session-fixation path exists; password change and password reset both
+revoke every other session for the user; the org turning on mandatory MFA revokes every session in
+the tenant except the admin's own. TOTP is encrypted at rest (`secretbox`/AES-GCM,
+`MFA_ENC_KEY` mandatory in production) with real anti-replay (a used time-step can never validate
+again, enforced at the SQL layer too, not just in Go). Recovery codes are bcrypt-hashed and
+single-use.
+
+**Residual risk 1 (fixed, 2026-09-16 P5 audit):** `handleWebmailLogout` deleted only the
+`wm_session` *cookie*'s row, never checking the `Authorization: Bearer` token the native app
+actually authenticates with. A user logging out on the native app left their session valid in the
+database for up to 7 days -- if that Bearer token had ever leaked (compromised device, a stolen
+local-storage backup), "logging out" did nothing to it. Fixed by routing logout through the same
+`sessionToken(r)` helper every other authenticated route already uses.
+
+**Residual risk 2 (open, needs a product decision, not fixed):** an organization's "MFA required"
+policy (`ee/security_policy_pro.go`) is enforced only as a UI hint (`mfaSetupRequired` in
+`handleMe`) -- a user in such a tenant who has not yet enrolled TOTP/SMS still gets a fully valid
+session from a plain password login (`handleLogin` only challenges a second factor when the
+*user's own* `MfaTotpEnabled`/`MfaSmsEnabled` is set, never consulting the tenant's policy), and
+that session works against every other endpoint exactly like a compliant one. This does not bypass
+authentication -- the attacker still needs the victim's real password first, and a user who *has*
+enrolled a second factor is correctly gated -- but it means "MFA required" does not actually
+require MFA for anyone still mid-enrollment, which defeats the point of an admin turning the
+policy on for a not-yet-compliant team. **Not fixed blind:** closing it means deciding what a
+"must enroll before doing anything else" session looks like -- a restricted token that only
+`/mfa/*` enrollment endpoints accept, an immediate hard lockout, or a grace period -- which is a
+product/UX call (law 6.2), not a pure security patch. Tracked here until that decision is made.
 
 ## Out of scope for this document
 
@@ -145,9 +185,13 @@ A vulnerability in how this project configures or calls one of them is in scope;
 
 ## Open items (tracked, not yet done)
 
-- Automated tests that forge a bad signature/JWT/webhook and assert rejection, for blobgw,
-  OnlyOffice callbacks, and the Stripe/SNS webhooks.
-- Global rate limiting on login, signup, and password recovery.
+- Automated tests that forge a bad signature/JWT/webhook and assert rejection: done for the
+  Stripe/SNS webhooks (fuzz tests, 2026-09-16); still open for blobgw and the OnlyOffice callback.
+- ~~Global rate limiting on login, signup, and password recovery~~ -- done (see §7).
+- A decision on how "MFA required" is enforced for a not-yet-enrolled user, not just hinted at in
+  the UI (§8, residual risk 2).
+- Binding the OnlyOffice callback's verified JWT payload to the callback body it authenticates,
+  once the deployed Document Server's exact JWT-in-body claim shape is confirmed (§4).
 - A designed rotation story for `MFA_ENC_KEY` and `FILE_ENC_KEYS`.
 - Row-level security in Postgres as a second line of defense behind the query-level `tenant_id`
   filter, if the manual/heuristic checking in `scripts/check_tenant_scoping.py` proves
