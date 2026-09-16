@@ -17,12 +17,13 @@ import (
 
 type ctxKey string
 
-// dummyBcryptHash é um hash fixo para gastar tempo de bcrypt no login de e-mail inexistente
-// (anti-enumeração por timing). Calculado uma vez no arranque.
+// dummyBcryptHash is a fixed hash used to burn bcrypt time on a login with a nonexistent email
+// (timing-based anti-enumeration). Computed once at startup.
 var dummyBcryptHash, _ = auth.HashPassword("mailin-login-timing-equalizer")
 
-// verifyUserPassword confere a senha na ponta certa: Stalwart quando há caixa, senão o hash local.
-// Usado no login e como step-up (re-autenticação) em ações sensíveis (ex.: desativar MFA).
+// verifyUserPassword checks the password against the right source: Stalwart when there's a
+// mailbox, otherwise the local hash. Used at login and as a step-up (re-authentication) for
+// sensitive actions (e.g. disabling MFA).
 func (s *Server) verifyUserPassword(ctx context.Context, u db.MailUser, password string) bool {
 	if password == "" {
 		return false
@@ -66,7 +67,7 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		TenantID:     tenant.ID,
 		Email:        req.Email,
 		PasswordHash: hash,
-		Role:         string(rbac.RoleOwner), // primeiro usuário = dono da organização
+		Role:         string(rbac.RoleOwner), // first user = organization owner
 	})
 	if err != nil {
 		writeErr(w, http.StatusConflict, "auth.email_taken")
@@ -89,9 +90,9 @@ type loginReq struct {
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
-	// Anti brute-force / credential stuffing (auditoria H5): limita por IP e por conta antes de
-	// gastar bcrypt ou uma ida ao Stalwart. A senha é checada aqui, então sem isto o login fica
-	// aberto a adivinhação online mesmo com MFA (o MFA vem depois da senha).
+	// Anti brute-force / credential stuffing (audit finding H5): rate-limits by IP and by account
+	// before spending bcrypt time or a round trip to Stalwart. The password is checked here, so
+	// without this the login stays open to online guessing even with MFA (MFA comes after the password).
 	if !s.loginIP.allow("login:"+clientIP(r), now) {
 		writeErr(w, http.StatusTooManyRequests, "auth.rate_limited")
 		return
@@ -106,8 +107,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := s.q.GetMailUserByEmail(r.Context(), req.Email)
 	if err != nil {
-		// Anti-enumeração: gasta um bcrypt "à toa" para igualar o tempo do caminho em que a conta
-		// existe (senão um e-mail inexistente responderia mais rápido e vazaria quais existem).
+		// Anti-enumeration: burns a bcrypt cycle "for nothing" to match the timing of the path
+		// where the account exists (otherwise a nonexistent email would respond faster and leak
+		// which ones exist).
 		auth.CheckPassword(dummyBcryptHash, req.Password)
 		writeErr(w, http.StatusUnauthorized, "auth.invalid_credentials")
 		return
@@ -121,7 +123,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if u.StalwartAccountID != nil {
-		// Tem caixa: a credencial é a do Stalwart (o e-mail é a fonte de verdade da senha).
+		// Has a mailbox: the credential is Stalwart's (the mailbox is the source of truth for the password).
 		ok, verr := s.sw.VerifyUser(r.Context(), req.Email, req.Password)
 		if verr != nil {
 			writeErr(w, http.StatusBadGateway, "webmail.stalwart_unreachable")
@@ -138,8 +140,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		basic := base64.StdEncoding.EncodeToString([]byte(req.Email + ":" + req.Password))
 		_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: u.ID, JmapCred: s.encTOTP(basic)})
 	} else if !auth.CheckPassword(u.PasswordHash, req.Password) {
-		// Sem caixa (organização recém-criada, ainda sem domínio): senha do nosso cadastro.
-		// Custo constante: bcrypt já foi calculado; nada a fazer além de responder genérico.
+		// No mailbox (newly created organization, no domain yet): password from our own signup.
+		// Constant cost: bcrypt was already computed; nothing to do beyond a generic response.
 		writeErr(w, http.StatusUnauthorized, "auth.invalid_credentials")
 		return
 	}
@@ -164,12 +166,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
-	disabled := s.disabledAppsEffective(r.Context(), u.TenantID) // admin da org + exclusões do plano (M2)
-	// Assistente ligado: a IA tem de estar configurada E o admin não pode tê-lo desligado. Falso em
-	// qualquer dos casos → o frontend esconde a bolha do assistente (não adianta oferecer o que recusa).
+	disabled := s.disabledAppsEffective(r.Context(), u.TenantID) // org admin + plan exclusions (M2)
+	// Assistant enabled: the AI must be configured AND the admin must not have turned it off. False
+	// in either case → the frontend hides the assistant bubble (no point offering what it will refuse).
 	assistantEnabled := s.ai != nil && s.agent != nil && !s.assistantDisabled(r.Context(), u.TenantID)
-	// Política da organização: MFA obrigatório e o utilizador ainda sem 2º fator → o webmail
-	// bloqueia num gate de enrollment até configurar (admin/security do tenant).
+	// Organization policy: MFA required and the user still has no second factor → the webmail
+	// blocks with an enrollment gate until it's configured (tenant admin/security setting).
 	mfaSetupRequired := false
 	orgMFARequired := false
 	mfaMethod := "any"
@@ -183,11 +185,11 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"mfa_setup_required":  mfaSetupRequired,
 		"mfa_required_method": mfaMethod,
 		"org_mfa_required":    orgMFARequired,
-		"language":            u.Language,                                              // "" = automático (browser); senão a preferência salva
-		"permissions":         s.effectivePerms(r.Context(), u.TenantID, u.ID, u.Role), // papel ± exceções; a UI gateia botões com isto
+		"language":            u.Language,                                              // "" = automatic (browser); otherwise the saved preference
+		"permissions":         s.effectivePerms(r.Context(), u.TenantID, u.ID, u.Role), // role ± exceptions; the UI gates buttons with this
 		"mfa":                 map[string]bool{"totp": u.MfaTotpEnabled, "sms": u.MfaSmsEnabled},
 		"presence":            u.Presence,
-		"disabled_apps":       orEmpty(disabled), // o rail some com estas; a IA perde as ferramentas delas
+		"disabled_apps":       orEmpty(disabled), // the rail disappears for these; the AI loses their tools
 		"assistant_enabled":   assistantEnabled,
 		// The organisation's billing state. Here rather than in a call of its own: the warning banner
 		// has to be on screen at the first render, not a moment later.
@@ -226,8 +228,8 @@ func (s *Server) issueSession(w http.ResponseWriter, ctx context.Context, u db.M
 		writeErr(w, http.StatusInternalServerError, "auth.session_persist_failed")
 		return "", false
 	}
-	// Cookie: SameSite=None+Secure quando servido por HTTPS (permite webview cross-site); senão Lax
-	// (dev em http). O app nativo não depende disto — usa o token do corpo.
+	// Cookie: SameSite=None+Secure when served over HTTPS (allows cross-site webview); otherwise
+	// Lax (dev over http). The native app doesn't depend on this — it uses the token from the body.
 	same, secure := http.SameSiteLaxMode, false
 	if s.cookieSecure {
 		same, secure = http.SameSiteNoneMode, true

@@ -12,10 +12,10 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Import/export de contatos em vCard 3.0 e CSV — os formatos universais de agenda (Google, Apple,
-// Outlook exportam/importam ambos). Trabalha sobre o modelo atual (um e-mail/telefone por contato).
+// Contact import/export in vCard 3.0 and CSV — the universal address-book formats (Google, Apple,
+// and Outlook export/import both). Works on top of the current model (one email/phone per contact).
 
-// handleExportContacts devolve todos os contatos do dono como vCard (default) ou CSV.
+// handleExportContacts returns all of the owner's contacts as vCard (default) or CSV.
 func (s *Server) handleExportContacts(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListContacts(r.Context(), db.ListContactsParams{OwnerUserID: mu.ID, TenantID: mu.TenantID})
@@ -23,7 +23,7 @@ func (s *Server) handleExportContacts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "contacts.failed")
 		return
 	}
-	// Só os do próprio dono (não exportar contatos vistos por partilha de outrem).
+	// Only the owner's own (don't export contacts seen through someone else's sharing).
 	own := rows[:0]
 	for _, c := range rows {
 		if c.OwnerUserID == mu.ID {
@@ -50,15 +50,15 @@ func (s *Server) handleExportContacts(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b.Bytes())
 }
 
-// vcardFields são os campos que sabemos serializar em vCard, independentes do tipo de linha (lista,
-// get…). vcardOf monta um a partir dos campos soltos.
+// vcardFields are the fields we know how to serialize into vCard, independent of the row type
+// (list, get…). vcardOf builds one from loose fields.
 type vcardFields struct{ Name, Email, Phone, Mobile, Company, Title, Notes string }
 
 func vcardOf(name, email, phone, mobile, company, title, notes string) vcardFields {
 	return vcardFields{Name: name, Email: email, Phone: phone, Mobile: mobile, Company: company, Title: title, Notes: notes}
 }
 
-// writeVCard serializa um contato em vCard 3.0. Escapa vírgula/ponto-e-vírgula/quebra conforme a RFC.
+// writeVCard serializes a contact as vCard 3.0. Escapes comma/semicolon/line-break per the RFC.
 func writeVCard(b *bytes.Buffer, c vcardFields) {
 	esc := func(s string) string {
 		s = strings.ReplaceAll(s, "\\", "\\\\")
@@ -94,8 +94,9 @@ type importedContact struct {
 	Name, Email, Phone, Company, Title, Notes string
 }
 
-// handleImportContacts recebe um ficheiro (multipart "file") vCard ou CSV e cria os contatos. Dedup
-// por e-mail (não recria um contato cujo e-mail já existe na agenda do dono). Devolve os totais.
+// handleImportContacts receives a file (multipart "file") in vCard or CSV and creates the contacts.
+// Dedup by email (doesn't recreate a contact whose email already exists in the owner's address
+// book). Returns the totals.
 func (s *Server) handleImportContacts(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	file, header, err := r.FormFile("file")
@@ -120,8 +121,9 @@ func (s *Server) handleImportContacts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "contacts.import_failed")
 		return
 	}
-	// Dedup: por e-mail quando há, senão pelo nome (contatos sem e-mail, como empresas, senão
-	// re-importariam sempre). A chave é minúscula para casar diferenças só de caixa.
+	// Dedup: by email when there is one, otherwise by name (contacts without an email, like
+	// companies, would otherwise re-import every time). The key is lowercased to match differences
+	// that are only in casing.
 	dedupKey := func(name, email string) string {
 		if email != "" {
 			return "e:" + strings.ToLower(email)
@@ -142,7 +144,7 @@ func (s *Server) handleImportContacts(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if ic.Name == "" {
-			ic.Name = ic.Email // sem FN: usa o e-mail como nome
+			ic.Name = ic.Email // no FN: uses the email as the name
 		}
 		key := dedupKey(ic.Name, ic.Email)
 		if existing[key] {
@@ -163,11 +165,11 @@ func (s *Server) handleImportContacts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]int{"imported": imported, "skipped": skipped})
 }
 
-// parseCSVContacts lê um CSV com cabeçalho e mapeia colunas conhecidas (name/email/phone/company/
-// title/notes) por nome — a ordem das colunas não importa.
+// parseCSVContacts reads a CSV with a header and maps known columns (name/email/phone/company/
+// title/notes) by name — column order doesn't matter.
 func parseCSVContacts(data []byte) ([]importedContact, error) {
 	cr := csv.NewReader(bytes.NewReader(data))
-	cr.FieldsPerRecord = -1 // linhas com nº de campos variável não quebram
+	cr.FieldsPerRecord = -1 // rows with a variable number of fields don't break
 	records, err := cr.ReadAll()
 	if err != nil {
 		return nil, err
@@ -195,8 +197,8 @@ func parseCSVContacts(data []byte) ([]importedContact, error) {
 	return out, nil
 }
 
-// parseVCards lê um ou vários VCARD e extrai os campos que o nosso modelo suporta. Desdobra linhas
-// (continuação começa com espaço/tab) e trata o unescape básico do vCard.
+// parseVCards reads one or several VCARDs and extracts the fields our model supports. Unfolds
+// lines (continuation starts with a space/tab) and handles the basic vCard unescaping.
 func parseVCards(data []byte) []importedContact {
 	var out []importedContact
 	var cur *importedContact
@@ -222,7 +224,7 @@ func parseVCards(data []byte) []importedContact {
 	}
 	for sc.Scan() {
 		raw := strings.TrimRight(sc.Text(), "\r")
-		if len(raw) > 0 && (raw[0] == ' ' || raw[0] == '\t') { // continuação da linha anterior
+		if len(raw) > 0 && (raw[0] == ' ' || raw[0] == '\t') { // continuation of the previous line
 			logical += raw[1:]
 			continue
 		}
@@ -241,7 +243,7 @@ func applyVCardLine(c *importedContact, line string) {
 	name, value := line[:colon], unescapeVCard(line[colon+1:])
 	prop := strings.ToUpper(name)
 	if i := strings.IndexByte(prop, ';'); i >= 0 {
-		prop = prop[:i] // descarta os parâmetros (TYPE=...)
+		prop = prop[:i] // discards the parameters (TYPE=...)
 	}
 	switch prop {
 	case "FN":
@@ -253,7 +255,7 @@ func applyVCardLine(c *importedContact, line string) {
 	case "TEL":
 		c.Phone = firstNonEmpty(c.Phone, value)
 	case "ORG":
-		c.Company = strings.TrimRight(value, ";") // ORG pode vir "Empresa;Departamento"
+		c.Company = strings.TrimRight(value, ";") // ORG can come as "Company;Department"
 	case "TITLE":
 		c.Title = value
 	case "NOTE":
@@ -277,8 +279,8 @@ func firstNonEmpty(a, b string) string {
 	return b
 }
 
-// handleContactVCard devolve UM contato como vCard 3.0 — o webmail usa isto para anexar o cartão a
-// um e-mail ("enviar contato"). Scoped pelo contactOr404 (tenant + dono/partilha), como o resto.
+// handleContactVCard returns ONE contact as vCard 3.0 — the webmail uses this to attach the card
+// to an email ("send contact"). Scoped by contactOr404 (tenant + owner/sharing), like the rest.
 func (s *Server) handleContactVCard(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.contactOr404(w, r)
 	if !ok {
@@ -291,8 +293,8 @@ func (s *Server) handleContactVCard(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(b.Bytes())
 }
 
-// vcardFilename gera um nome de ficheiro seguro a partir do nome do contato ("João Silva" →
-// "Joao-Silva.vcf" não; mantemos simples: troca o que não serve por "-").
+// vcardFilename generates a safe filename from the contact's name (not accent-stripping, e.g.
+// "Zoe Doe" -> "Zoe-Doe.vcf"; we keep it simple: swaps whatever doesn't fit for "-").
 func vcardFilename(name string) string {
 	name = strings.TrimSpace(name)
 	if name == "" {

@@ -7,9 +7,9 @@ import (
 	"github.com/google/uuid"
 )
 
-// O token de IA é a "API key" que o plugin do OnlyOffice usa para chegar ao proxy (cross-origin, sem
-// cookie). Tem de ida-e-voltar com user+tenant, recusar assinatura adulterada e recusar expirados —
-// senão seria um buraco por onde entrar sem identidade.
+// The AI token is the "API key" the OnlyOffice plugin uses to reach the proxy (cross-origin, no
+// cookie). It must round-trip with user+tenant, reject a tampered signature, and reject expired
+// ones — otherwise it would be a hole to get in without an identity.
 func TestAIToken(t *testing.T) {
 	o := &onlyoffice{tokenSecret: []byte("test-secret-32-bytes-long-enough!")}
 	user, tenant := uuid.New(), uuid.New()
@@ -17,23 +17,23 @@ func TestAIToken(t *testing.T) {
 	tok := o.mintAIToken(user, tenant, time.Now().Add(time.Hour))
 	gotUser, gotTenant, ok := o.parseAIToken(tok)
 	if !ok || gotUser != user || gotTenant != tenant {
-		t.Fatalf("ida-e-volta falhou: ok=%v user=%v tenant=%v", ok, gotUser, gotTenant)
+		t.Fatalf("round trip failed: ok=%v user=%v tenant=%v", ok, gotUser, gotTenant)
 	}
 
-	// Assinatura adulterada → recusa.
+	// Tampered signature -> rejected.
 	if _, _, ok := o.parseAIToken(tok + "x"); ok {
-		t.Error("aceitou token adulterado")
+		t.Error("accepted tampered token")
 	}
 
-	// Outro segredo não valida o token deste servidor.
+	// A different secret doesn't validate this server's token.
 	other := &onlyoffice{tokenSecret: []byte("another-secret-different-key-here")}
 	if _, _, ok := other.parseAIToken(tok); ok {
-		t.Error("um segredo diferente validou o token")
+		t.Error("a different secret validated the token")
 	}
 
-	// Expirado → recusa.
+	// Expired -> rejected.
 	expired := o.mintAIToken(user, tenant, time.Now().Add(-time.Minute))
 	if _, _, ok := o.parseAIToken(expired); ok {
-		t.Error("aceitou token expirado")
+		t.Error("accepted expired token")
 	}
 }

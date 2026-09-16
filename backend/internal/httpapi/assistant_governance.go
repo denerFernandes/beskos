@@ -17,8 +17,9 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/rbac"
 )
 
-// assistantQuotaLimit lê o teto de tokens da janela de 6h. Configurável por ambiente (§9.2) com um
-// default generoso e igual para todos; um valor inválido cai no default em vez de desligar a quota.
+// assistantQuotaLimit reads the token ceiling for the 6h window. Configurable per environment
+// (§9.2) with a generous default equal for everyone; an invalid value falls back to the default
+// instead of disabling the quota.
 func assistantQuotaLimit() int {
 	if v := os.Getenv("ASSISTANT_QUOTA_TOKENS_6H"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -40,14 +41,15 @@ func (s *Server) assistantQuotaStatus(ctx context.Context, id assistant.Identity
 		MailUserID: id.UserID, Since: since,
 	})
 	if err != nil {
-		// Falhar a somar não pode BLOQUEAR o utilizador: a quota é comercial, não uma barreira de
-		// segurança. Um erro de leitura deixa passar (o teto de passos de §9.1 continua a proteger
-		// contra o descontrolo real). Fail-open aqui é o oposto da confirmação, e de propósito.
+		// Failing to sum must not BLOCK the user: the quota is a commercial limit, not a security
+		// barrier. A read error lets it through (the step ceiling from §9.1 still protects against
+		// actual runaway usage). Fail-open here is the opposite of the confirmation step, and on purpose.
 		log.Printf("assistant: quota sum: %v", err)
 		return assistant.QuotaStatus{Limit: limit, Remaining: limit}
 	}
-	// MIN(created_at) chega como interface{} (sqlc não infere o tipo de um agregado). Um type
-	// assertion resolve-o; NULL (janela vazia) fica com o zero, que QuotaOf trata como "nada expira".
+	// MIN(created_at) comes back as interface{} (sqlc doesn't infer the type of an aggregate). A type
+	// assertion resolves it; NULL (empty window) is left at the zero value, which QuotaOf treats as
+	// "nothing expires".
 	var oldest time.Time
 	if t, ok := row.Oldest.(time.Time); ok {
 		oldest = t
@@ -55,8 +57,8 @@ func (s *Server) assistantQuotaStatus(ctx context.Context, id assistant.Identity
 	return assistant.QuotaOf(limit, int(row.Total), oldest, now)
 }
 
-// recordAssistantUsage grava os tokens de um turno. Sem cancelamento: o gasto já aconteceu e tem de
-// contar, mesmo que o utilizador tenha fechado o separador.
+// recordAssistantUsage records the tokens for a turn. No cancellation: the spend already happened
+// and must count, even if the user closed the tab.
 func (s *Server) recordAssistantUsage(ctx context.Context, id assistant.Identity, tokens int) {
 	if tokens <= 0 {
 		return
@@ -70,15 +72,15 @@ func (s *Server) recordAssistantUsage(ctx context.Context, id assistant.Identity
 	}
 }
 
-// handleAssistantUsage devolve o estado da quota: quanto resta e quando renova (§9.2). O ecrã
-// mostra-o; o aviso ao aproximar-se do fim é do frontend, a partir daqui.
+// handleAssistantUsage returns the quota state: how much is left and when it renews (§9.2). The
+// screen displays it; the warning as it nears the end is the frontend's job, from here on.
 func (s *Server) handleAssistantUsage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	id := assistant.Identity{TenantID: mu.TenantID, UserID: mu.ID}
 	writeJSON(w, http.StatusOK, s.assistantQuotaStatus(r.Context(), id, time.Now()))
 }
 
-// --- Auditoria visível (§6.4) ---
+// --- Visible audit trail (§6.4) ---
 
 type toolCallJSON struct {
 	ID         uuid.UUID       `json:"id"`
@@ -91,8 +93,8 @@ type toolCallJSON struct {
 	CreatedAt  time.Time       `json:"created_at"`
 }
 
-// handleAssistantAudit lista as chamadas de ferramenta do próprio utilizador (§6.4). Legível por
-// ele, não só pelo administrador: é o que responde a "porque é que este e-mail foi enviado?".
+// handleAssistantAudit lists the tool calls made for the user themself (§6.4). Readable by them,
+// not just by the administrator: it's what answers "why was this email sent?".
 func (s *Server) handleAssistantAudit(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	limit := int32(100)
@@ -118,10 +120,10 @@ func (s *Server) handleAssistantAudit(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
-// --- Exclusão de pastas (§6.6) ---
+// --- Folder exclusion (§6.6) ---
 
-// assistantExcludedFolders devolve o conjunto de pastas fora do alcance do assistente. Usado pela
-// pesquisa do Drive para filtrar o que o assistente vê (§6.6).
+// assistantExcludedFolders returns the set of folders out of the assistant's reach. Used by the
+// Drive search to filter what the assistant sees (§6.6).
 func (s *Server) assistantExcludedFolders(ctx context.Context, tenant uuid.UUID) map[string]bool {
 	rows, err := s.q.ListExcludedFolders(ctx, tenant)
 	if err != nil {
@@ -135,7 +137,7 @@ func (s *Server) assistantExcludedFolders(ctx context.Context, tenant uuid.UUID)
 	return out
 }
 
-// handleAssistantExcludedFolders lista as pastas excluídas.
+// handleAssistantExcludedFolders lists the excluded folders.
 func (s *Server) handleAssistantExcludedFolders(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	rows, err := s.q.ListExcludedFolders(r.Context(), mu.TenantID)
@@ -195,11 +197,11 @@ func (s *Server) handleAssistantUnexcludeFolder(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// registerAssistantGovernance regista as rotas de §9/§6.4/§6.6. Chamado a partir do Router.
+// registerAssistantGovernance registers the §9/§6.4/§6.6 routes. Called from the Router.
 func (s *Server) registerAssistantGovernance(r chi.Router) {
 	r.Get("/assistant/usage", s.handleAssistantUsage)
 	r.Get("/assistant/audit", s.handleAssistantAudit)
-	// A exclusão de pastas é controlo de alcance da organização (§6.6): administração.
+	// Folder exclusion is organization-level scope control (§6.6): administration.
 	r.Get("/assistant/excluded-folders", s.handleAssistantExcludedFolders)
 	r.With(s.requirePerm(rbac.PermAssistantManage)).Get("/assistant/tools", s.handleAssistantToolsGet)
 	r.With(s.requirePerm(rbac.PermAssistantManage)).Post("/assistant/tools/{tool}", s.handleAssistantToolSet)
@@ -207,11 +209,11 @@ func (s *Server) registerAssistantGovernance(r chi.Router) {
 	r.With(s.requirePerm(rbac.PermAssistantManage)).Delete("/assistant/excluded-folders/{id}", s.handleAssistantUnexcludeFolder)
 }
 
-// --- Ferramentas desligadas pela organização (governança fina) ---
+// --- Tools disabled by the organization (fine-grained governance) ---
 
-// disabledAssistantTools lê as ferramentas que a organização desligou. Falha de leitura devolve
-// vazio: o teto é uma restrição adicional, e ficar sem ele não abre nada que os outros filtros
-// (apps desligadas, permissões do agente) já não controlassem.
+// disabledAssistantTools reads the tools the organization has disabled. A read failure returns
+// empty: the ceiling is an additional restriction, and losing it doesn't open anything that the
+// other filters (disabled apps, agent permissions) weren't already controlling.
 func (s *Server) disabledAssistantTools(ctx context.Context, tenant uuid.UUID) []string {
 	tools, err := s.q.ListDisabledAssistantTools(ctx, tenant)
 	if err != nil {
@@ -220,7 +222,7 @@ func (s *Server) disabledAssistantTools(ctx context.Context, tenant uuid.UUID) [
 	return tools
 }
 
-// handleAssistantToolsGet lista o catálogo e o que está desligado.
+// handleAssistantToolsGet lists the catalog and what is disabled.
 func (s *Server) handleAssistantToolsGet(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -229,7 +231,7 @@ func (s *Server) handleAssistantToolsGet(w http.ResponseWriter, r *http.Request)
 	})
 }
 
-// handleAssistantToolSet liga/desliga UMA ferramenta para a organização inteira.
+// handleAssistantToolSet turns ONE tool on/off for the entire organization.
 func (s *Server) handleAssistantToolSet(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	tool := chi.URLParam(r, "tool")

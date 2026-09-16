@@ -17,10 +17,11 @@ import (
 // the internal/wiki service — the SAME vis/canAccess surface as the UI: the model never reads
 // what the user couldn't see, and writes re-validate role>=editor in the service.
 
-// assistantWikiSearch: busca citável na wiki. Com embeddings configurados é semântica (kNN); sem
-// eles, recua para a busca LEXICAL em vez de falhar — era o que acontecia em produção
-// (EMBEDDINGS_API_KEY por definir): toda a pergunta sobre a base de conhecimento morria num
-// "The action failed", e o assistente ficava sem a ferramenta que as instruções mandam usar primeiro.
+// assistantWikiSearch: citable search over the wiki. With embeddings configured it's semantic
+// (kNN); without them, it falls back to LEXICAL search instead of failing — which is what used
+// to happen in production (EMBEDDINGS_API_KEY unset): every question about the knowledge base
+// died with a "The action failed", leaving the assistant without the tool its instructions tell
+// it to use first.
 func (s *Server) assistantWikiSearch(ctx context.Context, id assistant.Identity, query string, limit int) ([]assistant.WikiHit, error) {
 	type hit struct {
 		pageID   uuid.UUID
@@ -61,7 +62,7 @@ func (s *Server) assistantWikiSearch(ctx context.Context, id assistant.Identity,
 	return hits, nil
 }
 
-// assistantWikiRead devolve a página em texto puro (nunca HTML) — só se o utilizador a pode ver.
+// assistantWikiRead returns the page as plain text (never HTML) — only if the user can see it.
 func (s *Server) assistantWikiRead(ctx context.Context, id assistant.Identity, pageID string) (assistant.WikiPageData, error) {
 	pid, err := uuid.Parse(pageID)
 	if err != nil {
@@ -77,8 +78,8 @@ func (s *Server) assistantWikiRead(ctx context.Context, id assistant.Identity, p
 	}, nil
 }
 
-// assistantWikiCreate cria um RASCUNHO num espaço resolvido por nome/chave entre os visíveis do
-// utilizador. O serviço revalida role>=editor — a permissão nunca vem do modelo.
+// assistantWikiCreate creates a DRAFT in a space resolved by name/key among the ones visible to
+// the user. The service revalidates role>=editor — permission never comes from the model.
 func (s *Server) assistantWikiCreate(ctx context.Context, id assistant.Identity, in assistant.WikiNewPage) (assistant.WikiPageData, error) {
 	spaces, err := s.wiki.ListSpaces(ctx, id.TenantID, id.UserID)
 	if err != nil {
@@ -108,8 +109,8 @@ func (s *Server) assistantWikiCreate(ctx context.Context, id assistant.Identity,
 	}, nil
 }
 
-// assistantWikiEdit regrava uma página existente (conteúdo COMPLETO novo). O serviço revalida
-// role>=editor e o bloqueio otimista; a versão anterior fica no histórico (§6).
+// assistantWikiEdit rewrites an existing page (entirely NEW content). The service revalidates
+// role>=editor and optimistic locking; the previous version stays in the history (§6).
 func (s *Server) assistantWikiEdit(ctx context.Context, id assistant.Identity, in assistant.WikiPageEdit) (assistant.WikiPageData, error) {
 	pid, err := uuid.Parse(in.PageID)
 	if err != nil {
@@ -136,13 +137,14 @@ func (s *Server) assistantWikiEdit(ctx context.Context, id assistant.Identity, i
 	}, nil
 }
 
-// wikiPageLink monta o caminho interno da app para uma página (deep-link do B1).
+// wikiPageLink builds the app's internal path to a page (B1's deep-link).
 func wikiPageLink(spaceID, pageID uuid.UUID) string {
 	return "/mail/wiki/" + spaceID.String() + "/" + pageID.String()
 }
 
-// notifyWikiPage publica no hub (Redis) um evento "wiki_page" para o PRÓPRIO utilizador que pediu à
-// IA (B6): o frontend navega para a página criada e refresca a aberta — o "ver a acontecer".
+// notifyWikiPage publishes a "wiki_page" event on the hub (Redis) for the SAME user who asked the
+// AI (B6): the frontend navigates to the created page and refreshes the one that's open — the
+// "see it happen".
 func (s *Server) notifyWikiPage(ctx context.Context, userID string, action string, spaceID, pageID uuid.UUID, title string) {
 	if s.hub == nil {
 		return
@@ -157,9 +159,9 @@ func (s *Server) notifyWikiPage(ctx context.Context, userID string, action strin
 	s.hub.Publish(ctx, chat.Event{Type: "wiki_page", Recipients: []string{userID}, Payload: payload})
 }
 
-// wikiPageInputFromText converte o conteúdo (Markdown, o que o modelo escreve naturalmente) nos
-// blocos BlockNote do editor — títulos, listas, checklists, citações, código e marcas inline. A IA
-// escreve com os MESMOS componentes que uma pessoa usaria (wiki.MarkdownToBlocks).
+// wikiPageInputFromText converts the content (Markdown, which is what the model naturally writes)
+// into the editor's BlockNote blocks — headings, lists, checklists, quotes, code, and inline
+// marks. The AI writes with the SAME components a person would use (wiki.MarkdownToBlocks).
 func wikiPageInputFromText(parent *uuid.UUID, title, content, status string) wiki.PageInput {
 	return wiki.PageInput{ParentID: parent, Title: title, BodyJSON: wiki.MarkdownToBlocks(content), Status: status}
 }

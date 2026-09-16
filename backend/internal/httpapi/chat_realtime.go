@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// ---- Anexos (download autorizado por participação no canal) ----
+// ---- Attachments (download authorized by channel membership) ----
 
 func (s *Server) handleChatAttachment(w http.ResponseWriter, r *http.Request) {
 	if !s.storageReady(w) {
@@ -52,9 +52,9 @@ func (s *Server) handleChatAttachment(w http.ResponseWriter, r *http.Request) {
 	_, _ = io.Copy(w, obj)
 }
 
-// ---- Presença (online/ausente) ----
+// ---- Presence (online/away) ----
 
-// handleChatPresence devolve quais membros do tenant estão online agora.
+// handleChatPresence returns which tenant members are online right now.
 func (s *Server) handleChatPresence(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	if s.hub == nil {
@@ -69,7 +69,7 @@ func (s *Server) handleChatPresence(w http.ResponseWriter, r *http.Request) {
 		presByID[u.ID.String()] = u.Presence
 	}
 	online := s.hub.OnlineAmong(r.Context(), ids)
-	// Presença rica só para quem está REALMENTE online (offline sempre ganha).
+	// Rich presence only for whoever is REALLY online (offline always wins).
 	presence := make(map[string]string, len(online))
 	for _, id := range online {
 		p := presByID[id]
@@ -84,7 +84,7 @@ func (s *Server) handleChatPresence(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleChatSearch(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	// Filtros estilo Slack: from:<nome/email>, before:/after:<AAAA-MM-DD>. O resto é o termo (FTS).
+	// Slack-style filters: from:<name/email>, before:/after:<YYYY-MM-DD>. The rest is the term (FTS).
 	p := db.SearchMessagesParams{UserID: mu.ID, TenantID: mu.TenantID, Lim: 40}
 	var termParts []string
 	for _, tok := range strings.Fields(q) {
@@ -142,9 +142,9 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mu := mailUserFrom(r.Context())
-	// Verificação de Origin: default aceita só same-origin (web) e a allow-list adiciona o app
-	// nativo (Tauri). Sem isto (InsecureSkipVerify) qualquer página abriria o WS com o cookie
-	// ambiente da vítima — CSWSH (auditoria M).
+	// Origin check: the default accepts only same-origin (web), and the allow-list adds the native
+	// app (Tauri). Without this (InsecureSkipVerify) any page could open the WS carrying the
+	// victim's ambient cookie — CSWSH (audit M).
 	opts := &websocket.AcceptOptions{OriginPatterns: originHostPatterns(s.corsOrigins)}
 	ws, err := websocket.Accept(w, r, opts)
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer ws.CloseNow()
 	ctx := r.Context()
-	// Cliente só envia "digitando": {type:"typing", channel_id}. Repassa aos membros do canal.
+	// The client only ever sends "typing": {type:"typing", channel_id}. Relay to channel members.
 	onClient := func(data []byte) {
 		var in struct {
 			Type      string `json:"type"`
@@ -172,14 +172,14 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 		if author == "" {
 			author = mu.Email
 		}
-		// TODA A GENTE MENOS QUEM ESTÁ A ESCREVER. Ver "fulano está a escrever…" com o nosso próprio
-		// nome enquanto escrevemos não é só ruído: parece que há outra pessoa com o mesmo nome no
-		// canal. Também vale entre aparelhos — se estou a escrever no portátil, o telemóvel não tem
-		// de me anunciar a mim mesmo.
+		// EVERYONE EXCEPT WHOEVER IS TYPING. Seeing "so-and-so is typing…" with our own name while
+		// we're typing isn't just noise: it looks like there's another person with the same name in
+		// the channel. This also applies across devices — if I'm typing on the laptop, the phone
+		// shouldn't announce me to myself.
 		//
-		// Filtrado AQUI e não na interface porque é o único evento que não interessa à própria
-		// pessoa: os restantes (mensagem nova, edição) têm de chegar a todos os aparelhos dela para
-		// se manterem sincronizados. É por isso que channelRecipients continua a incluir toda a gente.
+		// Filtered HERE and not in the UI because it's the only event that doesn't matter to the
+		// person themselves: the rest (new message, edit) have to reach all of their devices to
+		// stay in sync. That's why channelRecipients keeps including everyone.
 		self := mu.ID.String()
 		all := s.channelRecipients(ctx, cid)
 		others := make([]string, 0, len(all))
@@ -189,7 +189,7 @@ func (s *Server) handleChatWS(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if len(others) == 0 {
-			return // canal só comigo (notas pessoais): não há a quem anunciar
+			return // channel with only myself (personal notes): no one to announce to
 		}
 		s.publish(ctx, "typing", cid, others,
 			map[string]any{"user_id": self, "author": author})

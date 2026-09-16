@@ -61,9 +61,9 @@ func (s *Server) handleGetBilling(w http.ResponseWriter, r *http.Request) {
 		"plans":          localPlans,
 		"currency":       lp.Currency,
 		"min_paid_users": s.billingCfg.MinPaidUsers,
-		"seats":          seats, // usuários atuais (base do cálculo por usuário)
+		"seats":          seats, // current users (basis for the per-user calculation)
 	}
-	// Assinatura no provedor (Stripe): estado real para o painel gerir (cancelar/retomar/portal).
+	// Subscription on the provider (Stripe): real state for the panel to manage (cancel/resume/portal).
 	if subErr == nil && sub.StripeID != nil && *sub.StripeID != "" && s.billing.Name() == "stripe" {
 		if info, err := s.billing.Subscription(r.Context(), *sub.StripeID); err == nil {
 			out["subscription"] = map[string]any{
@@ -77,7 +77,7 @@ func (s *Server) handleGetBilling(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// stripeSubID devolve o id da assinatura Stripe do tenant ("" se não há).
+// stripeSubID returns the tenant's Stripe subscription id ("" if there isn't one).
 func (s *Server) stripeSubID(r *http.Request, tid uuid.UUID) string {
 	if s.billing.Name() != "stripe" {
 		return ""
@@ -89,7 +89,7 @@ func (s *Server) stripeSubID(r *http.Request, tid uuid.UUID) string {
 	return *sub.StripeID
 }
 
-// billableSeats = max(usuários atuais, mínimo pago). Preço por usuário × seats.
+// billableSeats = max(current users, paid minimum). Price per user × seats.
 func (s *Server) billableSeats(r *http.Request, tid [16]byte) int {
 	n, _ := s.q.CountMailboxesByTenant(r.Context(), tid)
 	seats := int(n)
@@ -107,9 +107,9 @@ type checkoutReq struct {
 	Cycle string `json:"cycle"` // month (default) | year
 }
 
-// checkoutCustomer garante o cliente no provedor (razão social, morada, NIF, e-mail do financeiro)
-// e devolve o id + o e-mail de faturação. Sem perfil preenchido devolve vazios — o checkout segue
-// e o provedor pede o que precisar.
+// checkoutCustomer ensures the customer exists on the provider (legal name, address, tax ID, billing
+// contact email) and returns the id + the invoice email. With no profile filled in it returns empty
+// values — checkout proceeds and the provider asks for whatever it needs.
 func (s *Server) checkoutCustomer(r *http.Request, tid uuid.UUID) (customerID, invoiceEmail string) {
 	p, err := s.q.GetBillingProfile(r.Context(), tid)
 	if err != nil || p.LegalName == "" {
@@ -118,7 +118,7 @@ func (s *Server) checkoutCustomer(r *http.Request, tid uuid.UUID) (customerID, i
 	id, err := s.billing.EnsureCustomer(r.Context(), p.StripeCustomer, billingCustomer(uuid.UUID(tid).String(), p))
 	if err != nil {
 		log.Printf("billing: ensure customer for tenant %s: %v", tid, err)
-		return "", p.InvoiceEmail // ao menos a fatura vai para o financeiro
+		return "", p.InvoiceEmail // at least the invoice goes to the billing contact
 	}
 	if id != "" && id != p.StripeCustomer {
 		_ = s.q.SetBillingStripeCustomer(r.Context(), db.SetBillingStripeCustomerParams{TenantID: tid, StripeCustomer: id})
@@ -126,8 +126,8 @@ func (s *Server) checkoutCustomer(r *http.Request, tid uuid.UUID) (customerID, i
 	return id, p.InvoiceEmail
 }
 
-// handleCheckout inicia a mudança de plano. No provedor Manual aplica na hora; no Stripe
-// devolve a URL de checkout (a ativação real vem pelo webhook).
+// handleCheckout starts the plan change. On the Manual provider it applies immediately; on Stripe
+// it returns the checkout URL (the actual activation comes through the webhook).
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	var req checkoutReq
@@ -150,10 +150,10 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		seats = plan.MinUsers
 	}
 	cycle := billing.Cycle(req.Cycle).Normalize()
-	// Moeda por país: o preço/checkout usa a moeda do tenant (fallback: base).
+	// Currency by country: the price/checkout uses the tenant's currency (fallback: base).
 	plan = s.localPlan(plan, s.tenantCurrency(r.Context(), u.TenantID))
-	// Assinatura Stripe já ativa → UPGRADE/DOWNGRADE na própria assinatura (com rateio), sem
-	// novo checkout (que criaria uma segunda assinatura).
+	// Stripe subscription already active → UPGRADE/DOWNGRADE on the existing subscription (with
+	// proration), without a new checkout (which would create a second subscription).
 	if subID := s.stripeSubID(r, u.TenantID); subID != "" {
 		if err := s.billing.UpdatePlan(r.Context(), subID, plan, seats, cycle); err != nil {
 			writeErr(w, http.StatusBadGateway, "billing.checkout_failed")
@@ -164,8 +164,8 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, billing.CheckoutResult{Applied: true})
 		return
 	}
-	// Cliente no provedor com os dados de faturação: o checkout fica só com o cartão e a fatura
-	// sai com razão social, morada e NIF.
+	// Customer on the provider with the billing data: checkout only needs the card, and the
+	// invoice comes out with legal name, address, and tax ID.
 	cus, invEmail := s.checkoutCustomer(r, u.TenantID)
 	res, err := s.billing.Checkout(r.Context(), uuid.UUID(u.TenantID).String(), plan, seats,
 		billing.CheckoutOpts{Cycle: cycle, CustomerID: cus, InvoiceEmail: invEmail})
@@ -173,15 +173,15 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadGateway, "billing.checkout_failed")
 		return
 	}
-	if res.Applied { // Manual: aplica imediatamente
+	if res.Applied { // Manual: applies immediately
 		s.applyPlan(r, u.TenantID, req.Plan, "", "active")
 		_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "billing.plan_change", Target: req.Plan})
 	}
 	writeJSON(w, http.StatusOK, res)
 }
 
-// handleBillingCancel agenda o cancelamento para o FIM do período pago (padrão SaaS). No provedor
-// manual, volta ao plano default imediatamente.
+// handleBillingCancel schedules the cancellation for the END of the paid period (standard SaaS
+// behavior). On the manual provider, it reverts to the default plan immediately.
 func (s *Server) handleBillingCancel(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	if subID := s.stripeSubID(r, u.TenantID); subID != "" {
@@ -190,14 +190,14 @@ func (s *Server) handleBillingCancel(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		// Manual: sem provedor externo — aplica o plano default na hora.
+		// Manual: no external provider — applies the default plan immediately.
 		s.applyPlan(r, u.TenantID, billing.DefaultPlanID, "", "canceled")
 	}
 	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "billing.cancel", Target: ""})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleBillingResume desfaz um cancelamento agendado (antes do fim do período).
+// handleBillingResume undoes a scheduled cancellation (before the period ends).
 func (s *Server) handleBillingResume(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	subID := s.stripeSubID(r, u.TenantID)
@@ -213,7 +213,7 @@ func (s *Server) handleBillingResume(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// handleBillingPortal abre o Billing Portal do Stripe (trocar forma de pagamento, faturas).
+// handleBillingPortal opens Stripe's Billing Portal (change payment method, invoices).
 func (s *Server) handleBillingPortal(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
 	subID := s.stripeSubID(r, u.TenantID)
@@ -235,7 +235,7 @@ func (s *Server) handleBillingPortal(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"url": link})
 }
 
-// handleBillingWebhook aplica eventos do provedor. Idempotente por event_id (brief §10).
+// handleBillingWebhook applies events from the provider. Idempotent by event_id (brief §10).
 func (s *Server) handleBillingWebhook(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	if err != nil {
@@ -247,11 +247,11 @@ func (s *Server) handleBillingWebhook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "billing.bad_signature")
 		return
 	}
-	if ev == nil { // evento sem efeito
+	if ev == nil { // event with no effect
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return
 	}
-	// Idempotência: se o evento já foi processado, não reaplica.
+	// Idempotency: if the event was already processed, don't reapply it.
 	if ev.EventID != "" {
 		if _, err := s.q.MarkWebhookProcessed(r.Context(), ev.EventID); err != nil {
 			writeJSON(w, http.StatusOK, map[string]string{"status": "duplicate"})
@@ -269,10 +269,10 @@ func (s *Server) handleBillingWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 		switch {
 		case ev.Type == "charged":
-			// Dinheiro cobrado: avisa quem paga, com o valor e o link da fatura.
+			// Money charged: notify whoever pays, with the amount and the invoice link.
 			s.alertCharge(r.Context(), tid, s.planLabel(r.Context(), ev.PlanKey), money(ev.AmountCents, ev.Currency), ev.InvoiceURL)
 		case ev.Plan == "":
-			// Evento só de STATUS (ex.: customer.subscription.updated → past_due): não mexe no plano.
+			// STATUS-only event (e.g. customer.subscription.updated → past_due): doesn't touch the plan.
 			_ = s.q.UpdateSubscriptionStatus(r.Context(), db.UpdateSubscriptionStatusParams{TenantID: tid, Status: ev.Status})
 		default:
 			s.applyPlan(r, tid, ev.Plan, ev.SubscriptionID, ev.Status)
@@ -321,7 +321,7 @@ func (s *Server) syncSeats(tid uuid.UUID) {
 	}()
 }
 
-// tenantCurrency devolve a moeda do tenant (” → a global BILLING_CURRENCY).
+// tenantCurrency returns the tenant's currency ("" → falls back to the global BILLING_CURRENCY).
 func (s *Server) tenantCurrency(ctx context.Context, tid uuid.UUID) string {
 	if t, err := s.q.GetTenant(ctx, tid); err == nil && t.Currency != "" {
 		return t.Currency
@@ -329,8 +329,9 @@ func (s *Server) tenantCurrency(ctx context.Context, tid uuid.UUID) string {
 	return s.billingCfg.Currency
 }
 
-// localPlan devolve o plano com o PREÇO na moeda do tenant (PriceFor; cai na base sem inventar
-// câmbio) e a moeda efetiva anotada — o frontend continua a ver um preço único.
+// localPlan returns the plan with the PRICE in the tenant's currency (PriceFor; falls back to the
+// base without inventing an exchange rate) and the effective currency annotated — the frontend
+// still sees a single price.
 func (s *Server) localPlan(p billing.Plan, currency string) billing.Plan {
 	cents, cur := p.PriceFor(currency, s.billingCfg.Currency)
 	p.PriceCentsPerUser = cents
@@ -345,8 +346,8 @@ func (s *Server) tenantPlan(r *http.Request, tid uuid.UUID) billing.Plan {
 	return s.tenantPlanByID(r.Context(), tid)
 }
 
-// tenantPlanByID é a mesma coisa sem depender de um *http.Request — serve quem corre fora de um
-// pedido HTTP, como a geração de ficheiros pelo assistente.
+// tenantPlanByID is the same thing without depending on an *http.Request — for use by code that
+// runs outside an HTTP request, like the assistant's file generation.
 func (s *Server) tenantPlanByID(ctx context.Context, tid uuid.UUID) billing.Plan {
 	t, err := s.q.GetTenant(ctx, tid)
 	if err != nil {
@@ -368,7 +369,7 @@ func (s *Server) applyPlan(r *http.Request, tid uuid.UUID, plan, stripeID, statu
 	})
 }
 
-// money formata um valor em cêntimos para os avisos por e-mail ("12.00 EUR").
+// money formats a cents value for the email alerts ("12.00 EUR").
 func money(cents int, currency string) string {
 	if currency == "" {
 		currency = "EUR"
@@ -390,7 +391,7 @@ func perLabel(c billing.Cycle) string {
 	return "/mês por utilizador"
 }
 
-// planLabel devolve o nome do plano a partir da chave (para o texto do aviso).
+// planLabel returns the plan name from its key (for the alert text).
 func (s *Server) planLabel(ctx context.Context, key string) string {
 	if key == "" {
 		return "Beskos"
