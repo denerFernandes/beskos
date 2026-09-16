@@ -12,10 +12,10 @@ import (
 // facts. The server's safety net has the last word — the model alone is not trusted.
 func TestForbiddenCategoriesAreRefusedEvenIfModelAcceptsThem(t *testing.T) {
 	cases := map[string]string{
-		"the wifi password is abc123":               refuseCredential,
-		"my API token is sk-12345":                   refuseCredential,
-		"the card number is 4111 1111 1111 1111":     refuseFinancial,
-		"IBAN PT50000201231234567890154":             refuseFinancial,
+		"the wifi password is abc123":            refuseCredential,
+		"my API token is sk-12345":               refuseCredential,
+		"the card number is 4111 1111 1111 1111": refuseFinancial,
+		"IBAN PT50000201231234567890154":         refuseFinancial,
 		// reHealth only matches Portuguese words, so these two inputs must stay Portuguese: lang:ok
 		"tenho uma consulta sobre a minha depressão": refuseHealth,
 		"sou do partido X":                           refuseHealth,
