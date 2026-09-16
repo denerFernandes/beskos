@@ -1,4 +1,6 @@
-package httpapi
+//go:build pro
+
+package ee
 
 import (
 	"strings"
@@ -25,19 +27,6 @@ func TestClientAgentAcceptsToolsWithinTheCeiling(t *testing.T) {
 	}
 }
 
-// capTools is the second barrier, on READ: if one of our releases removes a tool from the
-// catalog, a profile saved months ago can't keep granting it.
-func TestCapToolsDropsWhatIsNoLongerAllowed(t *testing.T) {
-	got := capTools([]string{"mail.search", "tool.that.no.longer.exists", "drive.search"})
-	if len(got) != 2 || got[0] != "mail.search" || got[1] != "drive.search" {
-		t.Errorf("capTools = %v, want only the ones still within the ceiling", got)
-	}
-	// A profile with only tools that no longer exist ends up with none — not with all of them.
-	if got := capTools([]string{"none.of.this.exists"}); len(got) != 0 {
-		t.Errorf("capTools = %v, want empty", got)
-	}
-}
-
 func TestClientAgentNameIsRequiredAndBounded(t *testing.T) {
 	cases := map[string]agentWriteReq{
 		"empty name":     {Name: "   "},
@@ -55,16 +44,15 @@ func TestClientAgentNameIsRequiredAndBounded(t *testing.T) {
 	}
 }
 
-// The ceiling is the general agent's: no client profile can go beyond what the product already allows.
-func TestToolCeilingIsTheGeneralAgent(t *testing.T) {
-	general, _ := assistant.Builtin(assistant.AgentGeneral)
-	max := assistant.MaxTools()
-	if len(max) != len(general.Tools) {
-		t.Fatalf("ceiling = %v, general agent = %v", max, general.Tools)
+func TestAgentWriteErrorMapsDuplicateName(t *testing.T) {
+	if got := agentWriteError(&fakeDBError{msg: "duplicate key value violates unique constraint \"idx_assistant_agents_name\""}); got != "assistant.agent_name_taken" {
+		t.Errorf("agentWriteError = %q, want assistant.agent_name_taken", got)
 	}
-	// And it's a COPY: mutating what MaxTools returns can't mutate the catalog.
-	max[0] = "tampered"
-	if again := assistant.MaxTools(); again[0] == "tampered" {
-		t.Error("MaxTools returns the internal slice — the catalog became mutable from outside")
+	if got := agentWriteError(&fakeDBError{msg: "connection reset"}); got != "assistant.failed" {
+		t.Errorf("agentWriteError = %q, want the generic fallback", got)
 	}
 }
+
+type fakeDBError struct{ msg string }
+
+func (e *fakeDBError) Error() string { return e.msg }

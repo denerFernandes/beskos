@@ -144,6 +144,23 @@ func MaxTools() []string {
 	return out
 }
 
+// CapTools filters want down to whatever MaxTools still allows. Applied on read as well as on
+// write: if a release removes a tool from the catalog, a profile saved months ago can't keep
+// granting it.
+func CapTools(want []string) []string {
+	max := MaxTools()
+	out := make([]string, 0, len(want))
+	for _, w := range want {
+		for _, m := range max {
+			if w == m {
+				out = append(out, w)
+				break
+			}
+		}
+	}
+	return out
+}
+
 // Builtin returns a built-in agent by key. The copy prevents whoever receives it from mutating the catalog.
 func Builtin(key string) (Agent, bool) {
 	a, ok := builtins[key]
