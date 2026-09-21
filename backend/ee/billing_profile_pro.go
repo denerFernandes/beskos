@@ -1,13 +1,18 @@
-package httpapi
+//go:build pro
+
+package ee
 
 import (
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/beskosorg/beskos/backend/internal/billing"
 	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/httpx"
+	"github.com/beskosorg/beskos/backend/internal/reqauth"
 )
 
 // Customer billing data + VAT simulation. Issuing the invoice is our obligation, so the data
@@ -28,15 +33,17 @@ type billingProfileReq struct {
 	Phone        string `json:"phone"`
 }
 
-func (s *Server) handleGetBillingProfile(w http.ResponseWriter, r *http.Request) {
-	u := mailUserFrom(r.Context())
-	p, err := s.q.GetBillingProfile(r.Context(), u.TenantID)
+// GetBillingProfile returns the tenant's saved billing profile, or an empty skeleton when none
+// has been filled in yet.
+func GetBillingProfile(w http.ResponseWriter, r *http.Request, deps Deps) {
+	u := reqauth.MailUserFrom(r.Context())
+	p, err := deps.Queries.GetBillingProfile(r.Context(), u.TenantID)
 	if err != nil {
 		// Not filled in yet: return the skeleton (the form opens empty, not in an error state).
-		writeJSON(w, http.StatusOK, map[string]any{"kind": "company", "filled": false})
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"kind": "company", "filled": false})
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"kind": p.Kind, "legal_name": p.LegalName, "tax_id": p.TaxID, "country": p.Country,
 		"city": p.City, "postal_code": p.PostalCode, "address_line1": p.AddressLine1,
 		"address_line2": p.AddressLine2, "invoice_email": p.InvoiceEmail, "invoice_name": p.InvoiceName,
@@ -53,7 +60,7 @@ func validateProfile(req *billingProfileReq) string {
 	req.Country = strings.ToUpper(strings.TrimSpace(req.Country))
 	req.LegalName = strings.TrimSpace(req.LegalName)
 	req.InvoiceEmail = strings.TrimSpace(req.InvoiceEmail)
-	req.TaxID = billing.NormalizeVATID(req.TaxID, req.Country)
+	req.TaxID = NormalizeVATID(req.TaxID, req.Country)
 
 	switch {
 	case req.LegalName == "":
@@ -65,35 +72,36 @@ func validateProfile(req *billingProfileReq) string {
 	case !strings.Contains(req.InvoiceEmail, "@"):
 		return "billing.invoice_email_required"
 	// A Polish company without a tax ID can't deduct VAT — and the Polish invoice requires it.
-	case req.Kind == "company" && req.Country == billing.SellerCountry && req.TaxID == "":
+	case req.Kind == "company" && req.Country == SellerCountry && req.TaxID == "":
 		return "billing.tax_id_required"
-	case req.Kind == "company" && req.TaxID != "" && billing.IsEU(req.Country) && !billing.ValidVATID(req.TaxID, req.Country):
+	case req.Kind == "company" && req.TaxID != "" && IsEU(req.Country) && !ValidVATID(req.TaxID, req.Country):
 		return "billing.tax_id_invalid"
 	}
 	return ""
 }
 
-func (s *Server) handleSaveBillingProfile(w http.ResponseWriter, r *http.Request) {
-	u := mailUserFrom(r.Context())
+// SaveBillingProfile validates and persists the tenant's billing profile.
+func SaveBillingProfile(w http.ResponseWriter, r *http.Request, deps Deps) {
+	u := reqauth.MailUserFrom(r.Context())
 	var req billingProfileReq
-	if !decode(w, r, &req) {
+	if !httpx.Decode(w, r, &req) {
 		return
 	}
 	if code := validateProfile(&req); code != "" {
-		writeErr(w, http.StatusBadRequest, code)
+		httpx.WriteErr(w, http.StatusBadRequest, code)
 		return
 	}
-	if _, err := s.q.UpsertBillingProfile(r.Context(), db.UpsertBillingProfileParams{
+	if _, err := deps.Queries.UpsertBillingProfile(r.Context(), db.UpsertBillingProfileParams{
 		TenantID: u.TenantID, Kind: req.Kind, LegalName: req.LegalName, TaxID: req.TaxID,
 		Country: req.Country, City: req.City, PostalCode: req.PostalCode,
 		AddressLine1: req.AddressLine1, AddressLine2: req.AddressLine2,
 		InvoiceEmail: req.InvoiceEmail, InvoiceName: req.InvoiceName, Phone: req.Phone,
 	}); err != nil {
-		writeErr(w, http.StatusInternalServerError, "billing.profile_save_failed")
+		httpx.WriteErr(w, http.StatusInternalServerError, "billing.profile_save_failed")
 		return
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgUUID(u.TenantID), Actor: u.Email, Action: "billing.profile", Target: req.LegalName})
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	_ = deps.Queries.InsertAudit(r.Context(), db.InsertAuditParams{TenantID: pgtype.UUID{Bytes: u.TenantID, Valid: true}, Actor: u.Email, Action: "billing.profile", Target: req.LegalName})
+	httpx.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 type quoteReq struct {
@@ -104,41 +112,41 @@ type quoteReq struct {
 	TaxID   string `json:"tax_id"`
 }
 
-// handleBillingQuote simulates the amount due: price × users + VAT (or reverse charge). It's the
+// BillingQuote simulates the amount due: price × users + VAT (or reverse charge). It's the
 // same calculation that goes on the invoice — the subscription page doesn't repeat the rule in
 // JavaScript, otherwise the displayed total and the charged amount would diverge on the first adjustment.
-func (s *Server) handleBillingQuote(w http.ResponseWriter, r *http.Request) {
-	u := mailUserFrom(r.Context())
+func BillingQuote(w http.ResponseWriter, r *http.Request, deps Deps) {
+	u := reqauth.MailUserFrom(r.Context())
 	var req quoteReq
-	if !decode(w, r, &req) {
+	if !httpx.Decode(w, r, &req) {
 		return
 	}
-	plan, ok := s.catalogPlanByKey(r.Context(), req.Plan)
+	plan, ok := deps.CatalogPlanByKey(r.Context(), req.Plan)
 	if !ok || !plan.IsActive {
-		writeErr(w, http.StatusBadRequest, "billing.invalid_plan")
+		httpx.WriteErr(w, http.StatusBadRequest, "billing.invalid_plan")
 		return
 	}
-	plan = s.localPlan(plan, s.tenantCurrency(r.Context(), u.TenantID))
+	plan = localPlan(plan, tenantCurrency(r.Context(), u.TenantID, deps), deps)
 	cycle := billing.Cycle(req.Cycle).Normalize()
-	seats := s.checkoutSeats(r, u.TenantID, plan)
-	q := billing.QuoteFor(plan.Currency, plan.UnitCents(cycle), seats, req.Kind, req.Country, req.TaxID)
+	seats := checkoutSeats(r, u.TenantID, plan, deps)
+	q := QuoteFor(plan.Currency, plan.UnitCents(cycle), seats, req.Kind, req.Country, req.TaxID)
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"quote":            q,
 		"cycle":            string(cycle),
 		"plan":             plan.ID,
 		"plan_name":        plan.Name,
 		"monthly_cents":    plan.PriceCentsPerUser,
 		"months_charged":   billing.AnnualMonthsCharged,
-		"seller_country":   billing.SellerCountry,
+		"seller_country":   SellerCountry,
 		"vat_rate_percent": float64(q.VATRateBps) / 100,
 	})
 }
 
 // checkoutSeats is the number of users charged: the current ones, never below the global minimum
 // nor the plan's floor.
-func (s *Server) checkoutSeats(r *http.Request, tid uuid.UUID, plan billing.Plan) int {
-	seats := s.billableSeats(r, tid)
+func checkoutSeats(r *http.Request, tid uuid.UUID, plan billing.Plan, deps Deps) int {
+	seats := billableSeats(r, tid, deps)
 	if seats < plan.MinUsers {
 		seats = plan.MinUsers
 	}

@@ -5,10 +5,9 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/beskosorg/beskos/backend/ee"
 	"github.com/beskosorg/beskos/backend/internal/db"
 	"github.com/beskosorg/beskos/backend/internal/reqauth"
-
-	"github.com/beskosorg/beskos/backend/internal/billing"
 )
 
 // Single product session (wm_session cookie). Login lives in auth_handlers.go: with a mailbox,
@@ -59,7 +58,7 @@ func (s *Server) requireWebmailSession(next http.Handler) http.Handler {
 		}
 		// A locked organisation loses access, not just the ability to send -- but only after the
 		// grace week, during which everything above still works and the data can be taken out.
-		if s.accountState(r.Context(), row.MailUser.TenantID).State == billing.StateLocked {
+		if s.accountState(r.Context(), row.MailUser.TenantID).State == ee.StateLocked {
 			s.endSession(w, token)
 			writeErr(w, http.StatusPaymentRequired, "account.locked")
 			return

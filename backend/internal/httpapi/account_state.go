@@ -11,12 +11,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/beskosorg/beskos/backend/internal/billing"
+	"github.com/beskosorg/beskos/backend/ee"
 	"github.com/beskosorg/beskos/backend/internal/provisioning"
 )
 
 // accountView is the shape the frontend renders the banner from.
-func accountView(a billing.Account) map[string]any {
+func accountView(a ee.Account) map[string]any {
 	out := map[string]any{"state": string(a.State), "blocked": a.Blocked()}
 	if !a.Until.IsZero() {
 		out["until"] = a.Until

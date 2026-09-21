@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/beskosorg/beskos/backend/internal/db"
 	"github.com/beskosorg/beskos/backend/internal/notify"
 )
@@ -109,13 +111,13 @@ func (s *Server) alertTrialStarted(lang, email, plan string, days int, amount st
 }
 
 // alertSubscription notifies whoever manages billing (and the owner) that the subscription is active.
-func (s *Server) alertSubscription(ctx context.Context, tid [16]byte, plan, cycle, amount string) {
+func (s *Server) alertSubscription(ctx context.Context, tid uuid.UUID, plan, cycle, amount string) {
 	to, lang := s.billingContact(ctx, tid)
 	s.sendMsg(to, notify.SubscriptionActive(lang, plan, cycle, amount, s.appURL("/mail/admin/billing")))
 }
 
 // alertCharge notifies about the charge (end of trial or renewal), with the invoice link.
-func (s *Server) alertCharge(ctx context.Context, tid [16]byte, plan, amount, invoiceURL string) {
+func (s *Server) alertCharge(ctx context.Context, tid uuid.UUID, plan, amount, invoiceURL string) {
 	to, lang := s.billingContact(ctx, tid)
 	s.sendMsg(to, notify.ChargeStarted(lang, plan, amount, invoiceURL, s.appURL("/mail/admin/billing")))
 }

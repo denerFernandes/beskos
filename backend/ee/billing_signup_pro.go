@@ -1,4 +1,6 @@
-package httpapi
+//go:build pro
+
+package ee
 
 import (
 	"context"
@@ -6,18 +8,21 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/beskosorg/beskos/backend/internal/auth"
 	"github.com/beskosorg/beskos/backend/internal/billing"
 	"github.com/beskosorg/beskos/backend/internal/db"
+	"github.com/beskosorg/beskos/backend/internal/httpx"
 	"github.com/beskosorg/beskos/backend/internal/provisioning"
 	"github.com/beskosorg/beskos/backend/internal/rbac"
 	"github.com/beskosorg/beskos/backend/internal/stalwart"
@@ -62,6 +67,20 @@ func atoiOr(s string, def int) int {
 	return n
 }
 
+// clientIP returns the client's IP, the same way httpapi's own clientIP (internal/httpapi/
+// ratelimit.go) does: middleware.ClientIPFromXFFTrustedProxies(1), installed in httpapi's
+// Router(), already resolved it from X-Forwarded-For when behind our proxy (Caddy). Duplicated
+// here (rather than added to Deps) because it's a pure function of the request, not server state.
+func clientIP(r *http.Request) string {
+	if ip := middleware.GetClientIP(r.Context()); ip != "" {
+		return ip
+	}
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
 type publicSignupReq struct {
 	// Account
 	OrgName  string `json:"org_name"`
@@ -76,19 +95,20 @@ type publicSignupReq struct {
 	Billing billingProfileReq `json:"billing"`
 }
 
-func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
+// Signup creates the tenant, domain, and owner mailbox, then starts the trial checkout.
+func Signup(w http.ResponseWriter, r *http.Request, deps Deps) {
 	// Signup creates accounts and talks to Stalwart: without a limit, a script could create
 	// organizations at network speed.
-	if !s.loginIP.allow("signup:"+clientIP(r), time.Now()) {
-		writeErr(w, http.StatusTooManyRequests, "auth.rate_limited")
+	if !deps.AllowLoginRate("signup:"+clientIP(r), time.Now()) {
+		httpx.WriteErr(w, http.StatusTooManyRequests, "auth.rate_limited")
 		return
 	}
-	if !s.signupsOpen {
-		writeErr(w, http.StatusForbidden, "signup.closed")
+	if !deps.SignupsOpen {
+		httpx.WriteErr(w, http.StatusForbidden, "signup.closed")
 		return
 	}
 	var req publicSignupReq
-	if !decode(w, r, &req) {
+	if !httpx.Decode(w, r, &req) {
 		return
 	}
 	req.OrgName = strings.TrimSpace(req.OrgName)
@@ -99,16 +119,16 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case req.OrgName == "":
-		writeErr(w, http.StatusBadRequest, "signup.org_required")
+		httpx.WriteErr(w, http.StatusBadRequest, "signup.org_required")
 		return
 	case !domainRe.MatchString(req.Domain):
-		writeErr(w, http.StatusBadRequest, "signup.domain_invalid")
+		httpx.WriteErr(w, http.StatusBadRequest, "signup.domain_invalid")
 		return
 	case !loginRe.MatchString(req.Login):
-		writeErr(w, http.StatusBadRequest, "signup.login_invalid")
+		httpx.WriteErr(w, http.StatusBadRequest, "signup.login_invalid")
 		return
 	case req.Password != "" && len(req.Password) < 10:
-		writeErr(w, http.StatusBadRequest, "signup.password_weak")
+		httpx.WriteErr(w, http.StatusBadRequest, "signup.password_weak")
 		return
 	}
 	// No password on signup (the normal path): we generate a random one and the user sets their
@@ -117,46 +137,46 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	if req.Password == "" {
 		pw, err := auth.NewSessionToken() // 32 random bytes in base64url
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "auth.password_hash_failed")
+			httpx.WriteErr(w, http.StatusInternalServerError, "auth.password_hash_failed")
 			return
 		}
 		req.Password = pw
 	}
 	if code := validateProfile(&req.Billing); code != "" {
-		writeErr(w, http.StatusBadRequest, code)
+		httpx.WriteErr(w, http.StatusBadRequest, code)
 		return
 	}
-	plan, ok := s.catalogPlanByKey(r.Context(), req.Plan)
+	plan, ok := deps.CatalogPlanByKey(r.Context(), req.Plan)
 	if !ok || !plan.IsActive {
-		writeErr(w, http.StatusBadRequest, "billing.invalid_plan")
+		httpx.WriteErr(w, http.StatusBadRequest, "billing.invalid_plan")
 		return
 	}
 	email := req.Login + "@" + req.Domain
 	// Domain already registered (by another organization or this one) → never stolen, never duplicated.
-	if _, err := s.q.GetDomainByName(r.Context(), req.Domain); err == nil {
-		writeErr(w, http.StatusConflict, "signup.domain_taken")
+	if _, err := deps.Queries.GetDomainByName(r.Context(), req.Domain); err == nil {
+		httpx.WriteErr(w, http.StatusConflict, "signup.domain_taken")
 		return
 	}
-	if _, err := s.q.GetMailUserByEmail(r.Context(), email); err == nil {
-		writeErr(w, http.StatusConflict, "auth.email_taken")
+	if _, err := deps.Queries.GetMailUserByEmail(r.Context(), email); err == nil {
+		httpx.WriteErr(w, http.StatusConflict, "auth.email_taken")
 		return
 	}
 
-	tenant, err := s.q.CreateTenant(r.Context(), db.CreateTenantParams{Name: req.OrgName, Plan: billing.DefaultPlanID})
+	tenant, err := deps.Queries.CreateTenant(r.Context(), db.CreateTenantParams{Name: req.OrgName, Plan: billing.DefaultPlanID})
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "tenant.create_failed")
+		httpx.WriteErr(w, http.StatusInternalServerError, "tenant.create_failed")
 		return
 	}
 	// From here on, any failure undoes everything (the tenant cascades away with domain and mailbox).
 	rollback := func(reason string, err error) {
 		log.Printf("signup: %s: %v (rolling back tenant %s)", reason, err, tenant.ID)
-		_ = s.q.DeleteTenant(context.WithoutCancel(r.Context()), tenant.ID)
+		_ = deps.Queries.DeleteTenant(context.WithoutCancel(r.Context()), tenant.ID)
 	}
 
-	dom, err := s.q.CreateDomain(r.Context(), db.CreateDomainParams{TenantID: tenant.ID, Domain: req.Domain})
+	dom, err := deps.Queries.CreateDomain(r.Context(), db.CreateDomainParams{TenantID: tenant.ID, Domain: req.Domain})
 	if err != nil {
 		rollback("create domain", err)
-		writeErr(w, http.StatusConflict, "signup.domain_taken")
+		httpx.WriteErr(w, http.StatusConflict, "signup.domain_taken")
 		return
 	}
 	// Create the domain in Stalwart right away (it's the 1st step of the provisioning machine):
@@ -164,96 +184,96 @@ func (s *Server) handlePublicSignup(w http.ResponseWriter, r *http.Request) {
 	// zone, and activation.
 	// autoDKIM follows the same rule as the worker: with an SES relay, SES does the signing (BYODKIM).
 	autoDKIM := os.Getenv("SES_REGION") == "" || os.Getenv("AWS_ACCESS_KEY_ID") == ""
-	swDomainID, err := s.sw.CreateDomain(r.Context(), req.Domain, "tenant_id="+tenant.ID.String(), autoDKIM)
+	swDomainID, err := deps.Stalwart.CreateDomain(r.Context(), req.Domain, "tenant_id="+tenant.ID.String(), autoDKIM)
 	if err != nil {
 		rollback("create domain in Stalwart", err)
-		writeErr(w, http.StatusBadGateway, "signup.provision_failed")
+		httpx.WriteErr(w, http.StatusBadGateway, "signup.provision_failed")
 		return
 	}
-	if _, err := s.q.UpdateDomainProvision(r.Context(), db.UpdateDomainProvisionParams{
+	if _, err := deps.Queries.UpdateDomainProvision(r.Context(), db.UpdateDomainProvisionParams{
 		ID: dom.ID, ProvisionState: provisioning.StateDomainCreated, StalwartID: &swDomainID,
 		DkimStatus: dom.DkimStatus, DnsStatus: dom.DnsStatus, DnsZone: dom.DnsZone,
 	}); err != nil {
 		rollback("save domain state", err)
-		writeErr(w, http.StatusInternalServerError, "signup.provision_failed")
+		httpx.WriteErr(w, http.StatusInternalServerError, "signup.provision_failed")
 		return
 	}
 
 	// Owner's mailbox in Stalwart + user (unified identity: mailbox, password, and role in one).
-	acctID, err := s.sw.CreateAccount(r.Context(), stalwart.AccountInput{
+	acctID, err := deps.Stalwart.CreateAccount(r.Context(), stalwart.AccountInput{
 		Login: req.Login, DomainID: swDomainID, DisplayName: req.Name, Password: req.Password, QuotaBytes: 5 << 30,
 	})
 	if err != nil {
 		rollback("create mailbox in Stalwart", err)
 		if errors.Is(err, stalwart.ErrWeakPassword) {
-			writeErr(w, http.StatusBadRequest, "mailbox.password_weak")
+			httpx.WriteErr(w, http.StatusBadRequest, "mailbox.password_weak")
 			return
 		}
-		writeErr(w, http.StatusBadGateway, "signup.provision_failed")
+		httpx.WriteErr(w, http.StatusBadGateway, "signup.provision_failed")
 		return
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
 		rollback("hash password", err)
-		writeErr(w, http.StatusInternalServerError, "auth.password_hash_failed")
+		httpx.WriteErr(w, http.StatusInternalServerError, "auth.password_hash_failed")
 		return
 	}
-	owner, err := s.q.CreateMailUser(r.Context(), db.CreateMailUserParams{
+	owner, err := deps.Queries.CreateMailUser(r.Context(), db.CreateMailUserParams{
 		TenantID: tenant.ID, Email: email, Name: req.Name, Role: string(rbac.RoleOwner),
 		StalwartAccountID: &acctID, QuotaBytes: 5 << 30, PasswordHash: hash,
 	})
 	if err != nil {
 		rollback("create user", err)
-		writeErr(w, http.StatusConflict, "auth.email_taken")
+		httpx.WriteErr(w, http.StatusConflict, "auth.email_taken")
 		return
 	}
 
 	// Billing data: saved before checkout, so the invoice comes out complete from the first one.
 	b := req.Billing
-	if _, err := s.q.UpsertBillingProfile(r.Context(), db.UpsertBillingProfileParams{
+	if _, err := deps.Queries.UpsertBillingProfile(r.Context(), db.UpsertBillingProfileParams{
 		TenantID: tenant.ID, Kind: b.Kind, LegalName: b.LegalName, TaxID: b.TaxID, Country: b.Country,
 		City: b.City, PostalCode: b.PostalCode, AddressLine1: b.AddressLine1, AddressLine2: b.AddressLine2,
 		InvoiceEmail: b.InvoiceEmail, InvoiceName: b.InvoiceName, Phone: b.Phone,
 	}); err != nil {
 		log.Printf("signup: save billing for tenant %s: %v", tenant.ID, err) // doesn't block signup
 	}
-	_ = s.q.InsertAudit(r.Context(), db.InsertAuditParams{
+	_ = deps.Queries.InsertAudit(r.Context(), db.InsertAuditParams{
 		TenantID: pgtype.UUID{Bytes: tenant.ID, Valid: true}, Actor: email, Action: "signup", Target: req.Domain,
 	})
 
 	// Session: whoever signs up enters the app right after payment, without re-entering the password.
-	token, ok := s.issueSession(w, r.Context(), owner)
+	token, ok := deps.IssueSession(w, r.Context(), owner)
 	if !ok {
 		return
 	}
 	// JMAP credential (mailbox's Basic auth) encrypted server-side, same as login: it's what the
 	// proxy injects to talk to Stalwart. Without this the webmail would answer 401 right after signup.
 	basic := base64.StdEncoding.EncodeToString([]byte(email + ":" + req.Password))
-	_ = s.q.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: owner.ID, JmapCred: s.encTOTP(basic)})
+	_ = deps.Queries.SetJmapCred(r.Context(), db.SetJmapCredParams{ID: owner.ID, JmapCred: deps.EncTOTP(basic)})
 
 	// Alerts: the account exists (with the address and what's still missing in DNS) and the trial
 	// is running. They go to the address just created; the billing address gets the money alerts.
-	s.alertAccountCreated(owner.Language, email, req.Domain)
-	s.alertTrialStarted(owner.Language, email, plan.Name, trialDays(), planAmount(s.localPlan(plan, s.tenantCurrency(r.Context(), tenant.ID)), req.Cycle))
+	deps.AlertAccountCreated(owner.Language, email, req.Domain)
+	deps.AlertTrialStarted(owner.Language, email, plan.Name, trialDays(), planAmount(localPlan(plan, tenantCurrency(r.Context(), tenant.ID, deps), deps), req.Cycle))
 
 	out := map[string]any{"tenant_id": tenant.ID, "email": email, "token": token, "trial_days": trialDays()}
-	if url := s.signupCheckoutURL(r, tenant.ID, plan, req.Cycle); url != "" {
+	if url := signupCheckoutURL(r, tenant.ID, plan, req.Cycle, deps); url != "" {
 		out["checkout_url"] = url
 	}
-	writeJSON(w, http.StatusCreated, out)
+	httpx.WriteJSON(w, http.StatusCreated, out)
 }
 
 // signupCheckoutURL creates the trial checkout (card requested upfront, charged only at the end).
 // Failing here doesn't undo the signup: the account exists and the subscription can be done
 // later in Billing.
-func (s *Server) signupCheckoutURL(r *http.Request, tid uuid.UUID, plan billing.Plan, cycle string) string {
-	plan = s.localPlan(plan, s.tenantCurrency(r.Context(), tid))
+func signupCheckoutURL(r *http.Request, tid uuid.UUID, plan billing.Plan, cycle string, deps Deps) string {
+	plan = localPlan(plan, tenantCurrency(r.Context(), tid, deps), deps)
 	seats := plan.MinUsers
 	if seats < 1 {
 		seats = 1
 	}
-	cus, invEmail := s.checkoutCustomer(r, tid)
-	res, err := s.billing.Checkout(r.Context(), tid.String(), plan, seats, billing.CheckoutOpts{
+	cus, invEmail := checkoutCustomer(r, tid, deps)
+	res, err := deps.Billing.Checkout(r.Context(), tid.String(), plan, seats, billing.CheckoutOpts{
 		Cycle: billing.Cycle(cycle).Normalize(), CustomerID: cus, InvoiceEmail: invEmail, TrialDays: trialDays(),
 	})
 	if err != nil {
@@ -265,20 +285,20 @@ func (s *Server) signupCheckoutURL(r *http.Request, tid uuid.UUID, plan billing.
 
 // --- Public catalog and simulation endpoints (the signup page has no session yet) ---
 
-// handlePublicPlans returns the active plans with the price in the base currency. It doesn't
+// PublicPlans returns the active plans with the price in the base currency. It doesn't
 // expose anything that isn't already on the site's pricing page.
-func (s *Server) handlePublicPlans(w http.ResponseWriter, r *http.Request) {
-	cur := s.billingCfg.Currency
+func PublicPlans(w http.ResponseWriter, r *http.Request, deps Deps) {
+	cur := deps.BillingCfg.Currency
 	plans := make([]billing.Plan, 0)
-	for _, p := range s.activePlans(r.Context()) {
+	for _, p := range deps.ActivePlans(r.Context()) {
 		if p.PriceCentsPerUser <= 0 {
 			continue // free/enterprise plans aren't subscribed to through here
 		}
-		plans = append(plans, s.localPlan(p, cur))
+		plans = append(plans, localPlan(p, cur, deps))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"plans": plans, "currency": cur, "trial_days": trialDays(), "signups_open": s.signupsOpen,
-		"months_charged": billing.AnnualMonthsCharged, "seller_country": billing.SellerCountry,
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"plans": plans, "currency": cur, "trial_days": trialDays(), "signups_open": deps.SignupsOpen,
+		"months_charged": billing.AnnualMonthsCharged, "seller_country": SellerCountry,
 	})
 }
 
@@ -291,19 +311,19 @@ type publicQuoteReq struct {
 	Seats   int    `json:"seats"`
 }
 
-// handlePublicQuote is the same computation as /api/billing/quote for someone who doesn't have an
+// PublicQuote is the same computation as /api/billing/quote for someone who doesn't have an
 // account yet: the signup page has to show the total with VAT before the organization exists.
-func (s *Server) handlePublicQuote(w http.ResponseWriter, r *http.Request) {
+func PublicQuote(w http.ResponseWriter, r *http.Request, deps Deps) {
 	var req publicQuoteReq
-	if !decode(w, r, &req) {
+	if !httpx.Decode(w, r, &req) {
 		return
 	}
-	plan, ok := s.catalogPlanByKey(r.Context(), req.Plan)
+	plan, ok := deps.CatalogPlanByKey(r.Context(), req.Plan)
 	if !ok || !plan.IsActive {
-		writeErr(w, http.StatusBadRequest, "billing.invalid_plan")
+		httpx.WriteErr(w, http.StatusBadRequest, "billing.invalid_plan")
 		return
 	}
-	plan = s.localPlan(plan, s.billingCfg.Currency)
+	plan = localPlan(plan, deps.BillingCfg.Currency, deps)
 	cycle := billing.Cycle(req.Cycle).Normalize()
 	seats := req.Seats
 	if seats < plan.MinUsers {
@@ -312,11 +332,11 @@ func (s *Server) handlePublicQuote(w http.ResponseWriter, r *http.Request) {
 	if seats < 1 {
 		seats = 1
 	}
-	q := billing.QuoteFor(plan.Currency, plan.UnitCents(cycle), seats, req.Kind, req.Country, req.TaxID)
-	writeJSON(w, http.StatusOK, map[string]any{
+	q := QuoteFor(plan.Currency, plan.UnitCents(cycle), seats, req.Kind, req.Country, req.TaxID)
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"quote": q, "cycle": string(cycle), "plan": plan.ID, "plan_name": plan.Name,
 		"monthly_cents": plan.PriceCentsPerUser, "months_charged": billing.AnnualMonthsCharged,
-		"seller_country": billing.SellerCountry, "vat_rate_percent": float64(q.VATRateBps) / 100,
+		"seller_country": SellerCountry, "vat_rate_percent": float64(q.VATRateBps) / 100,
 		"trial_days": trialDays(),
 	})
 }
@@ -326,9 +346,9 @@ func (s *Server) handlePublicQuote(w http.ResponseWriter, r *http.Request) {
 func planAmount(plan billing.Plan, cycle string) string {
 	c := billing.Cycle(cycle).Normalize()
 	unit := float64(plan.UnitCents(c)) / 100
-	per := "/mês"
+	per := "/mês" // lang:ok
 	if c == billing.CycleYear {
-		per = "/ano"
+		per = "/ano" // lang:ok
 	}
 	return fmt.Sprintf("%.2f %s%s", unit, plan.Currency, per)
 }

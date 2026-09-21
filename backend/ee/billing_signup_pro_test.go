@@ -1,4 +1,6 @@
-package httpapi
+//go:build pro
+
+package ee
 
 import "testing"
 
@@ -23,7 +25,7 @@ func TestLoginRe(t *testing.T) {
 			t.Errorf("%q should be accepted", l)
 		}
 	}
-	for _, l := range []string{"", ".ana", "ana.", "an a", "Ana", "a@b", "ç"} {
+	for _, l := range []string{"", ".ana", "ana.", "an a", "Ana", "a@b", "ç"} { // lang:ok
 		if loginRe.MatchString(l) {
 			t.Errorf("%q should not be accepted", l)
 		}

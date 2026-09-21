@@ -2,6 +2,13 @@
 
 package ee
 
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
 // Whether an organisation may still use the product, and what to say about it.
 //
 // THE ORDER OF PUNISHMENTS IS DELIBERATE. Sending stops first, and access to what is already yours
@@ -13,8 +20,6 @@ package ee
 // ask for their data back at the end of the service; a product that locks them out the moment
 // payment lapses has made that impossible to honour by accident. So during the grace period the
 // mailbox stays readable and exportable, and only then does the door close.
-
-import "time"
 
 // State is what the whole product asks about an organisation.
 type State string
@@ -107,4 +112,28 @@ func afterDeadline(now, deadline time.Time, before State) Account {
 		return Account{State: StateSendBlocked, Until: locked}
 	}
 	return Account{State: StateLocked, Until: locked}
+}
+
+// AccountState resolves the state of the organisation this tenant belongs to.
+//
+// Fails OPEN. If the subscription or the organisation cannot be read, the answer is "ok": a
+// database hiccup must never be the reason a paying customer cannot send mail. The failure mode of
+// the opposite choice is silent and total, and it arrives at the worst possible moment.
+func AccountState(ctx context.Context, tenant uuid.UUID, deps Deps) Account {
+	t, err := deps.Queries.GetTenant(ctx, tenant)
+	if err != nil {
+		return Account{State: StateOK}
+	}
+	in := Input{
+		Now:       time.Now(),
+		CreatedAt: t.CreatedAt,
+		TrialDays: trialDays(),
+	}
+	if sub, err := deps.Queries.GetSubscription(ctx, tenant); err == nil {
+		in.Status = sub.Status
+		if sub.CurrentPeriodEnd.Valid {
+			in.PeriodEnd = sub.CurrentPeriodEnd.Time
+		}
+	}
+	return Evaluate(in)
 }
