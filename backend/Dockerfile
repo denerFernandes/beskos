@@ -4,8 +4,8 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -o /out/api ./cmd/api \
- && CGO_ENABLED=0 go build -o /out/worker ./cmd/worker \
+RUN CGO_ENABLED=0 go build -tags pro -o /out/api ./cmd/api \
+ && CGO_ENABLED=0 go build -tags pro -o /out/worker ./cmd/worker \
  && CGO_ENABLED=0 go build -o /out/bootstrap ./cmd/bootstrap \
  && CGO_ENABLED=0 go build -o /out/bootstrap-owner ./cmd/bootstrap-owner \
  && CGO_ENABLED=0 go build -o /out/manager-api ./cmd/manager-api \
