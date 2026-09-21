@@ -28,12 +28,10 @@ func TestHostedBillingRoutesRegistered(t *testing.T) {
 		"POST /api/public/signup", "GET /api/public/plans", "POST /api/public/quote",
 		"GET /api/billing", "GET /api/billing/profile", "PUT /api/billing/profile",
 		"POST /api/billing/quote", "POST /api/billing/checkout", "POST /api/billing/webhook",
-		"POST /api/public/waitlist", "OPTIONS /api/public/waitlist",
-		"POST /api/public/contact", "OPTIONS /api/public/contact", "POST /api/webhooks/ses",
 		"POST /api/billing/cancel", "POST /api/billing/resume", "POST /api/billing/portal",
 	} {
 		if !got[route] {
-			t.Errorf("missing hosted route: %s", route)
+			t.Errorf("missing hosted billing route: %s", route)
 		}
 	}
 }

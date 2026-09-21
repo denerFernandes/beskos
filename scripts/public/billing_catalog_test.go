@@ -15,12 +15,3 @@ func TestSelfHostedCatalogHasNoCommercialLimits(t *testing.T) {
 		t.Fatalf("core features disabled: %+v", plan)
 	}
 }
-
-func TestHostedPaymentEnvironmentCannotEnablePayments(t *testing.T) {
-	t.Setenv("BILLING_PROVIDER", "stripe")
-	t.Setenv("STRIPE_SECRET_KEY", "test-only")
-	provider, err := New(FromEnv())
-	if err != nil || provider.Name() != "manual" {
-		t.Fatalf("provider=%v error=%v", provider, err)
-	}
-}

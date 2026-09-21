@@ -34,6 +34,7 @@ EXCLUDE = [
     "backend/internal/ses/*",
     "backend/internal/stalwart/sieve.go",
     "backend/internal/httpapi/hosted_routes.go",
+    "backend/internal/httpapi/hosted_routes_test.go",
     "backend/internal/httpapi/ses_webhook.go",
     "backend/internal/httpapi/waitlist_public.go",
     "backend/internal/httpapi/contact_public.go",
@@ -52,16 +53,9 @@ EXCLUDE = [
     "backend/db/queries/queries_usage.sql",
     "backend/internal/db/queries_usage.sql.go",
     "backend/internal/db/migrations/00102_tenant_daily_usage.sql",
-    # Hosted checkout, tax calculation, and self-service onboarding.
-    "backend/internal/httpapi/billing_handlers.go",
-    "backend/internal/httpapi/billing_profile.go",
-    "backend/internal/httpapi/billing_access.go",
-    "backend/internal/httpapi/signup.go",
-    "backend/internal/httpapi/signup_test.go",
-    "backend/internal/billing/stripe.go",
-    "backend/internal/billing/stripe_test.go",
-    "backend/internal/billing/vat.go",
-    "backend/internal/billing/vat_test.go",
+    # Hosted checkout, tax calculation, and self-service onboarding. The implementation itself
+    # lives in backend/ee (the -tags pro boundary, see backend/ee/README.md) and ships in full;
+    # only the pricing-tier data below stays private.
     "backend/internal/db/migrations/00118_pricing_tiers.sql",
     "backend/internal/db/migrations/00119_pro_eur_align.sql",
     "frontend/src/pages/Signup.tsx",
@@ -121,9 +115,6 @@ OVERRIDES = {
     "deploy/docker-compose.yml": "deploy/docker-compose.community.yml",
     "backend/Dockerfile": "scripts/public/Dockerfile",
     "backend/cmd/worker/edition_workers.go": "scripts/public/edition_workers.go",
-    "backend/internal/httpapi/billing_routes.go": "scripts/public/billing_routes.go",
-    "backend/internal/httpapi/billing_routes_test.go": "scripts/public/billing_routes_test.go",
-    "backend/internal/billing/provider_config.go": "scripts/public/billing_provider_config.go",
     "backend/internal/billing/catalog.go": "scripts/public/billing_catalog.go",
     "backend/internal/billing/plans_test.go": "scripts/public/billing_catalog_test.go",
     "backend/internal/db/migrations/00101_plans.sql": "scripts/public/plans.sql",
@@ -138,7 +129,7 @@ OVERRIDES = {
 RESIDUE = [
     ("manager console reference", re.compile(r"managerapi|manager-api|manager_[a-z]+|\bManager[A-Z]\w*|docs/manager\.md"), []),
     ("cloud metering reference", re.compile(r"tenant_daily_usage|TenantDailyUsage|RollupTenantDailyUsage|ExpiredRecordings|DeleteRecordingRow|startMetering"), []),
-    ("hosted billing implementation", re.compile(r"\bStripeProvider\b|\bNewStripe\b|func .*handle(?:Checkout|BillingWebhook|PublicSignup)\b|export function (?:SignupPage|SubscribeWizard|BillingSection)\b"), []),
+    ("hosted billing implementation", re.compile(r"\bStripeProvider\b|\bNewStripe\b|func (?:Checkout|BillingWebhook|Signup)\(|export function (?:SignupPage|SubscribeWizard|BillingSection)\b"), ["backend/ee/*"]),
     ("hosted marketing and relay implementation", re.compile(
         r'"github.com/beskosorg/beskos/backend/internal/ses"|\bAugmentZoneForSES\b|'
         r'func .*handle(?:JoinWaitlist|ContactForm|SESWebhook)\b|\btype (?:Waitlist|MailEvent) struct|'

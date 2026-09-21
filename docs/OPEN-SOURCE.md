@@ -254,8 +254,12 @@ only mount when the capability is on; without a key, a "available in the Pro edi
 instead, linking to the portal. A single bundle.
 
 **Plans.** The `plans` table stays, but in Community it's seeded with a single `self_hosted` row
-with no limits. `billing_handlers.go`, `signup.go`, `plans_catalog.go` (Stripe) migrate to
-`beskos-cloud`; the public export omits hosted billing routes and their implementations.
+with no limits. `plans_catalog.go` and `internal/billing/plans.go` stay in `httpapi`/`internal/billing`
+unconditionally — self-hosted quota enforcement (mailboxes, storage, meeting participants) reads
+them regardless of edition. Stripe, VAT, and self-service signup (formerly `billing_handlers.go`,
+`signup.go`, `internal/billing/stripe.go`) moved into `backend/ee/billing_*_pro.go` behind
+`-tags pro`, the same boundary as agents/branding/security-policy: the source ships in full in the
+public repo, and `billing_routes_community.go` mounts none of the routes in a Community build.
 
 **Removing the Manager (checklist).**
 

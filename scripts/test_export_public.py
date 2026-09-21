@@ -20,8 +20,6 @@ class PublicExportTests(unittest.TestCase):
             "backend/internal/db/queries_usage.sql.go",
             "backend/internal/db/migrations/00102_tenant_daily_usage.sql",
             "scripts/public/edition_workers.go",
-            "backend/internal/billing/stripe.go", "backend/internal/billing/vat.go",
-            "backend/internal/httpapi/billing_handlers.go", "backend/internal/httpapi/signup.go",
             "frontend/src/pages/Signup.tsx", "frontend/src/panel/BillingSection.tsx",
             "frontend/src/panel/SubscribeWizard.tsx",
             "backend/internal/httpapi/waitlist_public.go", "backend/internal/httpapi/contact_public.go",
