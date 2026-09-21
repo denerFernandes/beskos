@@ -45,11 +45,11 @@ def code(rel: str, pattern: str) -> str | None:
 PINS = [
     ("recoveryDays", "backend/internal/httpapi/mailbox_lifecycle.go",
      r"RecoveryWindow = (\d+) \* 24 \* time\.Hour", "RecoveryWindow"),
-    ("graceDays", "backend/internal/billing/account_state.go",
+    ("graceDays", "backend/ee/billing_account_pro.go",
      r"GracePeriod = (\d+) \* 24 \* time\.Hour", "GracePeriod"),
-    ("warnDaysBefore", "backend/internal/billing/account_state.go",
+    ("warnDaysBefore", "backend/ee/billing_account_pro.go",
      r"EndingSoon = (\d+) \* 24 \* time\.Hour", "EndingSoon"),
-    ("trialDays", "backend/internal/httpapi/signup.go",
+    ("trialDays", "backend/ee/billing_signup_pro.go",
      r'atoiOr\(os\.Getenv\("BILLING_TRIAL_DAYS"\), (\d+)\)', "BILLING_TRIAL_DAYS default"),
     ("backupDays", "deploy/backup/backup.sh", r"RETENTION_DAYS:=(\d+)", "RETENTION_DAYS"),
 ]
