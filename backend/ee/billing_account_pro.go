@@ -1,4 +1,6 @@
-package billing
+//go:build pro
+
+package ee
 
 // Whether an organisation may still use the product, and what to say about it.
 //

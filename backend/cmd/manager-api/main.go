@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/beskosorg/beskos/backend/ee"
 	"github.com/beskosorg/beskos/backend/internal/billing"
 	"github.com/beskosorg/beskos/backend/internal/db"
 	"github.com/beskosorg/beskos/backend/internal/managerapi"
@@ -48,7 +49,7 @@ func main() {
 	}
 
 	// MFA_ENC_KEY: a MESMA chave do produto serve (cifra AES-GCM de segredos TOTP em repouso).
-	bp, err := billing.New(billing.FromEnv())
+	bp, err := ee.NewBillingProvider(billing.FromEnv())
 	if err != nil {
 		log.Fatalf("billing provider: %v", err)
 	}

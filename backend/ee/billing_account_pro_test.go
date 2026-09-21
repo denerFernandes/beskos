@@ -1,4 +1,6 @@
-package billing
+//go:build pro
+
+package ee
 
 // The decision that can lock a paying customer out of their own mail. Worth pinning down.
 

@@ -49,18 +49,6 @@ func atoiDefault(s string, def int) int {
 	return def
 }
 
-// New builds the Provider. The only place that knows concrete providers.
-func New(cfg Config) (Provider, error) {
-	switch cfg.Provider {
-	case "manual", "":
-		return ManualProvider{}, nil
-	case "stripe":
-		return NewStripe(cfg), nil
-	default:
-		return nil, unknownProvider(cfg.Provider)
-	}
-}
-
 func getenv(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v

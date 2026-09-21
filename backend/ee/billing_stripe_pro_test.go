@@ -1,4 +1,6 @@
-package billing
+//go:build pro
+
+package ee
 
 import (
 	"crypto/hmac"

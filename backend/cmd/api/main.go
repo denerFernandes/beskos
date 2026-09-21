@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"github.com/beskosorg/beskos/backend/ee"
 	"github.com/beskosorg/beskos/backend/internal/ai"
 	"github.com/beskosorg/beskos/backend/internal/billing"
 	"github.com/beskosorg/beskos/backend/internal/chat"
@@ -96,7 +97,7 @@ func main() {
 
 	// Billing. Default "manual" (dev/self-serve). Production: BILLING_PROVIDER=stripe + keys.
 	billingCfg := billing.FromEnv()
-	billingProvider, err := billing.New(billingCfg)
+	billingProvider, err := ee.NewBillingProvider(billingCfg)
 	if err != nil {
 		log.Fatalf("billing: %v", err)
 	}

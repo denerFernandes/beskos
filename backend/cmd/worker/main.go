@@ -509,7 +509,7 @@ func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client)
 	if err != nil {
 		log.Fatalf("edition: %v", err)
 	}
-	srv := httpapi.NewServer(q, sw, aiProvider, nil, st, nil, billing.Settings{}, ed)
+	srv := httpapi.NewServer(q, sw, aiProvider, nil, st, billing.ManualProvider{}, billing.Settings{}, ed)
 	srv.SetPublicURL(cfg.PublicURL)         // absolute links in the alert e-mails the worker sends
 	srv.SetBrandURL(cfg.BrandURL)           // fallback for those links when PUBLIC_URL is unset
 	srv.EnableTOTPEncryption(cfg.MFAEncKey) // decrypts the mailboxes' JMAP credential
