@@ -104,6 +104,15 @@ EXCLUDE = [
     "landing",
     "scripts/export_public.py",
     "scripts/test_export_public.py",
+    # Internal review tooling: house-style conventions (English-only, file size, formal address)
+    # specific to how this team works, not a public contribution requirement. CONTRIBUTING.md and
+    # the public CI workflow are adjusted accordingly (see the Makefile/ci.yml overrides below).
+    "scripts/check_laws.py",
+    "scripts/check_docs.py",
+    "scripts/check_register.py",
+    "scripts/comment_audit.py",
+    "scripts/check_tenant_scoping.py",
+    "scripts/gen_env_docs.py",
     "scripts/public/*",
     ".github/workflows/public-export.yml",
 ]
@@ -118,6 +127,8 @@ OVERRIDES = {
     "README.md": "docs/README-oss.md",
     "deploy/docker-compose.yml": "deploy/docker-compose.community.yml",
     "backend/Dockerfile": "scripts/public/Dockerfile",
+    "Makefile": "scripts/public/Makefile",
+    ".github/workflows/ci.yml": "scripts/public/ci.yml",
     "backend/cmd/worker/edition_workers.go": "scripts/public/edition_workers.go",
     "backend/internal/billing/catalog.go": "scripts/public/billing_catalog.go",
     "backend/internal/billing/plans_test.go": "scripts/public/billing_catalog_test.go",
@@ -204,7 +215,10 @@ def regenerate_database(target: pathlib.Path) -> None:
 
 def prepare_export(target: pathlib.Path) -> None:
     regenerate_database(target)
-    subprocess.run([sys.executable, "scripts/gen_env_docs.py"], cwd=target, check=True)
+    # Runs THIS repo's own copy of the script (gen_env_docs.py doesn't ship publicly, see
+    # scripts/public/ below), pointed at the exported tree so docs/configuration.md still comes
+    # out fresh for what actually ships.
+    subprocess.run([sys.executable, str(ROOT / "scripts" / "gen_env_docs.py"), str(target)], check=True)
 
 
 def copy_tree(paths: list[str], target: pathlib.Path) -> None:

@@ -39,14 +39,16 @@ See [docs/getting-started.md](docs/getting-started.md) for the full walkthrough,
 ## Before opening a PR
 
 ```bash
-make check     # project laws: file size, language, translated-text register
 cd backend && gofmt -l . && go vet ./... && go build ./... && go test ./...
 cd ../frontend && npm run build && npm test
 cd ../sync-daemon && cargo fmt --all --check && cargo test --locked
 ```
 
 CI runs the same checks, plus `govulncheck`, `npm audit`, `cargo audit`, gitleaks, and CodeQL.
-A red CI check is not optional to fix before review.
+A red CI check is not optional to fix before review. The house rules below (file size, English,
+formal address) are reviewed by hand against internal tooling that isn't part of this repository
+-- don't worry about matching them exactly on a first pass; a reviewer will point out anything
+that needs adjusting.
 
 ## House rules
 
@@ -78,8 +80,8 @@ The full text is [CLAUDE.md](CLAUDE.md); the parts that matter for a first contr
 - **New code is in English** -- identifiers, comments, log lines, error strings, commit
   messages. The only exception is text a user reads, which comes from the i18n files.
 
-`make check` enforces the language and file-size rules automatically on every changed line; it
-does not check history, so existing text in another language is not something you need to fix
+The language and file-size rules are enforced automatically on every changed line before a merge;
+they do not check history, so existing text in another language is not something you need to fix
 in an unrelated PR.
 
 ## Commit messages and PRs

@@ -108,9 +108,11 @@ and the [Stalwart divergences](deploy/DIVERGENCES.md).
 4.7. **The law is machine-checked, not a matter of goodwill.** `scripts/check_laws.py` runs
      automatically on every file write (hook in `.claude/settings.json`) and validates laws 4.6
      and 1.4 on new lines — in code and in documentation prose alike, though 1.4's line ceiling
-     only applies to source files, never to docs. Run it by hand before committing: `make check`
-     or `python3 scripts/check_laws.py`. It exists because these laws were already written down
-     and got broken anyway — a document obligates no one; a command that fails does.
+     only applies to source files, never to docs. It exists because these laws were already
+     written down and got broken anyway — a document obligates no one; a command that fails does.
+     This script, and the rest of `scripts/check_*.py`, are internal review tooling and are not
+     part of this repository's public copy (see `scripts/export_public.py`'s `EXCLUDE`); a
+     contributor doesn't need to run them, a reviewer checks by hand instead.
 
 4.8. **All text the user reads is formal and corporate.** Address the customer with their
      language's formal register — `usted`/`su` (es), `Sie`/`Ihr` (de), `vous`/`votre` (fr),
@@ -119,7 +121,7 @@ and the [Stalwart divergences](deploy/DIVERGENCES.md).
      No exclamation marks, emoji, slang, or jokes; declarative sentences. Applies to the landing
      page, the documentation, the UI, and
      transactional messages (email, SMS) — **every surface**, because the customer doesn't know
-     they're different projects. Checked by `scripts/check_register.py`, included in `make check`.
+     they're different projects. Checked by `scripts/check_register.py` (internal tooling, §4.7).
 
      **Formal address isn't enough — tone is law too.** Write declaratively: say what the system
      does. Don't justify the design decision to the reader, don't editorialize, don't ask

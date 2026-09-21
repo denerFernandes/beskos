@@ -28,6 +28,8 @@ class PublicExportTests(unittest.TestCase):
             "backend/internal/db/migrations/00107_mail_events.sql",
             "deploy/DIVERGENCES.md", "scripts/export_public.py",
             ".github/workflows/public-export.yml",
+            "scripts/check_laws.py", "scripts/check_docs.py", "scripts/check_register.py",
+            "scripts/comment_audit.py", "scripts/check_tenant_scoping.py", "scripts/gen_env_docs.py",
         ):
             with self.subTest(path=path):
                 self.assertTrue(export.excluded(path))

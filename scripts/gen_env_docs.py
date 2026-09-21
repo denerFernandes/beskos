@@ -7,12 +7,19 @@ without touching this script). Run it after adding or removing an environment va
 commit the regenerated file; check_docs.py does not currently verify this file is fresh, so
 review the diff by eye.
 
-    python3 scripts/gen_env_docs.py
+    python3 scripts/gen_env_docs.py [target_root]
+
+This script itself does not ship in the public export (it's internal tooling, like the rest of
+scripts/check_*.py) -- scripts/export_public.py runs THIS copy against the exported tree instead,
+passing its path as target_root, so docs/configuration.md still comes out freshly generated for
+whatever actually ships (manager-only variables excluded below, backend/cmd/manager-api and
+friends physically absent from the scanned tree).
 """
 import pathlib
 import re
+import sys
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
+ROOT = pathlib.Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else pathlib.Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "configuration.md"
 
 PATTERN = re.compile(
@@ -23,7 +30,6 @@ PATTERN = re.compile(
 
 
 def scan() -> dict[str, str | None]:
-    # Scan the source tree so a history-free public export can regenerate its own reference.
     files = sorted((ROOT / "backend").rglob("*.go"))
     found: dict[str, str | None] = {}
     for path in files:

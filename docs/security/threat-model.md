@@ -39,10 +39,10 @@ boundary is added, and revisit it before F9 (docs/OPEN-SOURCE.md).
 `tenant_id`. **Attacker:** an authenticated user of tenant A, trying to read or write tenant B's
 data. **Control:** every handler resolves `tenant_id` from the authenticated session, never from
 a request parameter, and every sqlc query touching customer data filters by it (law 5.1).
-**Verification:** `scripts/check_tenant_scoping.py` (report-only, heuristic -- flags a query
-against a tenant-scoped table that never mentions `tenant_id`, including via ownership columns
-like `owner_user_id` it can't recognize as equivalent; every hit needs a human to actually read
-the query). **Residual risk:** a new query that forgets the filter ships silently until the
+**Verification:** an internal heuristic script (report-only, not included in this repository --
+flags a query against a tenant-scoped table that never mentions `tenant_id`, including via
+ownership columns like `owner_user_id` it can't recognize as equivalent; every hit needs a human
+to actually read the query). **Residual risk:** a new query that forgets the filter ships silently until the
 checker or a manual review catches it -- there is no runtime enforcement (e.g. Postgres row-level
 security) backing this up. Worth considering once the schema stabilizes.
 
@@ -234,8 +234,7 @@ A vulnerability in how this project configures or calls one of them is in scope;
   once the deployed Document Server's exact JWT-in-body claim shape is confirmed (§4).
 - A designed rotation story for `MFA_ENC_KEY` and `FILE_ENC_KEYS`.
 - Row-level security in Postgres as a second line of defense behind the query-level `tenant_id`
-  filter, if the manual/heuristic checking in `scripts/check_tenant_scoping.py` proves
-  insufficient at scale.
+  filter, if the manual/heuristic checking described in §1 proves insufficient at scale.
 - License `Seats` enforcement against actual user count, and a same-day revocation channel for a
   canceled subscription against an already-running process (§9, residual risks 2 and 3) -- both
   license-compliance/business-continuity gaps, not access-control ones.
