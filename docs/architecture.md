@@ -78,6 +78,12 @@ Enterprise-only features live in `backend/ee` (Go, gated by the `pro` build tag)
 [docs/editions.md](editions.md) for which features that is and why, and
 [backend/ee/README.md](../backend/ee/README.md) for the mechanism.
 
+Meeting recording is the one Pro feature that predates this seam and hasn't been moved into it
+yet: its code lives in ordinary, always-compiled `internal/httpapi` files, gated only at runtime
+by the license key's `Recording` capability -- a Community build links it, just refuses to turn
+it on without a key. Every other non-planned row in [docs/editions.md](editions.md)'s Pro column
+does go through the compile-time boundary above.
+
 ## Further reading
 
 - [docs/adr/0001-jmap-not-rest.md](adr/0001-jmap-not-rest.md) -- why this project talks to

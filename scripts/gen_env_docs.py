@@ -17,7 +17,8 @@ OUT = ROOT / "docs" / "configuration.md"
 
 PATTERN = re.compile(
     r'\bos\.Getenv\("([A-Z0-9_]+)"\)'
-    r'|\bgetenv(?:Int64)?\("([A-Z0-9_]+)"\s*,\s*("(?:[^"\\]|\\.)*"|[A-Za-z0-9_.<<]+)\)'
+    r'|\bgetenv(?:Int64)?\("([A-Z0-9_]+)"\s*,\s*'
+    r'("(?:[^"\\]|\\.)*"|os\.Getenv\("([A-Z0-9_]+)"\)|[A-Za-z0-9_.<<]+)\)'
 )
 
 
@@ -33,8 +34,11 @@ def scan() -> dict[str, str | None]:
             if m.group(1):
                 found.setdefault(m.group(1), None)
             else:
-                name, default = m.group(2), m.group(3)
-                default = default.strip('"') if default.startswith('"') else default
+                name, default, fallback = m.group(2), m.group(3), m.group(4)
+                if fallback:
+                    default = f"same as {fallback}"
+                elif default.startswith('"'):
+                    default = default.strip('"')
                 if name not in found or found[name] is None:
                     found[name] = default or None
     return found

@@ -27,6 +27,7 @@ Every environment variable the backend reads, extracted directly from the source
 | `BRAND_URL` | `https://beskos.com` |
 | `COOKIE_SECURE` | `false` |
 | `DATABASE_URL` | *(required or empty = off)* |
+| `DEV_SIGNUP_ENABLED` | `false` |
 | `DNS_RESOLVER` | *(required or empty = off)* |
 | `DOC_TOKEN_SECRET` | *(required or empty = off)* |
 | `EDITION_LICENSE_KEY` | *(required or empty = off)* |
@@ -63,6 +64,11 @@ Every environment variable the backend reads, extracted directly from the source
 | `ONLYOFFICE_JWT_SECRET` | *(required or empty = off)* |
 | `ONLYOFFICE_SOURCE_URL` | `defaultOfficeSourceURL` |
 | `ONLYOFFICE_URL` | *(required or empty = off)* |
+| `OWNER_DOMAIN` | *(required or empty = off)* |
+| `OWNER_LOGIN` | *(required or empty = off)* |
+| `OWNER_NAME` | *(required or empty = off)* |
+| `OWNER_ORG_NAME` | *(required or empty = off)* |
+| `OWNER_PASSWORD` | *(required or empty = off)* |
 | `PROVISION_SKIP_DNS_VERIFY` | *(required or empty = off)* |
 | `PUBLIC_URL` | *(required or empty = off)* |
 | `REDIS_URL` | *(required or empty = off)* |
@@ -73,6 +79,7 @@ Every environment variable the backend reads, extracted directly from the source
 | `SIGNUPS_OPEN` | `true` |
 | `SMS_PROVIDER` | `log` |
 | `SMS_SENDER_ID` | *(required or empty = off)* |
+| `SNS_REGION` | `same as SES_REGION` |
 | `STALWART_ADMIN_ID` | `admin` |
 | `STALWART_ADMIN_SECRET` | *(required or empty = off)* |
 | `STALWART_DEFAULT_DOMAIN` | `localhost` |

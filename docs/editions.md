@@ -29,9 +29,13 @@ free in Community:
 The rule of thumb: a feature stays Pro when a business would pay for it without hesitation and a
 small team or an individual wouldn't miss it. Nothing that affects basic security is ever Pro.
 
-*(planned)* marks two rows above that are not implemented yet -- everything else in the Pro
-column is built and enforced server-side (a Community build does not link the code at all; see
-`backend/ee/`), independent of whether a licensing portal exists to actually sell a key yet.
+*(planned)* marks two rows above that are not implemented yet. Of the rest, white-label branding,
+organization-wide security policies, and AI agents are built and enforced server-side in
+`backend/ee/`: a Community build does not link that code at all, independent of whether a
+licensing portal exists to actually sell a key yet. Meeting recording is the one exception --
+its code ships in every build and is gated at runtime by the license key's `Recording`
+capability (`internal/edition`), not by the `pro` build tag; see
+[architecture.md](architecture.md#the-ee-seam) for why.
 
 ## Offering Beskos as a service
 

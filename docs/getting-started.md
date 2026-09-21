@@ -2,9 +2,11 @@
 
 ## Requirements
 
-Docker and Docker Compose (v2), and ports 25/143/465/587/993 free on the host if you want to
+Docker and Docker Compose (v2); ports 25/143/465/587/993 free on the host if you want to
 send and receive real mail -- most cloud providers block outbound 25 by default, so mail sending
-from a fresh VM often needs that unblocked first.
+from a fresh VM often needs that unblocked first. Go 1.25+ locally for the one-time Stalwart
+bootstrap step below (everything else runs in containers). Node 20+ only if you want to run the
+frontend outside Docker with `npm run dev` (see "First login").
 
 ## Run it
 

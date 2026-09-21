@@ -50,8 +50,7 @@ A red CI check is not optional to fix before review.
 
 ## House rules
 
-The full text is [CLAUDE.md](CLAUDE.md) (in Portuguese, the language the project was designed
-in); the parts that matter for a first contribution:
+The full text is [CLAUDE.md](CLAUDE.md); the parts that matter for a first contribution:
 
 - **Simple over clever.** No speculative abstraction -- introduce an interface or generics only
   once there are two real call sites.

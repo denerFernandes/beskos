@@ -95,11 +95,12 @@ EXCLUDE = [
     "deploy/DIVERGENCES.md",  # detailed internal reverse-engineering notes and production topology
     "docs/README-oss.md",  # becomes README.md via OVERRIDES, not kept at its own path too
     "deploy/docker-compose.community.yml",  # becomes deploy/docker-compose.yml via OVERRIDES
-    # Agent configuration and the landing gitlink (separate repository).
+    # Agent configuration and the landing gitlink (separate repository). CLAUDE.md itself ships --
+    # CONTRIBUTING.md links to it as the canonical rules document, and it's plain English prose,
+    # not agent-only config.
     ".claude/*",
     ".codex/*",
     "AGENTS.md",
-    "CLAUDE.md",
     "landing",
     "scripts/export_public.py",
     "scripts/test_export_public.py",
@@ -111,6 +112,9 @@ EXCLUDE = [
 # the published path (its own tracked copy there, if any, is excluded below) -- used for files
 # that need a different version in public than the one the team uses day to day.
 OVERRIDES = {
+    # docs/README-oss.md becomes the public repo's root README.md, separate from the internal
+    # README.md (which documents day-to-day status for the team) -- its links are written relative
+    # to the repo root it ships at, not to docs/ where the source file lives.
     "README.md": "docs/README-oss.md",
     "deploy/docker-compose.yml": "deploy/docker-compose.community.yml",
     "backend/Dockerfile": "scripts/public/Dockerfile",
