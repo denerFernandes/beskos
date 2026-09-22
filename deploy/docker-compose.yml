@@ -281,6 +281,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # Waits for api, not just postgres: api is what applies the migrations, and it only answers
+      # /readyz once they are done. Starting alongside it means every scan loop here queries tables
+      # that do not exist yet, and a first `docker compose up` opens with a screen of
+      # "relation ... does not exist" errors that fix themselves a tick later.
+      api:
+        condition: service_healthy
     environment: *control_env
 
   # Manager — API do painel do OPERADOR do SaaS (docs/manager.md). Serviço isolado de propósito:

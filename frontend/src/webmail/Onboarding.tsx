@@ -7,6 +7,7 @@ import { BESKOS_MARK } from "./branding";
 import { PasswordField } from "./PasswordField";
 import { BRAND_COLORS } from "./branding";
 import { IcCheck, IcUsers, IcStar, IcPlus, IcX } from "../panel/icons";
+import { useBrandingCapability } from "../useEdition";
 import "./onboarding.css";
 
 // Owner's first access: set the password, dress up the house (logo and color), and invite the
@@ -22,6 +23,13 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>(0);
   const [err, setErr] = useState("");
+  // Branding is Pro (PATCH /api/branding answers 403 without it), so a Community install skips
+  // that step instead of offering a logo and colour it cannot save.
+  const branded = useBrandingCapability();
+  const steps: Step[] = branded ? [0, 1, 2] : [0, 2];
+  // Every step change clears the error: one step's failure is not the next step's problem, and a
+  // leftover "requires a Pro licence" sitting above the invite form says something untrue.
+  const go = (s: Step) => { setErr(""); setStep(s); };
 
   // Step 1 — password
   const [pw, setPw] = useState("");
@@ -49,12 +57,12 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
 
   const savePassword = useMutation({
     mutationFn: () => api.resetUserPassword(email, pw),
-    onSuccess: () => { setErr(""); setStep(1); },
+    onSuccess: () => go(branded ? 1 : 2),
     onError: (e) => setErr((e as Error).message),
   });
   const saveBrand = useMutation({
     mutationFn: () => backend.brandingUpdate({ color, logo }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["branding"] }); setErr(""); setStep(2); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["branding"] }); go(2); },
     onError: (e) => setErr((e as Error).message),
   });
   // Invites: each address becomes an email invite (the person picks a password upon accepting).
@@ -85,7 +93,7 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
       <div className="ob-card">
         <header className="ob-head">
           <img src={BESKOS_MARK} alt="" />
-          <div className="ob-dots">{[0, 1, 2].map((s) => <i key={s} className={s === step ? "on" : s < step ? "done" : ""} />)}</div>
+          <div className="ob-dots">{steps.map((s) => <i key={s} className={s === step ? "on" : s < step ? "done" : ""} />)}</div>
         </header>
 
         {step === 0 && (
@@ -132,7 +140,7 @@ export function Onboarding({ email, onDone }: { email: string; onDone: () => voi
             </div>
             {err && <p className="ob-err">{err}</p>}
             <button className="ob-cta" disabled={saveBrand.isPending} onClick={() => saveBrand.mutate()}>{t("onboarding.continue")}</button>
-            <button className="ob-skip" onClick={() => setStep(2)}>{t("onboarding.skip")}</button>
+            <button className="ob-skip" onClick={() => go(2)}>{t("onboarding.skip")}</button>
           </>
         )}
 
