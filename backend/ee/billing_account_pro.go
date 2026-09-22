@@ -120,6 +120,11 @@ func afterDeadline(now, deadline time.Time, before State) Account {
 // database hiccup must never be the reason a paying customer cannot send mail. The failure mode of
 // the opposite choice is silent and total, and it arrives at the worst possible moment.
 func AccountState(ctx context.Context, tenant uuid.UUID, deps Deps) Account {
+	// No payment provider means nothing to pay for: a self-hosted installation has no trial to
+	// run out and no subscription to lapse, so the trial clock below must not apply to it.
+	if deps.Billing == nil || deps.Billing.Name() != "stripe" {
+		return Account{State: StateOK}
+	}
 	t, err := deps.Queries.GetTenant(ctx, tenant)
 	if err != nil {
 		return Account{State: StateOK}

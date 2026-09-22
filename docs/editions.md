@@ -10,32 +10,57 @@ plain-language table of what's allowed). Every released version converts to Apac
 four years after its release, so nothing here is ever permanently locked away. `ee/` directories
 carry a separate [Enterprise license](../ee/LICENSE) instead, usable only with a valid Pro key.
 
-## What's Pro
+## The three editions
 
-Pro is **€1 per user per month**, with everything else -- including every security feature --
-free in Community:
+- **Community** -- this repository, built and run by you, with no license key. Free, no seat
+  limit.
+- **Pro** -- the same self-hosted installation with a license key configured
+  (`EDITION_LICENSE_KEY`, see [docs/pro/README.md](pro/README.md)). **€1 per user per month.**
+- **Hosted** -- the service operated by Beskos, Lda. at [beskos.com](https://beskos.com): Pro
+  features plus billing, plans, and operations that only make sense when someone else runs the
+  servers. Its operator-side code lives in a private repository, not here.
 
-| Community | Pro |
-|---|---|
-| Email, calendar, contacts, Drive, chat, wiki, Kanban | Meeting recording (LiveKit Egress + offline compose) |
-| Video meetings, without recording | White-label branding: your logo, colors, domain, no "Powered by" |
-| Office editing (OnlyOffice) | Audit log and retention policy UI *(planned)* |
-| AI assistant, with your own provider key | Organization-wide security policies (mandatory MFA, session limits) |
-| RBAC, groups, invitations, MFA (TOTP/SMS) | AI agents (org-wide automations) |
-| IMAP and file migration | Bulk-assisted migration across several domains *(planned)* |
-| Desktop app and folder sync | Priority support, SLA |
-| pt-BR / en | |
+## What differs
 
-The rule of thumb: a feature stays Pro when a business would pay for it without hesitation and a
-small team or an individual wouldn't miss it. Nothing that affects basic security is ever Pro.
+Everything not listed below is identical in all three editions. Nothing that affects basic
+security is ever Pro or Hosted-only.
 
-*(planned)* marks two rows above that are not implemented yet. Of the rest, white-label branding,
-organization-wide security policies, and AI agents are built and enforced server-side in
-`backend/ee/`: a Community build does not link that code at all, independent of whether a
-licensing portal exists to actually sell a key yet. Meeting recording is the one exception --
-its code ships in every build and is gated at runtime by the license key's `Recording`
-capability (`internal/edition`), not by the `pro` build tag; see
-[architecture.md](architecture.md#the-ee-seam) for why.
+| | Community | Pro | Hosted | Enforced by |
+|---|---|---|---|---|
+| Email, calendar, contacts, Drive, chat, wiki, Kanban, office editing | yes | yes | yes | -- |
+| Video meetings | yes | yes | yes | -- |
+| Meeting recording (LiveKit Egress, offline compose) | no | yes | yes | license key, at runtime (`Recording`) |
+| AI assistant with your own provider key | yes | yes | yes | -- |
+| AI agents (organization-wide automations) | no | yes | yes | `backend/ee`, compile-time (`Agents`) |
+| White-label branding: logo, colors, domain, no "Powered by" | no | yes | yes | `backend/ee`, compile-time (`Branding`) |
+| Organization-wide security policies (mandatory MFA, session limits) | no | yes | yes | `backend/ee`, compile-time (`OrgPolicies`) |
+| Audit log and retention policy UI *(planned)* | no | yes | yes | license key (`AuditLog`) |
+| RBAC, groups, invitations, MFA (TOTP/SMS), audit logging | yes | yes | yes | -- |
+| IMAP and file migration | yes | yes | yes | -- |
+| Bulk-assisted migration across several domains *(planned)* | no | yes | yes | -- |
+| Desktop app and folder sync; pt-BR and en | yes | yes | yes | -- |
+| Seats | unlimited | per key (`Seats`) | per plan | license key / plan |
+| Mailbox, storage, and daily-send quotas | none (`self_hosted` plan) | none | per plan | plan catalog |
+| Self-service signup, checkout, billing profile and VAT, subscription portal | no | no | yes | `backend/ee`, compile-time; active only with a payment provider configured |
+| Operator console, usage metering, outbound relay and sending reputation | no | no | yes | private repository |
+| Support | community, GitHub issues | priority support, SLA | included per plan | -- |
+| Updates and backups | yours | yours | operated by Beskos | -- |
+| License | BUSL 1.1 | BUSL 1.1 + [Enterprise license](../ee/LICENSE) for `ee/` | terms of service | -- |
+
+*(planned)* marks rows that are not implemented yet. The rule of thumb for the split: a feature
+is Pro when a business pays for it without hesitation and a small team or an individual does not
+miss it.
+
+**How the boundary is enforced.** "Compile-time" rows live in `backend/ee/*_pro.go` behind the
+`pro` build tag: a Community build does not link that code at all, and the routes do not exist.
+Meeting recording predates that seam -- its code ships in every build and is gated at runtime by
+the license key's `Recording` capability (`internal/edition`); see
+[architecture.md](architecture.md#the-ee-seam). Hosted-only billing code also lives in
+`backend/ee`, so it ships in source form, but it only becomes active with a payment provider
+configured (`BILLING_PROVIDER=stripe`): without one, no checkout, signup, or billing route is
+mounted and no trial or subscription state is ever evaluated -- a self-hosted installation, Pro
+or Community, is never locked out for not paying. The published release binaries are built with
+`-tags pro`: Community is that same binary with no key.
 
 ## Offering Beskos as a service
 

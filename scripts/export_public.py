@@ -144,7 +144,7 @@ OVERRIDES = {
 RESIDUE = [
     ("manager console reference", re.compile(r"managerapi|manager-api|manager_[a-z]+|\bManager[A-Z]\w*|docs/manager\.md"), []),
     ("cloud metering reference", re.compile(r"tenant_daily_usage|TenantDailyUsage|RollupTenantDailyUsage|ExpiredRecordings|DeleteRecordingRow|startMetering"), []),
-    ("hosted billing implementation", re.compile(r"\bStripeProvider\b|\bNewStripe\b|func (?:Checkout|BillingWebhook|Signup)\(|export function (?:SignupPage|SubscribeWizard|BillingSection)\b"), ["backend/ee/*"]),
+    ("hosted billing implementation", re.compile(r"\bStripeProvider\b|\bNewStripe\b|func (?:Checkout|BillingWebhook|Signup)\(|export function (?:SignupPage|SubscribeWizard|BillingSection)\b"), ["backend/ee/*", "backend/internal/httpapi/billing_routes_pro_test.go"]),
     ("hosted marketing and relay implementation", re.compile(
         r'"github.com/beskosorg/beskos/backend/internal/ses"|\bAugmentZoneForSES\b|'
         r'func .*handle(?:JoinWaitlist|ContactForm|SESWebhook)\b|\btype (?:Waitlist|MailEvent) struct|'
