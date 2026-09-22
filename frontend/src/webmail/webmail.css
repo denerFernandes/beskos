@@ -1,21 +1,21 @@
 /* Design system for the email app — "modern correspondence" (approved prototype). Scoped to .wm. */
-/* PALETTE: paper and ink, one clay accent -- the same system as the public site.
-   It used to be a teal accent (#116466) on a near-white ground, while the site ran clay on cream.
-   Nobody sees those as two design decisions; they see two companies, and the switch happens at the
-   exact moment somebody stops evaluating and starts using the product.
+/* PALETTE: neutral paper and ink, black accent (white on the dark ground). Nothing here carries a
+   hue -- the only colour in the product is the one an organization brings itself, through the Pro
+   branding override (branding.ts), and a neutral ground is what lets any brand colour sit on it
+   without fighting the furniture. The greys are a true neutral ramp, not warm or cool.
 
-   The warning colours had to move with it. `--amber` was #C0692F and clay is #C2603A -- the same
-   colour to any eye that is not holding a picker. "Primary action" and "pay attention" cannot be
-   the same hue, so amber went yellower and `--rose` went to a cooler red, away from the accent.
+   The semantic colours below (`--rose`, `--amber`, `--green`, `--blue`, `--purple`) stay coloured
+   on purpose: "pay attention" and "this failed" have to be distinguishable from "primary action",
+   and from each other, which a monochrome ramp cannot do.
 
-   `--on-accent` is new: the text colour that sits on an accent fill. It was hard-coded to #fff in
-   43 places, which is right on light clay and wrong on the lighter clay the dark theme needs. */
+   `--on-accent` is the text colour that sits on an accent fill. It was hard-coded to #fff in 43
+   places, which is right on a black fill and wrong on the light fill the dark theme needs. */
 .wm {
   color-scheme: light; /* native controls (date/time picker, scrollbars) light by default */
-  --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
-  --ink:#191813; --muted:#6A675E; --faint:#918D82;
-  --border:#DFDACB; --border-strong:#C7C0AD; --hover:#EDE8DC;
-  --accent:#B4785F; --accent-solid:#9A6247; --accent-ink:#8A5539; --accent-tint:#EFE3DA;
+  --paper:#FAFAFA; --surface:#FFFFFF; --surface-2:#F5F5F5;
+  --ink:#0A0A0A; --muted:#525252; --faint:#8C8C8C;
+  --border:#E5E5E5; --border-strong:#D4D4D4; --hover:#F0F0F0;
+  --accent:#111111; --accent-solid:#111111; --accent-ink:#000000; --accent-tint:#EDEDED;
   --on-accent:#FFFFFF; --star:#C08A0C;
   --blue:#2F6296; --rose:#A61E1E; --purple:#6D45AD; --green:#2E7D5B; --amber:#7F5E0B;
   /* NAMES THIS FILE USES AND NEVER DECLARED. `color:var(--text)` appears 24 times, `var(--danger)`
@@ -28,42 +28,42 @@
   --text:var(--ink); --bg:var(--paper); --line:var(--border);
   --danger:var(--rose); --danger-tint:color-mix(in srgb, var(--rose) 14%, transparent);
   --warn:var(--amber); --accent-soft:var(--accent-tint); --accent-on-ink:var(--accent);
-  --shadow:0 1px 2px rgba(25,24,19,.04),0 8px 24px rgba(25,24,19,.06);
+  --shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.06);
   /* Elevation for menus/popovers and for dialogs/drawers. In LIGHT mode they are deliberately
      subtle (the user doesn't like a heavy shadow); in dark mode they need more to separate
      from the background. They replace the rgba(0,0,0,.2-.5) shadows that were fixed and too heavy in light mode. */
-  --shadow-pop:0 2px 10px rgba(25,24,19,.08);
-  --shadow-modal:0 8px 28px rgba(25,24,19,.12);
+  --shadow-pop:0 2px 10px rgba(0,0,0,.08);
+  --shadow-modal:0 8px 28px rgba(0,0,0,.12);
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   --mono:"SF Mono",ui-monospace,"Cascadia Code","Roboto Mono",Menlo,monospace;
   font-family:var(--font); color:var(--ink); background:var(--paper);
 }
 @media (prefers-color-scheme:dark){.wm{
   color-scheme: dark;
-  --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
-  --border:#34312A; --border-strong:#4A463C; --hover:#2E2A23;
-  --accent:#D2A28C; --accent-solid:#D2A28C; --accent-ink:#E0BAA8; --accent-tint:#33251E;
-  --on-accent:#1A1916; --star:#E8C24E;
+  --paper:#0A0A0A; --surface:#171717; --surface-2:#262626; --ink:#FAFAFA; --muted:#A3A3A3; --faint:#737373;
+  --border:#262626; --border-strong:#404040; --hover:#262626;
+  --accent:#FAFAFA; --accent-solid:#FAFAFA; --accent-ink:#FFFFFF; --accent-tint:#262626;
+  --on-accent:#0A0A0A; --star:#E8C24E;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
   --shadow-pop:0 8px 24px rgba(0,0,0,.4);
   --shadow-modal:0 16px 44px rgba(0,0,0,.5);
 }}
 :root[data-theme="dark"] .wm{
   color-scheme: dark;
-  --paper:#1A1916; --surface:#221F1B; --surface-2:#2A2620; --ink:#F2EFE6; --muted:#A39E92; --faint:#7C776D;
-  --border:#34312A; --border-strong:#4A463C; --hover:#2E2A23;
-  --accent:#D2A28C; --accent-solid:#D2A28C; --accent-ink:#E0BAA8; --accent-tint:#33251E;
-  --on-accent:#1A1916; --star:#E8C24E;
+  --paper:#0A0A0A; --surface:#171717; --surface-2:#262626; --ink:#FAFAFA; --muted:#A3A3A3; --faint:#737373;
+  --border:#262626; --border-strong:#404040; --hover:#262626;
+  --accent:#FAFAFA; --accent-solid:#FAFAFA; --accent-ink:#FFFFFF; --accent-tint:#262626;
+  --on-accent:#0A0A0A; --star:#E8C24E;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
   --shadow-pop:0 8px 24px rgba(0,0,0,.4);
   --shadow-modal:0 16px 44px rgba(0,0,0,.5);
 }
 :root[data-theme="light"] .wm{
   color-scheme: light;
-  --paper:#F5F2EA; --surface:#FCFBF8; --surface-2:#EBE7DB;
-  --ink:#191813; --muted:#6A675E; --faint:#918D82;
-  --border:#DFDACB; --border-strong:#C7C0AD; --hover:#EDE8DC;
-  --accent:#B4785F; --accent-solid:#9A6247; --accent-ink:#8A5539; --accent-tint:#EFE3DA;
+  --paper:#FAFAFA; --surface:#FFFFFF; --surface-2:#F5F5F5;
+  --ink:#0A0A0A; --muted:#525252; --faint:#8C8C8C;
+  --border:#E5E5E5; --border-strong:#D4D4D4; --hover:#F0F0F0;
+  --accent:#111111; --accent-solid:#111111; --accent-ink:#000000; --accent-tint:#EDEDED;
   --on-accent:#FFFFFF; --star:#C08A0C;
   --blue:#2F6296; --rose:#A61E1E; --purple:#6D45AD; --green:#2E7D5B; --amber:#7F5E0B;
 }

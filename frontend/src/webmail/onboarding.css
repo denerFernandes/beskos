@@ -3,7 +3,7 @@
 .ob {
   position: fixed; inset: 0; z-index: 200;
   display: flex; align-items: center; justify-content: center; padding: 24px;
-  background: var(--paper, #FBFAF8);
+  background: var(--paper, #FAFAFA);
   overflow-y: auto;
 }
 .ob-card {

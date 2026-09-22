@@ -9,10 +9,11 @@ export const BESKOS_MARK = "/beskos-mark.svg";
 // colour picker, to guarantee contrast and coherence. `name` is an i18n key under
 // `branding.colors.*` (law 4.1) — consumers must run it through `t()` before display.
 export const BRAND_COLORS: { id: string; name: string; hex: string }[] = [
-  // The muted family comes first: these four are built for the warm paper the product now runs on,
-  // and terracotta is the accent the product ships with. The saturated entries below them are the
-  // original list, kept as they were -- their hex is what a tenant has stored, so editing a value
-  // would silently rebrand whoever picked it.
+  // Black first: it is the accent the product ships with (webmail.css), so the picker opens on
+  // what the customer is already looking at rather than proposing a change they didn't ask for.
+  // The rest keep their original order and, more importantly, their original hex -- that value is
+  // what a tenant has stored, so editing one would silently rebrand whoever picked it.
+  { id: "black", name: "branding.colors.black", hex: "#111111" },
   { id: "terracotta", name: "branding.colors.terracotta", hex: "#B4785F" },
   { id: "sage", name: "branding.colors.sage", hex: "#7C8C6A" },
   { id: "slateblue", name: "branding.colors.slateblue", hex: "#6B8299" },
@@ -26,16 +27,15 @@ export const BRAND_COLORS: { id: string; name: string; hex: string }[] = [
   { id: "orange", name: "branding.colors.orange", hex: "#EA580C" },
   { id: "pink", name: "branding.colors.pink", hex: "#DB2777" },
   { id: "slate", name: "branding.colors.slate", hex: "#475569" },
-  { id: "black", name: "branding.colors.black", hex: "#111111" },
 ];
 
 const STYLE_ID = "mailin-brand";
 
 // applyBrandColor overrides the accent colour across the whole app. An empty colour removes the
 // override and returns to the theme's own accent. THEME AWARE: on the dark ground the colour is
-// LIGHTENED (mixed with white), the same thing the theme does to the default accent
-// (#B4785F -> #D2A28C). Without it, a dark brand (Black #111, say) went invisible against the dark
-// background and selections lost their contrast.
+// LIGHTENED (mixed with white), the same thing the theme does to its own accent, which is black
+// on the light ground and near-white on the dark one. Without it, a dark brand (Black #111, say)
+// went invisible against the dark background and selections lost their contrast.
 export function applyBrandColor(color: string): void {
   let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
   if (!color) { el?.remove(); return; }
