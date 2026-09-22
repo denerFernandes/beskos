@@ -66,7 +66,9 @@ services:
 
   minio:
     # Pinado por digest (RELEASE.2025-09-07T16-13-09Z) — reprodutível e imutável.
-    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    # quay.io, not Docker Hub: minio/minio stopped being pullable from docker.io
+    # ("pull access denied ... repository does not exist"). Same image, same digest.
+    image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     container_name: mailin-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"

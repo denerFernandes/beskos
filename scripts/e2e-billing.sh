@@ -13,7 +13,7 @@ trap cleanup EXIT
 docker rm -f $PG $SW $MO >/dev/null 2>&1||true
 docker run -d --name $PG -e POSTGRES_USER=mailin -e POSTGRES_PASSWORD=b -e POSTGRES_DB=mailin -p $PGPORT:5432 postgres:16-alpine >/dev/null
 docker run -d --name $SW -e STALWART_RECOVERY_ADMIN="admin:$SECRET" -p $SWPORT:8080 stalwartlabs/stalwart:v0.16.4 >/dev/null
-docker run -d --name $MO -e MINIO_ROOT_USER=mailin -e MINIO_ROOT_PASSWORD=mailin123 -p $MOPORT:9000 minio/minio server /data >/dev/null
+docker run -d --name $MO -e MINIO_ROOT_USER=mailin -e MINIO_ROOT_PASSWORD=mailin123 -p $MOPORT:9000 quay.io/minio/minio server /data >/dev/null
 for i in $(seq 1 30); do docker exec $PG pg_isready -U mailin >/dev/null 2>&1 && break; sleep 1; done
 for i in $(seq 1 30); do curl -fsS http://localhost:$SWPORT/jmap/session -u admin:$SECRET >/dev/null 2>&1 && break; sleep 1; done
 for i in $(seq 1 30); do curl -fsS http://localhost:$MOPORT/minio/health/live >/dev/null 2>&1 && break; sleep 1; done
