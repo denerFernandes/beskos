@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { API_BASE, apiUrl, authHeaders } from "../apiBase";
+import { apiBase, apiUrl, authHeaders } from "../apiBase";
 
 // useAuthedMedia returns a src usable by <img>/<iframe>/<video>/<audio> from a path on our API
 // that requires an authenticated session.
@@ -11,10 +11,10 @@ import { API_BASE, apiUrl, authHeaders } from "../apiBase";
 //
 // Returns "" while the blob is not ready (the caller shows a loading state).
 export function useAuthedMedia(path: string): string {
-  const [url, setUrl] = useState<string>(() => (API_BASE ? "" : apiUrl(path)));
+  const [url, setUrl] = useState<string>(() => (apiBase() ? "" : apiUrl(path)));
 
   useEffect(() => {
-    if (!API_BASE) { setUrl(apiUrl(path)); return; }
+    if (!apiBase()) { setUrl(apiUrl(path)); return; }
     let cancelled = false;
     let objUrl = "";
     setUrl("");

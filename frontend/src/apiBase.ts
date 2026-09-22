@@ -1,14 +1,67 @@
 import i18n from "./i18n";
+import { isTauri } from "./webmail/tauriNotify";
 
 // Absolute base for the API/JMAP. Empty on the web (same origin: the Vite/Caddy proxy handles
-// /api and /jmap). In the packaged app (Tauri desktop/mobile) there is NO proxy — VITE_API_BASE is
-// set with the server's URL (e.g. https://app.mailin.com) at build time, and all calls become absolute.
+// /api and /jmap). In the packaged app (Tauri desktop/mobile) there is NO proxy, so every call has
+// to carry an absolute address.
+//
+// THE ADDRESS IS CHOSEN AT RUNTIME, NOT COMPILED IN. It used to come only from VITE_API_BASE at
+// build time, which meant one published binary could serve exactly one server -- fine while the
+// only server was ours, useless the moment the product is something people run themselves. The
+// packaged app now asks on first launch and keeps the answer; VITE_API_BASE, when set, is only the
+// default offered in that field, so an organisation can still ship a build pre-filled for its own
+// instance.
 // (import.meta as any) avoids depending on the vite/client types in tsc; at runtime Vite injects the env.
-export const API_BASE = String((import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? "").replace(/\/$/, "");
+const BUILT_IN_BASE = String((import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? "").replace(/\/$/, "");
+const SERVER_KEY = "beskos.server";
+
+const trim = (url: string) => url.trim().replace(/\/$/, "");
+
+function storedServer(): string {
+  try {
+    return trim(localStorage.getItem(SERVER_KEY) ?? "");
+  } catch {
+    return ""; // private mode: the field is asked again each launch, which still works
+  }
+}
+
+// Resolved once at module load: every consumer reads the same value for the lifetime of the
+// window, and changing it reloads (setServer below) rather than leaving half the app talking to
+// the old host.
+let base = isTauri() ? storedServer() || BUILT_IN_BASE : "";
+
+/** The absolute base for API/JMAP calls. Empty on the web, where everything is same-origin. */
+export function apiBase(): string {
+  return base;
+}
+
+/** True when the packaged app has no server yet and has to ask before anything can be reached. */
+export function needsServer(): boolean {
+  return isTauri() && base === "";
+}
+
+/** The address the field should open on: whatever is in use, or the build's default. */
+export function defaultServer(): string {
+  return base || BUILT_IN_BASE;
+}
+
+// Changing the server is changing which account, mailbox and session everything refers to, so the
+// stored session goes with it and the window reloads. Trying to swap it in place would leave a
+// JmapClient, a TanStack cache and an open SSE stream all pointing at the previous host.
+export function setServer(url: string): void {
+  const clean = trim(url);
+  try {
+    localStorage.setItem(SERVER_KEY, clean);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("mailin.wm.auth");
+  } catch { /* private mode */ }
+  base = clean;
+  if (typeof location !== "undefined") location.reload();
+}
 
 // Prefixes a path in our API/JMAP with the base (no-op on the web).
 export function apiUrl(path: string): string {
-  return API_BASE + path;
+  return base + path;
 }
 
 // PUBLIC origin of the web app -- for SHAREABLE links (meeting invite, link in an email, file
@@ -19,8 +72,8 @@ export function apiUrl(path: string): string {
 // copied it.
 export const PUBLIC_BASE = String((import.meta as { env?: Record<string, string> }).env?.VITE_PUBLIC_BASE ?? "").replace(/\/$/, "");
 export function publicUrl(path: string): string {
-  const base = PUBLIC_BASE || API_BASE || (typeof location !== "undefined" ? location.origin : "");
-  return base + path;
+  const origin = PUBLIC_BASE || base || (typeof location !== "undefined" ? location.origin : "");
+  return origin + path;
 }
 
 // Backend session token. On the web the HttpOnly cookie is enough, but the native app (Tauri) is
@@ -32,7 +85,7 @@ const TOKEN_KEY = "mailin.session";
 // token stays in memory only; only the native app (cross-site, no cookie) persists it, to resend
 // it via Authorization.
 let memToken = "";
-const nativeApp = API_BASE !== ""; // the packaged build (Tauri) sets VITE_API_BASE
+const nativeApp = isTauri(); // the packaged build: cross-site, so no cookie comes back
 export function getSessionToken(): string {
   if (memToken) return memToken;
   if (!nativeApp) return "";

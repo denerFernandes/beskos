@@ -13,7 +13,7 @@ import "@blocknote/core/fonts/inter.css";
 import "@blocknote/mantine/style.css";
 
 import { backend, colleaguesApi } from "./backend";
-import { API_BASE } from "../apiBase";
+import { apiBase } from "../apiBase";
 import { toast } from "./toast";
 import { WikiCollabProvider } from "./WikiCollabProvider";
 import { IcSparkle } from "../panel/icons";
@@ -93,7 +93,7 @@ export function WikiEditor({ value, bodyText, onChange, pageId, pages }: {
   const uploadFile = async (file: File): Promise<string> => {
     const sf = await backend.uploadFile(file);
     const link = await backend.fileLink(sf.id, { allow_download: true });
-    return `${API_BASE || ""}/api/public/files/${link.token}/download?inline=1`;
+    return `${apiBase() || ""}/api/public/files/${link.token}/download?inline=1`;
   };
   const editor = useCreateBlockNote(
     collab

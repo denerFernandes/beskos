@@ -4,6 +4,8 @@ import { login, verifyMfa, type MfaChallenge } from "./auth";
 import { backend, ApiError, type Branding } from "./backend";
 import { applyBrandColor, cachedBrand, BESKOS_MARK } from "./branding";
 import { ForgotPassword } from "./PasswordRecovery";
+import { apiBase, setServer } from "../apiBase";
+import { isTauri } from "./tauriNotify";
 
 // Webmail login: authenticates the END USER against Stalwart (Basic behind the proxy, §D7).
 // Distinct from the panel login (our API). Here the credential is the mailbox's own.
@@ -112,6 +114,13 @@ export function WebmailLogin() {
 
               {err && <p className="lg-err">{err}</p>}
               <button className="lg-btn" disabled={busy}>{busy ? "…" : t("webmail.login.submit")}</button>
+              {/* Getting the address wrong puts every password on this screen through to nothing,
+                  and the failure is indistinguishable from a wrong password. This is the way back. */}
+              {isTauri() && (
+                <button type="button" className="lg-link" onClick={() => setServer("")}>
+                  {t("serverSetup.change", { server: apiBase().replace(/^https?:\/\//, "") })}
+                </button>
+              )}
               <button type="button" className="lg-link" onClick={() => setForgot(true)}>
                 {t("login.forgotLink")}
               </button>

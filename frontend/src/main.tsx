@@ -15,6 +15,8 @@ import { AcceptInvitePage } from "./pages/AcceptInvite";
 import { BookingPage } from "./pages/Booking";
 import { hostedPages } from "./edition";
 import { isTauri, initTauriNotify } from "./webmail/tauriNotify";
+import { needsServer } from "./apiBase";
+import { ServerSetup } from "./webmail/ServerSetup";
 import { unlockSounds } from "./webmail/sounds";
 import { GlobalTooltip } from "./webmail/GlobalTooltip";
 
@@ -44,6 +46,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={qc}>
       <GlobalTooltip />
+      {needsServer() ? (
+        // The packaged app with no server yet: every route below would call an address that does
+        // not exist, so none of them are mounted until this is answered.
+        <ServerSetup />
+      ) : (
       <BrowserRouter>
         <Routes>
           <Route path="/mail/files/edit/:id" element={<EditorPage />} />
@@ -69,6 +76,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="*" element={<Navigate to="/mail" replace />} />
         </Routes>
       </BrowserRouter>
+      )}
     </QueryClientProvider>
   </React.StrictMode>
 );

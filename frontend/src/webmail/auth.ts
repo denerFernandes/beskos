@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { JmapClient } from "../jmap/client";
 import { MailService } from "../jmap/mail";
-import { API_BASE, getSessionToken, setSessionToken, setUnauthorizedHandler } from "../apiBase";
+import { apiBase, getSessionToken, setSessionToken, setUnauthorizedHandler } from "../apiBase";
 import { backend } from "./backend";
 
 // Webmail auth (credential brokering): the mailbox credential no longer lives in the browser.
@@ -60,7 +60,7 @@ export function useWebmail(): { session: WebmailSession | null; login: typeof lo
     const parsed = JSON.parse(stored) as Stored;
     return {
       email: parsed.email,
-      service: new MailService(new JmapClient(API_BASE, { bearer: getSessionToken() }), parsed.accountId),
+      service: new MailService(new JmapClient(apiBase(), { bearer: getSessionToken() }), parsed.accountId),
       logout,
     };
   }, [stored, logout]);
@@ -77,7 +77,7 @@ export interface MfaChallenge { challenge: string; methods: string[] }
 // no-MFA and post-MFA paths.
 async function establishSession(email: string, token: string): Promise<void> {
   setSessionToken(token); // memory (web) / localStorage (native app) — opaque token, not the password
-  const client = new JmapClient(API_BASE, { bearer: getSessionToken() });
+  const client = new JmapClient(apiBase(), { bearer: getSessionToken() });
   const session = await client.session(); // authenticated via the session; the proxy injects the mailbox's Basic auth
   const stored: Stored = { email, accountId: session.accountId };
   localStorage.setItem(KEY, JSON.stringify(stored));

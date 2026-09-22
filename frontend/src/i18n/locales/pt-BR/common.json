@@ -2949,5 +2949,14 @@
     "whereOutlookTitle": "Outlook:",
     "whereOutlook": "O Outlook guarda o correio num ficheiro .pst, que é uma base de dados e não correio, e não pode ser lido aqui. Adicione esta caixa ao Outlook como uma conta normal e arraste para lá as pastas do .pst: é o próprio Outlook que envia as mensagens, e o resultado é mais fiel do que qualquer conversão.",
     "fileTooLargeLocal": "Esse ficheiro tem {{size}}, acima do limite de 500 MB por envio. Envie as pastas separadamente, ou comprima uma parte menor da árvore."
+  },
+  "serverSetup": {
+    "title": "A que servidor se liga?",
+    "blurb": "Esta aplicação comunica com uma instância Beskos. Indique o endereço da instância da sua organização.",
+    "label": "Endereço do servidor",
+    "continue": "Continuar",
+    "hint": "Guardado neste dispositivo. Pode ser alterado no ecrã de início de sessão.",
+    "unreachable": "Nenhuma instância Beskos respondeu nesse endereço. Verifique o endereço e se a instância está a funcionar.",
+    "change": "Ligado a {{server}} — alterar"
   }
 }

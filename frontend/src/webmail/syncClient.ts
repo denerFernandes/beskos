@@ -6,7 +6,7 @@
 
 import { isTauri } from "./tauriNotify";
 import { devicesApi } from "./backend";
-import { API_BASE } from "../apiBase";
+import { apiBase } from "../apiBase";
 
 export type SyncPhase = "idle" | "syncing" | "error" | "paused";
 
@@ -30,7 +30,7 @@ export interface SyncStatus {
 }
 
 // URL of the current session's server (same one used on connect).
-const serverUrl = (): string => API_BASE || window.location.origin;
+const serverUrl = (): string => apiBase() || window.location.origin;
 
 export const syncSupported = (): boolean => isTauri();
 

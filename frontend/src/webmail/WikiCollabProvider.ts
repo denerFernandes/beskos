@@ -4,7 +4,7 @@ import * as decoding from "lib0/decoding";
 import * as syncProtocol from "@y/protocols/sync";
 import * as awarenessProtocol from "@y/protocols/awareness";
 
-import { API_BASE, getSessionToken } from "../apiBase";
+import { apiBase, getSessionToken } from "../apiBase";
 
 // Wiki's Yjs provider (B10): talks to the Go RELAY (/api/wiki/pages/:id/collab/ws) using the
 // classic y-websocket protocol — a type varuint (0=sync, 1=awareness) + payload. The server only
@@ -37,7 +37,7 @@ export class WikiCollabProvider {
   constructor(pageId: string, doc: Y.Doc) {
     this.doc = doc;
     this.awareness = new awarenessProtocol.Awareness(doc);
-    const base = API_BASE || location.origin;
+    const base = apiBase() || location.origin;
     const u = new URL(base);
     u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
     u.pathname = `/api/wiki/pages/${pageId}/collab/ws`;

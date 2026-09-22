@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { API_BASE, getSessionToken } from "../apiBase";
+import { apiBase, getSessionToken } from "../apiBase";
 
 export interface ChatSocketEvent { type: string; channel_id: string; payload: Record<string, unknown> }
 
@@ -9,7 +9,7 @@ export interface ChatSocketEvent { type: string; channel_id: string; payload: Re
 // travels in the query string (?access_token=); the backend only accepts it on this route (see
 // requireWebmailSession).
 function chatWsUrl(): string {
-  const base = API_BASE || location.origin; // API_BASE empty on the web
+  const base = apiBase() || location.origin; // apiBase() empty on the web
   const u = new URL(base);
   u.protocol = u.protocol === "https:" ? "wss:" : "ws:";
   u.pathname = "/api/chat/ws";

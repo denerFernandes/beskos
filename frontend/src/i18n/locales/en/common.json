@@ -2949,5 +2949,14 @@
     "whereOutlookTitle": "Outlook:",
     "whereOutlook": "Outlook stores mail in a .pst file, which is a database rather than mail and cannot be read here. Add this mailbox to Outlook as an ordinary account, then drag the folders from the .pst onto it: Outlook uploads the messages itself, and the result is more faithful than any conversion.",
     "fileTooLargeLocal": "That file is {{size}}, above the 500 MB limit for one upload. Send the folders separately, or compress a smaller part of the tree."
+  },
+  "serverSetup": {
+    "title": "Which server do you connect to?",
+    "blurb": "This application talks to a Beskos instance. Enter the address of the one your organisation runs.",
+    "label": "Server address",
+    "continue": "Continue",
+    "hint": "Stored on this device. It can be changed from the sign-in screen.",
+    "unreachable": "No Beskos instance answered at that address. Check the address and that the instance is running.",
+    "change": "Connected to {{server}} — change"
   }
 }
