@@ -56,6 +56,37 @@ services:
       - app
       - landing
 
+  # Stalwart writes messages and attachments STRAIGHT to object storage with S3 credentials,
+  # bypassing our code entirely, and its S3 client has no encryption option of any kind. This
+  # gateway speaks S3 back to it and encrypts on the way through (backend/cmd/blobgw). Stalwart's
+  # registry points its blob endpoint here; without it, message bodies cannot be read or written and
+  # the webmail lists mail it cannot open.
+  #
+  # The `srv-captain--blobgw` alias is the name the registry still holds from the CapRover cluster.
+  # It costs nothing to answer to it, and the alternative is an instance that breaks the moment the
+  # registry is restored from a backup taken before the name was changed.
+  blobgw:
+    build: ../backend
+    container_name: beskos-blobgw
+    restart: unless-stopped
+    command: ["/usr/local/bin/blobgw"]
+    networks:
+      default:
+        aliases:
+          - srv-captain--blobgw
+    environment:
+      BLOBGW_S3_ENDPOINT: "${BLOBGW_S3_ENDPOINT}"
+      BLOBGW_S3_ACCESS_KEY: "${BLOBGW_S3_ACCESS_KEY}"
+      BLOBGW_S3_SECRET_KEY: "${BLOBGW_S3_SECRET_KEY}"
+      BLOBGW_S3_BUCKET: "${BLOBGW_S3_BUCKET}"
+      BLOBGW_S3_REGION: "${BLOBGW_S3_REGION}"
+      BLOBGW_S3_SSL: "${BLOBGW_S3_SSL:-true}"
+      BLOBGW_ACCESS_KEY: "${BLOBGW_ACCESS_KEY}"
+      BLOBGW_SECRET_KEY: "${BLOBGW_SECRET_KEY}"
+      BLOBGW_REGION: "${BLOBGW_REGION:-auto}"
+      BLOBGW_PREFIXES: "${BLOBGW_PREFIXES:-mail/}"
+      FILE_ENC_KEYS: "${FILE_ENC_KEYS}"
+
   # Stalwart cannot renew its own certificate here -- Caddy owns ports 80 and 443 -- and an
   # expired one stops inbound mail outright under an MTA-STS policy at `enforce`. This carries
   # Caddy's across. It reads the certificate volume, and nothing writes to it.
