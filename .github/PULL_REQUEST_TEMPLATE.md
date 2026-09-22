@@ -7,4 +7,4 @@
       `cargo fmt`/`cargo test` (sync-daemon) all pass locally
 - [ ] Tests added or updated for the change
 - [ ] Docs updated if this changes setup, configuration, or public behavior
-- [ ] I have read and agree to the CLA (not automatically checked yet -- see CONTRIBUTING.md)
+- [ ] I understand a Contributor License Agreement will apply once it is active (see CONTRIBUTING.md)

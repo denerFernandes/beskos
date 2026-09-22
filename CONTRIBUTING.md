@@ -23,7 +23,7 @@ English here; the canonical, longer version lives in [CLAUDE.md](CLAUDE.md).
 git clone https://github.com/beskosorg/beskos.git
 cd beskos
 cp deploy/.env.example deploy/.env   # fill in the values you need
-docker compose -f deploy/docker-compose.community.yml up -d stalwart postgres minio
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d stalwart postgres minio
 cd backend && go run ./cmd/bootstrap   # first-time Stalwart setup
 go run ./cmd/api &
 go run ./cmd/worker &
@@ -99,5 +99,6 @@ vulnerability, follow [SECURITY.md](SECURITY.md) instead -- do not open a public
 ## License
 
 By contributing, you agree that your contribution is licensed under the same terms as the file
-or directory you changed (see [LICENSE.md](LICENSE.md) and [ee/LICENSE](ee/LICENSE)), and you
-agree to the CLA referenced above.
+or directory you changed (see [LICENSE.md](LICENSE.md) and [ee/LICENSE](ee/LICENSE)). Once the
+Contributor License Agreement described above is active, signing it will be asked for on your
+first contribution; until then there is nothing to sign.

@@ -28,7 +28,7 @@ Work preparing the first public, source-available release.
 - `cmd/bootstrap-owner`, the self-hosted equivalent of the hosted signup flow: creates the first
   tenant, domain, and owner mailbox on a fresh install (refuses if one already exists). Without
   it a fresh Community install had no way to create its first organization at all.
-- `deploy/docker-compose.community.yml`, a self-hosted reference deployment: the same product
+- `deploy/docker-compose.yml`, a self-hosted reference deployment: the same product
   without the hosted operator console, running Valkey instead of Redis for license compatibility.
 - Public documentation: `docs/README-oss.md`, `docs/architecture.md`,
   `docs/configuration.md` (generated from the config package so it can't drift out of date),

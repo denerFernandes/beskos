@@ -56,10 +56,18 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env run --rm \
   api bootstrap-owner
 ```
 
-Leave `OWNER_PASSWORD` unset to have one generated and printed once. Then open the frontend (in
-dev, `npm run dev` inside `frontend/`; in this compose, whatever reverse proxy you put in front of
-`api`'s port 8000 -- see [docs/self-hosting.md](self-hosting.md) for a production Caddy config)
-and log in with that mailbox address and password.
+Leave `OWNER_PASSWORD` unset to have one generated and printed once.
+
+This compose runs the backend only; it does not serve the web app. For a local trial, run the
+frontend's dev server, which proxies `/api` and `/jmap` to the `api` container on `127.0.0.1:8000`:
+
+```bash
+cd frontend && npm install --legacy-peer-deps && npm run dev
+```
+
+Open <http://localhost:5173> and log in with that mailbox address and password. For a real
+deployment, a reverse proxy serves the built frontend and the API on one origin instead -- see
+[docs/self-hosting.md](self-hosting.md) for the Caddy configuration.
 
 ## What's next
 

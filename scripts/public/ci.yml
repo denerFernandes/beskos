@@ -5,7 +5,7 @@ name: CI
 # checked with cargo check in a separate job so it does not block the essentials.
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 permissions:
