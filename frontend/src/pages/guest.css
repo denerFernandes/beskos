@@ -15,6 +15,8 @@
 .wm .gp-waiting{display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0;}
 .wm .gp-spin{width:30px;height:30px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--accent);animation:gpspin .8s linear infinite;}
 @keyframes gpspin{to{transform:rotate(360deg)}}
+.wm .gp-signin{margin-top:16px;font-size:12.5px;color:var(--muted);text-decoration:none;}
+.wm .gp-signin:hover{color:var(--accent-ink);text-decoration:underline;}
 .wm .gp-powered{margin-top:22px;font-size:11.5px;color:var(--faint);text-decoration:none;}
 .wm .gp-powered b{font-weight:700;color:var(--muted);}
 .wm .gp-powered:hover b{color:var(--accent-ink);}

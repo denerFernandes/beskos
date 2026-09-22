@@ -1,6 +1,6 @@
 import "../webmail/webmail.css";
 import { useEffect, useRef, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useMutation } from "@tanstack/react-query";
 import { useWebmail } from "../webmail/auth";
@@ -42,7 +42,9 @@ export function RoomPage() {
     return () => clearInterval(id);
   }, [call?.locked, call?.full, join]);
 
-  if (!session) return <WebmailLogin />;
+  // No session: this is the URL people copy from the address bar to share a meeting, so treat it
+  // as the guest link instead of asking outsiders to log in. Members sign in from the guest page.
+  if (!session) return room ? <Navigate to={`/j/${encodeURIComponent(room)}`} replace /> : <WebmailLogin />;
 
   return (
     <div className="wm room-only">

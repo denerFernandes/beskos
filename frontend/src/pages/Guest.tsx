@@ -104,6 +104,9 @@ export function GuestPage() {
               </button>
             </>
           )}
+          {/* Members who land here from a shared room URL (/room or /mail/meet redirect here
+              without a session) still have a way into their own account. */}
+          {!waiting && !denied && <a className="gp-signin" href="/mail">{t("meet.memberSignIn")}</a>}
           {!branded && (
             <a className="gp-powered" href="https://beskos.com" target="_blank" rel="noreferrer">
               Powered by <b>Beskos</b>

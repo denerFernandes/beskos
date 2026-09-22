@@ -1609,6 +1609,7 @@
     "waitingHost": "A sala \"{{title}}\" só abre quando o organizador entrar. Isto atualiza sozinho.",
     "approvalHint": "Esta sala precisa de aprovação do anfitrião.",
     "publicHint": "Entre na reunião.",
+    "memberSignIn": "Membro da organização? Iniciar sessão",
     "yourName": "Seu nome",
     "showMore": "Ver mais",
     "hostControls": "Controles do organizador",

@@ -1609,6 +1609,7 @@
     "waitingHost": "The room \"{{title}}\" opens when the host joins. This updates on its own.",
     "approvalHint": "This room needs host approval.",
     "publicHint": "Join the meeting.",
+    "memberSignIn": "Member of this organization? Sign in",
     "yourName": "Your name",
     "showMore": "Show more",
     "hostControls": "Host controls",
