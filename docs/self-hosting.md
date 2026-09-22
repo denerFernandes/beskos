@@ -42,6 +42,14 @@ nginx or another proxy -- the important part is that `/jmap` and `/auth` reach t
 Stalwart directly, since the API is what brokers the end user's session into a Stalwart
 credential.
 
+The certificate for the SMTP and IMAP ports is a separate problem, and one worth solving before it
+becomes urgent. Stalwart obtains its own over ACME, which needs port 80 or 443 -- and on a single
+host the proxy has both, so Stalwart silently stops being able to renew. An expired certificate
+there does not degrade to plaintext: a sender holding an MTA-STS policy at `enforce` refuses to
+deliver at all. [deploy/mailcert/](../deploy/mailcert/) copies the proxy's certificate for the
+mail hostname into Stalwart whenever the proxy's is newer, and says how many days are left every
+time it finds nothing to do. Stalwart serves the new certificate after a restart.
+
 ## Set `APP_ENV=production`
 
 With `APP_ENV=production`, the backend refuses to start if a secret is empty, shorter than 16

@@ -56,6 +56,26 @@ services:
       - app
       - landing
 
+  # Stalwart cannot renew its own certificate here -- Caddy owns ports 80 and 443 -- and an
+  # expired one stops inbound mail outright under an MTA-STS policy at `enforce`. This carries
+  # Caddy's across. It reads the certificate volume, and nothing writes to it.
+  mailcert:
+    build: ./mailcert
+    container_name: beskos-mailcert
+    restart: unless-stopped
+    depends_on:
+      - caddy
+      - stalwart
+    environment:
+      STALWART_URL: "http://stalwart:8080"
+      STALWART_ADMIN_ID: "admin"
+      STALWART_ADMIN_SECRET: "${STALWART_ADMIN_SECRET}"
+      CERT_DOMAIN: "${STALWART_HOSTNAME}"
+      # caddy_data is Caddy's /data; its certificates live one level in, under the issuer's name.
+      CERT_DIR: "/caddy-data/caddy/certificates"
+    volumes:
+      - caddy_data:/caddy-data:ro
+
   # Three copies a day, encrypted, off this machine. Running it beside the database is the point:
   # a backup service that lives somewhere else is one more thing that can quietly stop.
   backup:
