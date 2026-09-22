@@ -58,6 +58,10 @@ services:
     # use `docker exec mailin-postgres psql ...` ou um túnel pontual.
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Stalwart's config.json points at a SECOND database that nothing else creates. Without this
+      # mount a fresh volume leaves Stalwart crash-looping on `database "stalwart" does not exist`
+      # -- docker-compose.community.yml has always had it; this file did not.
+      - ./postgres-initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -108,10 +112,22 @@ services:
       STALWART_ADMIN_SECRET: "${STALWART_ADMIN_SECRET}"
       STALWART_HOSTNAME: "${STALWART_HOSTNAME:-mail.localhost}"
       STALWART_DEFAULT_DOMAIN: "${STALWART_DEFAULT_DOMAIN:-localhost}"
-      MINIO_ENDPOINT: "minio:9000"
-      MINIO_ACCESS_KEY: "${MINIO_ROOT_USER}"
-      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD}"
-      MINIO_BUCKET: "mailin"
+      # Object storage. Defaults to the MinIO container beside it; set these to point at an
+      # S3-compatible service instead, which is what an installation that already has one does.
+      MINIO_ENDPOINT: "${MINIO_ENDPOINT:-minio:9000}"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:-${MINIO_ROOT_USER}}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}"
+      MINIO_BUCKET: "${MINIO_BUCKET:-mailin}"
+      MINIO_REGION: "${MINIO_REGION:-}"
+      MINIO_SSL: "${MINIO_SSL:-false}"
+      # Envelope encryption for stored files. The code reads this and, without it, writes and
+      # serves in the clear -- and cannot read anything an encrypted instance wrote. It was absent
+      # from this file, so setting it in the environment had no effect at all.
+      FILE_ENC_KEYS: "${FILE_ENC_KEYS:-}"
+      MAIL_BRAND_DOMAIN: "${MAIL_BRAND_DOMAIN:-}"
+      SES_ACCOUNT_ID: "${SES_ACCOUNT_ID:-}"
+      SES_DKIM_SELECTOR: "${SES_DKIM_SELECTOR:-}"
+      EMBEDDINGS_DIMENSIONS: "${EMBEDDINGS_DIMENSIONS:-}"
       AI_PROVIDER: "${AI_PROVIDER:-deepseek}"
       AI_API_KEY: "${AI_API_KEY:-}"
       # Notificações por e-mail: submissão pelo próprio Stalwart, porta 465 (TLS implícito).

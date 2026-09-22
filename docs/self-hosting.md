@@ -13,6 +13,24 @@ The public worker does not run hosted daily usage aggregation or delete recordin
 to a hosted subscription plan. When object storage is configured, its initialization must
 succeed before the worker starts its storage jobs.
 
+## One machine
+
+[deploy/docker-compose.host.yml](../deploy/docker-compose.host.yml) is the whole product on a
+single host, with no orchestrator: the base compose file plus the built web client, Caddy for TLS
+and routing, and the backup service.
+
+```
+docker compose -f docker-compose.yml -f docker-compose.host.yml up -d
+```
+
+The hostnames live in [deploy/Caddyfile.host](../deploy/Caddyfile.host) and are the ones
+beskos.com runs on, so change them there first; DNS for every name has to point at the machine
+before the containers start, since that is how the certificates are issued. An installation that
+has no public site of its own drops the `landing` service and points the root domain at `app`.
+
+This is the deployment this project runs for itself, which is the reason to prefer it over a
+description: what is written here is what is running.
+
 ## TLS and the reverse proxy
 
 Stalwart sends no CORS headers, so the webmail and the JMAP client must be served from the same

@@ -105,10 +105,19 @@ services:
       STALWART_ADMIN_SECRET: "${STALWART_ADMIN_SECRET}"
       STALWART_HOSTNAME: "${STALWART_HOSTNAME:-mail.localhost}"
       STALWART_DEFAULT_DOMAIN: "${STALWART_DEFAULT_DOMAIN:-localhost}"
-      MINIO_ENDPOINT: "minio:9000"
-      MINIO_ACCESS_KEY: "${MINIO_ROOT_USER}"
-      MINIO_SECRET_KEY: "${MINIO_ROOT_PASSWORD}"
-      MINIO_BUCKET: "beskos"
+      # Object storage. Defaults to the MinIO container beside it; set these to point at an
+      # S3-compatible service instead, which is what an installation that already has one does.
+      MINIO_ENDPOINT: "${MINIO_ENDPOINT:-minio:9000}"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:-${MINIO_ROOT_USER}}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY:-${MINIO_ROOT_PASSWORD}}"
+      MINIO_BUCKET: "${MINIO_BUCKET:-beskos}"
+      MINIO_REGION: "${MINIO_REGION:-}"
+      MINIO_SSL: "${MINIO_SSL:-false}"
+      # Envelope encryption for stored files. The code reads this and, without it, writes and
+      # serves in the clear -- and cannot read anything an encrypted instance wrote. It was absent
+      # from this file, so setting it in the environment had no effect at all.
+      FILE_ENC_KEYS: "${FILE_ENC_KEYS:-}"
+      EMBEDDINGS_DIMENSIONS: "${EMBEDDINGS_DIMENSIONS:-}"
       BRAND_NAME: "${BRAND_NAME:-Beskos}"
       BRAND_URL: "${BRAND_URL:-}"
       SALES_EMAIL: "${SALES_EMAIL:-}"
