@@ -1280,7 +1280,7 @@
   },
   "contacts": {
     "title": "Contacts",
-    "vcardImported": "{{count}} contact imported from card",
+    "vcardImported_one": "{{count}} contact imported from card",
     "vcardImported_other": "{{count}} contacts imported from card",
     "vcardNoneNew": "The card had no new contacts",
     "all": "All",
@@ -2358,7 +2358,8 @@
     "wrongPassword": "Wrong password.",
     "unavailable": "File unavailable or link expired.",
     "download": "Download",
-    "noPreview": "No preview for this file type."
+    "noPreview": "No preview for this file type.",
+    "poweredBy": "Powered by <b>{{brand}}</b>"
   },
   "wiki": {
     "title": "Wiki",

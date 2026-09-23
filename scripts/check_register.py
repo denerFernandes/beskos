@@ -25,7 +25,12 @@ SURFACES = [
 
 # Informal address, per language. Matched case-insensitively except where noted.
 INFORMAL = {
-    "pt": [r"\btu\b", r"\bteu\b", r"\bteus\b", r"\btua\b", r"\btuas\b", r"\bcontigo\b"],
+    # The second-person verbs below are always informal. The imperatives that slipped into the
+    # Brazilian dictionary ("Escolhe", "Carrega") are not listed: they are spelt like the third
+    # person ("o sistema escolhe"), and matching them would flag correct text.
+    "pt": [r"\btu\b", r"\bteu\b", r"\bteus\b", r"\btua\b", r"\btuas\b", r"\bcontigo\b",
+           r"\bpodes\b", r"\btens\b", r"\bqueres\b", r"\busas\b", r"\bsabes\b", r"\bestás\b",  # lang:ok
+           r"\bprecisas\b", r"\bconsegues\b", r"\bdeves\b"],
     "es": [r"\btú\b", r"\btu\b", r"\btus\b", r"\bti\b", r"\bcontigo\b",  # lang:ok
            r"\bpuedes\b", r"\btienes\b", r"\bquieres\b", r"\bdebes\b", r"\bhaces\b"],
     "fr": [r"\btu\b", r"\bton\b", r"\btes\b", r"\btoi\b", r"\btoi-même\b", r"\bpeux\b", r"\bveux\b"],  # lang:ok
@@ -35,6 +40,15 @@ INFORMAL = {
     "nl": [r"\bje\b", r"\bjij\b", r"\bjouw\b", r"\bjou\b", r"\bjullie\b"],
     "pl": [r"\btwój\b", r"\btwoja\b", r"\btwoje\b", r"\btwoją\b", r"\btwojego\b", r"\btwojej\b",  # lang:ok
            r"\btwoim\b", r"\btwoich\b", r"\btwoja\b", r"\bmożesz\b", r"\bmasz\b", r"\bjesteś\b"],
+    # Czech: possessives and verbs of tykani. "ty" itself is not listed -- it is also the plural
+    # demonstrative ("ty soubory", those files), and would flag correct text.
+    "cs": [r"\btvůj\b", r"\btvoje\b", r"\btvého\b", r"\btvým\b", r"\btvou\b", r"\btvoji\b",  # lang:ok
+           r"\bmůžeš\b", r"\bmáš\b", r"\bchceš\b", r"\bmusíš\b", r"\bjsi\b"],  # lang:ok
+    # Chinese: the informal "you". It never occurs inside the formal one, which is a different character.
+    "zh": [r"你"],  # lang:ok
+    # Japanese and Arabic mark courtesy through verb forms and constructions that a word list cannot
+    # judge, and Swedish and Norwegian address the reader as "du" -- the convention of their software,
+    # where the old polite pronouns read as archaic. They are reviewed by hand, not listed here.
     "en": [],  # English has no formal/informal distinction. The shared rules below still apply.
 }
 

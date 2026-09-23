@@ -1,7 +1,8 @@
 import "../webmail/webmail.css";
+import { LanguageSelect } from "../webmail/LanguageSelect";
 import "./booking.css";
 import { useEffect, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { apiUrl } from "../apiBase";
 import { hueFor, initials } from "../webmail/util";
@@ -163,18 +164,14 @@ function BookingFlow() {
 // this gives a manual override to whoever received the link.
 function LangSwitch() {
   const { i18n } = useTranslation();
-  const cur = i18n.language.startsWith("pt") ? "pt-BR" : "en";
   return (
-    <div className="bkp-lang">
-      {([["pt-BR", "PT"], ["en", "EN"]] as const).map(([lng, label]) => (
-        <button key={lng} className={cur === lng ? "on" : ""} onClick={() => i18n.changeLanguage(lng)}>{label}</button>
-      ))}
-    </div>
+    <LanguageSelect className="bkp-lang" value={i18n.resolvedLanguage ?? i18n.language}
+      onChange={(lng) => void i18n.changeLanguage(lng)} />
   );
 }
 
 // Product signature on the public page -- hidden when the instance has the Pro branding capability.
 function PoweredBy() {
   if (useBrandingCapability()) return null;
-  return <a className="bkp-powered" href="https://beskos.com" target="_blank" rel="noreferrer">Powered by <b>Beskos</b></a>;
+  return <a className="bkp-powered" href="https://beskos.com" target="_blank" rel="noreferrer"><Trans i18nKey="public.poweredBy" values={{ brand: "Beskos" }} components={{ b: <b /> }} /></a>;
 }

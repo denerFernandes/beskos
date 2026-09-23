@@ -1,7 +1,8 @@
 import "../webmail/webmail.css";
+import { LanguageSelect } from "../webmail/LanguageSelect";
 import "./guest.css";
 import { useState, useEffect, useRef } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { LiveKitRoom, VideoConference } from "@livekit/components-react";
@@ -109,7 +110,7 @@ export function GuestPage() {
           {!waiting && !denied && <a className="gp-signin" href="/mail">{t("meet.memberSignIn")}</a>}
           {!branded && (
             <a className="gp-powered" href="https://beskos.com" target="_blank" rel="noreferrer">
-              Powered by <b>Beskos</b>
+              <Trans i18nKey="public.poweredBy" values={{ brand: "Beskos" }} components={{ b: <b /> }} />
             </a>
           )}
         </div>
@@ -119,13 +120,9 @@ export function GuestPage() {
   );
 
   function LangSwitch() {
-    const cur = i18n.language.startsWith("pt") ? "pt-BR" : "en";
     return (
-      <div className="gp-lang">
-        {([["pt-BR", "PT"], ["en", "EN"]] as const).map(([lng, label]) => (
-          <button key={lng} className={cur === lng ? "on" : ""} onClick={() => i18n.changeLanguage(lng)}>{label}</button>
-        ))}
-      </div>
+      <LanguageSelect className="gp-lang" value={i18n.resolvedLanguage ?? i18n.language}
+        onChange={(lng) => void i18n.changeLanguage(lng)} />
     );
   }
 }

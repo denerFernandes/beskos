@@ -69,7 +69,6 @@ export interface Usage {
 }
 
 // Languages supported in the UI (mirrors the backend). "" = automatic via the browser.
-export type Language = "" | "pt-BR" | "en";
 
 export interface Domain {
   id: string;
@@ -194,11 +193,6 @@ export const api = {
     req<{ email: string }>(`/api/domains/${domainId}/mailboxes`, {
       method: "POST",
       body: JSON.stringify({ login, name, password }),
-    }),
-  updateLanguage: (language: Language) =>
-    req<{ language: string }>("/api/me/settings", {
-      method: "PATCH",
-      body: JSON.stringify({ language }),
     }),
 
   // Members / RBAC

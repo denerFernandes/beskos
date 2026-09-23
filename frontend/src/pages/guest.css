@@ -20,8 +20,10 @@
 .wm .gp-powered{margin-top:22px;font-size:11.5px;color:var(--faint);text-decoration:none;}
 .wm .gp-powered b{font-weight:700;color:var(--muted);}
 .wm .gp-powered:hover b{color:var(--accent-ink);}
-.wm .gp-lang{position:absolute;top:16px;right:16px;display:flex;gap:2px;background:var(--surface-2);border-radius:999px;padding:3px;}
-.wm .gp-lang button{border:none;background:none;color:var(--muted);font-size:11px;font-weight:700;padding:4px 9px;border-radius:999px;cursor:pointer;}
-.wm .gp-lang button.on{background:var(--ink);color:var(--surface);}
+/* The language picker: a select, since there are fourteen languages. Capped in width: a native
+   select sizes itself to its longest option, and "Portugues (Portugal)" pushed it across the card. */
+.wm .gp-lang{position:absolute;top:16px;inset-inline-end:16px;appearance:none;-webkit-appearance:none;max-width:150px;border:none;background:var(--surface-2);color:var(--muted);font:inherit;font-size:11.5px;font-weight:650;padding:5px 12px;border-radius:999px;cursor:pointer;text-overflow:ellipsis;}
+.wm .gp-lang:hover{color:var(--ink);}
+.wm .gp-lang:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 @media (prefers-color-scheme:dark){.wm .gp-logo.white-dark{filter:brightness(0) invert(1);}}
 :root[data-theme="dark"] .wm .gp-logo.white-dark{filter:brightness(0) invert(1);}

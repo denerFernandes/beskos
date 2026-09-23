@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { LanguageSelect } from "./LanguageSelect";
+import { normalizeLanguage } from "../i18n/supported";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { settingsApi, devicesApi, backend, type EmailSettings, type DeviceToken } from "./backend";
@@ -73,7 +75,7 @@ export function SettingsView({ section, onSection }: { section?: string; onSecti
 function GeneralSection() {
   const { t, i18n } = useTranslation();
   const { value, save } = useSection("general");
-  const [lang, setLang] = useState(i18n.language.startsWith("en") ? "en" : "pt-BR");
+  const [lang, setLang] = useState(normalizeLanguage(i18n.resolvedLanguage ?? i18n.language));
   const changeLang = (l: string) => {
     setLang(l);
     void i18n.changeLanguage(l);
@@ -99,10 +101,7 @@ function GeneralSection() {
       <div className="set-card">
         <label className="set-field">
           <span>{t("settings.language")}</span>
-          <select value={lang} onChange={(e) => changeLang(e.target.value)}>
-            <option value="pt-BR">Português (Brasil)</option>
-            <option value="en">English</option>
-          </select>
+          <LanguageSelect value={lang} onChange={changeLang} />
         </label>
         <label className="set-field">
           <span>{t("settings.theme")}</span>
