@@ -60,13 +60,13 @@
 .pnl-app{display:grid;grid-template-columns:var(--sidebar) 1fr;min-height:100vh;background:var(--paper);}
 
 /* Sidebar */
-.pnl-side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
+.pnl-side{background:var(--surface);border-inline-end:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;}
 .pnl-brand{display:flex;align-items:center;gap:11px;padding:18px 20px;}
 .pnl-mark{width:32px;height:32px;border-radius:8px;background:var(--accent-solid);display:grid;place-items:center;color:var(--on-accent);font-weight:700;font-size:16px;}
 .pnl-brand b{font-size:16px;letter-spacing:-.01em;}
 .pnl-brand small{display:block;color:var(--faint);font-size:11px;font-weight:500;}
 .pnl-nav{display:flex;flex-direction:column;gap:2px;padding:8px 12px;flex:1;overflow-y:auto;}
-.pnl-nav button{display:flex;align-items:center;gap:13px;padding:9px 12px;border-radius:8px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:left;}
+.pnl-nav button{display:flex;align-items:center;gap:13px;padding:9px 12px;border-radius:8px;border:none;background:none;color:var(--muted);font:inherit;font-weight:500;width:100%;text-align:start;}
 .pnl-nav button:hover{background:var(--surface-2);color:var(--ink);}
 .pnl-nav button.on{background:var(--accent-tint);color:var(--accent-ink);font-weight:600;}
 .pnl-nav button.on svg{color:var(--accent);}
@@ -162,7 +162,7 @@
 @media (max-width:820px){
   .pnl-app{grid-template-columns:1fr;}
   .pnl-side{position:fixed;z-index:50;transform:translateX(-100%);transition:transform .2s;width:var(--sidebar);}
-  .pnl-content,.pnl-top{padding-left:20px;padding-right:20px;}
+  .pnl-content,.pnl-top{padding-inline-start:20px;padding-inline-end:20px;}
 }
 
 /* Appearance (branding): color swatches + logo preview */
@@ -185,12 +185,12 @@
    the cascade, and gives it breathing room from the label. */
 .wm .agent-tools .agent-tool > .switch{width:34px;height:20px;flex:none;background:transparent;}
 .wm .agent-tools .agent-tool > .switch > .track{border-radius:20px;}
-.wm .agent-tools .agent-tool > .switch > .track::before{width:14px;height:14px;top:3px;left:3px;}
+.wm .agent-tools .agent-tool > .switch > .track::before{width:14px;height:14px;top:3px;inset-inline-start:3px;}
 .wm .agent-tools .agent-tool > .switch > input:checked + .track::before{transform:translateX(14px);}
 .agent-tools .agent-tool > span:last-child{flex:1;min-width:0;}
 /* Warning next to the assistant's master switch (general agent). Short and on the right, so it
    doesn't push the switch or compete with the agent's name. */
-.agent-master-hint{max-width:230px;text-align:right;font-size:11.5px;line-height:1.25;}
+.agent-master-hint{max-width:230px;text-align:end;font-size:11.5px;line-height:1.25;}
 
 /* Assistant memory: add by hand + list. */
 .mem-add{display:flex;gap:8px;}
@@ -203,7 +203,7 @@
 /* Appearance: logo preview in both themes + action bar. */
 .brand-logo-duo{display:flex;gap:10px;flex-wrap:wrap;}
 .brand-logo-preview{position:relative;}
-.brand-logo-preview .tag{position:absolute;bottom:4px;right:8px;font-size:10px;color:var(--faint);}
+.brand-logo-preview .tag{position:absolute;bottom:4px;inset-inline-end:8px;font-size:10px;color:var(--faint);}
 .brand-logo-preview.light{background:#FFFFFF;border-color:#E5E5E5;}
 .brand-logo-preview.dark{background:#171717;border-color:#404040;}
 .brand-logo-preview.dark .desc{color:#A3A3A3;}
@@ -214,7 +214,7 @@
 .plans-table{width:100%;border-collapse:collapse;font-size:13px;min-width:560px;}
 .plans-table th,.plans-table td{padding:10px 14px;text-align:center;border-bottom:1px solid var(--border);}
 .plans-table thead th{vertical-align:top;padding-top:16px;}
-.plans-table .pt-feat{text-align:left;color:var(--muted);font-weight:500;white-space:nowrap;}
+.plans-table .pt-feat{text-align:start;color:var(--muted);font-weight:500;white-space:nowrap;}
 .plans-table .pt-name{font-size:14px;font-weight:700;}
 .plans-table .pt-price{font-size:21px;font-weight:700;margin-top:3px;}
 .plans-table .pt-per{font-size:11px;color:var(--muted);}
@@ -268,10 +268,10 @@
 /* Records table: a page has room for the value to breathe; anything large scrolls inside its own
    cell instead of pushing the table wider (that was what broke the "Copy" column into vertical letters). */
 .dns-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-.dns-table th{text-align:left;font-weight:600;color:var(--muted);font-size:11.5px;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.dns-table th{text-align:start;font-weight:600;color:var(--muted);font-size:11.5px;padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
 .dns-table td{padding:10px;border-bottom:1px solid var(--border);vertical-align:top;}
 .dns-table tr:last-child td{border-bottom:0;}
-.dns-table td:last-child{text-align:right;white-space:nowrap;}
+.dns-table td:last-child{text-align:end;white-space:nowrap;}
 .dns-table .dns-val{max-width:min(52vw,760px);overflow-x:auto;white-space:nowrap;}
 /* Scrolls inside the card: in a narrow window the table never pushes the page sideways. */
 .dns-scroll{overflow-x:auto;}
@@ -284,12 +284,12 @@
 .guide-item{border-bottom:1px solid var(--border);}
 .guide-item:last-of-type{border-bottom:0;}
 .guide-head{display:flex;align-items:center;gap:8px;width:100%;padding:11px 2px;background:none;border:0;
-  color:var(--ink);font:inherit;cursor:pointer;text-align:left;}
+  color:var(--ink);font:inherit;cursor:pointer;text-align:start;}
 .guide-head .chev-open{transform:rotate(180deg);}
 /* The guide is text: on a wide page it's capped to a readable line length, otherwise the lines
    would stretch across the monitor. It's the table that needs the full width, not the prose. */
 .guide-body{padding:0 2px 14px 24px;max-width:760px;}
-.guide-body ol{margin:0 0 12px;padding-left:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;line-height:1.5;}
+.guide-body ol{margin:0 0 12px;padding-inline-start:18px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;line-height:1.5;}
 
 /* DNS table on a narrow screen: each record turns into a block with labels, instead of six
    squeezed columns (that was what made "Copy" come out in vertical letters). */
@@ -298,7 +298,7 @@
   .dns-table thead{display:none;}
   .dns-table tr{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:10px;}
   .dns-table tr:last-child{margin-bottom:0;}
-  .dns-table td{border:0;padding:4px 0;display:flex;gap:10px;align-items:baseline;text-align:left;}
+  .dns-table td{border:0;padding:4px 0;display:flex;gap:10px;align-items:baseline;text-align:start;}
   .dns-table td::before{content:attr(data-label);flex:none;min-width:64px;color:var(--muted);
     font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;}
   .dns-table td.dns-copy{justify-content:flex-end;}
@@ -316,7 +316,7 @@
 /* Steps: numbered, done ones checked, the current one highlighted. The line connects them like a path. */
 .sub-steps{display:flex;list-style:none;margin:0;padding:0;gap:0;flex-wrap:wrap;}
 .sub-steps li{flex:1;min-width:120px;position:relative;}
-.sub-steps li+li::before{content:"";position:absolute;left:0;top:19px;width:100%;height:2px;background:var(--border);z-index:0;}
+.sub-steps li+li::before{content:"";position:absolute;inset-inline-start:0;top:19px;width:100%;height:2px;background:var(--border);z-index:0;}
 .sub-steps li.done+li::before,.sub-steps li.on::before{background:var(--accent-solid);}
 .sub-steps button{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:7px;width:100%;background:none;border:none;padding:8px 4px;color:var(--muted);font:inherit;font-size:12.5px;cursor:pointer;}
 .sub-steps button:disabled{cursor:default;}
@@ -333,7 +333,7 @@
 .sub-cycle button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12);}
 .sub-cycle em{font-style:normal;font-size:11px;font-weight:700;color:var(--on-accent);background:var(--accent-solid);border-radius:20px;padding:2px 7px;}
 .sub-plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
-.sub-plan{display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font:inherit;}
+.sub-plan{display:flex;flex-direction:column;gap:3px;text-align:start;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;cursor:pointer;font:inherit;}
 .sub-plan:hover{border-color:var(--border-strong);}
 .sub-plan.on{border-color:var(--accent-solid);box-shadow:0 0 0 3px var(--accent-tint);}
 .sub-plan.off{opacity:.5;cursor:not-allowed;}
@@ -344,7 +344,7 @@
 .sub-plan .pd.err{color:var(--danger);}
 /* Company vs individual: two cards, one of them selected. */
 .sub-kind{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.sub-kind button{display:flex;flex-direction:column;gap:4px;text-align:left;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;font:inherit;cursor:pointer;}
+.sub-kind button{display:flex;flex-direction:column;gap:4px;text-align:start;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px;font:inherit;cursor:pointer;}
 .sub-kind button.on{border-color:var(--accent-solid);box-shadow:0 0 0 3px var(--accent-tint);}
 .sub-kind b{font-size:14.5px;color:var(--ink);}
 .sub-kind span{font-size:12px;color:var(--muted);}
@@ -405,10 +405,10 @@
 .mig-folders .name{font-weight:500;}
 .mig-folders .arrow,.mig-folders .dest{color:var(--muted);}
 /* The count is pushed right and tabular so forty rows of numbers can be scanned as a column. */
-.mig-folders .count{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted);}
+.mig-folders .count{margin-inline-start:auto;font-variant-numeric:tabular-nums;color:var(--muted);}
 /* Why a folder is NOT copied is a sentence, not a badge: "virtual" explains nothing to the person
    counting their folders, and that person is the one who decides whether we lost their mail. */
-.mig-folders .why{margin-left:auto;max-width:32rem;text-align:right;color:var(--muted);font-size:12px;line-height:1.4;}
+.mig-folders .why{margin-inline-start:auto;max-width:32rem;text-align:end;color:var(--muted);font-size:12px;line-height:1.4;}
 .mig-folders.skipped .name{color:var(--muted);}
 .mig-folders.live li.done .name{color:var(--muted);}
 
@@ -428,7 +428,7 @@
 .pnl-card-h .when{font-size:12px;font-weight:400;color:var(--faint);}
 @media (max-width:700px){
   .mig-folders li{flex-wrap:wrap;}
-  .mig-folders .why{margin-left:0;text-align:left;max-width:none;}
+  .mig-folders .why{margin-inline-start:0;text-align:start;max-width:none;}
 }
 
 /* Provider picker, notices and live progress for the import (MigrationSection).
@@ -450,9 +450,9 @@
 /* Before the source has been counted there is no percentage to show, so the bar sweeps instead of
    sitting at zero -- a bar pinned at 0% reads as broken, not as counting. */
 .mig-bar.unknown span{width:35%;animation:mig-sweep 1.4s ease-in-out infinite;}
-@keyframes mig-sweep{0%{margin-left:-35%;}100%{margin-left:100%;}}
-.mig-folders .fstate{margin-left:auto;font-size:12px;color:var(--muted);}
-.mig-folders .fstate + .count{margin-left:14px;}
+@keyframes mig-sweep{0%{margin-inline-start:-35%;}100%{margin-inline-start:100%;}}
+.mig-folders .fstate{margin-inline-start:auto;font-size:12px;color:var(--muted);}
+.mig-folders .fstate + .count{margin-inline-start:14px;}
 .mig-folders li.running .name{font-weight:600;}
 
 /* Importing from a file the customer has on disk (MigrationFileForm).
@@ -469,7 +469,7 @@
 .mig-drop:hover,.mig-drop.over{border-color:var(--accent-solid);background:color-mix(in srgb,var(--accent) 6%,transparent);}
 .mig-drop.has{border-style:solid;color:var(--ink);}
 .mig-drop b{font-weight:600;}
-.mig-drop .size{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--muted);}
+.mig-drop .size{margin-inline-start:auto;font-variant-numeric:tabular-nums;color:var(--muted);}
 /* Where the file lives, per program. Collapsed, because it is only needed once and by the people
    who do not already know -- and expanded it would push the button off the screen. */
 .mig-where{margin-top:12px;font-size:12.5px;color:var(--muted);}

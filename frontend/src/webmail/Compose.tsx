@@ -365,7 +365,7 @@ export function Compose({ service, from, onClose, initial, dockIndex = 0 }: {
 
   // Gmail-style stacking: each window docks to the right, offset by its position. When
   // maximized it takes over the screen (ignores the offset).
-  const dockStyle = maxed ? undefined : { right: 24 + dockIndex * 736 };
+  const dockStyle = maxed ? undefined : { insetInlineEnd: 24 + dockIndex * 736 };
   return (
     <div className="cmp-bg open">
       {/* Dropping files anywhere on the window attaches them, which is where people aim -- not at

@@ -69,7 +69,7 @@ export function MailSidebar(props: MailSidebarProps) {
           addrOpen={addrOpen} setAddrOpen={setAddrOpen} t={t} />
         <div className="nav">
           {layoutFolders(boxes).map(({ f, depth }) => (
-            <div key={f.id} className="folder-row" style={{ marginLeft: depth * 12 }}>
+            <div key={f.id} className="folder-row" style={{ marginInlineStart: depth * 12 }}>
               {renameFolderId === f.id ? (
                 <input className="newfolder" autoFocus value={folderInput} onChange={(e) => setFolderInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") void onRenameFolder(f.id); if (e.key === "Escape") { setRenameFolderId(null); setFolderInput(""); } }}

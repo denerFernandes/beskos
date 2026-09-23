@@ -79,7 +79,7 @@ export function BoardTimelineView({ cols, onCard, locale }: { cols: Col[]; onCar
         return (
           <button className="kbt-row" key={c.id} onClick={() => onCard(c)}>
             <span className="kbt-label">{c.title}</span>
-            <span className="kbt-track"><span className="kbt-bar" style={{ left: pct(s) + "%", width: Math.max(2, pct(e) - pct(s)) + "%" }} /></span>
+            <span className="kbt-track"><span className="kbt-bar" style={{ insetInlineStart: pct(s) + "%", width: Math.max(2, pct(e) - pct(s)) + "%" }} /></span>
           </button>
         );
       })}
