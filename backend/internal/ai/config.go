@@ -48,7 +48,10 @@ var presets = map[string]preset{
 	"deepseek": {baseURL: "https://api.deepseek.com", model: "deepseek-v4-flash", thinking: true},
 	// Same protocol, different jurisdiction: TensorX serves open models on European
 	// infrastructure, which is what the subprocessors page rests on.
-	"tensorx": {baseURL: "https://api.tensorx.ai/v1", model: "deepseek/deepseek-v4-flash", thinking: true},
+	// Pinned to a dated snapshot. The undated `deepseek/deepseek-v4-flash` was retired from the
+	// catalogue on 2026-09-23 and every request failed with a 403 until AI_MODEL was changed; a
+	// snapshot is retired too, eventually, and CheckModel says so at startup when it is.
+	"tensorx": {baseURL: "https://api.tensorx.ai/v1", model: "deepseek/deepseek-v4-flash-0731", thinking: true},
 	"openai":  {baseURL: "https://api.openai.com/v1"},
 	// A local runtime, for an installation that wants no model traffic leaving the machine.
 	"ollama": {baseURL: "http://localhost:11434/v1"},

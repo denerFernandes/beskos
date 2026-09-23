@@ -42,6 +42,12 @@ type streamCallFrag struct {
 // The returned Response is equivalent to Complete's: the caller does not need to know which one
 // was used.
 func (d *Client) Stream(ctx context.Context, req Request, onDelta func(string)) (Response, error) {
+	resp, err := d.stream(ctx, req, onDelta)
+	d.health.record(ctx, d.Name(), d.model, err)
+	return resp, err
+}
+
+func (d *Client) stream(ctx context.Context, req Request, onDelta func(string)) (Response, error) {
 	payload, err := json.Marshal(chatRequest{
 		Model:       d.model,
 		Messages:    toWire(req.Messages),
@@ -65,12 +71,12 @@ func (d *Client) Stream(ctx context.Context, req Request, onDelta func(string)) 
 
 	resp, err := d.http.Do(httpReq)
 	if err != nil {
-		return Response{}, fmt.Errorf("deepseek: %w", err)
+		return Response{}, fmt.Errorf("%s: %w", d.Name(), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return Response{}, fmt.Errorf("deepseek HTTP %d: %s", resp.StatusCode, string(body))
+		return Response{}, fmt.Errorf("%s HTTP %d: %s", d.Name(), resp.StatusCode, string(body))
 	}
 	return readSSE(resp.Body, onDelta)
 }
@@ -139,7 +145,7 @@ func readSSE(body io.Reader, onDelta func(string)) (Response, error) {
 		}
 	}
 	if err := sc.Err(); err != nil {
-		return out, fmt.Errorf("deepseek: stream: %w", err)
+		return out, fmt.Errorf("stream: %w", err)
 	}
 
 	out.Text = text.String()

@@ -44,6 +44,7 @@ type Client struct {
 	// user watches nothing happen for seconds.
 	reasoning bool
 	http      *http.Client
+	health    health
 	// name identifies WHO serves the model, for logs and metrics. The same protocol reaches a
 	// vendor's cloud or a process on this machine, and the difference between them is the
 	// jurisdiction the customer's content is processed in.
@@ -188,7 +189,14 @@ func fromWireCalls(calls []wireCall) []ToolCall {
 	return out
 }
 
+// Complete records every outcome, so a failure is never only a status code in the access log.
 func (d *Client) Complete(ctx context.Context, req Request) (Response, error) {
+	resp, err := d.complete(ctx, req)
+	d.health.record(ctx, d.Name(), d.model, err)
+	return resp, err
+}
+
+func (d *Client) complete(ctx context.Context, req Request) (Response, error) {
 	payload, err := json.Marshal(chatRequest{
 		Model:       d.model,
 		Messages:    toWire(req.Messages),
@@ -211,24 +219,24 @@ func (d *Client) Complete(ctx context.Context, req Request) (Response, error) {
 
 	resp, err := d.http.Do(httpReq)
 	if err != nil {
-		return Response{}, fmt.Errorf("deepseek: %w", err)
+		return Response{}, fmt.Errorf("%s: %w", d.Name(), err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 
 	var cr chatResponse
 	if err := json.Unmarshal(body, &cr); err != nil {
-		return Response{}, fmt.Errorf("deepseek: invalid response (HTTP %d): %s", resp.StatusCode, string(body))
+		return Response{}, fmt.Errorf("%s: invalid response (HTTP %d): %s", d.Name(), resp.StatusCode, string(body))
 	}
 	if resp.StatusCode != http.StatusOK {
 		msg := string(body)
 		if cr.Error != nil {
 			msg = cr.Error.Message
 		}
-		return Response{}, fmt.Errorf("deepseek HTTP %d: %s", resp.StatusCode, msg)
+		return Response{}, fmt.Errorf("%s HTTP %d: %s", d.Name(), resp.StatusCode, msg)
 	}
 	if len(cr.Choices) == 0 {
-		return Response{}, fmt.Errorf("deepseek: response has no choices")
+		return Response{}, fmt.Errorf("%s: response has no choices", d.Name())
 	}
 	return Response{
 		Text:         cr.Choices[0].Message.Content,

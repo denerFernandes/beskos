@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 	_ "time/tzdata" // embeds the IANA timezone database in the binary (slim containers lack tzdata)
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -64,6 +65,18 @@ func main() {
 	} else {
 		aiProvider = p
 		log.Printf("AI enabled (provider=%s)", p.Name())
+		// "Enabled" only means the configuration parsed. Whether the endpoint still offers the
+		// model is a separate question, and the answer changes without anyone touching this
+		// installation. Asked in the background so a slow endpoint does not hold up startup.
+		if c, ok := p.(*ai.Client); ok {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+				defer cancel()
+				if err := c.CheckModel(ctx); err != nil {
+					log.Printf("AI MISCONFIGURED -- %v", err)
+				}
+			}()
+		}
 	}
 	aiCfg := ai.FromEnv() // raw endpoint/key/model for the OnlyOffice editor's AI proxy
 
