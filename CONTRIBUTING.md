@@ -2,7 +2,7 @@
 
 Thanks for considering it. This document covers how to get a development environment running,
 what a change needs before it merges, and the house rules the codebase follows -- summarized in
-English here; the canonical, longer version lives in [CLAUDE.md](CLAUDE.md).
+English here; the canonical, longer version lives in [docs/engineering-standards.md](docs/engineering-standards.md).
 
 ## Before you start
 
@@ -52,7 +52,7 @@ that needs adjusting.
 
 ## House rules
 
-The full text is [CLAUDE.md](CLAUDE.md); the parts that matter for a first contribution:
+The full text is [docs/engineering-standards.md](docs/engineering-standards.md); the parts that matter for a first contribution:
 
 - **Simple over clever.** No speculative abstraction -- introduce an interface or generics only
   once there are two real call sites.

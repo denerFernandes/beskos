@@ -24,10 +24,10 @@ triggers AGPL §13: the operator must offer the modified source to anyone using 
 
 Run OnlyOffice Document Server as its own container (`deploy/docker-compose.yml`,
 service `onlyoffice`), reached over the network only -- the same rule the project applies to
-Stalwart (CLAUDE.md §5.4): never patch the vendored image's binary or embedded code, only its
+Stalwart (docs/engineering-standards.md §5.4): never patch the vendored image's binary or embedded code, only its
 startup configuration and an external init script.
 
-`internal/config.Config` carries the wiring as environment-only values (CLAUDE.md §2.6), with a
+`internal/config.Config` carries the wiring as environment-only values (docs/engineering-standards.md §2.6), with a
 comment explaining why there are two URLs and two secrets, because it is easy to point one at the
 other by mistake:
 

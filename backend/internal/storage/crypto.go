@@ -15,7 +15,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
-// Envelope encryption for objects (docs/cifra-ficheiros.md). lang:ok
+// Envelope encryption for objects (docs/file-encryption.md). lang:ok
 //
 // It lives HERE, and not in the handlers, on purpose: there are 33 points in the code that read and
 // write files — mail, chat, wiki, boards, presentations, recordings, OnlyOffice, sync — and none of

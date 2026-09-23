@@ -1,4 +1,4 @@
--- Envelope-encryption keys for files (doc filename not yet renamed: docs/cifra-ficheiros.md) lang:ok
+-- Envelope-encryption keys for files (doc filename not yet renamed: docs/file-encryption.md) lang:ok
 --
 -- None of these queries ever return a key in the clear: what comes out of here is always wrapped
 -- material, and only the `filecrypt` package opens it, with the environment's KEK.

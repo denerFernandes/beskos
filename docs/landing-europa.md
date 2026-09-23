@@ -657,7 +657,7 @@ The §7d verification still stands and hasn't been deleted: the servers are stil
 
 The R2 line in the infrastructure table was the site's weakest: customer content on an American
 company's servers, with the key on their side. Not anymore — files are now encrypted by us, and
-the provider only ever holds ciphertext, as detailed in the design doc (filename kept unchanged) `docs/cifra-ficheiros.md` lang:ok
+the provider only ever holds ciphertext, as detailed in the design doc (filename kept unchanged) `docs/file-encryption.md` lang:ok
 
 This changes the security page, Annex II of the DPA, the infrastructure table's note, and the
 "we don't claim that none of our providers is subject to foreign law" item on `/sovereignty`.
@@ -667,9 +667,9 @@ we hold, which protects them from our storage provider — not from us."
 **What couldn't be claimed, and is written down:**
 
 - **Mail isn't covered.** Stalwart writes message content straight to the bucket and reads it
-  from there directly; it doesn't go through our layer and we don't modify it (CLAUDE.md §5.4).
+  from there directly; it doesn't go through our layer and we don't modify it (docs/engineering-standards.md §5.4).
   The security page says this in our own words, and a limitation that already caused an outage
-  doesn't get left out — it was discovered by accidentally encrypting it, documented at §2f of the design doc `docs/cifra-ficheiros.md` lang:ok
+  doesn't get left out — it was discovered by accidentally encrypting it, documented at §2f of the design doc `docs/file-encryption.md` lang:ok
 - **It isn't end-to-end encryption.** We hold the keys, because the product generates
   thumbnails, edits Office documents in the browser, and serves public links. Saying otherwise
   would be exactly the mistake `/sovereignty` exists to avoid.

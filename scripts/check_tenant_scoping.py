@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Flags sqlc queries against a tenant-scoped table that never mention tenant_id.
 
-Law 5.1, quoted verbatim from CLAUDE.md: "Toda query de dados de cliente filtra tenant_id." lang:ok
+Law 5.1, quoted verbatim from docs/engineering-standards.md: "Every customer-data query filters by tenant_id."
 This is a heuristic, not a proof --
 it finds the table a query's FROM/UPDATE/INSERT/DELETE targets and checks whether the literal
 text "tenant_id" appears anywhere in the query body (which also matches an aliased column like

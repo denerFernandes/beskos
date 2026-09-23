@@ -115,7 +115,7 @@ func (s *Server) notifyTask(ctx context.Context, actor db.MailUser, card db.Card
 	if who == "" {
 		who = actor.Email
 	}
-	// Structured data for the frontend to translate via server.notif.<kind> (CLAUDE.md §4.6). The
+	// Structured data for the frontend to translate via server.notif.<kind> (docs/engineering-standards.md §4.6). The
 	// `body` (comment/task name) is user content and stays shown raw as a fallback.
 	args := notifArgs(map[string]string{"actor": who, "card": card.Title})
 	for _, t := range audience(actor.ID, targets) {

@@ -19,7 +19,7 @@ import (
 // leaving the server. The plugin runs in the Document Server's iframe (another origin) and
 // authenticates with a stable user token (Bearer) — which here turns into identity, quota, and
 // forwarding with the real key. Only within the authenticated editor; the quota is the user's own
-// (the same 6h window as the assistant's). See docs/ASSISTENTE-IA.md (§9.2).
+// (the same 6h window as the assistant's). See docs/AI-ASSISTANT.md (§9.2).
 
 // aiProxyHTTP has a generous timeout: an AI completion takes longer than a normal request.
 var aiProxyHTTP = &http.Client{Timeout: 120 * time.Second}

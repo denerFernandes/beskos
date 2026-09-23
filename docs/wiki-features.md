@@ -1,6 +1,6 @@
 # Wiki / Knowledge Base (Confluence-style) — Specification
 
-> Status: **design draft** (Phase 0). Living document. Follows the laws in [CLAUDE.md](../CLAUDE.md)
+> Status: **design draft** (Phase 0). Living document. Follows the laws in [docs/engineering-standards.md](engineering-standards.md)
 > and the constraints in [project.md](../project.md). Prose in English; **code, logs and `error_code`
 > always in English** (law 4.6). One phase at a time (§9): do not start Phase N+1 before N is tested.
 
@@ -32,7 +32,7 @@ knowledge — **always respecting the permissions of whoever is asking**.
   page body.
 - No real-time concurrent editing (CRDT/OT) in v1 — we use optimistic locking by version (§6).
 
-## 2. Non-negotiable constraints (recap of project.md §2 and CLAUDE.md)
+## 2. Non-negotiable constraints (recap of project.md §2 and engineering-standards.md)
 - **Multi-tenant**: every query filters by the authenticated user's `tenant_id` (context), never
   from the request (law 5.1). Every page read/write checks **ownership/permission** first (law 5.2).
 - **Layers** (law 1.3): `httpapi` (transport) → service/logic (wiki) → `db` (sqlc). Handlers don't

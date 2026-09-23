@@ -19,7 +19,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/filecrypt"
 )
 
-// Integration test against local MinIO and Postgres (CLAUDE.md §2.7). It is skipped without the
+// Integration test against local MinIO and Postgres (docs/engineering-standards.md §2.7). It is skipped without the
 // envs, so it doesn't break `go test ./...` on a machine without containers.
 //
 //	STORAGE_TEST_ENDPOINT=localhost:9000 STORAGE_TEST_KEY=… STORAGE_TEST_SECRET=… \

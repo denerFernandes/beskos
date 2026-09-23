@@ -74,7 +74,7 @@ example:
 
 The `error_code` is the contract: the frontend translates it through i18n
 (`server.<error_code>`) and shows the user their own language's message, never the English
-fallback text. This follows directly from CLAUDE.md law 4.4/4.6 -- the backend never assumes or
+fallback text. This follows directly from law 4.4/4.6 -- the backend never assumes or
 embeds the caller's language in an error, and the frontend never displays raw backend text. If
 you add a new error path, give it a stable dotted code (`<area>.<reason>`, matching the existing
 codes) rather than a free-form message, and add its translation to every locale under

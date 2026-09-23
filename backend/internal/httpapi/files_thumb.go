@@ -15,7 +15,7 @@ import (
 )
 
 // Favorites and image thumbnails. Thumbnails use only the stdlib (image/*) — no new
-// dependency (CLAUDE.md §2.5): decode, downscale by box average, and re-encode as JPEG.
+// dependency (docs/engineering-standards.md §2.5): decode, downscale by box average, and re-encode as JPEG.
 
 const thumbMax = 256 // longest thumbnail side, in pixels
 

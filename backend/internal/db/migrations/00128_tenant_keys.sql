@@ -1,5 +1,5 @@
 -- +goose Up
--- Cifra de envelope dos ficheiros (docs/cifra-ficheiros.md). O R2 passa a guardar só cifrado; as
+-- Cifra de envelope dos ficheiros (docs/file-encryption.md). O R2 passa a guardar só cifrado; as
 -- chaves ficam do nosso lado.
 --
 -- HIERARQUIA:  KEK (ambiente, versionada) → chave do tenant → chave do objeto → objeto
@@ -14,7 +14,7 @@
 -- Porquê uma chave POR TENANT: apagar esta linha torna todos os ficheiros do tenant ilegíveis de
 -- imediato, o que é uma garantia de eliminação muito mais forte do que "apagámos as linhas" — e é
 -- escrutinável no acordo de subcontratação. É a mesma lei que obriga toda a consulta a filtrar
--- tenant_id (CLAUDE.md §5.1), aplicada às chaves.
+-- tenant_id (docs/engineering-standards.md §5.1), aplicada às chaves.
 
 CREATE TABLE tenant_keys (
     tenant_id   UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,

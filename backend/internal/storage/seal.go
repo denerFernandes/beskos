@@ -20,7 +20,7 @@ import (
 //
 //   - objects that were already in the bucket before encryption existed;
 //   - composite recordings, which LiveKit Egress writes directly to storage with the S3
-//     credentials, without going through our backend (docs/cifra-ficheiros.md §3a). lang:ok
+//     credentials, without going through our backend (docs/file-encryption.md §3a). lang:ok
 //
 // ONE WRITE. The SAME key gets rewritten: the storage PUT is atomic, whoever is reading at that
 // instant gets the old or the new version, and both read fine. There's no deleting afterward, no

@@ -126,7 +126,7 @@ outage.
 **Two consequences, both recorded on the public pages:**
 
 1. **Mail content is not encrypted by us.** It's outside the scope of this design as long as
-   Stalwart writes directly to the bucket — and we don't modify Stalwart (CLAUDE.md §5.4). The
+   Stalwart writes directly to the bucket — and we don't modify Stalwart (docs/engineering-standards.md §5.4). The
    security page states this in our own words instead of leaving it to be discovered.
 2. **Attachments and the original messages are NOT in the backup.** Measured on 07/30 by
    restoring the encrypted backup into a disposable Postgres and comparing it against the bucket:

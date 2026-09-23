@@ -40,7 +40,7 @@ func eventLink(eventID uuid.UUID, when time.Time) string {
 // notifyUser creates an in-app notification for a tenant user.
 //
 // `args` carries the event's structured data (actor, title, when…) for the frontend to translate via
-// `server.notif.<kind>` in the user's language (CLAUDE.md §4.6). title/body stay filled in
+// `server.notif.<kind>` in the user's language (docs/engineering-standards.md §4.6). title/body stay filled in
 // English as a fallback and for email/web-push, which are rendered on the backend (no frontend).
 func (s *Server) notifyUser(ctx context.Context, tenantID, userID uuid.UUID, kind, title, body, link string, meetingID uuid.UUID, args map[string]string) {
 	_, err := s.q.CreateNotification(ctx, db.CreateNotificationParams{

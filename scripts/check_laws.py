@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mechanical check for the project laws in CLAUDE.md.
+"""Mechanical check for the project laws in docs/engineering-standards.md.
 
 Why this exists: the laws were written down and still broken, twice in one day, by an agent that
 had just finished fixing the same violation. A document does not enforce anything -- it only tells
@@ -320,7 +320,7 @@ def main() -> int:
         problems = check(paths, base, pool_paths=changed_files(base))
         if not problems:
             return 0
-        print("LAW VIOLATION (CLAUDE.md) -- fix before continuing:\n", file=sys.stderr)
+        print("LAW VIOLATION (docs/engineering-standards.md) -- fix before continuing:\n", file=sys.stderr)
         for p in problems:
             print("  " + p, file=sys.stderr)
         return 2
@@ -332,7 +332,7 @@ def main() -> int:
     problems = check(paths, base)
     if not problems:
         return 0
-    print("LAW VIOLATION (CLAUDE.md) -- fix before continuing:\n", file=sys.stderr)
+    print("LAW VIOLATION (docs/engineering-standards.md) -- fix before continuing:\n", file=sys.stderr)
     for p in problems:
         print("  " + p, file=sys.stderr)
     # 2 is the exit code Claude Code feeds back to the agent as a blocking error.

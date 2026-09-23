@@ -79,28 +79,28 @@ EXCLUDE = [
     # Internal documents: brief, roadmap, evaluations, this plan.
     "project.md",
     "docs/manager.md",
-    "docs/AVALIACAO-PLATAFORMA-PRODUCAO.md",  # lang:ok
+    "docs/PRODUCTION-PLATFORM-ASSESSMENT.md",
     "docs/ROADMAP.md",
     "docs/ROADMAP-CRM.md",
-    "docs/FUNCIONALIDADES.md",
-    "docs/GAPS-FUNCIONALIDADES.md",
+    "docs/FEATURES.md",
+    "docs/FEATURE-GAPS.md",
     "docs/landing-europa.md",
     "docs/OPEN-SOURCE.md",
-    "docs/ASSISTENTE-IA.md",
+    "docs/AI-ASSISTANT.md",
     "docs/DEPLOY.md",  # our own production runbook (CapRover topology, manager-api placement)
     "docs/DNS-PAGE.md",  # dated planning note; the feature itself is covered in FUNCTIONALITY.md
-    "docs/cifra-ficheiros.md",  # superseded by docs/adr/0004-aes-gcm-block-file-encryption.md -- lang:ok
+    "docs/file-encryption.md",  # superseded by docs/adr/0004-aes-gcm-block-file-encryption.md
     "docs/wiki-features.md",  # dated design draft; the feature itself is covered in FUNCTIONALITY.md
-    "deploy/backup/MIGRACAO-STALWART-POSTGRES.md",  # dated post-mortem, superseded by DIVERGENCES.md D9 -- lang:ok
+    "deploy/backup/STALWART-POSTGRES-MIGRATION.md",  # dated post-mortem, superseded by DIVERGENCES.md D9
     "deploy/DIVERGENCES.md",  # detailed internal reverse-engineering notes and production topology
     "docs/README-oss.md",  # becomes README.md via OVERRIDES, not kept at its own path too
     "deploy/docker-compose.community.yml",  # becomes deploy/docker-compose.yml via OVERRIDES
-    # Agent configuration and the landing gitlink (separate repository). CLAUDE.md itself ships --
-    # CONTRIBUTING.md links to it as the canonical rules document, and it's plain English prose,
-    # not agent-only config.
+    # Editor configuration and the landing gitlink (separate repository). The project laws ship as
+    # docs/engineering-standards.md; CLAUDE.md and AGENTS.md are one-line local pointers to it.
     ".claude/*",
     ".codex/*",
     "AGENTS.md",
+    "CLAUDE.md",
     "landing",
     "scripts/export_public.py",
     "scripts/test_export_public.py",

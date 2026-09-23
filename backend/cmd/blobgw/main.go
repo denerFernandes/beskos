@@ -5,7 +5,7 @@
 // compared to what we say publicly. Stalwart's S3 storage has no encryption option at all
 // (no SSE-S3, no SSE-C, no client key: the field list is bucket, region, accessKey, secretKey,
 // securityToken, profile, timeout, maxRetries, verifyAfterWrite, keyPrefix and allowInvalidCerts).
-// And we do not modify Stalwart (CLAUDE.md §5.4).
+// And we do not modify Stalwart (docs/engineering-standards.md §5.4).
 //
 // The way out is to speak its language. Stalwart points its endpoint here instead of at
 // Cloudflare; we encrypt with the format that already exists (internal/filecrypt) and forward it.

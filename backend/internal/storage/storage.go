@@ -20,7 +20,7 @@ type Service struct {
 	client *minio.Client
 	bucket string
 	// keys is nil when encryption is off: in that case the service writes in the clear, as before.
-	// See crypto.go and docs/cifra-ficheiros.md. lang:ok
+	// See crypto.go and docs/file-encryption.md. lang:ok
 	keys *keyring
 }
 
@@ -58,7 +58,7 @@ func New(endpoint, accessKey, secretKey, bucket, region string, useSSL bool) (*S
 //
 // With encryption on, what reaches storage is encrypted and the provider never sees the content.
 // It's ONE write: the object's key travels wrapped inside the object itself, so there's no second
-// write to order — see docs/cifra-ficheiros.md §2d. lang:ok
+// write to order — see docs/file-encryption.md §2d. lang:ok
 func (s *Service) Put(ctx context.Context, key string, r io.Reader, size int64, contentType string) error {
 	if s.keys == nil {
 		_, err := s.client.PutObject(ctx, s.bucket, key, r, size, minio.PutObjectOptions{ContentType: contentType})

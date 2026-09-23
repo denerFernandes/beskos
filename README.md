@@ -3,10 +3,10 @@
 Control plane (Go) + webmail/panel (React) on top of **Stalwart** (email engine, used without
 modification, only over the network). See [project.md](project.md) for the full brief.
 
-> 📋 **Full feature list (status of each one):** [docs/FUNCIONALIDADES.md](docs/FUNCIONALIDADES.md)
+> 📋 **Full feature list (status of each one):** [docs/FEATURES.md](docs/FEATURES.md)
 
 > **Read before anything else:**
-> - [CLAUDE.md](CLAUDE.md) — the **project laws** (simplicity, Go standards, files ≤600 lines,
+> - [docs/engineering-standards.md](docs/engineering-standards.md) — the **project laws** (simplicity, Go standards, files ≤600 lines,
 >   separation of concerns, mandatory i18n). All code follows them.
 > - [deploy/DIVERGENCES.md](deploy/DIVERGENCES.md) — the pinned version (Stalwart v0.16.4) **removed
 >   the REST Management API** that brief §6 assumes; all administration goes through JMAP. Source of

@@ -1,6 +1,6 @@
 package httpapi
 
-// The bridge between the Server and the Enterprise billing logic in ee/ (see CLAUDE.md's laws on
+// The bridge between the Server and the Enterprise billing logic in ee/ (see the engineering standards on
 // Community/Enterprise separation). Always compiled: a Community build still needs accountState
 // and syncSeats to exist (ee.AccountState/ee.SyncSeats have a !pro no-op twin), even though the
 // routes calling ee's checkout/signup handlers only mount under -tags pro (billing_routes_pro.go).

@@ -1,7 +1,7 @@
 -- +goose Up
 -- As últimas doze colunas em português do esquema. Como o `dominio` da 00129, cada uma arrastava o
 -- nome até ao Go gerado (`Nome`, `Plano`, `Tamanho`) e daí até ao JSON da API — um descuido de
--- nomenclatura que acabou a ser contrato público. Ver CLAUDE.md §4.6.
+-- nomenclatura que acabou a ser contrato público. Ver docs/engineering-standards.md §4.6.
 --
 -- Nenhuma colide com uma coluna inglesa já existente na mesma tabela: foi verificado tabela a
 -- tabela antes de escrever isto, incluindo os ADD/DROP COLUMN das migrações posteriores.

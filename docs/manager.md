@@ -1,7 +1,7 @@
 # Manager — Beskos SaaS Operator Console
 
 > Status: **design approved for kickoff** (2026-07-22). Living document, follows the laws in
-> [CLAUDE.md](../CLAUDE.md). Code, logs and `error_code` in English (law 4.6).
+> [docs/engineering-standards.md](engineering-standards.md). Code, logs and `error_code` in English (law 4.6).
 > One phase at a time (§9): do not start M(n+1) before M(n) is tested.
 
 ### Losing access to the console (recovery)

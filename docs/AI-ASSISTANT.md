@@ -3,7 +3,7 @@
 Status: **engine complete**. Phases A0 through A7 (plus A3b) done and covered by tests. Still
 missing: live end-to-end proof (real DeepSeek + Stalwart + Postgres); see "Final state of the
 engine" and each phase's "live proof pending" notes.
-Complements [project.md](../project.md) and the [project laws](../CLAUDE.md).
+Complements [project.md](../project.md) and the [project laws](engineering-standards.md).
 
 ---
 

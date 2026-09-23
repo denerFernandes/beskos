@@ -60,7 +60,7 @@ problem, never a runtime one that could silently change mid-process):
   expired past the grace period below -- **`Load()` returns an error and the process refuses to
   start.** It does not fall back to Community.
 
-That second behavior is intentional, not an oversight, and follows CLAUDE.md law §2.9 directly:
+That second behavior is intentional, not an oversight, and follows law §2.9 directly:
 *"ainda não" tem de ser distinguível de "nunca"* -- "not yet" has to stay distinguishable from
 "never." A customer who paid for Pro and has a key configured is in a different state than a
 customer who never configured one at all. Silently downgrading the first case to Community would

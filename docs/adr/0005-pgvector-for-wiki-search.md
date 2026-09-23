@@ -40,7 +40,7 @@ feature off entirely: the wiki keeps working, only semantic search is unavailabl
 "missing config disables the feature cleanly" pattern used for OnlyOffice and LiveKit.
 
 Every query against `wiki_chunks` joins through the wiki's own permission CTE and filters by
-`tenant_id` before it filters by vector distance -- law CLAUDE.md §5.1 applies to a semantic
+`tenant_id` before it filters by vector distance -- law §5.1 applies to a semantic
 search index exactly as it applies to any other table holding customer data.
 
 ## Consequences

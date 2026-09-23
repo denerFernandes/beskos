@@ -183,8 +183,8 @@ What stands in the way of publishing as-is:
 | Personal data | the founder's personal email seeded in migration `00106_manager_admin.sql` | §4 F1 |
 | Junk under version control | `deploy/__pycache__/*.pyc`, `frontend/tsconfig.tsbuildinfo` | §4 F1 |
 | Gitlink to a private repository | `landing` (commit `f2b33ff`) | §4 F1 |
-| Internal documentation | `project.md` (the brief), `docs/manager.md`, the production-readiness assessment doc, `ROADMAP*.md`, `GAPS-FUNCIONALIDADES.md`, `landing-europa.md`, `deploy/provision/*` (our own CapRover setup) | §4 F1 |
-| All documentation in Portuguese | 13 documents in `docs/`, the README, `CLAUDE.md` | §4 F6 |
+| Internal documentation | `project.md` (the brief), `docs/manager.md`, the production-readiness assessment doc, `ROADMAP*.md`, `FEATURE-GAPS.md`, `landing-europa.md`, `deploy/provision/*` (our own CapRover setup) | §4 F1 |
+| All documentation in Portuguese | 13 documents in `docs/`, the README, the project laws | §4 F6 |
 | Only 2 languages in the app | `pt-BR`, `en` (the landing page has 8) | optional |
 
 ## 3. Community / Pro / Cloud architecture
@@ -407,10 +407,8 @@ tests and the Cloud's own defaults file.
   in CI (70% on business-logic packages) is still to do.
 - **Tooling:** `golangci-lint`, strict `eslint`+`typescript-eslint`, `cargo clippy -D warnings` —
   none of them in CI yet.
-- **CLAUDE.md/AGENTS.md → CONTRIBUTING.md:** partly done — `CONTRIBUTING.md` already summarizes
-  the laws in English; `CLAUDE.md` and `AGENTS.md` are now also in English (translated
-  2026-09-15, along with every other doc in this pass) and remain the full, canonical document;
-  `CONTRIBUTING.md` doesn't yet point to them as the fuller reference.
+- **Project laws → CONTRIBUTING.md:** done — the laws live in `docs/engineering-standards.md`,
+  in English, and `CONTRIBUTING.md` points to it as the fuller reference.
 - **Found this round:** `scripts/check_laws.py` itself had a git rename-detection bug — a file
   split that git recognizes as a rename (≥50% similarity) hid the old path from the diff, and the
   "a moved line doesn't count as new" mechanism (`moved_pool`) never saw the original content.
@@ -418,7 +416,7 @@ tests and the Cloud's own defaults file.
   reproduced and confirmed locally before and after. **Found again on 2026-09-15, same day:** the
   language check itself exempted every `.md` file — law 4.6 said "code and documentation," but
   the machine only ever checked code. Fixed by making `.md` files checkable for language (never
-  for the 600-line ceiling, which was written for source files). CLAUDE.md and AGENTS.md
+  for the 600-line ceiling, which was written for source files). The laws file and AGENTS.md
   translated in the same commit as the fix, since it was blocking on their existing Portuguese
   text the moment it started checking new lines in them properly.
 - **Done when:** `comment_audit.py` reads zero, `check_laws.py` has no exceptions, linting is green.

@@ -71,7 +71,7 @@ clean: ## Cleans build artifacts (dist + the Rust target dir)
 	rm -rf $(FRONTEND)/dist
 	cd $(FRONTEND)/src-tauri && cargo clean
 
-check: ## Checks CLAUDE.md's laws on new lines (language and file size)
+check: ## Checks the engineering standards on new lines (language and file size)
 	@python3 scripts/check_laws.py && echo "laws: ok"
 	@python3 scripts/check_docs.py
 	@python3 scripts/check_register.py

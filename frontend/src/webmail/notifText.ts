@@ -1,7 +1,7 @@
 import type { TFunction } from "i18next";
 import type { Notif } from "./backend";
 
-// Translates an in-app notification into the user's language (CLAUDE.md §4.6): the backend sends
+// Translates an in-app notification into the user's language (docs/engineering-standards.md §4.6): the backend sends
 // a structured `kind` + `args`; here we build the text via `server.notif.<kind>`. The title is
 // always translated; the body only when a `.b` key exists (meeting/event/file). For chat/task the
 // body is user content (comment/preview) and falls into `defaultValue` = the raw stored text. Old
