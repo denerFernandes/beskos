@@ -36,9 +36,10 @@ content when an embeddings provider is configured.
 
 ## AI assistant
 
-A generic provider interface (`backend/internal/ai`) behind an agentic engine that can summarize
-a thread, draft a reply in your tone, extract tasks, and act on tools it's been granted access to
--- always with the API key held server-side, never in the browser.
+An agentic engine that can summarize a thread, draft a reply in your tone, extract tasks, and act
+on tools it has been granted access to -- always with the API key held server-side, never in the
+browser. It speaks the OpenAI-compatible chat API, so it runs on any endpoint that implements it,
+including a local runtime such as Ollama or vLLM when content should not leave the installation.
 
 ## Security
 

@@ -128,6 +128,33 @@ Create the organization in the panel, add a domain (auto-provisions with
 > AI is disabled without `AI_API_KEY` (endpoints respond 503); SMS uses `log` mode
 > (the code shows up in `docker compose logs api`); billing uses `manual` mode.
 
+## AI assistant
+
+The assistant speaks the OpenAI-compatible chat API (`POST {base}/chat/completions`), so it works
+with any endpoint that implements it: OpenAI and Azure OpenAI, Mistral, Groq, Together, OpenRouter,
+DeepSeek, TensorX, and local runtimes such as Ollama, vLLM, llama.cpp or LM Studio.
+
+| Variable | |
+|---|---|
+| `AI_API_KEY` | Enables the assistant. Empty = off, and the AI endpoints answer 503. A runtime with no authentication, such as Ollama, accepts any value. |
+| `AI_PROVIDER` | A label for logs. `deepseek`, `tensorx`, `openai` and `ollama` also fill in the address. |
+| `AI_BASE_URL` | Required for any provider that is not one of those four. |
+| `AI_MODEL` | Required, except with `deepseek` and `tensorx`, which carry a default. |
+| `AI_REASONING` | `on` lets the model reason before answering, where the endpoint supports it. |
+
+```bash
+AI_PROVIDER=openai  AI_MODEL=gpt-4o-mini  AI_API_KEY=sk-...
+AI_PROVIDER=ollama  AI_MODEL=llama3.1     AI_API_KEY=unused        # nothing leaves the machine
+AI_PROVIDER=groq    AI_BASE_URL=https://api.groq.com/openai/v1  AI_MODEL=llama-3.3-70b-versatile  AI_API_KEY=...
+```
+
+The wiki's semantic search uses a separate embeddings endpoint, configured the same way:
+`EMBEDDINGS_API_KEY`, `EMBEDDINGS_BASE_URL` and `EMBEDDINGS_MODEL`, all three required together,
+plus `EMBEDDINGS_DIMENSIONS` (default 1536, which must match the database column).
+
+At startup the API logs `AI enabled (provider=…)`, `AI disabled (no AI_API_KEY)`, or
+`AI MISCONFIGURED` followed by the variable that is missing.
+
 ## Meet (video calling) — LiveKit/Egress networking
 
 Meet uses **LiveKit** (WebRTC SFU) + **Egress** (recording), running as network-only services.

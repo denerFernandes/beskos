@@ -1,7 +1,7 @@
 # Wiki / Knowledge Base (Confluence-style) — Specification
 
 > Status: **design draft** (Phase 0). Living document. Follows the laws in [CLAUDE.md](../CLAUDE.md)
-> and the constraints in [project.md](project.md). Prose in English; **code, logs and `error_code`
+> and the constraints in [project.md](../project.md). Prose in English; **code, logs and `error_code`
 > always in English** (law 4.6). One phase at a time (§9): do not start Phase N+1 before N is tested.
 
 ## 1. What it is and why
@@ -253,7 +253,7 @@ on `vector_cosine_ops`.
 > include/enable it (`CREATE EXTENSION IF NOT EXISTS vector` in a migration). The **embeddings
 > provider** is still to be chosen (an operational decision that doesn't block the schema —
 > `vector(D)` just pins the dimension to the provider): DeepSeek
-> ([deepseek.go](../backend/internal/ai/deepseek.go)) isn't strong at embeddings; options =
+> ([openai.go](../backend/internal/ai/openai.go)) isn't strong at embeddings; options =
 > a dedicated embeddings endpoint (key/URL via `internal/config`, law 2.6) or a local model. Set
 > `D` and the embeddings client at the start of Phase 3.
 

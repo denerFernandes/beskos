@@ -68,6 +68,22 @@ rejected or filed as spam regardless. Publishing correct DNS for every domain yo
 Stalwart's job once Beskos hands it the records at `GET /api/domains/{id}/dns/check`; getting
 your provider to route port 25 is yours.
 
+## AI assistant
+
+The assistant and the editor's AI panel are off until `AI_API_KEY` is set. They speak the
+OpenAI-compatible chat API, so any endpoint that implements it works; `AI_PROVIDER`, `AI_BASE_URL`
+and `AI_MODEL` select which one. The full list of variables, with examples, is in the README and in
+[deploy/.env.example](../deploy/.env.example).
+
+The choice of endpoint decides where the content of mail, documents and chat is processed when
+somebody uses the assistant. A vendor's cloud endpoint processes it under that vendor's terms and
+jurisdiction. A local runtime -- Ollama, vLLM, llama.cpp, LM Studio -- on the same machine or the
+same network processes it without it leaving the installation.
+
+The startup log states the outcome: `AI enabled (provider=…)`, `AI disabled (no AI_API_KEY)`, or
+`AI MISCONFIGURED` followed by the variable that is missing. The last one is the one to look for
+after a change; the rest of the product starts normally with the assistant off.
+
 ## Backups
 
 [deploy/backup/](../deploy/backup/) has scripts for a full backup and restore of Postgres, the

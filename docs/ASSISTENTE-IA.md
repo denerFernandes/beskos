@@ -31,7 +31,7 @@ replies, extracts tasks, parses events in natural language, and suggests times.
 > provider implements it** — DeepSeek only has `Complete`. Streaming is work yet to be done and
 > belongs to phase A1, which is where the bubble needs it.
 >
-> **Done in A1:** DeepSeek now implements `Stream` (`internal/ai/deepseek_stream.go`).
+> **Done in A1:** DeepSeek now implements `Stream` (`internal/ai/openai_stream.go`).
 
 But it's all **single-step**: a prompt goes in, text comes out. There is no:
 
@@ -598,7 +598,7 @@ safe. Building background tasks before it would give an agent autonomy without a
 
 | Where | What |
 |---|---|
-| `internal/ai/{ai,deepseek}.go` | Tool calling in `Provider`: `Request.Tools`, `Response.ToolCalls`, `RoleTool`. The `wire*` types isolate the OpenAI format from the domain, so switching providers means writing another translation |
+| `internal/ai/{ai,openai}.go` | Tool calling in `Provider`: `Request.Tools`, `Response.ToolCalls`, `RoleTool`. The `wire*` types isolate the OpenAI format from the domain, so switching providers means writing another translation |
 | `internal/assistant/engine.go` | Think → act → observe loop, with a **12-step ceiling** (`DefaultMaxSteps`) and an untrusted-data envelope |
 | `internal/assistant/tools.go` | Catalog, schemas, and dispatch; per-agent allow-list validated **on the server** |
 | `internal/assistant/agent.go` | Built-in `assistant` agent, defined in code and immutable (`Builtin` returns a copy) |
@@ -625,7 +625,7 @@ persisted conversations (A1), writing and confirmation (A2), automatic routing b
 
 | Where | What |
 |---|---|
-| `internal/ai/deepseek_stream.go` | `Stream` on DeepSeek — `StreamingProvider` stops being just a declaration (the correction from §2). It reassembles tool calls, which arrive fragmented by index |
+| `internal/ai/openai_stream.go` | `Stream` on DeepSeek — `StreamingProvider` stops being just a declaration (the correction from §2). It reassembles tool calls, which arrive fragmented by index |
 | `internal/assistant/stream.go` | Events (`delta`, `step`, `done`) and the choice between `Stream` and `Complete`. The loop doesn't know which one ran — that's what keeps streaming from becoming a second engine |
 | `internal/assistant/engine.go` | `RunStream` with `RunOptions` (message, history, conversation). `Run` stays as a shortcut, without touching A0's callers |
 | `migrations/00081_*.sql` | `assistant_conversations`, `assistant_messages`, and the `conversation_id` column in the audit log — the one A0 had already planned for |
@@ -995,7 +995,7 @@ Decision 1 deserves a note: choosing a broad scope **increases** what an injecti
 reach. That's why individual confirmation (§6.3) stops being a good practice and becomes what the
 design rests on — and why phase A2 comes before A3 and A4.
 
-| 5 | **DeepSeek only**, for now | A0 starts without building an abstraction before knowing what it needs to hide. The `ai.Provider` interface already isolates enough to switch later |
+| 5 | ~~**DeepSeek only**, for now~~ **Superseded 2026-09-23:** any OpenAI-compatible endpoint | A0 started without building an abstraction before knowing what it needed to hide, and the `ai.Provider` interface held: the change was a configuration allowlist and one proprietary request field, not a new client. See `internal/ai/config.go` |
 | 6 | **Quota on a 6-hour sliding window**, tied to the plan later; step ceiling from the start | Two distinct limits, §9.1. For now, one default equal for everyone |
 | 7 | **90-day retention**, by plan later | §8.5. Fact memory survives cleanup |
 | 8 | **Four forbidden memory categories** | §6.5, with the table closed |

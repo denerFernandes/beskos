@@ -12,7 +12,9 @@ else -- webmail, Drive, wiki, Kanban, video meetings, an AI assistant -- is buil
 - **Files**: a Drive with folders, sharing, and in-browser editing of Word/Excel/PowerPoint documents (OnlyOffice).
 - **Chat & Kanban**: real-time channels and a lightweight board, in the same app as your email.
 - **Wiki**: a Confluence-style knowledge base with access by group or person, and AI-powered search.
-- **AI assistant**: summarize, draft, and act on your mail and documents, using an AI provider you configure.
+- **AI assistant**: summarize, draft, and act on your mail and documents. It runs on any
+  OpenAI-compatible endpoint -- a vendor's API, or a local runtime such as Ollama or vLLM when
+  content should stay on your own infrastructure ([configuration](docs/self-hosting.md#ai-assistant)).
 - **Security**: RBAC with per-member permission overrides, invites, MFA (TOTP and SMS), audit-friendly logging.
 - **A native app**: desktop and mobile builds (Tauri) with two-way folder sync to the Drive.
 
