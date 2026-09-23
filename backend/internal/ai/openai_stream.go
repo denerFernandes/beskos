@@ -41,7 +41,7 @@ type streamCallFrag struct {
 //
 // The returned Response is equivalent to Complete's: the caller does not need to know which one
 // was used.
-func (d *DeepSeek) Stream(ctx context.Context, req Request, onDelta func(string)) (Response, error) {
+func (d *Client) Stream(ctx context.Context, req Request, onDelta func(string)) (Response, error) {
 	payload, err := json.Marshal(chatRequest{
 		Model:       d.model,
 		Messages:    toWire(req.Messages),

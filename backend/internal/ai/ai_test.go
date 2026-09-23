@@ -97,8 +97,14 @@ func TestNewProviderSelection(t *testing.T) {
 	if _, err := New(Config{Provider: "deepseek"}); err == nil {
 		t.Errorf("should fail without an API key")
 	}
-	if _, err := New(Config{Provider: "inexistente", APIKey: "k"}); err == nil {
-		t.Errorf("unknown provider should fail")
+	// A name that is not a preset is no longer refused: the protocol is the same wherever it is
+	// served. What it needs is an address, and the error has to say so.
+	_, err := New(Config{Provider: "acme-llm", APIKey: "k"})
+	if err == nil {
+		t.Fatal("a provider with no preset and no AI_BASE_URL should fail")
+	}
+	if !strings.Contains(err.Error(), "AI_BASE_URL") {
+		t.Errorf("the error must name what is missing, got: %v", err)
 	}
 	// TensorX is what keeps the content inside the EU. Without this case, startup says "unknown
 	// provider", AI is silently disabled, and the app answers 503 — that is what happened.
@@ -106,7 +112,7 @@ func TestNewProviderSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("tensorx should build: %v", err)
 	}
-	d, ok := p.(*DeepSeek)
+	d, ok := p.(*Client)
 	if !ok {
 		t.Fatalf("tensorx should use the OpenAI-compatible client, got %T", p)
 	}
@@ -143,7 +149,7 @@ func TestDeepSeekComplete(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := NewDeepSeek("secret-key", srv.URL, "deepseek-v4")
+	d := NewClient(ClientOptions{APIKey: "secret-key", BaseURL: srv.URL, Model: "deepseek-v4"})
 	resp, err := d.Complete(context.Background(), Request{Messages: []Message{{Role: RoleUser, Content: "hi"}}})
 	if err != nil {
 		t.Fatal(err)
@@ -168,8 +174,71 @@ func TestDeepSeekError(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":{"message":"invalid key","type":"auth"}}`))
 	}))
 	defer srv.Close()
-	d := NewDeepSeek("bad", srv.URL, "deepseek-v4")
+	d := NewClient(ClientOptions{APIKey: "bad", BaseURL: srv.URL, Model: "deepseek-v4"})
 	if _, err := d.Complete(context.Background(), Request{}); err == nil || !strings.Contains(err.Error(), "invalid key") {
 		t.Errorf("expected an auth error, got: %v", err)
+	}
+}
+
+// Any endpoint speaking the protocol is configurable, and the name is only a label. This is what
+// the allowlist made impossible: it accepted two names and refused every other, so an installation
+// could not point Beskos at OpenAI, at a local runtime, or at anything else.
+func TestGenericProviderIsAccepted(t *testing.T) {
+	p, err := New(Config{Provider: "acme-llm", APIKey: "k", BaseURL: "https://llm.acme.test/v1", Model: "m"})
+	if err != nil {
+		t.Fatalf("a provider with an address and a model should build: %v", err)
+	}
+	if p.Name() != "acme-llm" {
+		t.Errorf("Name() = %q, want acme-llm", p.Name())
+	}
+}
+
+// A preset that carries no default model must say which variable is missing, rather than failing
+// later at the first request with whatever the endpoint makes of an empty model (law 2.9).
+func TestPresetWithoutModelNamesWhatIsMissing(t *testing.T) {
+	_, err := New(Config{Provider: "openai", APIKey: "k"})
+	if err == nil {
+		t.Fatal("openai has no default model; this should fail at startup")
+	}
+	if !strings.Contains(err.Error(), "AI_MODEL") {
+		t.Errorf("the error must name AI_MODEL, got: %v", err)
+	}
+}
+
+// `thinking` is DeepSeek's own field and is not part of the protocol. A strict endpoint rejects an
+// unknown body parameter outright -- OpenAI answers 400 -- so it must never be sent anywhere it was
+// not declared to be understood. Generic support would otherwise compile, pass every other test,
+// and fail against the first provider anyone actually configured.
+func TestThinkingIsOnlySentWhereItIsUnderstood(t *testing.T) {
+	for _, tc := range []struct {
+		provider string
+		base     string
+		model    string
+		want     bool
+	}{
+		{provider: "deepseek", model: "m", want: true},
+		{provider: "tensorx", model: "m", want: true},
+		{provider: "openai", model: "m", want: false},
+		{provider: "acme-llm", base: "https://llm.acme.test/v1", model: "m", want: false},
+	} {
+		var body map[string]any
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
+		}))
+		p, err := New(Config{Provider: tc.provider, APIKey: "k", BaseURL: srv.URL, Model: tc.model})
+		if err != nil {
+			srv.Close()
+			t.Fatalf("%s: %v", tc.provider, err)
+		}
+		if _, err := p.Complete(context.Background(), Request{Messages: []Message{{Role: RoleUser, Content: "hi"}}}); err != nil {
+			srv.Close()
+			t.Fatalf("%s: %v", tc.provider, err)
+		}
+		srv.Close()
+		if _, sent := body["thinking"]; sent != tc.want {
+			t.Errorf("%s: thinking sent = %v, want %v", tc.provider, sent, tc.want)
+		}
 	}
 }

@@ -488,7 +488,13 @@ func main() {
 func startAssistantTasks(cfg *config.Config, q *db.Queries, sw *stalwart.Client) {
 	aiProvider, err := ai.New(ai.FromEnv())
 	if err != nil || aiProvider == nil {
-		log.Printf("assistant tasks disabled (no AI provider configured)")
+		// Same distinction the API makes: not configured is a choice, configured-and-broken is a
+		// fault, and they used to print the same sentence (law 2.9).
+		if os.Getenv("AI_API_KEY") == "" {
+			log.Printf("assistant tasks disabled (no AI_API_KEY)")
+		} else {
+			log.Printf("assistant tasks MISCONFIGURED -- a key is set but no provider could be built: %v", err)
+		}
 		return
 	}
 	// Optional storage: without MinIO, docs.create in background tasks returns a translatable

@@ -121,9 +121,14 @@ services:
       BRAND_NAME: "${BRAND_NAME:-Beskos}"
       BRAND_URL: "${BRAND_URL:-}"
       SALES_EMAIL: "${SALES_EMAIL:-}"
+      # Any endpoint speaking the OpenAI-compatible chat API. AI_PROVIDER is a label, and a
+      # preset when it is a known name; AI_BASE_URL is what points this anywhere else and was
+      # absent here, so setting it had no effect at all.
       AI_PROVIDER: "${AI_PROVIDER:-deepseek}"
+      AI_BASE_URL: "${AI_BASE_URL:-}"
+      AI_REASONING: "${AI_REASONING:-}"
       AI_API_KEY: "${AI_API_KEY:-}"
-      AI_MODEL: "${AI_MODEL:-deepseek-chat}"
+      AI_MODEL: "${AI_MODEL:-}"
       # Outbound mail for account/security notifications; submit through Stalwart itself on 465
       # (implicit TLS) -- Stalwart's own 587 listener closes the connection immediately, so that
       # port does not work here. INSECURE only makes sense with a self-signed cert in dev.

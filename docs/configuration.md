@@ -33,9 +33,9 @@ Every environment variable the backend reads, extracted directly from the source
 | `EDITION_LICENSE_KEY` | *(required or empty = off)* |
 | `EDITION_PUBLIC_KEY` | *(required or empty = off)* |
 | `EMBEDDINGS_API_KEY` | *(required or empty = off)* |
-| `EMBEDDINGS_BASE_URL` | `https://api.tensorx.ai/v1` |
+| `EMBEDDINGS_BASE_URL` | *(required or empty = off)* |
 | `EMBEDDINGS_DIMENSIONS` | *(required or empty = off)* |
-| `EMBEDDINGS_MODEL` | `qwen/qwen3-embedding-8b` |
+| `EMBEDDINGS_MODEL` | *(required or empty = off)* |
 | `FILES_HOST_URL` | *(required or empty = off)* |
 | `FILES_MAX_UPLOAD_BYTES` | `100<<30` |
 | `FILE_ENC_KEYS` | *(required or empty = off)* |

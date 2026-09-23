@@ -20,57 +20,68 @@ import (
 func wireToolName(s string) string   { return strings.ReplaceAll(s, ".", "_") }
 func domainToolName(s string) string { return strings.ReplaceAll(s, "_", ".") }
 
-// DeepSeek implements Provider via the OpenAI-compatible chat API
-// (POST {baseURL}/chat/completions). Beskos's default provider.
-type DeepSeek struct {
-	apiKey    string
-	baseURL   string
-	model     string
-	reasoning bool // v4 "thinks" before answering; off by default (latency)
+// Client implements Provider over the OpenAI-compatible chat API
+// (POST {baseURL}/chat/completions). That protocol is the one nearly every vendor and local
+// runtime speaks -- OpenAI and Azure, DeepSeek, Mistral, Groq, Together, OpenRouter, TensorX,
+// Ollama, vLLM, llama.cpp, LM Studio -- so pointing Beskos at a different model is an address and
+// a key, not another client.
+//
+// It used to be called DeepSeek, which was never true of the protocol and stopped being true of
+// the deployment: production has run on TensorX for months while every log line and metric still
+// said "deepseek".
+type Client struct {
+	apiKey  string
+	baseURL string
+	model   string
+	// thinking is DeepSeek's own request field, and the one thing here that is NOT part of the
+	// common protocol. A strict endpoint rejects an unknown body parameter outright -- OpenAI
+	// answers 400 -- so it is only ever sent to an endpoint declared to understand it. Without
+	// this the generic support would compile, pass its tests, and fail against the first real
+	// provider anyone configured.
+	thinking bool
+	// reasoning: when the endpoint understands `thinking`, whether to let the model think before
+	// answering. Off by default -- v4 emits its reasoning BEFORE the text, and in streaming the
+	// user watches nothing happen for seconds.
+	reasoning bool
 	http      *http.Client
-	// name identifies WHO serves the model (not the model itself). The same client serves DeepSeek
-	// directly and TensorX, which speaks the same protocol — and the difference between the two is
-	// the jurisdiction where the customer's content is processed. The startup log has to tell the
-	// truth about that.
+	// name identifies WHO serves the model, for logs and metrics. The same protocol reaches a
+	// vendor's cloud or a process on this machine, and the difference between them is the
+	// jurisdiction the customer's content is processed in.
 	name string
 }
 
-func NewDeepSeek(apiKey, baseURL, model string) *DeepSeek {
-	if baseURL == "" {
-		baseURL = "https://api.deepseek.com"
-	}
-	if model == "" {
-		// DeepSeek discontinued "deepseek-chat"; the API now only accepts the v4 models
-		// (deepseek-v4-flash / deepseek-v4-pro), which are reasoning models. Flash is the default
-		// (cheaper/faster); swap it via AI_MODEL. The text comes in `content` (`reasoning_content`
-		// is ignored).
-		model = "deepseek-v4-flash"
-	}
-	return &DeepSeek{
-		apiKey:  apiKey,
-		baseURL: baseURL,
-		model:   model,
-		// Reasoning OFF by default: v4 generates reasoning_content BEFORE the text, and in
-		// streaming the user stares at nothing for seconds (feels slow). Off, it answers
-		// immediately, like the old deepseek-chat. AI_REASONING=on re-enables it (stronger
-		// answers, slower).
+// ClientOptions is what a deployment actually chooses. Only APIKey and BaseURL are required, and
+// BaseURL is filled from the preset when the provider is a known name (config.go).
+type ClientOptions struct {
+	Name     string
+	APIKey   string
+	BaseURL  string
+	Model    string
+	Thinking bool // the endpoint understands DeepSeek's `thinking` field
+}
+
+func NewClient(o ClientOptions) *Client {
+	return &Client{
+		apiKey:    o.APIKey,
+		baseURL:   strings.TrimRight(o.BaseURL, "/"),
+		model:     o.Model,
+		thinking:  o.Thinking,
 		reasoning: os.Getenv("AI_REASONING") == "on",
+		name:      o.Name,
 		http:      &http.Client{Timeout: 60 * time.Second},
 	}
 }
 
-// thinkingParam returns the reasoning control for the request body: {"type":"disabled"} when
-// off (nil when on, so the model uses its own default). Only affects DeepSeek's v4 models.
-func (d *DeepSeek) thinkingParam() *thinkingOpt {
-	if d.reasoning {
+func (d *Client) thinkingParam() *thinkingOpt {
+	if !d.thinking || d.reasoning {
 		return nil
 	}
 	return &thinkingOpt{Type: "disabled"}
 }
 
-func (d *DeepSeek) Name() string {
+func (d *Client) Name() string {
 	if d.name == "" {
-		return "deepseek"
+		return "openai-compatible"
 	}
 	return d.name
 }
@@ -177,7 +188,7 @@ func fromWireCalls(calls []wireCall) []ToolCall {
 	return out
 }
 
-func (d *DeepSeek) Complete(ctx context.Context, req Request) (Response, error) {
+func (d *Client) Complete(ctx context.Context, req Request) (Response, error) {
 	payload, err := json.Marshal(chatRequest{
 		Model:       d.model,
 		Messages:    toWire(req.Messages),

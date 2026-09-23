@@ -79,7 +79,7 @@ func TestReadSSESkipsBadChunks(t *testing.T) {
 // DeepSeek implements the streaming interface. The interface was declared with no provider
 // fulfilling it; this test is what stops that from silently happening again.
 func TestDeepSeekIsStreamingProvider(t *testing.T) {
-	var _ StreamingProvider = NewDeepSeek("k", "", "")
+	var _ StreamingProvider = NewClient(ClientOptions{APIKey: "k"})
 }
 
 // REGRESSION: the OpenAI-compatible API rejects function names with a dot (^[a-zA-Z0-9_-]+$).

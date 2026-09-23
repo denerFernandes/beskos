@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -31,15 +33,27 @@ type Embedder struct {
 	hc   *http.Client
 }
 
-// NewEmbedderFromEnv reads the config from the environment and returns nil when disabled (no key):
+// NewEmbedderFromEnv reads the config from the environment and returns nil when disabled:
 //
-//	EMBEDDINGS_API_KEY     (required to enable)
-//	EMBEDDINGS_BASE_URL    (default "https://api.tensorx.ai/v1")
-//	EMBEDDINGS_MODEL       (default "qwen/qwen3-embedding-8b")
-//	EMBEDDINGS_DIMENSIONS  (default 1536 — must match the vector(N) column)
+//	EMBEDDINGS_API_KEY     required to enable
+//	EMBEDDINGS_BASE_URL    required -- any OpenAI-compatible /embeddings endpoint
+//	EMBEDDINGS_MODEL       required
+//	EMBEDDINGS_DIMENSIONS  default 1536 -- must match the vector(N) column
+//
+// The address and the model have no defaults on purpose. They used to default to one vendor's
+// endpoint, which meant an installation that set only the key sent that key -- and the text of
+// every wiki page -- to a company it had never chosen. A key belongs to whoever it was issued by,
+// and guessing that wrong is not a wrong answer, it is a disclosure.
 func NewEmbedderFromEnv() *Embedder {
 	key := os.Getenv("EMBEDDINGS_API_KEY")
 	if key == "" {
+		return nil
+	}
+	base, model := os.Getenv("EMBEDDINGS_BASE_URL"), os.Getenv("EMBEDDINGS_MODEL")
+	if base == "" || model == "" {
+		// Loud, because the alternative is a wiki whose semantic search silently never works and
+		// a screen that looks identical to one still indexing (law 2.9).
+		log.Printf("embeddings: EMBEDDINGS_API_KEY is set but EMBEDDINGS_BASE_URL and EMBEDDINGS_MODEL are not -- semantic search stays OFF")
 		return nil
 	}
 	dims := 1536
@@ -48,8 +62,8 @@ func NewEmbedderFromEnv() *Embedder {
 	}
 	return &Embedder{
 		apiKey:  key,
-		baseURL: getenv("EMBEDDINGS_BASE_URL", "https://api.tensorx.ai/v1"),
-		model:   getenv("EMBEDDINGS_MODEL", "qwen/qwen3-embedding-8b"),
+		baseURL: strings.TrimRight(base, "/"),
+		model:   model,
 		dims:    dims,
 		hc:      &http.Client{Timeout: 60 * time.Second},
 	}

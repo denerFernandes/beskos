@@ -52,7 +52,15 @@ func main() {
 	// AI: optional. Without AI_API_KEY, the AI endpoints respond 503 (feature disabled).
 	var aiProvider ai.Provider
 	if p, err := ai.New(ai.FromEnv()); err != nil {
-		log.Printf("AI disabled: %v", err)
+		// Two different situations printed the same line. No key at all means the assistant was
+		// never wanted; a key plus a broken endpoint means somebody configured it and it does not
+		// work -- and the product starts anyway, answering 503 to every AI request. That has
+		// already happened here once, unnoticed, for the length of a deployment (law 2.9).
+		if os.Getenv("AI_API_KEY") == "" {
+			log.Printf("AI disabled (no AI_API_KEY)")
+		} else {
+			log.Printf("AI MISCONFIGURED -- a key is set but the assistant cannot start: %v", err)
+		}
 	} else {
 		aiProvider = p
 		log.Printf("AI enabled (provider=%s)", p.Name())

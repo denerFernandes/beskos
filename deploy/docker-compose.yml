@@ -128,7 +128,12 @@ services:
       SES_ACCOUNT_ID: "${SES_ACCOUNT_ID:-}"
       SES_DKIM_SELECTOR: "${SES_DKIM_SELECTOR:-}"
       EMBEDDINGS_DIMENSIONS: "${EMBEDDINGS_DIMENSIONS:-}"
+      # Any endpoint speaking the OpenAI-compatible chat API. AI_PROVIDER is a label, and a
+      # preset when it is a known name; AI_BASE_URL is what points this anywhere else and was
+      # absent here, so setting it had no effect at all.
       AI_PROVIDER: "${AI_PROVIDER:-deepseek}"
+      AI_BASE_URL: "${AI_BASE_URL:-}"
+      AI_REASONING: "${AI_REASONING:-}"
       AI_API_KEY: "${AI_API_KEY:-}"
       # Notificações por e-mail: submissão pelo próprio Stalwart, porta 465 (TLS implícito).
       # A 587 do Stalwart NÃO serve — o listener fecha a ligação (medido em 15/07/2026).
@@ -139,7 +144,7 @@ services:
       NOTIFY_SMTP_PASSWORD: "${NOTIFY_SMTP_PASSWORD:-}"
       NOTIFY_FROM: "${NOTIFY_FROM:-}"
       NOTIFY_SMTP_INSECURE: "${NOTIFY_SMTP_INSECURE:-false}"
-      AI_MODEL: "${AI_MODEL:-deepseek-chat}"
+      AI_MODEL: "${AI_MODEL:-}"
       # Embeddings do RAG da wiki (OpenAI-compatível; docs/wiki-features.md §7.2). Sem a chave, o
       # worker de embedding e a busca semântica ficam desligados (fail-safe).
       EMBEDDINGS_API_KEY: "${EMBEDDINGS_API_KEY:-}"

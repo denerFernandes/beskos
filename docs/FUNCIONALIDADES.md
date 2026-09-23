@@ -72,10 +72,12 @@ Visual reference: interactive prototype of the full UI (artifact "ui-completa").
 | 4.14 | Monochrome icons (no emoji) in the webmail | ✅ | `currentColor` SVG set |
 | 3.10 | Unified Users and Members (1 list per role) | ✅ | creating a user provisions a mailbox + account; the list merges both by e-mail |
 
-## 5. AI assistant (generic provider — DeepSeek v4)
+## 5. AI assistant (any OpenAI-compatible endpoint)
 
-> **Generic AI interface** (`internal/ai`): the `Provider` abstracts the model, so switching/adding
-> a vendor (Claude, OpenAI, …) is just configuration (`AI_PROVIDER`). Current provider: **DeepSeek v4**.
+> **Generic AI interface** (`internal/ai`): the wire protocol is the OpenAI-compatible chat API,
+> which nearly every vendor and local runtime speaks -- OpenAI and Azure, Mistral, Groq, Together,
+> OpenRouter, DeepSeek, TensorX, Ollama, vLLM, llama.cpp, LM Studio. Pointing Beskos at a different
+> model is an address and a key (`AI_BASE_URL`, `AI_API_KEY`, `AI_MODEL`), not another client.
 > The API key lives **only on the backend** (law §3.5/§10), never on the frontend. The `Assistant`
 > layer is already implemented and tested; what remains is exposing the HTTP endpoints and wiring the UI.
 
@@ -168,7 +170,7 @@ Visual reference: interactive prototype of the full UI (artifact "ui-completa").
 3. ✅ **Phase 2** — Webmail core (read/send/search)
 4. 🎨 **Full UI validated** — Today, AI, Kanban, Calendar, unified Admin *(prototype approved)*
 5. ✅ **E-mail backend** — webmail session (end user against our API, validated on Stalwart),
-   **AI** endpoints (summarize/draft/extract-tasks/briefing, provider **DeepSeek v4**), **Kanban**
+   **AI** endpoints (summarize/draft/extract-tasks/briefing, any OpenAI-compatible provider), **Kanban**
    (boards/columns/cards + move), **flags**, and **calendar/events**. E2E green (`scripts/e2e-email-backend.sh`).
    *Still needs wiring into the React UI.*
 6. ✅ **UI wired to the backend**: webmail (AI/Kanban/calendar/files) + panel (RBAC/MFA/billing/usage)
