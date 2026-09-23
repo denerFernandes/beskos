@@ -31,7 +31,7 @@ origin.
    `internal/db` and the shared packages, but with **its own routes, sessions and port** (real
    isolation: a bug in the product never exposes the manager, and vice versa).
 3. **Mandatory TOTP login** — no exceptions, from the very first user.
-4. **Meet recording by plan** (decision from this session):
+4. **Meet recording by plan** (decided):
    - entry plan: **no recording**;
    - paid plans: **Track Egress + offline assembly** as the default (raw tracks come out almost
      free during the meeting; a job assembles the mp4 with ffmpeg off the hot path — "recording

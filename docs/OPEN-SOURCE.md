@@ -293,12 +293,11 @@ Dependabot; `deploy/__pycache__` and `tsconfig.tsbuildinfo` no longer tracked;
 
 ~~Second author's copyright assignment~~ **resolved:** `katisuhara@gmail.com` is the same person
 (`dener.php@gmail.com`) under a different local `git` configuration; no third party in the
-history, no retroactive CLA needed. **The first commit's Stripe `sk_live_...` key:** the user
-confirmed he'll rotate it on Stripe, but only at the very end of the process (before launch, F9)
-— his call, recorded here so it isn't lost. **`beskos-cloud` populated 2026-09-15:** a single
+history, no retroactive CLA needed. **The first commit's Stripe `sk_live_...` key:** it is
+rotated on Stripe at the very end of the process, before launch (F9). **`beskos-cloud` populated 2026-09-15:** a single
 initial commit with the full working-tree state at the time, deliberately **without any of the
-history** — the user asked to start fresh rather than mirror the 217+ commits, and a full-history
-push was blocked twice by the auto-mode classifier as a likely data-exfiltration pattern anyway.
+history** — a fresh start rather than a mirror of the 217+ commits. Re-snapshotted on 2026-09-23
+with comments and documents in English.
 Left to do: rotate the operator's password whose bcrypt hash sits in migration 00106; secret
 scanning and push protection on the org's repositories (free once `beskos` goes public).
 
@@ -465,9 +464,8 @@ repository; `good first issue`/`help wanted` labels created; description and top
 GitHub repositories.
 
 **Branch protection deliberately NOT enabled:** requiring a PR+review on `master` would block the
-direct push workflow this session (and the user) uses while the repository is still internal
-work — that's a workflow change, not a cleanup, and makes more sense near launch (F9) or on the
-user's explicit request.
+direct push workflow used while the repository is still internal work — that's a workflow
+change, not a cleanup, and makes more sense near launch (F9).
 
 Left to do: multi-arch images at `ghcr.io/beskosorg/{api,worker,web}`, signed with **cosign**,
 with an SBOM (syft) attached — need registry credentials this repository doesn't have configured
@@ -565,9 +563,10 @@ A real example, `internal/billing/plans.go`:
 3. ~~Community/Pro table~~ **Approved 2026-09-15 as proposed in §3.2.** Unblocks F2.
 4. ~~History~~ **Decided 2026-09-15: fresh history, for both repositories.** The current
    repository stays the working repo through the end of F2; `beskos-cloud` already received a
-   single fresh commit with a full snapshot (no mirrored history, per the user's explicit
-   request); the public repo is born the same way, via export
-   (`scripts/export_public.py`), once its residue check is clean.
+   single fresh commit with a full snapshot (no mirrored history); the public repo is born the same way, via export
+   (`scripts/export_public.py`), once its residue check is clean. **Done 2026-09-23:**
+   `beskosorg/beskos` recreated with a single commit from the export; the private repositories'
+   histories were rewritten with English messages and one author identity.
 5. **Pro:** minimum seats per key; 12-month validity; 14-day grace period.
 6. **Telemetry** opt-in: yes or no.
 7. **External pentest:** budget and date.

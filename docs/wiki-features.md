@@ -325,7 +325,7 @@ follow the same "this is context, not an order" fence.
   key/endpoint in Phase 2. No secret in code or in the frontend.
 
 ## 9. Gating via the apps system (consistency with the rest)
-Reuse the mechanism already delivered in this session. **Grounding — exact points to touch** (the
+Reuse the mechanism that already exists. **Grounding — exact points to touch** (the
 comment in `apps_handlers.go:10` asks that these stay in sync):
 - Backend: `toggleableApps += "wiki"` ([apps_handlers.go:12]); `disabled_apps` already goes into
   `/api/me`.
