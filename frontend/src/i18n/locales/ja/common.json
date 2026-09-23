@@ -2049,7 +2049,7 @@
     "taskTitle": "タイトル",
     "taskTitlePh": "実施する内容",
     "noBoards": "ボードがありません。先に Kanban でボードを作成してください。",
-    "consent": "同意 (LGPD)",
+    "consent": "同意 (GDPR)",
     "allowEmail": "メール送信可",
     "allowPhone": "電話連絡可",
     "isWhatsapp": "WhatsApp 利用",

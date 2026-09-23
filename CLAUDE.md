@@ -116,8 +116,13 @@ and the [Stalwart divergences](deploy/DIVERGENCES.md).
 
 4.8. **All text the user reads is formal and corporate.** Address the customer with their
      language's formal register — `usted`/`su` (es), `Sie`/`Ihr` (de), `vous`/`votre` (fr),
-     `lei`/`suo` (it), `u`/`uw` (nl), `Państwa` (pl), third person (pt). **Never** the informal
-     register: `tu`, `tú`, `du`, `je`/`jij`, `tuo`, `Twój` -- foreign pronouns quoted as data, lang:ok
+     `lei`/`suo` (it), `u`/`uw` (nl), `Państwa` (pl), `Vy`/`Váš` (cs), third person (pt), -- lang:ok
+     `您` (zh), です・ます (ja), formal Modern Standard Arabic (ar). **Never** the informal -- lang:ok
+     register: `tu`, `tú`, `du`, `je`/`jij`, `tuo`, `Twój`, `tvůj`, `你` -- foreign pronouns quoted as data, lang:ok
+     **One exception, by convention: Swedish and Norwegian address the reader as `du`.** That is
+     the register of software in both languages; the old polite pronouns (`Ni`, `De`) read there as
+     archaic rather than courteous. Prefer impersonal phrasing, and use `du` where a pronoun is
+     needed. Decided 2026-09-23.
      No exclamation marks, emoji, slang, or jokes; declarative sentences. Applies to the landing
      page, the documentation, the UI, and
      transactional messages (email, SMS) — **every surface**, because the customer doesn't know
