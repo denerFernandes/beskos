@@ -164,8 +164,8 @@
 .wm .ract .chipbtn:active{transform:translateY(1px);}
 /* Reply = primary action. */
 .wm .ract-main .chipbtn:first-child{background:var(--accent-solid);color:var(--on-accent);border-color:var(--accent);}
-.wm .ract-main .chipbtn:first-child svg{color:#fff;}
-.wm .ract-main .chipbtn:first-child:hover{filter:brightness(1.06);color:#fff;}
+.wm .ract-main .chipbtn:first-child svg{color:var(--on-accent);}
+.wm .ract-main .chipbtn:first-child:hover{filter:brightness(1.06);color:var(--on-accent);}
 /* Secondary group: extra space on the left of the first item (separation without a line). */
 /* No indent on the secondary group's 1st button: with flex-wrap it misaligned the 2nd line. */
 .wm .ract .chipbtn.notspam svg,.wm .ract .chipbtn.notspam:hover svg{color:#3aa88f;}
@@ -204,15 +204,17 @@
    Replaces the old row of ~13 buttons. Shared by desktop, web, and mobile. */
 .wm .ract .split{display:inline-flex;position:relative;}
 .wm .ract .split-main,.wm .ract .split-caret{background:var(--accent-solid);color:var(--on-accent);border:none;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;cursor:pointer;padding:9px 14px;}
-.wm .ract .split-main svg,.wm .ract .split-caret svg{color:#fff;}
+.wm .ract .split-main svg,.wm .ract .split-caret svg{color:var(--on-accent);}
 .wm .ract .split-main{border-radius:10px 0 0 10px;}
-.wm .ract .split-caret{border-radius:0 10px 10px 0;padding:9px 8px;border-left:1px solid rgba(255,255,255,.28);}
+.wm .ract .split-caret{border-radius:0 10px 10px 0;padding:9px 8px;border-left:1px solid color-mix(in srgb, var(--on-accent) 28%, transparent);}
 .wm .ract .split-main:hover,.wm .ract .split-caret:hover,.wm .ract .split-caret.on{filter:brightness(1.08);}
 .wm .ract .split .move-menu{left:0;right:auto;min-width:200px;}
 .wm .ract .split .move-menu button{display:flex;align-items:center;gap:9px;}
 .wm .ract .split .move-menu svg{color:var(--faint);}
 /* Triage icons (archive, snooze, delete) and the ⋯ — icon-only, subtle. */
-.wm .ract .iconbtn{width:40px;height:38px;border-radius:10px;border:1px solid transparent;background:var(--surface-2);color:var(--faint);display:grid;place-items:center;cursor:pointer;font-size:20px;line-height:1;transition:background .12s,color .12s;}
+/* --muted, not --faint: on the dark ground a --faint icon over --surface-2 is 2.4:1, which is
+   what a disabled control looks like. These are the reader's main actions. */
+.wm .ract .iconbtn{width:40px;height:38px;border-radius:10px;border:1px solid transparent;background:var(--surface-2);color:var(--muted);display:grid;place-items:center;cursor:pointer;font-size:20px;line-height:1;transition:background .12s,color .12s;}
 .wm .ract .iconbtn:hover,.wm .ract .iconbtn.on{background:var(--surface);border-color:var(--border-strong);color:var(--ink);}
 .wm .ract .iconbtn.danger:hover{background:rgba(180,77,58,.14);color:var(--danger,#c96c53);border-color:transparent;}
 .wm .ract .more-btn{font-size:23px;}
@@ -647,7 +649,7 @@
 /* Split send button: send | ▾ schedule */
 .wm .send-split{position:relative;display:inline-flex;}
 .wm .send-split .send:first-child{border-top-right-radius:0;border-bottom-right-radius:0;padding-right:16px;}
-.wm .send-split .send-more{border-left:1px solid rgba(255,255,255,.28);border-top-left-radius:0;border-bottom-left-radius:0;padding:10px 13px 10px 11px;gap:0;}
+.wm .send-split .send-more{border-left:1px solid color-mix(in srgb, var(--on-accent) 28%, transparent);border-top-left-radius:0;border-bottom-left-radius:0;padding:10px 13px 10px 11px;gap:0;}
 /* Scheduling menu (appears above the button) */
 .wm .sched-backdrop{position:fixed;inset:0;z-index:95;}
 .wm .sched-menu{position:absolute;bottom:calc(100% + 8px);left:0;z-index:96;background:var(--paper);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-pop);padding:6px;min-width:248px;}
@@ -839,7 +841,7 @@
 /* Drive "New" menu */
 .wm .chipbtn.primary{background:var(--accent-solid);color:var(--on-accent);border-color:var(--accent);}
 .wm .chipbtn.primary:hover{filter:brightness(1.06);background:var(--accent-solid);color:var(--on-accent);}
-.wm .chipbtn.primary:hover{filter:brightness(1.05);color:#fff;}
+.wm .chipbtn.primary:hover{filter:brightness(1.05);color:var(--on-accent);}
 .wm .new-wrap{position:relative;}
 .wm .menu-backdrop{position:fixed;inset:0;z-index:40;}
 .wm .new-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:41;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 32px rgba(20,17,24,.12);padding:6px;min-width:220px;display:flex;flex-direction:column;gap:2px;}
