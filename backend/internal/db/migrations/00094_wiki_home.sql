@@ -1,7 +1,8 @@
 -- +goose Up
--- Home personalizável da app Wiki (Bloco 2 B5): uma "página" por tenant, editada por admins da org
--- (PermOrgSettings) com o mesmo editor BlockNote, mostrada no ecrã inicial da Wiki no lugar do
--- "Selecione uma wiki". body_json (blocos BlockNote) é a fonte; text/html derivados como nas páginas.
+-- Customizable home of the Wiki app: one "page" per tenant, edited by org admins
+-- (PermOrgSettings) with the same BlockNote editor, shown on the Wiki start screen in place of the
+-- "select a wiki" prompt. body_json (BlockNote blocks) is the source; text/html are derived as in
+-- pages.
 CREATE TABLE wiki_home (
     tenant_id  UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
     body_json  JSONB NOT NULL DEFAULT '[]'::jsonb,

@@ -123,8 +123,8 @@ function ContactList({ search, onOpen }: { search: string; onOpen: (id: string) 
   );
 }
 
-// Empresa e pessoa na mesma lista: o quadrado distingue a empresa, e a pessoa mostra onde trabalha.
-// Cada card mostra a label do tipo (Empresa/Pessoa) — pedido: essa label em TODOS.
+// Company and person in the same list: the square marks a company, and a person shows where they
+// work. Every card shows the type label (company/person) -- on ALL of them.
 function Card({ c, onOpen }: { c: Contact; onOpen: () => void }) {
   const { t } = useTranslation();
   const sub = c.kind === "company" ? c.domain : [c.title, c.company_name ?? c.company].filter(Boolean).join(" · ");

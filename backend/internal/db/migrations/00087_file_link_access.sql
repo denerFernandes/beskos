@@ -1,9 +1,9 @@
 -- +goose Up
--- O link público (file_links) deixa de ser só "descarregar": passa a ABRIR o ficheiro (OnlyOffice,
--- sessão anónima), em modo ver ou editar, com a descarga como opção separada — o modelo do Google.
---   permission: 'view' (só ler) | 'edit' (editar anonimamente). Default 'view' (o mais seguro).
---   allow_download: se quem abre pode descarregar. Default true para os links já existentes, que
---                   eram exatamente links de descarga, continuarem a funcionar como antes.
+-- The public link (file_links) is no longer just "download": it now OPENS the file (OnlyOffice,
+-- anonymous session), in view or edit mode, with download as a separate option — the Google model.
+--   permission: 'view' (read only) | 'edit' (edit anonymously). Default 'view' (the safest).
+--   allow_download: whether whoever opens it can download. Default true so that existing links,
+--                   which were exactly download links, keep working as before.
 ALTER TABLE file_links ADD COLUMN permission TEXT NOT NULL DEFAULT 'view';
 ALTER TABLE file_links ADD COLUMN allow_download BOOLEAN NOT NULL DEFAULT true;
 

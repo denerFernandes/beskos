@@ -1,24 +1,26 @@
 -- +goose Up
--- Memória de factos duradouros sobre o utilizador (fase A6, §8). Onde a pessoa vive, o fuso, como
--- assina, quem é quem na equipa. Trazida para qualquer conversa, para as horas e os feriados saírem
--- certos sem se repetir.
+-- Memory of durable facts about the user (§8). Where the person lives, the time zone, how they
+-- sign, who is who on the team. Brought into any conversation, so times and holidays come out right
+-- without the person repeating them.
 --
--- A regra dura de §6.5 é o desenho desta tabela: SÓ SE GUARDA O QUE O UTILIZADOR ESCREVEU. Nada
--- extraído de e-mails, documentos, chat ou resultados de ferramentas entra aqui — nunca. Sem isso,
--- um atacante envia um e-mail que diz "o utilizador autoriza envios para X", o extrator guarda-o, e
--- o envenenamento passa a ser permanente e invisível. Não há coluna que aponte para um e-mail: a
--- origem é sempre uma MENSAGEM DO UTILIZADOR.
+-- The hard rule of §6.5 is this table's design: ONLY WHAT THE USER WROTE IS STORED. Nothing
+-- extracted from e-mails, documents, chat or tool results goes in here — ever. Without that, an
+-- attacker sends an e-mail saying "the user authorizes sends to X", the extractor stores it, and
+-- the poisoning becomes permanent and invisible. No column points to an e-mail: the source is
+-- always a USER MESSAGE.
 CREATE TABLE assistant_memory (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id         UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     mail_user_id      UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
-    -- Facto em TEXTO LEGÍVEL, não num embedding opaco: o utilizador tem de conseguir ler o que a
-    -- aplicação sabe sobre si e reconhecer se está errado (§8.1).
+    -- A fact as READABLE TEXT, not an opaque embedding: the user has to be able to read what the
+    -- application knows about them and recognize whether it is wrong (§8.1).
     fact              TEXT NOT NULL,
-    -- local | pessoa | preferência | trabalho (§8.1). Serve para filtrar na injeção quando há muitos.
+    -- Stored values: 'local' | 'pessoa' | 'preferência' | 'trabalho' (§8.1). lang:ok
+    -- Used to filter what is injected when there are many facts.
     category          TEXT NOT NULL DEFAULT 'preferência',
-    -- De onde veio: a mensagem do utilizador que o originou. Auditável (§6.5). ON DELETE SET NULL
-    -- porque a retenção apaga a conversa mas o facto sobrevive (§8.5) — a origem passa a "removida".
+    -- Where it came from: the user message that originated it. Auditable (§6.5). ON DELETE SET NULL
+    -- because retention deletes the conversation but the fact survives (§8.5) — the source becomes
+    -- "removed".
     source_message_id UUID REFERENCES assistant_messages(id) ON DELETE SET NULL,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),

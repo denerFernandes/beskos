@@ -1,9 +1,9 @@
 -- +goose Up
--- Backend de e-mail (features nossas): sessão do webmail, marcadores, Kanban e calendário.
--- Leitura/envio de e-mail continua JMAP direto (brief §4); estas tabelas são a nossa camada.
+-- Email backend (our own features): webmail session, labels, Kanban and calendar.
+-- Reading/sending email stays direct JMAP (brief §4); these tables are our layer.
 
--- Sessão do usuário FINAL na nossa API (distinta do painel). Criada validando a credencial
--- do mailbox contra o Stalwart; vincula à mail_user (e portanto ao tenant).
+-- Session of the END user on our API (distinct from the panel). Created by validating the mailbox
+-- credential against Stalwart; linked to the mail_user (and therefore to the tenant).
 CREATE TABLE webmail_sessions (
     token        TEXT PRIMARY KEY,
     mail_user_id UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
@@ -11,7 +11,7 @@ CREATE TABLE webmail_sessions (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Marcadores por tenant (catálogo). A aplicação em e-mails é via keywords JMAP no frontend.
+-- Labels per tenant (catalog). Applying them to emails is done via JMAP keywords in the frontend.
 CREATE TABLE labels (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -21,7 +21,7 @@ CREATE TABLE labels (
     UNIQUE (tenant_id, name)
 );
 
--- Kanban: quadros compartilhados por tenant, colunas ordenadas, cards.
+-- Kanban: boards shared per tenant, ordered columns, cards.
 CREATE TABLE boards (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -48,12 +48,12 @@ CREATE TABLE cards (
     label           TEXT NOT NULL DEFAULT '',
     assignee        TEXT NOT NULL DEFAULT '',
     due             TEXT NOT NULL DEFAULT '',
-    source_email_id TEXT NOT NULL DEFAULT '',   -- e-mail de origem (email→tarefa)
+    source_email_id TEXT NOT NULL DEFAULT '',   -- source email (email→task)
     position        INT NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Calendário: eventos por usuário final (nossa camada; sync JMAP Calendars fica para depois).
+-- Calendar: events per end user (our layer; JMAP Calendars sync comes later).
 CREATE TABLE events (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

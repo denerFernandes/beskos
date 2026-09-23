@@ -66,7 +66,7 @@ func TestOnlyOfficeSourceURLNotRequiredWhenOnlyOfficeDisabled(t *testing.T) {
 // DevSignupEnabled mounts an unauthenticated, unlimited tenant-creation route meant only for the
 // e2e scripts. A production boot must refuse it outright rather than trust that whoever set the
 // env var meant to -- unlike SIGNUPS_OPEN, there is no legitimate reason for this to be true on a
-// real deployment, so it gets a hard refusal instead of a warning (audit P6).
+// real deployment, so it gets a hard refusal instead of a warning (security audit).
 func TestDevSignupEnabledRefusedInProduction(t *testing.T) {
 	setProductionBase(t)
 	t.Setenv("DEV_SIGNUP_ENABLED", "true")

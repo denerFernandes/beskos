@@ -1,7 +1,7 @@
 -- +goose Up
--- Trancar sala a novas entradas: diferente de lock_until_host ("espera o organizador"). Quando o host
--- tranca, NINGUÉM novo entra (interno ou externo), só o próprio host reentra. O lobby de aprovação só
--- vale p/ convidado externo; esta tranca é dura e vale para todos.
+-- Lock the room to new entries: distinct from lock_until_host ("wait for the organizer"). When the
+-- host locks it, NO ONE new gets in (internal or external); only the host can rejoin. The approval
+-- lobby only applies to external guests; this lock is hard and applies to everyone.
 ALTER TABLE meetings ADD COLUMN locked BOOLEAN NOT NULL DEFAULT false;
 
 -- +goose Down

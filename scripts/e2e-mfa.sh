@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2E de segurança do MFA: enrollment TOTP + SMS, login em 2 passos, rate-limit, recovery único.
+# MFA security E2E: TOTP + SMS enrollment, 2-step login, rate limit, single-use recovery.
 set -euo pipefail
 PG=mfa-pg; PGPORT=55438; APIPORT=8205
 BACKEND="$(cd "$(dirname "$0")/../backend" && pwd)"

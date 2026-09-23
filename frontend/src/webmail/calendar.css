@@ -17,7 +17,7 @@
 .wm .csw-fbchip{max-width:100%;}
 .wm .csw-fbchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
-/* ── Painel principal ── */
+/* ── Main panel ── */
 .wm .calsw-main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;background:var(--surface);}
 .wm .csw-top{display:flex;align-items:center;gap:8px;padding:16px 20px 10px;flex-wrap:wrap;}
 .wm .csw-title{display:flex;align-items:center;gap:6px;}
@@ -45,7 +45,7 @@
 .wm .csw-ev .tm{font-size:10.5px;font-weight:550;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .wm .csw-ev.past{opacity:.55;}
 .wm .csw-ev.invited{border-style:dashed;border-color:color-mix(in srgb,var(--evc,var(--accent)) 60%,transparent);}
-/* semana/dia: bloco absoluto na coluna */
+/* week/day: absolute block in the column */
 .wm .csw-ev.block{position:absolute;inset-inline-start:5px;inset-inline-end:7px;z-index:1;display:flex;flex-direction:column;gap:2px;padding:8px 10px;}
 .wm .csw-ev.block.draggable{cursor:grab;}
 .wm .csw-ev.block.dragging{cursor:grabbing;z-index:6;box-shadow:0 12px 28px rgba(20,17,24,.22);}
@@ -56,19 +56,19 @@
 .wm .csw-ev.sm.allday{background:var(--evc,var(--accent));border-color:transparent;}
 .wm .csw-ev.sm.allday .csw-ev-t{color:#fff;}
 .wm .csw-ev.sm.busy{background:transparent;border:1.5px dashed currentColor;padding:4px 8px;font-size:10.5px;font-weight:650;border-radius:9px;}
-/* lista: linha horizontal */
+/* list: horizontal row */
 .wm .csw-ev.row{display:flex;align-items:center;gap:12px;padding:10px 13px;border-radius:12px;width:100%;}
 .wm .csw-ev.row .csw-ev-t{flex:none;max-width:40%;}
 .wm .csw-ev.row .tm{flex:1;}
 
-/* pilha de avatares */
+/* avatar stack */
 .wm .csw-avs{display:flex;align-items:center;flex:none;}
 .wm .csw-avs img,.wm .csw-avs i{width:20px;height:20px;border-radius:50%;object-fit:cover;border:1.5px solid var(--surface);margin-inline-start:-7px;flex:none;}
 .wm .csw-avs i{font-style:normal;font-size:9.5px;font-weight:650;color:#fff;display:grid;place-items:center;}
 .wm .csw-avs img:first-child,.wm .csw-avs i:first-child{margin-inline-start:0;}
 .wm .csw-avs em{font-style:normal;height:20px;min-width:20px;padding:0 4px;border-radius:999px;margin-inline-start:-7px;background:var(--ink);color:var(--surface);font-size:9.5px;font-weight:650;display:grid;place-items:center;border:1.5px solid var(--surface);}
 
-/* ── Grade semana/dia ── */
+/* ── Week/day grid ── */
 .wm .calsw .ct-hr{height:88px;}
 .wm .calsw .ct-corner{display:grid;place-items:center;padding:8px 4px;}
 .wm .calsw .ct-dayh{display:flex;flex-direction:column;align-items:center;gap:1px;padding:9px 6px;}
@@ -79,7 +79,7 @@
 .wm .calsw .ct-col.today{background:color-mix(in srgb,var(--accent) 3%,transparent);}
 .wm .calsw .ct-cell{border-bottom:1px solid color-mix(in srgb,var(--border) 60%,transparent);}
 
-/* linha do agora */
+/* "now" line */
 .wm .csw-now{position:absolute;inset-inline-start:0;inset-inline-end:0;height:2px;background:var(--accent);z-index:3;pointer-events:none;}
 .wm .csw-now i{position:absolute;inset-inline-start:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--accent);}
 

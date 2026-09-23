@@ -1,6 +1,6 @@
 -- +goose Up
--- Arquivar um canal (estilo Slack): sai das listas e fica só de leitura, mas o histórico continua lá
--- e dá para restaurar. Não substitui o apagar — esse continua a existir e continua a ser definitivo.
+-- Archiving a channel (Slack-style): it leaves the lists and becomes read-only, but the history stays
+-- and it can be restored. It does not replace deletion -- that still exists and is still permanent.
 ALTER TABLE channels ADD COLUMN archived_at TIMESTAMPTZ;
 CREATE INDEX idx_channels_archived ON channels(tenant_id) WHERE archived_at IS NOT NULL;
 

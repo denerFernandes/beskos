@@ -1,7 +1,7 @@
 -- +goose Up
--- Subscrições de Web Push (notificações desktop com o Beskos fechado). Uma linha por browser/
--- dispositivo: o `endpoint` é a URL do serviço de push do browser e é única globalmente. p256dh/auth
--- são as chaves públicas da subscrição, usadas para cifrar o payload (RFC 8291).
+-- Web Push subscriptions (desktop notifications while Beskos is closed). One row per browser/
+-- device: `endpoint` is the browser's push service URL and is globally unique. p256dh/auth are the
+-- subscription's public keys, used to encrypt the payload (RFC 8291).
 CREATE TABLE push_subscriptions (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

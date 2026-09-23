@@ -1,4 +1,4 @@
-# Segredos — nunca comitar (brief §10)
+# Secrets -- never commit (brief §10)
 deploy/.env
 *.env
 !*.env.example

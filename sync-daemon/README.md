@@ -1,61 +1,63 @@
-# mailin-sync — motor de sincronização de ficheiros
+# mailin-sync — file sync engine
 
-Biblioteca Rust com o motor de sincronização do Beskos. **Não é uma aplicação**: quem o hospeda é a
-app desktop (`Beskos.app`), que lhe dá a janela, o ícone na barra e a UI. Assim há só uma app.
+Rust library containing the Beskos sync engine. **It is not an application**: it is hosted by the
+desktop app (`Beskos.app`), which provides the window, the menu bar icon and the UI. This keeps it
+to a single app.
 
-## Modelo: pares de pastas (não espelha o Drive inteiro)
+## Model: folder pairs (does not mirror the whole Drive)
 
-O utilizador escolhe uma **pasta local**; é criada a pasta correspondente no **Drive**; a partir daí
-só o que está lá dentro sincroniza, nos dois sentidos. Podem existir **várias** pastas assim.
-Ficheiros noutras zonas do Drive são simplesmente ignorados.
+The user picks a **local folder**; a matching folder is created in the **Drive**; from then on only
+what is inside it syncs, in both directions. There can be **several** such folders. Files elsewhere
+in the Drive are simply ignored.
 
 ```
-~/Projetos   ⇄   Drive/Projetos      (par 1)
-~/Fotos      ⇄   Drive/Fotos         (par 2)
-outros ficheiros do Drive            → não sincronizam
+~/Projects   ⇄   Drive/Projects      (pair 1)
+~/Photos     ⇄   Drive/Photos        (pair 2)
+other Drive files                    → not synced
 ```
 
-Na app: **Definições › Sincronização** (adicionar/parar pastas, estado, pausa, limite de banda) e o
-botão **"Sincronizar pasta…"** no próprio Drive, onde as pastas sincronizadas aparecem destacadas.
+In the app: **Settings › Sync** (add/stop folders, status, pause, bandwidth limit) and the
+**"Sync folder…"** button in the Drive itself, where synced folders are highlighted.
 
-## Como funciona cada passagem
+## How each pass works
 
-**Push antes de pull** (ordem deliberada): uma edição local sobe antes de o download a poder
-sobrescrever.
+**Push before pull** (deliberate order): a local edit is uploaded before a download can overwrite
+it.
 
-1. **push** (por par): sobe alterados com `If-Match` (o hash base); cria os novos **dentro da pasta
-   do par**, criando as subpastas em falta na nuvem. Se o servidor mudou entretanto → **412** e
-   guarda-se uma **cópia de conflito** local (nada se perde).
-2. **pull**: aplica o feed de mudanças; cada ficheiro é roteado para o par a que pertence (ou
-   ignorado). Se só mudou de pasta, **move** o ficheiro local em vez de o rebaixar.
+1. **push** (per pair): uploads changed files with `If-Match` (the base hash); creates new ones
+   **inside the pair's folder**, creating missing subfolders in the cloud. If the server changed in
+   the meantime → **412**, and a local **conflict copy** is kept (nothing is lost).
+2. **pull**: applies the change feed; each file is routed to the pair it belongs to (or ignored).
+   If it only changed folder, the local file is **moved** instead of downloaded again.
 
-## Segurança e robustez
+## Security and robustness
 
-- **Anti-traversal**: nomes vindos do servidor são sanitizados e o destino é verificado dentro da
-  pasta do par (com testes).
-- **Nunca apaga o que não conhece**: um *tombstone* só remove ficheiros que este motor baixou.
-- **Apagar local → LIXEIRA do servidor** (recuperável), nunca *hard delete*. **Mover local → move**
-  no servidor (detetado por conteúdo: mesmo hash noutro caminho ⇒ é um move, não apagar+criar).
-- **Guarda anti-apagão**: se >50 ficheiros sumirem de uma vez, assume pasta indisponível e **não
-  propaga nada**.
-- **Escrita atómica** (`.part` + rename) e **HTTPS obrigatório** fora de localhost; token em ficheiro `0600`.
+- **Anti-traversal**: names coming from the server are sanitized and the destination is checked to
+  be inside the pair's folder (with tests).
+- **Never deletes what it does not know**: a *tombstone* only removes files this engine downloaded.
+- **Local delete → server TRASH** (recoverable), never a *hard delete*. **Local move → move** on
+  the server (detected by content: same hash at another path ⇒ it is a move, not delete+create).
+- **Mass-deletion guard**: if >50 files disappear at once, the folder is assumed unavailable and
+  **nothing is propagated**.
+- **Atomic writes** (`.part` + rename) and **HTTPS required** outside localhost; token in a `0600`
+  file.
 
-## Desempenho
+## Performance
 
-- **Watcher** do sistema de ficheiros (FSEvents/inotify) por pasta, com eventos coalescidos; o
-  intervalo é só rede de segurança.
-- **Pré-filtro mtime+tamanho**: só lê/hasheia quando o carimbo muda.
-- **Transferências em paralelo** (`workers`, default 4) e **limite de banda** global (`bandwidth_kbps`).
-- **Upload delta**: em ficheiros >8 MiB envia só os blocos alterados (o servidor reconstrói); se
-  mudou >70% ou o servidor não suportar, envia inteiro.
-- **Reconciliação horária** por varredura, para apanhar purgas (hard delete) que o feed não reporta.
+- File system **watcher** (FSEvents/inotify) per folder, with coalesced events; the polling
+  interval is only a safety net.
+- **mtime+size pre-filter**: files are only read/hashed when the stamp changes.
+- **Parallel transfers** (`workers`, default 4) and a global **bandwidth limit** (`bandwidth_kbps`).
+- **Delta upload**: for files >8 MiB only the changed blocks are sent (the server rebuilds the
+  file); if >70% changed or the server does not support it, the whole file is sent.
+- **Hourly reconciliation** by full scan, to catch purges (hard deletes) the feed does not report.
 
 ## Config
 
-`~/Library/Application Support/mailin-sync` (macOS) ou `~/.config/mailin-sync` (Linux):
-`config.json` (servidor + pares + workers + banda), `token` (0600), `index.db` (cache SQLite).
+`~/Library/Application Support/mailin-sync` (macOS) or `~/.config/mailin-sync` (Linux):
+`config.json` (server + pairs + workers + bandwidth), `token` (0600), `index.db` (SQLite cache).
 
-## Por fazer
+## To do
 
-- **M3 mobile**: depende da app mobile (bloqueada em push FCM/APNs e no spike do WebRTC iOS); no
-  iOS um espelho contínuo exigiria uma File Provider Extension nativa.
+- **Mobile**: depends on the mobile app (blocked on FCM/APNs push and the iOS WebRTC spike); on iOS
+  a continuous mirror would require a native File Provider Extension.

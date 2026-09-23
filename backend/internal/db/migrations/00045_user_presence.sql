@@ -1,6 +1,6 @@
 -- +goose Up
--- Presença rica do chat definida pelo usuário: active | away | dnd (não perturbe). Combina com a
--- presença REAL (Redis/online): offline sempre ganha; online mostra este estado. dnd suprime o push.
+-- Rich chat presence set by the user: active | away | dnd (do not disturb). Combined with REAL
+-- presence (Redis/online): offline always wins; online shows this state. dnd suppresses push.
 ALTER TABLE mail_users ADD COLUMN presence TEXT NOT NULL DEFAULT 'active';
 
 -- +goose Down

@@ -1,6 +1,6 @@
 package wiki
 
-// Renderer for the BlockNote format (B2): body_json becomes the BlockNote block ARRAY
+// Renderer for the BlockNote format: body_json becomes the BlockNote block ARRAY
 // (https://www.blocknotejs.org). derive() dispatches: JSON array → here; {type:"doc"} object →
 // legacy ProseMirror renderer (render.go). Same security rule: HTML by construction,
 // all text escaped, URLs via whitelist — user markup is never passed through raw.
@@ -173,7 +173,7 @@ func bnRenderBlock(blk *bnBlock, b *strings.Builder) {
 			b.WriteString("</tbody></table>")
 		}
 	default:
-		// Tipo desconhecido (file/video/…): degrada para o texto inline, nunca emite tag desconhecida.
+		// Unknown type (file/video/…): degrades to the inline text, never emits an unknown tag.
 		b.WriteString("<p>")
 		bnRenderInlines(bnInlines(blk.Content), b)
 		b.WriteString("</p>")

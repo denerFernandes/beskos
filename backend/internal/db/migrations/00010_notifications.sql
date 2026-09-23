@@ -1,5 +1,5 @@
 -- +goose Up
--- Notificações in-app (sino) por usuário. Convites de reunião, cancelamentos, etc.
+-- In-app notifications (bell) per user. Meeting invites, cancellations, etc.
 
 CREATE TABLE notifications (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -8,7 +8,7 @@ CREATE TABLE notifications (
     kind        TEXT NOT NULL,            -- meeting_invite | meeting_canceled | ...
     title       TEXT NOT NULL,
     body        TEXT NOT NULL DEFAULT '',
-    link        TEXT NOT NULL DEFAULT '', -- destino ao clicar (ex.: /mail/meet)
+    link        TEXT NOT NULL DEFAULT '', -- destination on click (e.g. /mail/meet)
     meeting_id  UUID,
     read_at     TIMESTAMPTZ,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()

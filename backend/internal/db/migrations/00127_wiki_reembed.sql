@@ -1,14 +1,16 @@
 -- +goose Up
--- Troca do modelo de embeddings: OpenAI `text-embedding-3-small` → `qwen/qwen3-embedding-8b`
--- servido na UE (docs/landing-europa.md, Fase 0). Vetores de modelos diferentes NÃO são
--- comparáveis: a distância entre um vetor antigo e uma pergunta nova é ruído, e a busca semântica
--- devolveria resultados errados sem dar erro. Por isso limpa-se tudo — o worker reindexa sozinho
--- (ListWikiPagesNeedingEmbedding apanha as páginas sem chunk mais fresco que updated_at).
+-- Embedding model switch: OpenAI `text-embedding-3-small` -> `qwen/qwen3-embedding-8b`
+-- served in the EU (docs/landing-europa.md). Vectors from different models are NOT
+-- comparable: the distance between an old vector and a new question is noise, and semantic search
+-- would return wrong results without raising an error. So everything is cleared -- the worker
+-- reindexes on its own (ListWikiPagesNeedingEmbedding picks up pages with no chunk newer than
+-- updated_at).
 --
--- A dimensão continua 1536: o Qwen3 é Matryoshka e trunca a pedido (EMBEDDINGS_DIMENSIONS), o que
--- mantém a coluna e o índice ivfflat como estão — o pgvector não indexa acima de 2000 dimensões.
+-- The dimension stays 1536: Qwen3 is Matryoshka and truncates on request (EMBEDDINGS_DIMENSIONS),
+-- which keeps the column and the ivfflat index as they are -- pgvector does not index above 2000
+-- dimensions.
 DELETE FROM wiki_chunks;
 
 -- +goose Down
--- Sem volta: os embeddings antigos não se recuperam. O worker reindexa com o modelo configurado.
+-- No way back: the old embeddings cannot be recovered. The worker reindexes with the configured model.
 SELECT 1;

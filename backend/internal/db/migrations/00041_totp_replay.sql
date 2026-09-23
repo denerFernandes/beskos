@@ -1,6 +1,6 @@
 -- +goose Up
--- Anti-replay do TOTP: guarda o último passo de tempo aceito. Um código só vale se o seu passo for
--- maior que o último usado — assim um código interceptado não é reutilizável dentro da janela.
+-- TOTP anti-replay: stores the last accepted time step. A code is only valid if its step is
+-- greater than the last one used, so an intercepted code cannot be reused within the window.
 ALTER TABLE mail_users ADD COLUMN last_totp_step BIGINT NOT NULL DEFAULT 0;
 
 -- +goose Down

@@ -22,16 +22,16 @@ import (
 
 const (
 	sessionCookie = "mgr_session"
-	sessionTTL    = 8 * time.Hour // ferramenta de operação: sessão curta por desenho (doc §6)
+	sessionTTL    = 8 * time.Hour // operations tool: short session by design (doc §6)
 )
 
 type Server struct {
 	q            *db.Queries
-	box          *secretbox.Box // cifra o segredo TOTP em repouso (MFA_ENC_KEY)
+	box          *secretbox.Box // encrypts the TOTP secret at rest (MFA_ENC_KEY)
 	cookieSecure bool
 	loginIP      *rateLimiter
 	loginUser    *rateLimiter
-	// billing espelha o catálogo de planos no provedor (Stripe): gravar plano → Product/Price lá.
+	// billing mirrors the plan catalog to the provider (Stripe): saving a plan → Product/Price there.
 	billing billing.Provider
 	// email sends the waiting-list invitation. nil = not configured, and the endpoint says so
 	// rather than reporting somebody invited who was never written to.
@@ -121,7 +121,7 @@ type ctxKey string
 
 const ctxManagerUser ctxKey = "manager_user"
 
-// managerUserFrom devolve o operador autenticado posto no contexto pelo requireSession.
+// managerUserFrom returns the authenticated operator placed in the context by requireSession.
 func managerUserFrom(ctx context.Context) db.GetManagerSessionRow {
 	u, _ := ctx.Value(ctxManagerUser).(db.GetManagerSessionRow)
 	return u
@@ -145,8 +145,8 @@ func (s *Server) requireSession(next http.Handler) http.Handler {
 	})
 }
 
-// audit regista uma ação no manager_audit (best-effort: falha de audit não derruba a request,
-// mas fica no log do servidor).
+// audit records an action in manager_audit (best-effort: an audit failure doesn't bring down the
+// request, but it lands in the server log).
 func (s *Server) audit(ctx context.Context, u db.GetManagerSessionRow, action, target string, payload any) {
 	raw, err := json.Marshal(payload)
 	if err != nil || payload == nil {
@@ -158,7 +158,7 @@ func (s *Server) audit(ctx context.Context, u db.GetManagerSessionRow, action, t
 	})
 }
 
-// ---- helpers HTTP (mesmo contrato da httpapi: error_code estável + fallback em inglês) ----
+// ---- HTTP helpers (same contract as httpapi: stable error_code + English fallback) ----
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

@@ -1,9 +1,9 @@
 -- +goose Up
--- Governança do assistente (fase A7, §9 e §6.6): quota de uso e exclusão de pastas.
+-- Assistant governance (§9 and §6.6): usage quota and folder exclusion.
 
--- Uso registado por turno, para a quota da janela deslizante de 6 horas (§9.2). Uma linha por
--- execução; a quota soma as das últimas 6 horas. É o limite COMERCIAL — distinto do teto de passos
--- por execução (§9.1), que é segurança e vive no código desde a A0.
+-- Usage recorded per turn, for the 6-hour sliding-window quota (§9.2). One row per execution; the
+-- quota sums the rows of the last 6 hours. It is the COMMERCIAL limit — distinct from the
+-- per-execution step ceiling (§9.1), which is a safety measure and has lived in code from the start.
 CREATE TABLE assistant_usage (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -11,12 +11,13 @@ CREATE TABLE assistant_usage (
     tokens       INTEGER NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- A soma da janela é sempre (utilizador, tempo recente): o índice serve exatamente essa consulta.
+-- The window sum is always (user, recent time): the index serves exactly that query.
 CREATE INDEX idx_assistant_usage_window ON assistant_usage (mail_user_id, created_at);
 
--- Pastas fora do alcance do assistente (§6.6). Escolher alcance amplo por omissão (decisão §12.1,
--- ponto 1) aumenta o que uma injeção poderia alcançar; esta é a válvula que deixa o administrador
--- tirar pastas sensíveis da vista do assistente. É por PASTA, e recursiva na aplicação.
+-- Folders out of the assistant's reach (§6.6). Choosing broad reach by default (decision §12.1,
+-- point 1) increases what an injection could reach; this is the valve that lets the administrator
+-- take sensitive folders out of the assistant's view. It is per FOLDER, and recursive in the
+-- application.
 CREATE TABLE assistant_excluded_folders (
     tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     folder_id    UUID NOT NULL,

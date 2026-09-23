@@ -1,11 +1,12 @@
-# Fase 0 — Fundação
-# Sobe o motor de email (Stalwart oficial, NÃO modificado), Postgres e MinIO.
-# Stalwart roda a imagem oficial pinada; só montamos config e falamos por rede.
+# Foundation
+# Brings up the mail engine (official Stalwart, NOT modified), Postgres and MinIO.
+# Stalwart runs the pinned official image; we only mount config and talk to it over the network.
 name: mailin
 
 services:
   stalwart:
-    # Versão FIXADA (brief §2/§9). Não usar :latest — Stalwart é pré-1.0 e muda payloads entre versões.
+    # PINNED version (brief §2/§9). Do not use :latest -- Stalwart is pre-1.0 and changes payloads
+    # between versions.
     image: stalwartlabs/stalwart:v0.16.4
     container_name: mailin-stalwart
     restart: unless-stopped
@@ -13,28 +14,29 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      # Management/JMAP só no host (o webmail alcança via proxy same-origin do Vite/Caddy). Não expor
-      # a Management API na LAN/internet — credenciais de admin do Stalwart passam por aqui.
+      # Management/JMAP on the host only (the webmail reaches it through the Vite/Caddy same-origin
+      # proxy). Do not expose the Management API to the LAN/internet -- Stalwart admin credentials
+      # pass through here.
       - "127.0.0.1:8080:8080"   # HTTP: Management API + JMAP + webadmin
-      - "25:25"                 # SMTP (público: recebe e-mail)
-      - "587:587"               # Submission (público)
-      - "465:465"               # SMTPS (público)
-      - "143:143"               # IMAP (público)
-      - "993:993"               # IMAPS (público)
+      - "25:25"                 # SMTP (public: receives mail)
+      - "587:587"               # Submission (public)
+      - "465:465"               # SMTPS (public)
+      - "143:143"               # IMAP (public)
+      - "993:993"               # IMAPS (public)
     volumes:
       - stalwart_data:/opt/stalwart
-      # /etc/stalwart/config.json é ONDE A IMAGEM PROCURA (`--config`). O caminho antigo
-      # (/opt/stalwart/etc/config.toml) não era lido — ver DIVERGENCES §D9.
+      # /etc/stalwart/config.json is WHERE THE IMAGE LOOKS (`--config`). The old path
+      # (/opt/stalwart/etc/config.toml) was never read -- see DIVERGENCES §D9.
       - ./stalwart/config.json:/etc/stalwart/config.json:ro
     environment:
-      # Admin GLOBAL de recuperação. Formato real da v0.16.4: user:senha (descoberto na Fase 0).
-      # Só o backend Go usa; NUNCA chega ao frontend (brief §2).
+      # GLOBAL recovery admin. Actual format in v0.16.4: user:password (found by testing).
+      # Only the Go backend uses it; it NEVER reaches the frontend (brief §2).
       STALWART_RECOVERY_ADMIN: "admin:${STALWART_ADMIN_SECRET}"
-      # Lida pelo config.json (authSecret → EnvironmentVariable).
+      # Read by config.json (authSecret -> EnvironmentVariable).
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-      # Relay SES: configura-se no REGISTO do Stalwart (interface de administração), não em
-      # ficheiro — ver deploy/stalwart/README.md.
-      # (ver instruções lá). Vazias em dev — inofensivas enquanto o bloco estiver comentado.
+      # SES relay: configured in Stalwart's REGISTRY (admin interface), not in a file -- see
+      # deploy/stalwart/README.md for the instructions. Empty in dev -- harmless while the block
+      # stays commented out.
       SES_SMTP_USER: "${SES_SMTP_USER:-}"
       SES_SMTP_PASS: "${SES_SMTP_PASS:-}"
     healthcheck:
@@ -44,8 +46,9 @@ services:
       retries: 12
 
   postgres:
-    # pgvector/pgvector:pg16 = Postgres 16 + extensão pgvector (RAG da wiki, Fase 3). Mesmo major que
-    # o data dir atual (16.x), logo o volume permanece compatível. `CREATE EXTENSION vector` na migração.
+    # pgvector/pgvector:pg16 = Postgres 16 + the pgvector extension (wiki RAG). Same major as the
+    # current data dir (16.x), so the volume stays compatible. `CREATE EXTENSION vector` is in the
+    # migration.
     image: pgvector/pgvector:pg16
     container_name: mailin-postgres
     restart: unless-stopped
@@ -53,9 +56,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # SEM porta publicada no host: o Postgres só é alcançável pela rede interna do Docker (a API
-    # conecta em postgres:5432). Não expor datastore ao host/rede. Para depurar com um cliente local,
-    # use `docker exec mailin-postgres psql ...` ou um túnel pontual.
+    # NO port published on the host: Postgres is reachable only through the internal Docker network
+    # (the API connects to postgres:5432). Do not expose the datastore to the host/network. To debug
+    # with a local client, use `docker exec mailin-postgres psql ...` or a one-off tunnel.
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Stalwart's config.json points at a SECOND database that nothing else creates. Without this
@@ -69,7 +72,7 @@ services:
       retries: 10
 
   minio:
-    # Pinado por digest (RELEASE.2025-09-07T16-13-09Z) — reprodutível e imutável.
+    # Pinned by digest (RELEASE.2025-09-07T16-13-09Z) -- reproducible and immutable.
     # quay.io, not Docker Hub: minio/minio stopped being pullable from docker.io
     # ("pull access denied ... repository does not exist"). Same image, same digest.
     image: quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
@@ -79,8 +82,9 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    # SEM porta publicada no host: a API alcança o MinIO em minio:9000 pela rede interna. Para abrir
-    # o console (9001) pontualmente em dev, publique-o num override local, não no compose de base.
+    # NO port published on the host: the API reaches MinIO at minio:9000 over the internal network.
+    # To open the console (9001) occasionally in dev, publish it in a local override, not in the
+    # base compose file.
     volumes:
       - minio_data:/data
     healthcheck:
@@ -89,7 +93,7 @@ services:
       timeout: 5s
       retries: 10
 
-  # Control plane (nosso Go): API do painel/webmail + workers.
+  # Control plane (our Go code): panel/webmail API + workers.
   api:
     build: ../backend
     container_name: mailin-api
@@ -102,7 +106,7 @@ services:
       redis:
         condition: service_started
     ports:
-      - "127.0.0.1:8000:8000"   # atrás do proxy (Vite/Caddy) — não expor direto
+      - "127.0.0.1:8000:8000"   # behind the proxy (Vite/Caddy) -- do not expose directly
     environment: &control_env
       HTTP_ADDR: ":8000"
       DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
@@ -135,9 +139,9 @@ services:
       AI_BASE_URL: "${AI_BASE_URL:-}"
       AI_REASONING: "${AI_REASONING:-}"
       AI_API_KEY: "${AI_API_KEY:-}"
-      # Notificações por e-mail: submissão pelo próprio Stalwart, porta 465 (TLS implícito).
-      # A 587 do Stalwart NÃO serve — o listener fecha a ligação (medido em 15/07/2026).
-      # INSECURE só em dev (cert self-signed); em produção, cert válido e insecure=false.
+      # Email notifications: submitted through Stalwart itself, port 465 (implicit TLS).
+      # Stalwart's 587 does NOT work -- the listener closes the connection (measured on 15/07/2026).
+      # INSECURE only in dev (self-signed cert); in production, a valid cert and insecure=false.
       NOTIFY_SMTP_HOST: "${NOTIFY_SMTP_HOST:-}"
       NOTIFY_SMTP_PORT: "${NOTIFY_SMTP_PORT:-465}"
       NOTIFY_SMTP_USER: "${NOTIFY_SMTP_USER:-}"
@@ -145,18 +149,19 @@ services:
       NOTIFY_FROM: "${NOTIFY_FROM:-}"
       NOTIFY_SMTP_INSECURE: "${NOTIFY_SMTP_INSECURE:-false}"
       AI_MODEL: "${AI_MODEL:-}"
-      # Embeddings do RAG da wiki (OpenAI-compatível; docs/wiki-features.md §7.2). Sem a chave, o
-      # worker de embedding e a busca semântica ficam desligados (fail-safe).
+      # Wiki RAG embeddings (OpenAI-compatible; docs/wiki-features.md §7.2). Without the key, the
+      # embedding worker and semantic search stay off (fail-safe).
       EMBEDDINGS_API_KEY: "${EMBEDDINGS_API_KEY:-}"
       EMBEDDINGS_BASE_URL: "${EMBEDDINGS_BASE_URL:-}"
       EMBEDDINGS_MODEL: "${EMBEDDINGS_MODEL:-text-embedding-3-small}"
-      # Relay SES (produção): com as três definidas, o worker regista cada domínio novo como
-      # identidade SES (Easy DKIM) e injeta CNAMEs/SPF/DMARC na zona a publicar pelo cliente.
+      # SES relay (production): with all three set, the worker registers each new domain as an
+      # SES identity (Easy DKIM) and injects CNAMEs/SPF/DMARC into the zone the customer publishes.
       SES_REGION: "${SES_REGION:-}"
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
-      # SMS de MFA: "log" (dev) ou "sns" (Amazon SNS; usa as credenciais AWS acima; região própria
-      # opcional em SNS_REGION — senão cai na SES_REGION; SMS_SENDER_ID opcional).
+      # MFA SMS: "log" (dev) or "sns" (Amazon SNS; uses the AWS credentials above; an optional
+      # region of its own in SNS_REGION -- otherwise it falls back to SES_REGION; SMS_SENDER_ID
+      # optional).
       SMS_PROVIDER: "${SMS_PROVIDER:-log}"
       SNS_REGION: "${SNS_REGION:-}"
       SMS_SENDER_ID: "${SMS_SENDER_ID:-}"
@@ -168,93 +173,95 @@ services:
       BILLING_SUCCESS_URL: "${BILLING_SUCCESS_URL:-${PUBLIC_URL:-http://localhost:5173}/mail/admin/billing?ok=1}"
       BILLING_CANCEL_URL: "${BILLING_CANCEL_URL:-${PUBLIC_URL:-http://localhost:5173}/mail/admin/billing?canceled=1}"
       PROVISION_SKIP_DNS_VERIFY: "${PROVISION_SKIP_DNS_VERIFY:-false}"
-      # Edição de office (OnlyOffice Document Server). ONLYOFFICE_URL: URL que o BROWSER usa
-      # (api.js + editor). FILES_HOST_URL: como o Document Server alcança a NOSSA API
-      # (download/callback, server-to-server). ONLYOFFICE_JWT_SECRET: compartilhado com o DS.
+      # Office editing (OnlyOffice Document Server). ONLYOFFICE_URL: the URL the BROWSER uses
+      # (api.js + editor). FILES_HOST_URL: how the Document Server reaches OUR API
+      # (download/callback, server-to-server). ONLYOFFICE_JWT_SECRET: shared with the DS.
       ONLYOFFICE_URL: "${ONLYOFFICE_URL:-http://localhost:8082}"
       ONLYOFFICE_INTERNAL_URL: "http://onlyoffice"
       FILES_HOST_URL: "http://api:8000"
       ONLYOFFICE_JWT_SECRET: "${ONLYOFFICE_JWT_SECRET:-dev-oo-jwt-secret-change-me}"
-      # Fonte do Document Server modificado (patch de branding), mostrado no "Sobre" do editor.
-      # Obrigatório em APP_ENV=production — é a oferta de fonte que a AGPL v3 §13 exige.
+      # Source of the modified Document Server (branding patch), shown in the editor's "About".
+      # Required in APP_ENV=production -- it is the source offer that AGPL v3 §13 demands.
       ONLYOFFICE_SOURCE_URL: "${ONLYOFFICE_SOURCE_URL:-}"
       DOC_TOKEN_SECRET: "${DOC_TOKEN_SECRET:-dev-doc-token-secret-change-me}"
-      # Meet (LiveKit). LIVEKIT_URL: WebSocket que o BROWSER usa. API_KEY/SECRET assinam os
-      # tokens de sala (têm de bater com deploy/livekit/livekit.yaml).
+      # Meet (LiveKit). LIVEKIT_URL: the WebSocket the BROWSER uses. API_KEY/SECRET sign the room
+      # tokens (they must match deploy/livekit/livekit.yaml).
       LIVEKIT_URL: "${LIVEKIT_URL:-ws://localhost:7880}"
       LIVEKIT_HTTP_URL: "http://livekit:7880"
       LIVEKIT_API_KEY: "${LIVEKIT_API_KEY:-devkey}"
       LIVEKIT_API_SECRET: "${LIVEKIT_API_SECRET:-devsecret_livekit_change_me_0123456789}"
-      # Web Push (notificações desktop com o app fechado). Sem VAPID_PRIVATE_KEY fica desligado.
+      # Web Push (desktop notifications with the app closed). Off without VAPID_PRIVATE_KEY.
       VAPID_PUBLIC_KEY: "${VAPID_PUBLIC_KEY:-}"
       VAPID_PRIVATE_KEY: "${VAPID_PRIVATE_KEY:-}"
       VAPID_SUBJECT: "${VAPID_SUBJECT:-mailto:admin@localhost}"
-      # Teto por ficheiro no Files (bytes). Default 100 GiB. A cota do plano vale por cima.
+      # Per-file ceiling in Files (bytes). Default 100 GiB. The plan quota applies on top.
       FILES_MAX_UPLOAD_BYTES: "${FILES_MAX_UPLOAD_BYTES:-107374182400}"
-      # App nativo (Tauri desktop/mobile): origens permitidas para CORS com credenciais
-      # (separadas por vírgula, ex.: "tauri://localhost,https://tauri.localhost"). Sem isto o
-      # CORS fica desligado (web same-origin não precisa). COOKIE_SECURE=true em produção HTTPS
-      # para o cookie de sessão ir como SameSite=None; Secure (necessário cross-site).
+      # Native app (Tauri desktop/mobile): origins allowed for CORS with credentials
+      # (comma-separated, e.g. "tauri://localhost,https://tauri.localhost"). Without this, CORS
+      # stays off (same-origin web does not need it). COOKIE_SECURE=true in HTTPS production so
+      # the session cookie goes out as SameSite=None; Secure (required cross-site).
       APP_ORIGINS: "${APP_ORIGINS:-}"
       COOKIE_SECURE: "${COOKIE_SECURE:-false}"
-      # URL pública da app para links absolutos que saem em e-mails (ex.: sala de reunião).
+      # Public URL of the app, for absolute links sent in emails (e.g. a meeting room).
       PUBLIC_URL: "${PUBLIC_URL:-}"
-      # Ambiente: "production" faz a config falhar fechado (recusa segredos vazios/fracos/default).
+      # Environment: "production" makes config fail closed (rejects empty/weak/default secrets).
       APP_ENV: "${APP_ENV:-development}"
-      # Cifra a credencial JMAP e o segredo TOTP em repouso (obrigatória em produção). Ver .env.example.
+      # Encrypts the JMAP credential and the TOTP secret at rest (required in production). See
+      # .env.example.
       MFA_ENC_KEY: "${MFA_ENC_KEY:-}"
     healthcheck:
-      # readyz (não healthz): só reporta saudável quando o Postgres também responde, para o
-      # compose não encaminhar tráfego antes da base estar pronta.
+      # readyz (not healthz): reports healthy only when Postgres also answers, so compose does not
+      # route traffic before the database is ready.
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/readyz"]
       interval: 10s
       timeout: 5s
       retries: 10
 
-  # OnlyOffice Document Server — editor de office (docx/xlsx/pptx). Corre a imagem oficial,
-  # MODIFICADA no arranque por dois scripts nossos (config de IA + branding) — ao contrário do
-  # Stalwart, que continua intocado (lei §5.4). A modificação é permitida pela AGPL v3 e está
-  # registada em DIVERGENCES.md; a atribuição à Ascensio System SIA mantém-se no "Sobre".
-  # JWT_SECRET tem de bater com ONLYOFFICE_JWT_SECRET da api. Em produção: servir sob
-  # HTTPS/proxy same-origin. Do Docs 9.4 em diante não há mais teto de 20 conexões.
+  # OnlyOffice Document Server -- office editor (docx/xlsx/pptx). Runs the official image,
+  # MODIFIED at startup by two of our scripts (AI config + branding) -- unlike Stalwart, which
+  # stays untouched (law §5.4). The modification is allowed by AGPL v3 and is recorded in
+  # DIVERGENCES.md; the attribution to Ascensio System SIA stays in "About".
+  # JWT_SECRET must match the api's ONLYOFFICE_JWT_SECRET. In production: serve behind
+  # HTTPS/a same-origin proxy. From Docs 9.4 onwards there is no longer a 20-connection ceiling.
   onlyoffice:
-    # Pinado por digest (OnlyOffice Docs 9.4.0-129, base Ubuntu 24.04) — reprodutível e imutável.
-    # O patch de branding depende do web-apps NÃO minificado, que só existe do 9.4 em diante.
+    # Pinned by digest (OnlyOffice Docs 9.4.0-129, Ubuntu 24.04 base) -- reproducible and immutable.
+    # The branding patch depends on the NON-minified web-apps, which only exists from 9.4 onwards.
     image: onlyoffice/documentserver@sha256:e3da62a847b9a5d51a11f73cfea1d9c13c3be3809614490d4edddcf01dcf919b
     container_name: mailin-onlyoffice
     restart: unless-stopped
-    # Wrapper de arranque: injeta a config de IA (Beskos AI) no default.json, aplica o patch de
-    # branding ao web-apps e só então arranca o DS. Ambos falham fechado: o DS arranca na mesma.
+    # Startup wrapper: injects the AI config (Beskos AI) into default.json, applies the branding
+    # patch to web-apps and only then starts the DS. Both fail closed: the DS starts regardless.
     entrypoint: ["/bin/sh", "/scripts/onlyoffice-ai-init.sh"]
     environment:
       JWT_ENABLED: "true"
       JWT_SECRET: "${ONLYOFFICE_JWT_SECRET:-dev-oo-jwt-secret-change-me}"
       JWT_HEADER: "Authorization"
-      # ORIGEM do nosso proxy de IA — o ai-proxy do DS usa só a origem e acrescenta o caminho do
-      # provider (/v1/chat/completions). De dentro do container, é o nome de serviço na rede docker.
+      # ORIGIN of our AI proxy -- the DS ai-proxy uses only the origin and appends the provider's
+      # path (/v1/chat/completions). From inside the container, it is the service name on the
+      # docker network.
       AI_PROXY_URL: "${AI_PROXY_URL:-http://api:8000}"
     volumes:
-      # Em dev montamos os scripts na imagem oficial; em produção eles são COPIADOS para dentro
-      # da imagem (deploy/onlyoffice/Dockerfile), porque o CapRover faz deploy por imagem e não
-      # monta nada do repositório. Mesmo script nos dois sítios.
-      # NOTA: mount de FICHEIRO único prende-se ao inode — depois de editar um destes scripts é
-      # preciso `docker compose up -d --force-recreate onlyoffice`, não `restart`.
+      # In dev we mount the scripts into the official image; in production they are COPIED into
+      # the image (deploy/onlyoffice/Dockerfile), because CapRover deploys by image and mounts
+      # nothing from the repository. Same script in both places.
+      # NOTE: a single-FILE mount is bound to the inode -- after editing one of these scripts,
+      # run `docker compose up -d --force-recreate onlyoffice`, not `restart`.
       - ./onlyoffice/onlyoffice-ai-init.sh:/scripts/onlyoffice-ai-init.sh:ro
       - ./onlyoffice/onlyoffice-branding-patch.sh:/scripts/onlyoffice-branding-patch.sh:ro
       - ./onlyoffice/brand:/scripts/brand:ro
     ports:
-      - "127.0.0.1:8082:80"   # só no host (browser em dev via localhost; prod atrás de proxy HTTPS)
+      - "127.0.0.1:8082:80"   # host only (browser in dev via localhost; prod behind an HTTPS proxy)
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost/healthcheck"]
       interval: 20s
       timeout: 5s
       retries: 15
 
-  # LiveKit — servidor de videochamada (SFU WebRTC) do Meet. Imagem oficial, rede-only, sem
-  # modificar (mesma postura do Stalwart/OnlyOffice). Config em ./livekit/livekit.yaml.
-  # Portas: 7880 (signaling WS), 7881 (TCP fallback), 7882/udp (mídia). Produção: TLS + TURN.
+  # LiveKit -- Meet's video call server (WebRTC SFU). Official image, network-only, unmodified
+  # (same stance as Stalwart/OnlyOffice). Config in ./livekit/livekit.yaml.
+  # Ports: 7880 (signaling WS), 7881 (TCP fallback), 7882/udp (media). Production: TLS + TURN.
   livekit:
-    # Pinado por digest (v1.13.3) — reprodutível e imutável.
+    # Pinned by digest (v1.13.3) -- reproducible and immutable.
     image: livekit/livekit-server@sha256:483b8b7b5b0654f91f1e8bdc7b46fcd37fd9911612ecf627f97e3185a89825bd
     container_name: mailin-livekit
     restart: unless-stopped
@@ -266,22 +273,22 @@ services:
       - "7881:7881"
       - "7882:7882/udp"
 
-  # Redis — coordena LiveKit ↔ Egress (gravação).
+  # Redis -- coordinates LiveKit <-> Egress (recording).
   redis:
-    # Pinado por digest (redis:7-alpine) — reprodutível e imutável.
+    # Pinned by digest (redis:7-alpine) -- reproducible and immutable.
     image: redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     container_name: mailin-redis
     restart: unless-stopped
 
-  # LiveKit Egress — grava a reunião (headless Chrome compõe a sala) e sobe o MP4 pro MinIO.
-  # Imagem oficial, sem modificar. Precisa de SYS_ADMIN + /dev/shm grande para o Chrome.
+  # LiveKit Egress -- records the meeting (headless Chrome composes the room) and uploads the MP4
+  # to MinIO. Official image, unmodified. Needs SYS_ADMIN + a large /dev/shm for Chrome.
   egress:
-    # Pinado por digest (v1.13.0) — reprodutível e imutável.
+    # Pinned by digest (v1.13.0) -- reproducible and immutable.
     image: livekit/egress@sha256:980ff439431df2c773573721ab6da19e15bdc1f049ab7cb80e87470bf174c12f
     container_name: mailin-egress
     restart: unless-stopped
-    # Compartilha a pilha de rede do LiveKit: assim 127.0.0.1 (node_ip) aponta para o RTC do
-    # LiveKit e o Chrome do egress recebe a mídia. Redis/MinIO resolvem pela mesma rede.
+    # Shares LiveKit's network stack: that way 127.0.0.1 (node_ip) points at LiveKit's RTC and the
+    # egress Chrome receives the media. Redis/MinIO resolve over the same network.
     network_mode: "service:livekit"
     environment:
       EGRESS_CONFIG_FILE: /etc/egress.yaml
@@ -310,8 +317,8 @@ services:
         condition: service_healthy
     environment: *control_env
 
-  # Manager — API do painel do OPERADOR do SaaS (docs/manager.md). Serviço isolado de propósito:
-  # env mínimo próprio (NÃO herda o control_env), sessões/porta próprias, TOTP obrigatório.
+  # Manager -- API for the SaaS OPERATOR's panel (docs/manager.md). Isolated on purpose: its own
+  # minimal env (does NOT inherit control_env), its own sessions/port, mandatory TOTP.
   manager-api:
     build: ../backend
     container_name: mailin-manager-api
@@ -321,16 +328,16 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "127.0.0.1:8091:8091"   # atrás do Next dev/Caddy — não expor direto
+      - "127.0.0.1:8091:8091"   # behind Next dev/Caddy -- do not expose directly
     environment:
       MANAGER_HTTP_ADDR: ":8091"
       DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable"
       MFA_ENC_KEY: "${MFA_ENC_KEY:-}"
       COOKIE_SECURE: "${COOKIE_SECURE:-false}"
-      # Primeiro operador (só com a tabela vazia; depois pode remover do .env).
+      # First operator (only with an empty table; can be removed from .env afterwards).
       MANAGER_BOOTSTRAP_EMAIL: "${MANAGER_BOOTSTRAP_EMAIL:-}"
       MANAGER_BOOTSTRAP_PASSWORD: "${MANAGER_BOOTSTRAP_PASSWORD:-}"
-      # Espelho do catálogo na Stripe (gravar plano → Product/Price lá).
+      # Catalog mirror in Stripe (saving a plan -> Product/Price there).
       BILLING_PROVIDER: "${BILLING_PROVIDER:-manual}"
       BILLING_CURRENCY: "${BILLING_CURRENCY:-BRL}"
       STRIPE_SECRET_KEY: "${STRIPE_SECRET_KEY:-}"

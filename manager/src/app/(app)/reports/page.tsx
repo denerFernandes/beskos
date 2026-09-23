@@ -10,8 +10,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
-// Relatórios (M5): crescimento mensal + exports CSV. Os exports são links diretos (o cookie de
-// sessão vai junto — mesma origem).
+// Reports: monthly growth + CSV exports. The exports are direct links (the session cookie goes
+// along — same origin).
 const EXPORTS = [
   { href: "/api/manager/export/tenants.csv", label: S.reports.exportTenants },
   { href: "/api/manager/export/usage.csv?days=30", label: S.reports.exportUsage },

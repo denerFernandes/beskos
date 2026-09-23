@@ -23,7 +23,7 @@ func newRateLimiter(limit int, window time.Duration) *rateLimiter {
 	return &rateLimiter{hits: make(map[string][]int64), limit: limit, window: window}
 }
 
-// allow regista uma tentativa para a chave e devolve false se ela excede o limite na janela.
+// allow records an attempt for the key and returns false if it exceeds the limit within the window.
 func (rl *rateLimiter) allow(key string, now time.Time) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()

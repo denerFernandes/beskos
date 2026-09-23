@@ -1,5 +1,5 @@
 -- +goose Up
--- Checklist/subtarefas de um card: itens marcáveis, ordenados. Cai por cascata com o card.
+-- Card checklist/subtasks: checkable, ordered items. Deleted by cascade with the card.
 CREATE TABLE card_checklist_items (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

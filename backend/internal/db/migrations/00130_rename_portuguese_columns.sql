@@ -1,15 +1,16 @@
 -- +goose Up
--- As últimas doze colunas em português do esquema. Como o `dominio` da 00129, cada uma arrastava o
--- nome até ao Go gerado (`Nome`, `Plano`, `Tamanho`) e daí até ao JSON da API — um descuido de
--- nomenclatura que acabou a ser contrato público. Ver docs/engineering-standards.md §4.6.
+-- The schema's last twelve Portuguese columns. Like `dominio` in 00129, each one dragged its
+-- name into the generated Go and from there into the API JSON -- a naming oversight that ended
+-- up as a public contract. See docs/engineering-standards.md §4.6.
+-- Examples of the old generated names: `Nome`, `Plano`, `Tamanho`. lang:ok
 --
--- Nenhuma colide com uma coluna inglesa já existente na mesma tabela: foi verificado tabela a
--- tabela antes de escrever isto, incluindo os ADD/DROP COLUMN das migrações posteriores.
+-- None collides with an English column that already exists in the same table: this was checked
+-- table by table before writing this, including the ADD/DROP COLUMN of later migrations.
 --
--- RENAME preserva dados, índices e chaves estrangeiras, e só mexe no catálogo — é instantâneo
--- mesmo nas tabelas grandes (storage_files, usage), ao contrário de criar-copiar-apagar.
+-- RENAME preserves data, indexes and foreign keys, and only touches the catalog -- it is
+-- instantaneous even on large tables (storage_files, usage), unlike create-copy-delete.
 --
--- ATENÇÃO À ORDEM DE IMPLANTAÇÃO: esta migração e o código novo têm de ir juntos.
+-- MIND THE DEPLOYMENT ORDER: this migration and the new code must ship together.
 ALTER TABLE audit_log      RENAME COLUMN acao            TO action;
 ALTER TABLE audit_log      RENAME COLUMN alvo            TO target;
 ALTER TABLE file_versions  RENAME COLUMN tamanho         TO size;

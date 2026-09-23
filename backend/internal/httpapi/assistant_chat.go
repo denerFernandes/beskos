@@ -20,7 +20,7 @@ const assistantMaxBody = 64 << 10
 
 // assistantHistoryTurns is how much of the thread goes back to the model. Resending the whole
 // thread on every turn is the fastest way to run up a bill (§9): past a certain point it should be
-// summarized instead of resent (§9.3), and that work belongs to another phase. Until then, a fixed
+// summarized instead of resent (§9.3), and that is not implemented yet. Until then, a fixed
 // window is the honest behavior.
 const assistantHistoryTurns = 20
 

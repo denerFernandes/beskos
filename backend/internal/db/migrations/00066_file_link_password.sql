@@ -1,5 +1,6 @@
 -- +goose Up
--- Senha opcional no link público (além da expiração já configurável): o download exige a senha.
+-- Optional password on the public link (on top of the already configurable expiry): the download
+-- requires the password.
 ALTER TABLE file_links ADD COLUMN password_hash TEXT NOT NULL DEFAULT '';
 
 -- +goose Down

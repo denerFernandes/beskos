@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Meet (LiveKit/WebRTC): câmara e microfone; POST_NOTIFICATIONS para avisos de e-mail/chat. -->
+    <!-- Meet (LiveKit/WebRTC): camera and microphone; POST_NOTIFICATIONS for email/chat alerts. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />

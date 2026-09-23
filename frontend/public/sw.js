@@ -1,8 +1,8 @@
-/* Service worker do Beskos: recebe Web Push e mostra a notificação mesmo com todas as abas
-   fechadas. Mantido mínimo de propósito — só push e clique. */
+/* Beskos service worker: receives Web Push and shows the notification even with every tab
+   closed. Kept minimal on purpose — push and click only. */
 
-// Ativa de imediato (sem esperar as abas antigas fecharem) e assume o controlo — assim
-// registration.showNotification() fica utilizável logo após o primeiro registo.
+// Activates immediately (without waiting for old tabs to close) and takes control — so
+// registration.showNotification() is usable right after the first registration.
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
@@ -25,7 +25,7 @@ self.addEventListener("notificationclick", (event) => {
   const link = (event.notification.data && event.notification.data.link) || "/mail";
   event.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    // Já há uma aba do Beskos aberta? Foca-a e manda-a navegar, em vez de abrir outra.
+    // Is a Beskos tab already open? Focus it and tell it to navigate, instead of opening another.
     for (const c of all) {
       if (c.url.includes(self.location.origin)) {
         await c.focus();

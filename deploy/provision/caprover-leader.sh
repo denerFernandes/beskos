@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Beskos · Fase 2 — arranca o CapRover no nó LEADER (VPS-1). Inicializa o Docker
-# Swarm como manager. Correr DEPOIS do setup-node.sh, como o utilizador sudo.
+# Beskos -- starts CapRover on the LEADER node (VPS-1). Initialises Docker
+# Swarm as manager. Run AFTER setup-node.sh, as the sudo user.
 #
-# Uso:  LEADER_IP=<IPv4 público do VPS-1> ./caprover-leader.sh
+# Usage:  LEADER_IP=<public IPv4 of VPS-1> ./caprover-leader.sh
 #
-# Depois: abrir o painel por TÚNEL SSH (não expor a 3000):
+# Then: open the panel through an SSH TUNNEL (do not expose 3000):
 #   ssh -L 3000:localhost:3000 deploy@<LEADER_IP>
-#   → http://localhost:3000   (password inicial: captain42 — trocar já)
-#   → definir root domain: captain.beskos.com  (A record proxied no Cloudflare)
-#   → ativar HTTPS (Let's Encrypt) e forçar; fechar a 3000 ao público no fim.
+#   -> http://localhost:3000   (initial password: captain42 -- change it at once)
+#   -> set the root domain: captain.beskos.com  (A record proxied in Cloudflare)
+#   -> enable HTTPS (Let's Encrypt) and force it; close 3000 to the public at the end.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 LEADER_IP="${LEADER_IP:?define LEADER_IP=<IPv4 do VPS-1>}"
 
 command -v docker &>/dev/null || { echo "Docker em falta — corre o setup-node.sh primeiro"; exit 1; }
 
-# O instalador do CapRover faz um auto-teste em 3000 (e usa 996 p/ HTTPS interno). Abrir durante o
-# setup; FECHAR a 3000 depois de ativar o HTTPS (o painel passa para captain.<domínio>:443).
+# The CapRover installer runs a self-test on 3000 (and uses 996 for internal HTTPS). Open them during
+# setup; CLOSE 3000 after enabling HTTPS (the panel moves to captain.<domain>:443).
 sudo ufw allow 3000/tcp comment 'caprover-setup' >/dev/null 2>&1 || true
 sudo ufw allow 996/tcp  comment 'caprover-https' >/dev/null 2>&1 || true
 

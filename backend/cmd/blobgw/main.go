@@ -120,7 +120,7 @@ func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	key, err := g.key(r.URL.Path)
 	if err != nil {
 		// WITH logging: a rejected request that leaves no trace is indistinguishable from a
-		// request that never arrived. It cost a whole diagnosis session to realize the client
+		// request that never arrived. It took a lengthy diagnosis to realize the client
 		// was sending the old bucket name and we were answering 403 in silence.
 		log.Printf("%s %s -> 403 rejected: %v", r.Method, r.URL.Path, err)
 		s3Err(w, http.StatusForbidden, "AccessDenied", err.Error())

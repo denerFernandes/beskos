@@ -1,10 +1,10 @@
 -- +goose Up
--- Remove o pipeline de negócios (deals): o produto é correio + colaboração, não um CRM de vendas.
--- Decisão do produto (não somos um CRM). A funcionalidade e o seu código saíram por inteiro.
+-- Removes the deal pipeline: the product is mail + collaboration, not a sales CRM.
+-- Product decision (we are not a CRM). The feature and its code were removed entirely.
 DROP TABLE IF EXISTS deals;
 
 -- +goose Down
--- Recria a tabela tal como estava (00071), caso se reverta.
+-- Recreates the table as it was (00071), in case of a rollback.
 CREATE TABLE deals (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

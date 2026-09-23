@@ -1,7 +1,7 @@
 -- +goose Up
--- Correção: quadros criados entre o 00098 e este fix ganharam dono mas NENHUM grant (ficaram
--- invisíveis aos colegas). Backfill: todo o quadro com dono e sem grants recebe o grant org=editor
--- (o default colaborativo pretendido; managers podem removê-lo para restringir).
+-- Fix: boards created between 00098 and this fix got an owner but NO grant (they became
+-- invisible to colleagues). Backfill: every board with an owner and no grants receives the grant
+-- org=editor (the intended collaborative default; managers can remove it to restrict access).
 INSERT INTO board_grants (tenant_id, board_id, subject_type, subject_id, role)
 SELECT b.tenant_id, b.id, 'org', NULL, 'editor'
 FROM boards b
@@ -9,4 +9,4 @@ WHERE b.owner_user_id IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM board_grants g WHERE g.board_id = b.id);
 
 -- +goose Down
--- Sem down: remover grants criados aqui não é distinguível dos criados por utilizadores.
+-- No down: grants created here cannot be told apart from those created by users.

@@ -1,7 +1,7 @@
 -- +goose Up
--- Notas da reunião: um documento compartilhado por reunião, editado ao vivo por quem está na sala.
--- Last-write-wins com autosave (notas de reunião raramente têm dois digitando ao mesmo tempo);
--- CRDT seria complexidade sem uso real aqui.
+-- Meeting notes: one shared document per meeting, edited live by whoever is in the room.
+-- Last-write-wins with autosave (meeting notes rarely have two people typing at once);
+-- a CRDT would be complexity with no real use here.
 
 CREATE TABLE meeting_notes (
     meeting_id UUID PRIMARY KEY REFERENCES meetings(id) ON DELETE CASCADE,

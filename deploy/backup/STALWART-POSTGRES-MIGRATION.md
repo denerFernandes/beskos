@@ -1,21 +1,21 @@
-# Correio em Postgres — já está feito
+# Mail on Postgres — already done
 
-**Não há migração a fazer.** Verificado em produção a 29/07/2026: o Stalwart já corre sobre
-PostgreSQL — base `stalwart`, no mesmo servidor da aplicação, com as mensagens, os anexos (4 928
-blobs), as contas e a configuração dele todos em SQL.
+**There is no migration to do.** Verified in production on 2026-07-29: Stalwart already runs on
+PostgreSQL — database `stalwart`, on the same server as the application, with its messages,
+attachments (4,928 blobs), accounts and configuration all in SQL.
 
-Este documento existia a planear uma migração a partir do RocksDB, com janela de paragem e tudo.
-Escrevi-o a partir do `deploy/stalwart/config.toml` deste repositório — que, como se veio a
-descobrir, **nunca foi lido por produção**. Ver [DIVERGENCES.md](../DIVERGENCES.md) §D9.
+This document used to plan a migration from RocksDB, downtime window included. It was written from
+this repository's `deploy/stalwart/config.toml` — which, as it turned out, **was never read by
+production**. See [DIVERGENCES.md](../DIVERGENCES.md) §D9.
 
-Fica a lição, que vale mais do que o plano: **um plano escrito sobre a configuração do repositório
-não é um plano sobre o sistema.** A primeira coisa a fazer era olhar para a máquina.
+The lesson is worth more than the plan: **a plan written against the repository's configuration is
+not a plan about the system.** The first step should have been to look at the machine.
 
-## O que ficou a valer
+## What still holds
 
-- O correio é exportado três vezes por dia, a quente, com o resto — ver [README.md](README.md).
-- A configuração real está em `/opt/beskos/stalwart/config.json` no VPS-1, montada no serviço de
-  swarm `stalwart`. O `config.toml` deste repositório **já foi removido** e substituído pelo
-  formato real (`deploy/stalwart/config.json`), para ninguém voltar a acreditar nele.
-- O armazenamento dos anexos continua dentro do Postgres. Passá-los para o R2 (`blob`) aliviaria a
-  base e o backup, e é uma opção a considerar quando o volume crescer — não é urgente com 12 MB.
+- Mail is exported three times a day, hot, along with everything else — see [README.md](README.md).
+- The actual configuration is at `/opt/beskos/stalwart/config.json` on VPS-1, mounted into the
+  `stalwart` swarm service. This repository's `config.toml` **has been removed** and replaced by
+  the real format (`deploy/stalwart/config.json`), so no one relies on it again.
+- Attachment storage remains inside Postgres. Moving it to R2 (`blob`) would relieve the database
+  and the backup, and is an option to consider as volume grows — not urgent at 12 MB.

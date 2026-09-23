@@ -279,8 +279,8 @@ type forwardReq struct {
 	ChannelID string `json:"channel_id"`
 }
 
-// handleForwardMessage encaminha uma mensagem para outro canal, criando uma nova mensagem que cita a
-// original. Exige ser membro da ORIGEM (para ler) e do DESTINO (para postar).
+// handleForwardMessage forwards a message to another channel, creating a new message that quotes
+// the original. Requires membership of the SOURCE (to read) and of the DESTINATION (to post).
 func (s *Server) handleForwardMessage(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
 	mid, err := uuid.Parse(chi.URLParam(r, "id"))

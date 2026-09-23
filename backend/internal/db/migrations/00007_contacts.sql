@@ -1,5 +1,5 @@
 -- +goose Up
--- Contatos do usuário final: contatos, grupos (N:N) e tags (array). Por owner (mailbox logada).
+-- End-user contacts: contacts, groups (N:N) and tags (array). Per owner (logged-in mailbox).
 
 CREATE TABLE contacts (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -23,7 +23,7 @@ CREATE TABLE contact_groups (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- N:N entre contatos e grupos.
+-- N:N between contacts and groups.
 CREATE TABLE contact_group_members (
     contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
     group_id   UUID NOT NULL REFERENCES contact_groups(id) ON DELETE CASCADE,

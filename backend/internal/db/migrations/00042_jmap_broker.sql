@@ -1,8 +1,8 @@
 -- +goose Up
--- Brokering do JMAP (auditoria H11): a credencial de mailbox (Basic auth) deixa de viver no browser.
--- Guardamos aqui, CIFRADA (AES-GCM, prefixo enc:), a credencial do usuário; o proxy JMAP a injeta
--- server-to-server. O browser passa a autenticar só com a sessão (cookie/bearer). Vazio = sem mailbox
--- ou login anterior à feature (força re-login). Ver deploy/DIVERGENCES.md.
+-- JMAP brokering (audit H11): the mailbox credential (Basic auth) no longer lives in the browser.
+-- We store the user's credential here, ENCRYPTED (AES-GCM, enc: prefix); the JMAP proxy injects it
+-- server-to-server. The browser authenticates only with the session (cookie/bearer). Empty = no
+-- mailbox, or a login from before the feature (forces re-login). See deploy/DIVERGENCES.md.
 ALTER TABLE mail_users ADD COLUMN jmap_cred TEXT NOT NULL DEFAULT '';
 
 -- +goose Down

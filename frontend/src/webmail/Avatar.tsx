@@ -10,7 +10,7 @@ import { hueFor, initials } from "./util";
 // showing a colleague gets the photo without changing every payload. No photo falls back to
 // the initials circle (hueFor).
 
-// useAvatarDir: mapa e-mail→foto e id→foto, a partir dos colegas do tenant (query cacheada).
+// useAvatarDir: email→photo and id→photo maps, built from the tenant's colleagues (cached query).
 function useAvatarDir() {
   const q = useQuery({ queryKey: ["colleagues"], queryFn: () => colleaguesApi.list(), retry: false, staleTime: 300000 });
   return useMemo(() => {

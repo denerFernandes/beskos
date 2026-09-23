@@ -1,4 +1,4 @@
-/* Página pública de entrada em reunião (/j/:room) — cartão central com a marca da organização. */
+/* Public meeting join page (/j/:room) -- a centered card with the organization's branding. */
 .wm .gp{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 16px;background:var(--surface-2);}
 .wm .gp-card{position:relative;width:100%;max-width:440px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:34px 30px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;}
 .wm .gp-badge{width:64px;height:64px;border-radius:18px;background:var(--accent-tint);color:var(--accent-ink);display:grid;place-items:center;}

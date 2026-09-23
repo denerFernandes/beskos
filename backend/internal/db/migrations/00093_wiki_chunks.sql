@@ -1,9 +1,9 @@
 -- +goose Up
--- RAG semântico da wiki (docs/wiki-features.md §7.2). Requer a extensão pgvector (imagem
--- pgvector/pgvector:pg16). Cada linha é um trecho (chunk) de uma página, com o seu embedding.
--- Provedor de embeddings escolhido: OpenAI text-embedding-3-small → dimensão D = 1536.
--- Um worker (re)computa os chunks ao gravar/apagar página (idempotente). A busca é kNN por cosseno,
--- SEMPRE filtrada pela permissão de quem pergunta (CTE vis) + tenant_id + ai_indexed.
+-- Semantic RAG for the wiki (docs/wiki-features.md §7.2). Requires the pgvector extension (image
+-- pgvector/pgvector:pg16). Each row is a chunk of a page, with its embedding.
+-- Chosen embeddings provider: OpenAI text-embedding-3-small → dimension D = 1536.
+-- A worker (re)computes the chunks when a page is saved/deleted (idempotent). Search is cosine kNN,
+-- ALWAYS filtered by the asker's permission (vis CTE) + tenant_id + ai_indexed.
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE wiki_chunks (
@@ -18,10 +18,10 @@ CREATE TABLE wiki_chunks (
     UNIQUE (page_id, chunk_index)
 );
 CREATE INDEX idx_wiki_chunks_page ON wiki_chunks(tenant_id, page_id);
--- Índice ANN por cosseno (ivfflat). O filtro de permissão é aplicado na query (join com a CTE vis).
+-- Cosine ANN index (ivfflat). The permission filter is applied in the query (join with the vis CTE).
 CREATE INDEX idx_wiki_chunks_embedding ON wiki_chunks
     USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- +goose Down
 DROP TABLE IF EXISTS wiki_chunks;
--- Mantém a extensão vector (pode ser usada por outras features); remover só se explicitamente pedido.
+-- Keeps the vector extension (other features may use it); remove it only if explicitly requested.

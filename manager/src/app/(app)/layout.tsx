@@ -15,8 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-// Shell fiel ao dashboard de referência do shadcn/ui: team switcher (dot gradiente + nome +
-// chevron), navegação inline, Search e avatar à direita. Valida a sessão em /me.
+// Shell faithful to the shadcn/ui reference dashboard: team switcher (gradient dot + name +
+// chevron), inline navigation, Search and avatar on the right. Validates the session at /me.
 const NAV = [
   { href: "/", label: S.nav.dashboard },
   { href: "/tenants", label: S.nav.tenants },
@@ -51,7 +51,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="flex h-16 items-center gap-4 px-4 sm:px-6">
-          {/* Team switcher (visual): dot com gradiente verde + nome do operador + chevron. */}
+          {/* Team switcher (visual): green gradient dot + operator name + chevron. */}
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
               <span className="h-4 w-4 rounded-full bg-gradient-to-br from-lime-400 to-emerald-600" />
@@ -112,7 +112,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-// SearchBox: pesquisa de tenants — Enter navega para a lista filtrada.
+// SearchBox: tenant search — Enter navigates to the filtered list.
 function SearchBox() {
   const router = useRouter();
   return (

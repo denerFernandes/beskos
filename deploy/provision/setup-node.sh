@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Beskos · Fase 1 — provisiona UM nó (hardening + Docker). Idempotente: correr as
-# vezes que forem precisas. Alvo: Ubuntu 22.04/24.04 LTS acabada de instalar.
+# Beskos -- provisions ONE node (hardening + Docker). Idempotent: run it as many
+# times as needed. Target: a freshly installed Ubuntu 22.04/24.04 LTS.
 #
-# Correr COMO ROOT no nó (ex.: ssh root@<IP> 'bash -s' < setup-node.sh, com env).
+# Run AS ROOT on the node (e.g. ssh root@<IP> 'bash -s' < setup-node.sh, with env).
 #
-# Variáveis (env):
-#   ROLE          data | app | media        (define as regras de firewall)     [obrigatório]
-#   ADMIN_USER    utilizador sudo a criar    (default: deploy)
-#   SSH_PUBKEY    chave pública a autorizar  [obrigatório na 1ª vez]
-#   NODE_IPS      IPs dos 3 nós, separados por espaço, para abrir as portas do
-#                 Swarm SÓ entre eles         (ex.: "1.2.3.4 1.2.3.5 1.2.3.6")   [obrigatório]
+# Variables (env):
+#   ROLE          data | app | media        (sets the firewall rules)          [required]
+#   ADMIN_USER    sudo user to create        (default: deploy)
+#   SSH_PUBKEY    public key to authorise    [required the first time]
+#   NODE_IPS      IPs of the 3 nodes, space-separated, to open the Swarm
+#                 ports ONLY between them     (e.g. "1.2.3.4 1.2.3.5 1.2.3.6")   [required]
 #
-# ⚠️ No fim, o login de ROOT e por PASSWORD ficam DESLIGADOS. Garante que a
-#    SSH_PUBKEY funciona ANTES — reconecta como $ADMIN_USER noutra sessão.
+# WARNING: at the end, ROOT login and PASSWORD login are DISABLED. Make sure the
+#    SSH_PUBKEY works BEFOREHAND -- reconnect as $ADMIN_USER in another shell.
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -75,8 +75,8 @@ EOF
 systemctl enable --now fail2ban
 
 log "6/8 · Docker CE 27.x (FIXADO — o CapRover não fala a API do Docker ≥28)"
-# O CapRover usa um cliente Docker antigo (API 1.38); o Docker 28+ recusa-o. Fixamos o 27.5.1 e
-# travamos updates. (Ubuntu 24.04 / noble.)
+# CapRover uses an old Docker client (API 1.38); Docker 28+ rejects it. We pin 27.5.1 and
+# hold updates. (Ubuntu 24.04 / noble.)
 DOCKER_VER='5:27.5.1-1~ubuntu.24.04~noble'
 if ! command -v docker &>/dev/null; then
   curl -fsSL https://get.docker.com | sh -s -- --version 27.5 || curl -fsSL https://get.docker.com | sh
@@ -86,7 +86,7 @@ apt-get install -y --allow-downgrades \
 apt-mark hold docker-ce docker-ce-cli >/dev/null 2>&1 || true
 usermod -aG docker "$ADMIN_USER" || true
 systemctl enable --now docker
-# journald com limite (evita disco cheio por logs)
+# capped log size (avoids a disk filled by logs)
 mkdir -p /etc/docker
 echo '{ "log-driver":"json-file", "log-opts":{"max-size":"20m","max-file":"5"} }' > /etc/docker/daemon.json
 systemctl restart docker
@@ -104,7 +104,7 @@ ufw --force reset >/dev/null
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp comment 'ssh'
-# portas do Swarm SÓ entre os nós do cluster
+# Swarm ports ONLY between the cluster nodes
 for ip in $NODE_IPS; do
   ufw allow from "$ip" to any port 2377 proto tcp comment 'swarm-mgmt'
   ufw allow from "$ip" to any port 7946           comment 'swarm-net'
@@ -114,11 +114,11 @@ case "$ROLE" in
   data)  # CapRover ingress + mail (Stalwart)
     ufw allow 80,443/tcp comment 'http/ingress'
     ufw allow 25,587,465,143,993/tcp comment 'mail'
-    # 3000 (painel CapRover) NÃO é aberto — acede-se por túnel SSH até fecharmos o setup
+    # 3000 (CapRover panel) is NOT opened -- it is reached through an SSH tunnel until setup is done
     ;;
-  app)   # tráfego web chega pela overlay a partir do ingress; nada direto
+  app)   # web traffic arrives over the overlay from the ingress; nothing direct
     : ;;
-  media) # LiveKit + TURN (WebRTC precisa de UDP direto)
+  media) # LiveKit + TURN (WebRTC needs direct UDP)
     ufw allow 7880,7881/tcp comment 'livekit'
     ufw allow 50000:60000/udp comment 'livekit-rtc'
     ufw allow 3478/udp comment 'turn'

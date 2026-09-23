@@ -112,7 +112,7 @@ func TestRouterSeesOnlyTheUserMessage(t *testing.T) {
 	}
 }
 
-// THE PHASE'S CRITERION: the mail agent can't touch Drive. It's not a prompt instruction — it's the
+// THE CORE CRITERION: the mail agent can't touch Drive. It's not a prompt instruction — it's the
 // permission list, validated server-side on every call.
 func TestInboxAgentCannotTouchDrive(t *testing.T) {
 	inbox, ok := Builtin(AgentInbox)

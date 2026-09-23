@@ -1,7 +1,7 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { IcX } from "./icons";
 
-// Primitivos do painel: Modal, Drawer (sidecar) e Toast. Nada de alert()/prompt() (pedido do user).
+// Panel primitives: Modal, Drawer (sidecar) and Toast. No alert()/prompt().
 
 export function Modal({ title, onClose, children, footer }: {
   title: string; onClose: () => void; children: ReactNode; footer?: ReactNode;

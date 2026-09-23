@@ -1,6 +1,6 @@
 -- +goose Up
--- Cor do card do Kanban (pedido do utilizador): tinta suave escolhida pelo utilizador; '' = default.
--- O contraste do conteúdo é garantido no frontend (paleta de tons claros + tinta de texto fixa).
+-- Kanban card color: a soft tint chosen by the user; '' = default.
+-- Content contrast is guaranteed in the frontend (palette of light tones + a fixed text color).
 ALTER TABLE cards ADD COLUMN color TEXT NOT NULL DEFAULT '';
 
 -- +goose Down

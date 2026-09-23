@@ -1,6 +1,6 @@
 -- +goose Up
--- Agendar envio de mensagem de chat + "lembrar-me" de uma mensagem. O worker varre os vencidos:
--- envia a mensagem agendada (e publica no hub) ou cria uma notificação de lembrete.
+-- Scheduled chat messages + "remind me" about a message. The worker sweeps the due rows: it sends
+-- the scheduled message (and publishes it to the hub) or creates a reminder notification.
 CREATE TABLE scheduled_messages (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

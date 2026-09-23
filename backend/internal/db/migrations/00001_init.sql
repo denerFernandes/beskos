@@ -1,6 +1,6 @@
 -- +goose Up
--- Schema do control plane (brief §5). Toda tabela com dados de cliente carrega tenant_id
--- e TODA query deve filtrar por ele (multi-tenant em banco compartilhado, brief §5/§10).
+-- Control-plane schema (brief §5). Every table holding customer data carries tenant_id
+-- and EVERY query must filter by it (multi-tenant on a shared database, brief §5/§10).
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -14,11 +14,11 @@ CREATE TABLE tenants (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Usuários do NOSSO painel (SaaS): operadores internos e admins-por-cliente.
--- Distinto de mail_users (mailboxes no Stalwart). Auth do painel é nossa (brief §8).
+-- Users of OUR panel (SaaS): internal operators and per-customer admins.
+-- Distinct from mail_users (mailboxes in Stalwart). Panel auth is ours (brief §8).
 CREATE TABLE panel_users (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id     UUID REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = operador interno (admin global nosso)
+    tenant_id     UUID REFERENCES tenants(id) ON DELETE CASCADE,  -- NULL = internal operator (our global admin)
     email         TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role          TEXT NOT NULL DEFAULT 'tenant_admin',           -- 'internal_admin' | 'tenant_admin'
@@ -36,11 +36,11 @@ CREATE TABLE domains (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     dominio         TEXT NOT NULL UNIQUE,
-    stalwart_id     TEXT,                       -- elo com o Stalwart (x:Domain id)
+    stalwart_id     TEXT,                       -- link to Stalwart (x:Domain id)
     dkim_status     TEXT NOT NULL DEFAULT 'pending',
     dns_status      TEXT NOT NULL DEFAULT 'pending',
-    provision_state TEXT NOT NULL DEFAULT 'pending',  -- máquina de estados §7
-    dns_zone        TEXT,                       -- dnsZoneFile capturado do Stalwart
+    provision_state TEXT NOT NULL DEFAULT 'pending',  -- state machine §7
+    dns_zone        TEXT,                       -- dnsZoneFile captured from Stalwart
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -50,7 +50,7 @@ CREATE TABLE mail_users (
     email               TEXT NOT NULL UNIQUE,
     name                TEXT NOT NULL DEFAULT '',
     role                TEXT NOT NULL DEFAULT 'user',
-    stalwart_account_id TEXT,                   -- elo com o Stalwart (x:Account id)
+    stalwart_account_id TEXT,                   -- link to Stalwart (x:Account id)
     quota_bytes         BIGINT NOT NULL DEFAULT 0,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );

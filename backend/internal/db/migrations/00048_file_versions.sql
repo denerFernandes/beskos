@@ -1,8 +1,8 @@
 -- +goose Up
--- Histórico de versões navegável: cada save do OnlyOffice antes sobrescrevia o blob e perdia o
--- anterior. Agora, antes de gravar, a versão CORRENTE é fotografada aqui — dá para listar e restaurar.
--- Blobs são content-addressed (tenant/hash) e dedup, então uma versão pode partilhar blob com o
--- ficheiro ou outra versão: a purga só apaga o blob quando NENHUM registo (ficheiro OU versão) o usa.
+-- Browsable version history: each OnlyOffice save used to overwrite the blob and lose the previous
+-- one. Now, before writing, the CURRENT version is snapshotted here, so it can be listed and restored.
+-- Blobs are content-addressed (tenant/hash) and deduplicated, so a version may share a blob with the
+-- file or another version: the purge deletes the blob only when NO record (file OR version) uses it.
 CREATE TABLE file_versions (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     file_id    UUID NOT NULL REFERENCES storage_files(id) ON DELETE CASCADE,

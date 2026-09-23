@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# E2E de billing + cotas: cota de caixas (402), webhook Stripe assinado + idempotente,
-# mudança de plano altera o limite, uso de armazenamento contabilizado, assinatura inválida.
+# Billing + quota E2E: mailbox quota (402), signed + idempotent Stripe webhook,
+# plan change alters the limit, storage usage accounted, invalid signature.
 set -euo pipefail
 PG=bl-pg; SW=bl-sw; MO=bl-minio
 PGPORT=55440; SWPORT=18095; MOPORT=19001; APIPORT=8207
@@ -43,7 +43,7 @@ T=$(curl -s -c /tmp/bl-o -X POST $API/auth/signup -d '{"org_name":"Org","email":
 echo "== cota de caixas (trial = 3) =="
 DID=$(curl -s -b /tmp/bl-o -X POST $API/domains -d '{"dominio":"bl-demo.com"}' | J "['id']")
 for i in $(seq 1 30); do ST=$(curl -s -b /tmp/bl-o $API/domains/$DID | J "['provision_state']"); [[ $ST == active ]]&&break; sleep 2; done
-# postmaster (auto) = 1; cria ana(2), bob(3)
+# postmaster (auto) = 1; create ana(2), bob(3)
 curl -s -b /tmp/bl-o -X POST $API/domains/$DID/mailboxes -d '{"login":"ana","name":"Ana","password":"'$PW'"}' >/dev/null
 curl -s -b /tmp/bl-o -X POST $API/domains/$DID/mailboxes -d '{"login":"bob","name":"Bob","password":"'$PW'"}' >/dev/null
 [[ $(curl -s -b /tmp/bl-o $API/usage | J "['usage']['mailboxes']") == 3 ]]&&pass "3 caixas (postmaster+ana+bob)"||fail "contagem caixas"

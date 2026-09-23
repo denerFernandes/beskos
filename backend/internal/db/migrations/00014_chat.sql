@@ -1,18 +1,18 @@
 -- +goose Up
--- Chat estilo Slack: canais (públicos/privados/DM), membros com marca de leitura, mensagens
--- com thread, e reações. Tudo escopado por tenant.
+-- Slack-style chat: channels (public/private/DM), members with a read marker, messages
+-- with threads, and reactions. Everything scoped by tenant.
 
 CREATE TABLE channels (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     kind       TEXT NOT NULL DEFAULT 'public',   -- public | private | dm
-    name       TEXT NOT NULL DEFAULT '',         -- vazio em DM (nome derivado dos membros)
+    name       TEXT NOT NULL DEFAULT '',         -- empty for a DM (name derived from the members)
     topic      TEXT NOT NULL DEFAULT '',
-    dm_key     TEXT NOT NULL DEFAULT '',         -- chave canônica da DM (ids ordenados) p/ evitar duplicata
+    dm_key     TEXT NOT NULL DEFAULT '',         -- canonical DM key (sorted ids) to avoid duplicates
     created_by UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- Uma DM única por par (ou grupo) dentro do tenant.
+-- One unique DM per pair (or group) within the tenant.
 CREATE UNIQUE INDEX idx_channels_dm ON channels(tenant_id, dm_key) WHERE kind = 'dm';
 CREATE INDEX idx_channels_tenant ON channels(tenant_id);
 
@@ -32,7 +32,7 @@ CREATE TABLE messages (
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
     user_id    UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
-    parent_id  UUID REFERENCES messages(id) ON DELETE CASCADE,  -- thread (resposta)
+    parent_id  UUID REFERENCES messages(id) ON DELETE CASCADE,  -- thread (reply)
     body       TEXT NOT NULL,
     edited_at  TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,

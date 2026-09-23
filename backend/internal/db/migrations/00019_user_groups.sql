@@ -1,14 +1,14 @@
 -- +goose Up
--- Grupos de UTILIZADORES (≠ contact_groups, que é catálogo de contatos).
--- Servem para: (a) organizar pessoas, (b) compartilhar contatos com um grupo (fase 4), e
--- (c) cada grupo ganha automaticamente um canal privado no chat.
+-- USER groups (≠ contact_groups, which is a contact catalog).
+-- They serve to: (a) organize people, (b) share contacts with a group, and
+-- (c) each group automatically gets a private chat channel.
 
 CREATE TABLE user_groups (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     name       TEXT NOT NULL,
-    -- Canal do chat criado junto com o grupo. ON DELETE SET NULL: apagar o grupo NÃO destrói a
-    -- conversa — o canal continua existindo com o histórico.
+    -- Chat channel created together with the group. ON DELETE SET NULL: deleting the group does NOT destroy
+    -- the conversation — the channel keeps existing with its history.
     channel_id UUID REFERENCES channels(id) ON DELETE SET NULL,
     created_by UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

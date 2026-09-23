@@ -13,8 +13,8 @@ import (
 // driver (an editable model), and per-tenant margin. An estimate is not an invoice: the UI marks
 // it as an estimate.
 
-// costModel são as tarifas em CENTS. Billable seats = utilizadores atuais (sem mínimo por plano —
-// registado no doc; o mínimo cobrado entra com o billing real).
+// costModel holds the rates in CENTS. Billable seats = current users (no per-plan minimum —
+// recorded in the doc; the charged minimum comes in with real billing).
 type costModel struct {
 	Currency            string `json:"currency"`
 	FixedMonthCents     int64  `json:"fixed_month_cents"`
@@ -74,7 +74,7 @@ func (s *Server) handleSaveCosts(w http.ResponseWriter, r *http.Request) {
 
 const gb = int64(1 << 30)
 
-// tenantFinance é a linha da tabela de margem por tenant.
+// tenantFinance is a row of the per-tenant margin table.
 type tenantFinance struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -82,13 +82,13 @@ type tenantFinance struct {
 	Status       string `json:"status"`
 	Users        int32  `json:"users"`
 	MrrCents     int64  `json:"mrr_cents"`
-	CostCents    int64  `json:"cost_cents"` // variável estimado (sem o fixo, que é global)
+	CostCents    int64  `json:"cost_cents"` // estimated variable cost (excluding the fixed cost, which is global)
 	MarginCents  int64  `json:"margin_cents"`
 	StorageBytes int64  `json:"storage_bytes"`
 	AiTokens30d  int64  `json:"ai_tokens_30d"`
 }
 
-// handleFinance calcula o resumo (MRR/ARR/ARPU, custos, margem) e a tabela por tenant.
+// handleFinance computes the summary (MRR/ARR/ARPU, costs, margin) and the per-tenant table.
 func (s *Server) handleFinance(w http.ResponseWriter, r *http.Request) {
 	summary, tenants, err := s.computeFinance(r.Context())
 	if err != nil {
@@ -113,7 +113,7 @@ func (s *Server) computeFinance(ctx context.Context) (map[string]any, []tenantFi
 		priceByKey[p.Key] = int64(p.PriceCentsPerUser)
 	}
 	cm := s.loadCostModel(ctx)
-	// Custo fixo = soma dos SERVIDORES ativos (por VPS, migração 00108) + "outros fixos" do modelo.
+	// Fixed cost = sum of active SERVERS (per VPS, migration 00108) + the model's "other fixed" costs.
 	serversCents, _ := s.q.SumManagerServers(ctx)
 	fixed := cm.FixedMonthCents + serversCents
 
@@ -125,8 +125,8 @@ func (s *Server) computeFinance(ctx context.Context) (map[string]any, []tenantFi
 		if t.Status == "active" {
 			mrr = priceByKey[t.Plan] * int64(t.Users)
 		}
-		// Custo variável estimado: storage (+ gravações) por GB-mês, IA por 1M tokens (30d),
-		// e-mail por 1k envios (30d).
+		// Estimated variable cost: storage (+ recordings) per GB-month, AI per 1M tokens (30d),
+		// email per 1k sends (30d).
 		cost := (t.StorageBytes+t.RecordingsBytes)/gb*cm.StorageGbMonthCents +
 			t.AiTokens30d*cm.AiPerMtokCents/1_000_000 +
 			t.MailSent30d*cm.EmailPer1kCents/1_000

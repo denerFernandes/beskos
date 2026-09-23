@@ -1,7 +1,8 @@
 -- +goose Up
--- Comentários das páginas da wiki (docs/wiki-features.md §3.5). Comentar exige papel >= commenter;
--- ler comentários exige >= viewer (a mesma superfície `vis` da página, conferida no serviço). O autor
--- apaga o seu comentário; o manager do espaço/página apaga qualquer um. Multi-tenant: tenant_id + índice.
+-- Wiki page comments (docs/wiki-features.md §3.5). Commenting requires role >= commenter; reading
+-- comments requires >= viewer (the same `vis` surface as the page, checked in the service). The
+-- author deletes their own comment; the space/page manager deletes any. Multi-tenant: tenant_id +
+-- index.
 CREATE TABLE wiki_comments (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id      UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

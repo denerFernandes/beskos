@@ -1,8 +1,8 @@
 -- +goose Up
--- Links públicos de download (anexos grandes enviados por e-mail, estilo Gmail). O `token` é um
--- segredo longo e imprevisível: quem o tem baixa o ficheiro, sem login. Sem expiração por decisão
--- do cliente — o link vive enquanto o ficheiro existir (ON DELETE CASCADE limpa ao apagar/revogar).
--- Um ficheiro tem no máximo um link ativo (reutilizado); por isso file_id é único.
+-- Public download links (large attachments sent by email, Gmail style). The `token` is a long,
+-- unpredictable secret: whoever holds it downloads the file, without login. No expiry, by customer
+-- decision: the link lives as long as the file exists (ON DELETE CASCADE cleans up on delete/revoke).
+-- A file has at most one active link (reused); hence file_id is unique.
 CREATE TABLE file_links (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

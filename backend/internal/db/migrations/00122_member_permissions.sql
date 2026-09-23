@@ -1,8 +1,8 @@
 -- +goose Up
--- Exceções de permissão POR MEMBRO, por cima do papel: `allow` concede uma capacidade que o papel
--- não dá; `allow=false` retira uma que dá. O papel continua a ser o ponto de partida — isto é para
--- os casos que nenhum papel de fábrica cobre (ex.: só o financeiro do escritório pode apagar
--- domínios, ou um admin que não deve mexer em faturação).
+-- Permission exceptions PER MEMBER, on top of the role: `allow` grants a capability the role does
+-- not give; `allow=false` removes one it does give. The role remains the starting point -- this is
+-- for cases no built-in role covers (e.g. only the office's finance person may delete domains, or
+-- an admin who must not touch billing).
 CREATE TABLE member_permissions (
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     user_id    UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,

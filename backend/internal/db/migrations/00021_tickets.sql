@@ -1,25 +1,25 @@
 -- +goose Up
--- CRM — fase 6: chamados (tickets) e atendimentos.
--- Decisões (com o cliente): sistema completo (status, prioridade, responsável, thread, SLA);
--- SLA = prazo FIXO POR PRIORIDADE, configurável pelo admin; ticket é por contato.
--- FILA: não existe entidade "fila" — o campo group_id aponta para os `user_groups` que já temos
--- (opcional, nulo por padrão). Recomendação registrada: numa empresa pequena o que resolve é
--- "responsável", não roteamento de fila. O campo fica pronto sem custo nem dados a migrar.
+-- CRM: tickets and support interactions.
+-- Decisions: a complete system (status, priority, assignee, thread, SLA);
+-- SLA = a FIXED deadline PER PRIORITY, configurable by the admin; a ticket belongs to a contact.
+-- QUEUE: there is no "queue" entity — the group_id field points at the existing `user_groups`
+-- (optional, null by default). Recorded recommendation: in a small company what works is an
+-- "assignee", not queue routing. The field is ready at no cost and with no data to migrate.
 
--- Numeração por tenant: o UPDATE ... RETURNING trava a linha do tenant, então dois chamados
--- criados ao mesmo tempo nunca recebem o mesmo número (MAX(number)+1 daria empate).
+-- Per-tenant numbering: UPDATE ... RETURNING locks the tenant's row, so two tickets
+-- created at the same time never get the same number (MAX(number)+1 would tie).
 ALTER TABLE tenants ADD COLUMN ticket_seq BIGINT NOT NULL DEFAULT 0;
 
 CREATE TABLE tickets (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    number       BIGINT NOT NULL,               -- #1, #2… por tenant
+    number       BIGINT NOT NULL,               -- #1, #2… per tenant
     subject      TEXT NOT NULL,
     status       TEXT NOT NULL DEFAULT 'open',  -- open | pending | resolved | closed
     priority     TEXT NOT NULL DEFAULT 'normal',-- low | normal | high | urgent
     contact_id   UUID REFERENCES contacts(id) ON DELETE SET NULL,
-    -- Quem pediu, por e-mail. Sempre gravado: o chamado precisa sobreviver ao contato ser
-    -- apagado, e um e-mail de fora pode abrir chamado sem ter contato ainda.
+    -- Who asked, by email. Always stored: the ticket must survive the contact being
+    -- deleted, and an outside email can open a ticket before any contact exists.
     requester_email TEXT NOT NULL DEFAULT '',
     assignee_id  UUID REFERENCES mail_users(id) ON DELETE SET NULL,
     group_id     UUID REFERENCES user_groups(id) ON DELETE SET NULL,
@@ -27,8 +27,8 @@ CREATE TABLE tickets (
     source       TEXT NOT NULL DEFAULT 'ui',    -- ui | email
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- SLA: os prazos são CONGELADOS na criação a partir da política vigente. Mudar a política
-    -- depois não pode reescrever a régua de um chamado que já estava correndo.
+    -- SLA: deadlines are FROZEN at creation from the policy in force. Changing the policy
+    -- later must not rewrite the clock of a ticket that was already running.
     due_first_response_at TIMESTAMPTZ,
     due_resolution_at     TIMESTAMPTZ,
     first_response_at     TIMESTAMPTZ,
@@ -41,12 +41,12 @@ CREATE TABLE tickets (
 CREATE INDEX idx_tickets_tenant  ON tickets(tenant_id, status, created_at DESC);
 CREATE INDEX idx_tickets_contact ON tickets(contact_id);
 
--- Thread de respostas. `internal` = nota entre colegas: NUNCA sai para o cliente.
+-- Reply thread. `internal` = a note between colleagues: NEVER goes out to the customer.
 CREATE TABLE ticket_messages (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     ticket_id  UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
-    author_id  UUID REFERENCES mail_users(id) ON DELETE SET NULL, -- nulo = veio do cliente
+    author_id  UUID REFERENCES mail_users(id) ON DELETE SET NULL, -- null = came from the customer
     from_email TEXT NOT NULL DEFAULT '',
     body       TEXT NOT NULL,
     internal   BOOLEAN NOT NULL DEFAULT false,
@@ -54,7 +54,7 @@ CREATE TABLE ticket_messages (
 );
 CREATE INDEX idx_ticket_messages ON ticket_messages(ticket_id, created_at);
 
--- Política de SLA por prioridade, por tenant. Minutos até a 1ª resposta e até resolver.
+-- SLA policy per priority, per tenant. Minutes until the 1st response and until resolution.
 CREATE TABLE sla_policies (
     tenant_id              UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     priority               TEXT NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE sla_policies (
     CONSTRAINT sla_priority_ck CHECK (priority IN ('low', 'normal', 'high', 'urgent'))
 );
 
--- Padrão para os tenants que já existem (e o mesmo que a API aplica a tenant novo).
+-- Default for existing tenants (and the same one the API applies to a new tenant).
 INSERT INTO sla_policies (tenant_id, priority, first_response_minutes, resolution_minutes)
 SELECT t.id, p.priority, p.frm, p.res
 FROM tenants t

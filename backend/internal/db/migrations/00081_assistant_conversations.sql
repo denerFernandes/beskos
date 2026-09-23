@@ -1,15 +1,15 @@
 -- +goose Up
--- Conversas persistidas do assistente (fase A1 do desenho, §7.4). O que a A0 fazia num pedido HTTP
--- e esquecia, passa a ter fio: cada conversa é um histórico reabrível, e o contexto do fio (§3.5.2)
--- volta ao modelo nas execuções seguintes.
+-- Persisted assistant conversations (§7.4 of the design). What used to live in a single HTTP
+-- request and then be forgotten now has a thread: each conversation is a history that can be
+-- reopened, and the thread context (§3.5.2) goes back to the model on subsequent executions.
 --
--- Notas de desenho:
---   - `mail_user_id` + `tenant_id` são o filtro obrigatório (lei 5.1). A conversa é PESSOAL: não é
---     partilhada entre utilizadores do mesmo tenant (§3.5).
---   - `agent` guarda a chave do perfil que respondeu. Cada agente tem as suas conversas (§3.2) e
---     ver qual respondeu é um requisito, não um extra.
---   - `title` é derivado da primeira mensagem do utilizador — não do modelo. Um título gerado por
---     IA custaria uma chamada por conversa e diria menos do que a própria frase.
+-- Design notes:
+--   - `mail_user_id` + `tenant_id` are the mandatory filter (law 5.1). A conversation is PERSONAL:
+--     it is not shared between users of the same tenant (§3.5).
+--   - `agent` stores the key of the profile that answered. Each agent has its own conversations
+--     (§3.2), and seeing which one answered is a requirement, not an extra.
+--   - `title` is derived from the user's first message — not from the model. An AI-generated title
+--     would cost one call per conversation and say less than the sentence itself.
 CREATE TABLE assistant_conversations (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -19,29 +19,31 @@ CREATE TABLE assistant_conversations (
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- Lista do próprio utilizador, mais recente primeiro.
+-- The user's own list, newest first.
 CREATE INDEX idx_assistant_conversations_user ON assistant_conversations (mail_user_id, updated_at DESC);
 
--- Mensagens de uma conversa. Inclui os cartões de ação (§3.3): o registo da chamada real fica com a
--- mensagem que a originou, para que reabrir a conversa mostre o mesmo que se viu ao vivo.
+-- Messages of a conversation. Includes the action cards (§3.3): the record of the real call stays
+-- with the message that triggered it, so reopening the conversation shows what was seen live.
 --
--- `steps` guarda o RESUMO de cada chamada, não o payload do que foi lido — o corpo dos e-mails não
--- fica duplicado numa tabela nossa (privacidade e tamanho). É a mesma escolha de `assistant_tool_calls`.
+-- `steps` stores the SUMMARY of each call, not the payload of what was read — e-mail bodies are
+-- not duplicated in a table of ours (privacy and size). It is the same choice as
+-- `assistant_tool_calls`.
 CREATE TABLE assistant_messages (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     conversation_id UUID NOT NULL REFERENCES assistant_conversations(id) ON DELETE CASCADE,
     role            TEXT NOT NULL,                  -- 'user' | 'assistant'
     content         TEXT NOT NULL DEFAULT '',
-    steps           JSONB NOT NULL DEFAULT '[]',    -- cartões de ação desta resposta
-    stopped         TEXT NOT NULL DEFAULT '',       -- motivo de paragem (chave de i18n), vazio = respondeu
-    run_id          UUID,                           -- liga aos registos de auditoria da execução
+    steps           JSONB NOT NULL DEFAULT '[]',    -- action cards of this response
+    stopped         TEXT NOT NULL DEFAULT '',       -- stop reason (i18n key), empty = answered
+    run_id          UUID,                           -- links to the execution's audit records
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_assistant_messages_conv ON assistant_messages (conversation_id, created_at);
 
--- A A0 deixou o registo de auditoria sem conversa de propósito (as conversas não existiam). Agora
--- existe: a coluna é ANULÁVEL porque as linhas escritas na A0 não têm conversa nenhuma a apontar.
+-- The audit log was deliberately created without a conversation (conversations did not exist
+-- yet). Now they do: the column is NULLABLE because the rows written before then point to no
+-- conversation at all.
 ALTER TABLE assistant_tool_calls
     ADD COLUMN conversation_id UUID REFERENCES assistant_conversations(id) ON DELETE SET NULL;
 

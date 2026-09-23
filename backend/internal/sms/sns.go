@@ -21,7 +21,7 @@ type SNSSender struct {
 	secretKey string
 	senderID  string
 	http      *http.Client
-	now       func() time.Time // injetável nos testes
+	now       func() time.Time // injectable in tests
 }
 
 func NewSNS(region, accessKey, secretKey, senderID string) *SNSSender {
@@ -32,7 +32,7 @@ func NewSNS(region, accessKey, secretKey, senderID string) *SNSSender {
 	}
 }
 
-// publishForm monta o corpo (Query API do SNS) — separado para testes.
+// publishForm builds the body (SNS Query API) -- separate for tests.
 func publishForm(phone, message, senderID string) url.Values {
 	form := url.Values{}
 	form.Set("Action", "Publish")

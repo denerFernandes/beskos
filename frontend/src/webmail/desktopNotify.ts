@@ -1,4 +1,4 @@
-// Desktop notifications (Web Notifications API), phase 1a: fire while a Beskos tab is open.
+// Desktop notifications (Web Notifications API): fire while a Beskos tab is open.
 // Permission is per-browser, so preferences live on the device (localStorage), not in the
 // synced settings — enabling it on the laptop shouldn't enable it on the phone.
 //
@@ -40,7 +40,7 @@ export function notifPrefs(): Record<NotifDomain, boolean> {
 
 export function setNotifPref(domain: NotifDomain, on: boolean): void {
   try { localStorage.setItem(LS_PREFS, JSON.stringify({ ...notifPrefs(), [domain]: on })); }
-  catch { /* private mode: stays only in this session */ }
+  catch { /* private mode: stays only in the current browser session */ }
 }
 
 export function isDomain(v: string): v is NotifDomain {

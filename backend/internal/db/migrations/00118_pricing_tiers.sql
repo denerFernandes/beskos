@@ -1,9 +1,9 @@
 -- +goose Up
--- Reestrutura o catálogo para FEATURE-TIERS (25/07/2026): moeda base USD; Base/Business/Pro
--- self-serve + Enterprise "fale conosco" (só na landing, fora do checkout self-serve para não
--- virar um checkout de $0). Substitui as faixas de volume antigas (starter/growth/business, cujo
--- preço/assento DESCIA). Seguro: só há 1 tenant, em trial; nenhum plano tinha sido espelhado na
--- Stripe ainda. Preço base em cêntimos USD; `prices` traz EUR/GBP/BRL/PLN (currency_options).
+-- Restructures the catalog into FEATURE TIERS: base currency USD; Base/Business/Pro
+-- self-serve + Enterprise "contact us" (landing page only, outside the self-serve checkout so it
+-- does not become a $0 checkout). Replaces the old volume bands (starter/growth/business, whose
+-- per-seat price DECREASED). Safe: there is only 1 tenant, on trial; no plan had been mirrored in
+-- Stripe yet. Base price in USD cents; `prices` carries EUR/GBP/BRL/PLN (currency_options).
 DELETE FROM plans WHERE key IN ('starter', 'growth', 'business');
 
 INSERT INTO plans (key, name, description, price_cents_per_user, min_users, max_users,
@@ -31,5 +31,6 @@ ON CONFLICT (key) DO UPDATE SET
     updated_at            = now();
 
 -- +goose Down
--- Não recria as faixas antigas (o seed da 00101 é a referência histórica); só remove os novos.
+-- Does not recreate the old bands (the 00101 seed is the historical reference); only removes the
+-- new ones.
 DELETE FROM plans WHERE key IN ('base', 'business', 'pro');

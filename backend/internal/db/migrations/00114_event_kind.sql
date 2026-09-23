@@ -1,6 +1,6 @@
 -- +goose Up
--- Ausências no calendário (24/07/2026): day off e férias são eventos de dia inteiro com um "kind"
--- próprio — o booking já os respeita (bloqueiam o dia) e a UI mostra-os com estilo distinto.
+-- Absences in the calendar: day off and vacation are all-day events with their own "kind" --
+-- booking already respects them (they block the day) and the UI shows them with a distinct style.
 ALTER TABLE events ADD COLUMN kind TEXT NOT NULL DEFAULT '';
 
 -- +goose Down

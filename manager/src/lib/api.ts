@@ -1,5 +1,5 @@
-// Toda chamada à manager-api passa por aqui (lei 3.4). Erros voltam com error_code estável;
-// os componentes traduzem via strings.ts.
+// Every call to manager-api goes through here (docs/engineering-standards.md §3.4). Errors come
+// back with a stable error_code; components translate it via strings.ts.
 
 export class ApiError extends Error {
   code: string;
@@ -226,7 +226,7 @@ export type Plan = {
   wiki_public_links: boolean;
   active: boolean;
   sort: number;
-  // Preço por moeda (centavos): {"USD":1900,"BRL":9900}. price_cents_per_user é o da moeda base.
+  // Price per currency (cents): {"USD":1900,"BRL":9900}. price_cents_per_user is the base currency's.
   prices?: Record<string, number>;
   stripe_product_id?: string;
   stripe_price_id?: string;

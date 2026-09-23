@@ -96,7 +96,8 @@ EXCLUDE = [
     "docs/README-oss.md",  # becomes README.md via OVERRIDES, not kept at its own path too
     "deploy/docker-compose.community.yml",  # becomes deploy/docker-compose.yml via OVERRIDES
     # Editor configuration and the landing gitlink (separate repository). The project laws ship as
-    # docs/engineering-standards.md; CLAUDE.md and AGENTS.md are one-line local pointers to it.
+    # docs/engineering-standards.md; the two editor pointer files below are one-line local pointers
+    # to it.
     ".claude/*",
     ".codex/*",
     "AGENTS.md",
@@ -108,6 +109,7 @@ EXCLUDE = [
     # specific to how this team works, not a public contribution requirement. CONTRIBUTING.md and
     # the public CI workflow are adjusted accordingly (see the Makefile/ci.yml overrides below).
     "scripts/check_laws.py",
+    "scripts/githooks/*",
     "scripts/check_docs.py",
     "scripts/check_register.py",
     "scripts/comment_audit.py",

@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Bolha do tooltip GLOBAL (GlobalTooltip.tsx): instantâneo e estilizado, vive no document.body por
-   isso fica fora do escopo .wm. Bolha escura no claro / clara no escuro (segue data-theme do html). */
+/* GLOBAL tooltip bubble (GlobalTooltip.tsx): instant and styled; it lives on document.body, so it
+   sits outside the .wm scope. Dark bubble in light mode / light in dark mode (follows the html
+   data-theme). */
 .gtt {
   position: fixed; z-index: 9999; padding: 5px 9px; border-radius: 7px;
   font: 600 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;

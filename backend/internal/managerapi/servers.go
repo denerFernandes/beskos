@@ -22,7 +22,7 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 }
 
 type serverReq struct {
-	ID           string `json:"id"` // vazio = criar
+	ID           string `json:"id"` // empty = create
 	Name         string `json:"name"`
 	Provider     string `json:"provider"`
 	MonthlyCents int32  `json:"monthly_cents"`

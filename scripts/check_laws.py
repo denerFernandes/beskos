@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Mechanical check for the project laws in docs/engineering-standards.md.
 
-Why this exists: the laws were written down and still broken, twice in one day, by an agent that
-had just finished fixing the same violation. A document does not enforce anything -- it only tells
+Why this exists: the laws were written down and still broken, twice in one day, right after the
+same violation had been fixed. A document does not enforce anything -- it only tells
 you what you should have done, after you did not. This runs.
 
 What it checks, comparing against git HEAD:
@@ -35,7 +35,7 @@ Usage:
     scripts/check_laws.py                 # every file changed against HEAD (working tree)
     scripts/check_laws.py FILE [FILE...]  # specific files
     scripts/check_laws.py --base REF      # compare against REF instead of HEAD (CI)
-    scripts/check_laws.py --hook          # reads a Claude Code hook payload on stdin
+    scripts/check_laws.py --hook          # reads an editor hook payload on stdin
 
 On CI the working tree IS the commit, so the default HEAD comparison would find nothing and the
 job would pass while proving nothing. Pass --base with the branch you are merging into.
@@ -335,7 +335,7 @@ def main() -> int:
     print("LAW VIOLATION (docs/engineering-standards.md) -- fix before continuing:\n", file=sys.stderr)
     for p in problems:
         print("  " + p, file=sys.stderr)
-    # 2 is the exit code Claude Code feeds back to the agent as a blocking error.
+    # 2 is the exit code the editor hook treats as a blocking error.
     return 2
 
 

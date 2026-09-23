@@ -18,8 +18,8 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
-// Operadores do manager (M5): lista + criar (Sheet, nunca diálogo nativo) + ativar/desativar.
-// O TOTP obrigatório completa no primeiro login do novo operador.
+// Manager operators: list + create (Sheet, never a native dialog) + enable/disable.
+// Mandatory TOTP is completed on the new operator's first login.
 export default function OperatorsPage() {
   const qc = useQueryClient();
   const ops = useQuery({ queryKey: ["operators"], queryFn: () => api.operators() });

@@ -1,6 +1,6 @@
 # Builds the backend's binaries for a tagged release. Run locally with `goreleaser release
 # --snapshot --clean` to try it without publishing. Container images, cosign signing, and an SBOM
-# are follow-up work (docs/OPEN-SOURCE.md F7) -- they need registry credentials this repository
+# are follow-up work (docs/OPEN-SOURCE.md) -- they need registry credentials this repository
 # does not have configured yet.
 version: 2
 

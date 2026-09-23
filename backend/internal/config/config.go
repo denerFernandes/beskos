@@ -85,7 +85,7 @@ type Config struct {
 	// DevSignupEnabled mounts /auth/signup, a legacy unauthenticated tenant-creation endpoint the
 	// e2e scripts (scripts/e2e-*.sh) still use for test convenience. It bypasses SignupsOpen, rate
 	// limiting, and the billing signup flow (/public/signup) entirely, so it defaults to OFF and
-	// validateProduction refuses to boot with it on in production (audit P6) — a stray "true" in
+	// validateProduction refuses to boot with it on in production (security audit) — a stray "true" in
 	// an env file must never reopen free, unlimited tenant creation on a real deployment.
 	DevSignupEnabled bool
 

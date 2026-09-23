@@ -1,7 +1,7 @@
 -- +goose Up
--- Eventos recorrentes: recur = frequência (daily|weekly|monthly|yearly; '' = único), recur_until =
--- data limite opcional. O evento guardado é o MESTRE (1ª ocorrência); o backend expande as ocorrências
--- dentro do intervalo pedido ao listar. Editar/apagar afeta a série (MVP).
+-- Recurring events: recur = frequency (daily|weekly|monthly|yearly; '' = single), recur_until =
+-- optional end date. The stored event is the MASTER (1st occurrence); the backend expands the
+-- occurrences within the requested range when listing. Editing/deleting affects the whole series (MVP).
 ALTER TABLE events ADD COLUMN recur TEXT NOT NULL DEFAULT '';
 ALTER TABLE events ADD COLUMN recur_until TIMESTAMPTZ;
 

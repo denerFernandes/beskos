@@ -1,61 +1,61 @@
-# Página de estado — status.beskos.com
+# Status page — status.beskos.com
 
-Pública, sem autenticação: <https://status.beskos.com>. É a medição que sustenta a promessa de
-disponibilidade — sem um número que o cliente possa ver, "99,5%" é a nossa palavra contra a memória
-dele. Serve também os avisos de subprocessadores (é uma lista de subscrição só).
+Public, no authentication: <https://status.beskos.com>. It is the measurement behind the
+availability commitment — without a number customers can see, "99.5%" is only our word against
+their memory. It also serves the subprocessor notices (it is a single subscription list).
 
-## O que está montado
+## What is deployed
 
-**Uptime Kuma** (`louislam/uptime-kuma:1`), app `status` no CapRover:
+**Uptime Kuma** (`louislam/uptime-kuma:1`), `status` app on CapRover:
 
-| Definição | Valor | Porquê |
+| Setting | Value | Why |
 |---|---|---|
-| Porta | 3001 | É a do Kuma; sem isto o CapRover encaminha para a 80 e dá 502 |
-| Volume | `status-data` → `/app/data` | O histórico vive num SQLite. Sem volume, cada deploy apaga os 90 dias que a página existe para mostrar |
-| WebSocket | ligado | O Kuma fala socket.io; sem isto o handshake dá 400 e nem a interface abre |
-| TLS | certificado do subdomínio, `forceSsl` | `beskos.com` é o domínio raiz do CapRover, por isso `status.beskos.com` não é "domínio personalizado" — usa-se `enablebasedomainssl` |
-| DNS | A → 185.232.71.70, **sem proxy** | A validação Let's Encrypt do CapRover é HTTP-01 e tem de chegar à origem |
+| Port | 3001 | Kuma's port; without it CapRover routes to 80 and returns 502 |
+| Volume | `status-data` → `/app/data` | History lives in SQLite. Without a volume, every deploy wipes the 90 days the page exists to show |
+| WebSocket | enabled | Kuma speaks socket.io; without it the handshake returns 400 and the interface does not even open |
+| TLS | subdomain certificate, `forceSsl` | `beskos.com` is CapRover's root domain, so `status.beskos.com` is not a "custom domain" — `enablebasedomainssl` is used |
+| DNS | A → 185.232.71.70, **not proxied** | CapRover's Let's Encrypt validation is HTTP-01 and must reach the origin |
 
-**Subdomínio e não `/status`:** se o ingress principal cair, um `/status` servido do mesmo sítio cai
-com ele — que é exatamente quando as pessoas o procuram. `beskos.com/status` redireciona para cá
-(307, temporário de propósito: um 308 fica em cache no browser para sempre).
+**Subdomain rather than `/status`:** if the main ingress goes down, a `/status` served from the same
+place goes down with it — exactly when people look for it. `beskos.com/status` redirects here
+(307, deliberately temporary: a 308 is cached by the browser forever).
 
-## Sondas
+## Probes
 
-Dez, de minuto a minuto, do lado de fora. Definidas em [`kuma-setup.py`](kuma-setup.py) — correr o
-script outra vez não duplica nada.
+Ten, every minute, from the outside. Defined in [`kuma-setup.py`](kuma-setup.py) — running the
+script again does not duplicate anything.
 
-A página é **em inglês** — é pública, lida por clientes de vários países e citada em conversas com
-auditores. (A moldura do Kuma — "All Systems Operational", "Last Updated" — segue o idioma do
-browser de quem visita; o 1.x não tem como fixá-la do lado do servidor.)
+The page is **in English** — it is public, read by customers in several countries and cited in
+conversations with auditors. (Kuma's frame — "All Systems Operational", "Last Updated" — follows
+the visitor's browser language; 1.x has no way to pin it server-side.)
 
-A **consola do operador** é medida mas **não aparece** na página pública: listar um painel interno é
-dizer ao mundo que existe e onde.
+The **operator console** is measured but **does not appear** on the public page: listing an
+internal panel tells the world that it exists and where.
 
-Duas sondas merecem nota:
+Two probes are worth noting:
 
-- **API** aponta a `/api/readyz`, que toca na base de dados, e não a `/healthz`. E tem de ser dentro
-  de `/api`: o proxy público só encaminha esse prefixo para a API — na raiz mediríamos o servidor de
-  ficheiros estáticos e diríamos "no ar" com a base em baixo.
-- **Correio — leitura (JMAP)** aceita **401**. É a resposta certa de um endpoint que exige
-  autenticação, e prova que o Stalwart respondeu; exigir 2xx deixaria a linha vermelha para sempre.
+- **API** points to `/api/readyz`, which touches the database, and not to `/healthz`. It also has
+  to be under `/api`: the public proxy only forwards that prefix to the API — at the root it would
+  measure the static file server and report "up" with the database down.
+- **Mail — read (JMAP)** accepts **401**. That is the correct response from an endpoint that
+  requires authentication, and it proves Stalwart answered; requiring 2xx would keep the row red
+  forever.
 
-## Correr a configuração
+## Running the setup
 
 ```sh
 pip install "python-socketio[client]"
 python3 deploy/status/kuma-setup.py
 ```
 
-Credenciais em `deploy/secrets.env` (`STATUS_ADMIN_USER`, `STATUS_ADMIN_PASSWORD`). O painel de
-administração fica em <https://status.beskos.com/dashboard>.
+Credentials are in `deploy/secrets.env` (`STATUS_ADMIN_USER`, `STATUS_ADMIN_PASSWORD`). The admin
+panel is at <https://status.beskos.com/dashboard>.
 
-## O que falta
+## Still missing
 
-- **Avisos** (e-mail/webhook) quando uma sonda cai — o Kuma suporta, ainda não está configurado.
-- **Sondas profundas**: enviar um e-mail de teste de ponta a ponta e medir quanto demora a chegar,
-  escrever e ler um objeto no armazenamento. As de hoje provam que o serviço responde, não que o
-  trabalho completo funciona.
-- **VPS separado.** Por agora a página corre na mesma infraestrutura que mede: numa falha total fica
-  inacessível. É menos mau do que uma página a garantir que está tudo bem enquanto não está, mas é
-  para trocar.
+- **Alerts** (email/webhook) when a probe goes down — Kuma supports it; it is not configured yet.
+- **Deep probes**: send an end-to-end test email and measure how long it takes to arrive; write and
+  read an object in storage. Today's probes prove the service responds, not that the full job works.
+- **Separate VPS.** For now the page runs on the same infrastructure it measures: in a total outage
+  it becomes unreachable. That is less bad than a page claiming everything is fine while it is not,
+  but it is to be replaced.

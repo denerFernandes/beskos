@@ -1,28 +1,28 @@
 -- +goose Up
--- Cifra de envelope dos ficheiros (docs/file-encryption.md). O R2 passa a guardar só cifrado; as
--- chaves ficam do nosso lado.
+-- Envelope encryption for files (docs/file-encryption.md). R2 now stores only ciphertext; the
+-- keys stay on our side.
 --
--- HIERARQUIA:  KEK (ambiente, versionada) → chave do tenant → chave do objeto → objeto
+-- HIERARCHY:  KEK (environment, versioned) -> tenant key -> object key -> object
 --
--- Só a chave do TENANT vive aqui. A chave de cada objeto viaja dentro do próprio objeto, embrulhada
--- pela chave do tenant — e é isso que torna a escrita de um ficheiro ATÓMICA: uma escrita só, que o
--- armazenamento faz por inteiro ou não faz. Guardar a chave do objeto numa tabela obrigaria a duas
--- escritas e qualquer ordem teria uma janela de falha: o objeto primeiro deixa cifrado sem chave
--- (dados perdidos); a linha primeiro deixa linhas órfãs. Quem tem o objeto fica com a chave
--- embrulhada e não a consegue abrir — precisaria desta tabela e da KEK, e não tem nenhuma das duas.
+-- Only the TENANT key lives here. Each object's key travels inside the object itself, wrapped by
+-- the tenant key -- and that is what makes writing a file ATOMIC: a single write, which storage
+-- either performs in full or not at all. Storing the object key in a table would require two
+-- writes, and either order would have a failure window: object first leaves ciphertext with no key
+-- (data lost); row first leaves orphan rows. Whoever holds the object has the wrapped key and cannot
+-- open it -- that would take this table and the KEK, and they have neither.
 --
--- Porquê uma chave POR TENANT: apagar esta linha torna todos os ficheiros do tenant ilegíveis de
--- imediato, o que é uma garantia de eliminação muito mais forte do que "apagámos as linhas" — e é
--- escrutinável no acordo de subcontratação. É a mesma lei que obriga toda a consulta a filtrar
--- tenant_id (docs/engineering-standards.md §5.1), aplicada às chaves.
+-- Why one key PER TENANT: deleting this row makes all of the tenant's files unreadable
+-- immediately, which is a much stronger deletion guarantee than "we deleted the rows" -- and it is
+-- auditable under the data processing agreement. It is the same law that requires every query to
+-- filter by tenant_id (docs/engineering-standards.md §5.1), applied to keys.
 
 CREATE TABLE tenant_keys (
     tenant_id   UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
-    -- Chave do tenant, embrulhada pela KEK do ambiente. Nunca em claro, em lado nenhum.
+    -- Tenant key, wrapped by the environment's KEK. Never in plaintext, anywhere.
     wrapped_key BYTEA       NOT NULL,
-    -- Versão da KEK que embrulhou. Rodar a KEK re-embrulha ESTA tabela e mais nada: os objetos não
-    -- se tocam, porque a chave que está dentro deles foi embrulhada pela chave do tenant, que não
-    -- muda. É a razão de existir do envelope.
+    -- Version of the KEK that wrapped it. Rotating the KEK re-wraps THIS table and nothing else: the
+    -- objects are not touched, because the key inside them was wrapped by the tenant key, which does
+    -- not change. That is the envelope's reason to exist.
     kek_version INT         NOT NULL DEFAULT 1,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     rotated_at  TIMESTAMPTZ

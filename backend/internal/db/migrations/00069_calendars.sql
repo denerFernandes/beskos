@@ -1,6 +1,6 @@
 -- +goose Up
--- Múltiplos calendários por usuário: cada evento pertence a um calendário (NULL = sem categoria).
--- Free-busy usa os próprios eventos; nenhuma coluna nova é precisa para isso.
+-- Multiple calendars per user: each event belongs to a calendar (NULL = uncategorized).
+-- Free-busy uses the events themselves; no new column is needed for that.
 CREATE TABLE calendars (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

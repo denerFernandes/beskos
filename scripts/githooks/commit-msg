@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""Rejects a commit message that is not plain English project history.
+
+Law 4.6 covers commit messages as much as code: they are English. A message also carries no
+tool attribution trailer and no internal planning label as a subject prefix ("P3: ..."), since
+the history is published with the code. Enabled with `make hooks`.
+"""
+import pathlib
+import re
+import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+from check_laws import portuguese_in  # noqa: E402
+
+ATTRIBUTION = re.compile(r"^\s*co-authored-by:.*\b(claude|anthropic|codex|openai)\b|generated with \[?claude", re.I)
+PHASE_PREFIX = re.compile(r"^[PFAM]\d{1,2}(?:[/-][PFAM]?\d{1,2})*:\s")
+
+
+def problems(message: str) -> list[str]:
+    lines = [l for l in message.splitlines() if not l.startswith("#")]
+    found = []
+    if lines and PHASE_PREFIX.match(lines[0]):
+        found.append(f"subject starts with a planning label: {lines[0][:60]}")
+    for n, line in enumerate(lines, 1):
+        if ATTRIBUTION.search(line):
+            found.append(f"line {n}: tool attribution: {line.strip()[:80]}")
+        word = portuguese_in(line)
+        if word:
+            found.append(f"line {n}: not English ({word!r}): {line.strip()[:80]}")
+    return found
+
+
+def main() -> int:
+    message = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+    found = problems(message)
+    if not found:
+        return 0
+    print("commit message rejected (docs/engineering-standards.md §4.6):", file=sys.stderr)
+    for p in found:
+        print("  " + p, file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

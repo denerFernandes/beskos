@@ -1,36 +1,37 @@
-# Fase 1 · Provisionar as 3 VPS — runbook
+# Provisioning the three VPS — runbook
 
-Automação idempotente. Ver a arquitetura em [../../docs/DEPLOY.md](../../docs/DEPLOY.md).
+Idempotent automation. See the architecture in [../../docs/DEPLOY.md](../../docs/DEPLOY.md).
 
-## Ordem de operações
+## Order of operations
 
-### Passo 0 — chave SSH de deploy (na tua máquina, uma vez)
+### Step 0 — deploy SSH key (on the operator's machine, once)
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/beskos_deploy -C "beskos-deploy" -N ""
-cat ~/.ssh/beskos_deploy.pub      # → é esta a SSH_PUBKEY dos scripts
+cat ~/.ssh/beskos_deploy.pub      # → this is the scripts' SSH_PUBKEY
 ```
 
-### Passo 1 — formatar/reinstalar o SO das 3 VPS (painel Netcup)
-Faz-se pelo **painel SCP**, não pela API (a API SOAP não reinstala; a REST está em beta; o "hack" por
-scraping só serve imagens custom — não compensa). Para cada VPS:
-**SCP → Media → Images → Ubuntu 24.04 LTS → Install** (apaga tudo, deixa limpo).
-A Netcup mostra a **password root inicial** no painel — guarda-a (é o acesso da 1ª ligação).
-Anota o **IPv4 público** de cada uma → VPS-1 (dados), VPS-2 (app), VPS-3 (média).
+### Step 1 — format/reinstall the OS on the three VPS (Netcup panel)
+This is done through the **SCP panel**, not the API (the SOAP API cannot reinstall; the REST API is
+in beta; the scraping "hack" only works for custom images — not worth it). For each VPS:
+**SCP → Media → Images → Ubuntu 24.04 LTS → Install** (wipes everything, leaves it clean).
+Netcup shows the **initial root password** in the panel — keep it (it is the access for the first
+connection). Record each machine's **public IPv4** → VPS-1 (data), VPS-2 (app), VPS-3 (media).
 
-> Nota: a Netcup **não cria VPS por API** (não há API de provisionamento como no Hetzner Cloud);
-> reinstala-se as 3 existentes. Reinstalar = formatar.
+> Note: Netcup **does not create VPS through an API** (there is no provisioning API like Hetzner
+> Cloud's); the three existing machines are reinstalled. Reinstall = format.
 
-### Passo 2 — hardening + Docker (cada nó)
-IPs reais (a chave SSH foi injetada na instalação → 1ª ligação já é por chave, como root):
+### Step 2 — hardening + Docker (each node)
+Actual IPs (the SSH key was injected at install time → the first connection is already key-based,
+as root):
 
-| IP | ROLE | Nó |
+| IP | ROLE | Node |
 |----|------|----|
-| 185.232.71.70 ⭐ | `data` | dados + CapRover leader + mail (recebe os domínios) |
-| 185.232.71.20 | `app` | app + réplica Postgres |
+| 185.232.71.70 ⭐ | `data` | data + CapRover leader + mail (receives the domains) |
+| 185.232.71.20 | `app` | app + Postgres replica |
 | 185.232.69.0 | `media` | OnlyOffice + LiveKit + Egress |
 
 ```bash
-KEY=~/.ssh/beskos_deploy                 # ajustar ao caminho da tua chave privada
+KEY=~/.ssh/beskos_deploy                 # adjust to the path of the private key
 PUB="$(cat $KEY.pub)"
 IPS="185.232.71.70 185.232.71.20 185.232.69.0"
 
@@ -38,25 +39,28 @@ ssh -i $KEY root@185.232.71.70 "ROLE=data  ADMIN_USER=deploy NODE_IPS='$IPS' SSH
 ssh -i $KEY root@185.232.71.20 "ROLE=app   ADMIN_USER=deploy NODE_IPS='$IPS' SSH_PUBKEY='$PUB' bash -s" < setup-node.sh
 ssh -i $KEY root@185.232.69.0  "ROLE=media ADMIN_USER=deploy NODE_IPS='$IPS' SSH_PUBKEY='$PUB' bash -s" < setup-node.sh
 ```
-No fim: root e password ficam **desligados**. A partir daqui liga-se por `ssh -i $KEY deploy@<IP>`.
+At the end, root and password login are **disabled**. From here on, connect with
+`ssh -i $KEY deploy@<IP>`.
 
-### Passo 3 — CapRover no leader (VPS-1) — já é Fase 2
+### Step 3 — CapRover on the leader (VPS-1)
 ```bash
 scp -i ~/.ssh/beskos_deploy caprover-leader.sh deploy@<VPS1_IP>:~
 ssh -i ~/.ssh/beskos_deploy deploy@<VPS1_IP> "LEADER_IP=<VPS1_IP> bash caprover-leader.sh"
 ```
-Segue as instruções que o script imprime (painel por túnel, root domain, HTTPS, juntar nós, labels, rede overlay).
+Follow the instructions the script prints (panel via tunnel, root domain, HTTPS, joining nodes,
+labels, overlay network).
 
-## O que os scripts fazem
-- **`setup-node.sh`** — utilizador sudo + chave · SSH só-chave (sem root/password) · unattended-upgrades ·
-  fail2ban · Docker CE + limites de log · sysctl · **ufw por papel** (data/app/media).
-- **`caprover-leader.sh`** — instala o CapRover (manager do Swarm) no VPS-1.
+## What the scripts do
+- **`setup-node.sh`** — sudo user + key · key-only SSH (no root/password) · unattended-upgrades ·
+  fail2ban · Docker CE + log limits · sysctl · **ufw per role** (data/app/media).
+- **`caprover-leader.sh`** — installs CapRover (Swarm manager) on VPS-1.
 
-## O que preciso de ti para EU executar (senão executas tu, é copy-paste)
-1. **IPv4** das 3 VPS (e qual é qual: dados/app/média).
-2. Confirmar que a **porta 25** está desbloqueada na Netcup (senão abrir pedido — só afeta a Fase 6, mail).
-3. Acesso: ou (a) pões a minha chave / uma chave nas VPS e dás-me os IPs para eu correr por SSH daqui,
-   ou (b) corres tu os 3 comandos do Passo 2 e dizes-me quando estiver.
-4. *(Opcional)* credenciais da **API Netcup** se quiseres que eu automatize a reinstalação + PTR.
+## Inputs required
+1. The **IPv4** of the three VPS (and which is which: data/app/media).
+2. Confirmation that **port 25** is unblocked at Netcup (otherwise open a request — it only affects
+   mail).
+3. Access: either (a) a deploy key is placed on the VPS so the Step 2 commands can be run over SSH
+   remotely, or (b) the three Step 2 commands are run directly on each machine.
+4. *(Optional)* **Netcup API** credentials, to automate the reinstall + PTR.
 
-> ⚠️ O Passo 1 **apaga** o conteúdo das VPS. Só avanço com isso após confirmares explicitamente.
+> ⚠️ Step 1 **wipes** the contents of the VPS. Proceed only after explicit confirmation.

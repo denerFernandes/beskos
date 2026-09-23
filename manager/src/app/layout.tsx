@@ -4,7 +4,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { S } from "@/lib/strings";
 
-// Inter — a MESMA fonte do dashboard de referência do shadcn/ui (pedido 22/07/2026).
+// Inter — the SAME font as the shadcn/ui reference dashboard.
 const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],

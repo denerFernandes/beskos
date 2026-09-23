@@ -8,15 +8,15 @@ import (
 // Overuse alerts. Rules computed on the fly from TODAY's counters plus a 7-day baseline — no new
 // state; an alert disappears once the condition clears.
 //
-//	users_cap      warn ≥90% do teto de utilizadores do plano · crit = no teto
-//	storage_cap    warn ≥80% do pool de storage do plano · crit ≥95%
-//	mail_cap       warn ≥80% do teto diário de envio · crit ≥100%
-//	ai_spike       tenant gastou hoje ≥3× a média dos 7 dias anteriores (e ≥50k tokens)
-//	ai_user_heavy  UM utilizador gastou ≥100k tokens em 24h (top users vêm juntos)
+//	users_cap      warn ≥90% of the plan's user cap · crit = at the cap
+//	storage_cap    warn ≥80% of the plan's storage pool · crit ≥95%
+//	mail_cap       warn ≥80% of the daily sending cap · crit ≥100%
+//	ai_spike       tenant spent ≥3× the previous 7-day average today (and ≥50k tokens)
+//	ai_user_heavy  ONE user spent ≥100k tokens in 24h (top users come along)
 const (
 	aiSpikeFactor  = 3
-	aiSpikeFloor   = 50_000  // spikes só contam a partir daqui (3×0 seria ruído)
-	aiUserHeavy    = 100_000 // tokens/24h de UM utilizador
+	aiSpikeFloor   = 50_000  // spikes only count from here up (3×0 would be noise)
+	aiUserHeavy    = 100_000 // tokens/24h for ONE user
 	warnUsersPct   = 90
 	warnStoragePct = 80
 	critStoragePct = 95
@@ -28,10 +28,10 @@ type alert struct {
 	Kind     string `json:"kind"`
 	TenantID string `json:"tenant_id"`
 	Tenant   string `json:"tenant"`
-	Detail   string `json:"detail"` // texto legível pt-BR (ferramenta interna, como o resto do manager)
+	Detail   string `json:"detail"` // human-readable pt-BR text (internal tool, like the rest of the manager)
 }
 
-// handleAlerts calcula os alertas e devolve também o top de utilizadores de IA (24h).
+// handleAlerts computes the alerts and also returns the top AI users (24h).
 func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.q.ManagerAlertRows(r.Context())
 	if err != nil {
@@ -44,7 +44,7 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, t := range rows {
 		id := t.ID.String()
-		// Teto de utilizadores.
+		// User cap.
 		if t.MaxUsers > 0 {
 			pct := int(t.Users) * 100 / int(t.MaxUsers)
 			if int(t.Users) >= int(t.MaxUsers) {
@@ -53,7 +53,7 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 				add("warn", "users_cap", id, t.Name, fmt.Sprintf("%d/%d utilizadores (%d%% do teto)", t.Users, t.MaxUsers, pct))
 			}
 		}
-		// Pool de storage.
+		// Storage pool.
 		if t.MaxStorageGb > 0 {
 			capBytes := int64(t.MaxStorageGb) << 30
 			pct := int(t.StorageBytes * 100 / capBytes)
@@ -63,7 +63,7 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 				add("warn", "storage_cap", id, t.Name, fmt.Sprintf("storage a %d%% do plano (%d GB)", pct, t.MaxStorageGb))
 			}
 		}
-		// Envio diário.
+		// Daily sending.
 		if t.MaxDailySend > 0 {
 			pct := int(t.MailToday) * 100 / int(t.MaxDailySend)
 			if pct >= 100 {
@@ -72,18 +72,18 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 				add("warn", "mail_cap", id, t.Name, fmt.Sprintf("%d envios hoje (%d%% do teto diário)", t.MailToday, pct))
 			}
 		}
-		// Spike de IA vs baseline.
+		// AI spike vs baseline.
 		if t.AiToday >= aiSpikeFloor && t.AiPrevAvg > 0 && t.AiToday >= t.AiPrevAvg*aiSpikeFactor {
 			add("warn", "ai_spike", id, t.Name,
 				fmt.Sprintf("%d tokens de IA hoje (%d× a média dos 7 dias: %d)", t.AiToday, t.AiToday/max64(t.AiPrevAvg, 1), t.AiPrevAvg))
 		}
 	}
 
-	// Deliverability (limiares da AWS: bounce >5% em revisão, >10% pausa; complaint >0.1% / >0.5%).
+	// Deliverability (AWS thresholds: bounce >5% under review, >10% paused; complaint >0.1% / >0.5%).
 	if del, derr := s.q.ManagerDeliverability(r.Context()); derr == nil {
 		for _, t := range del {
 			if t.Sent30d < 50 {
-				continue // amostra pequena demais para taxa fazer sentido
+				continue // sample too small for a rate to be meaningful
 			}
 			bouncePct := float64(t.Bounces30d) * 100 / float64(t.Sent30d)
 			complaintPct := float64(t.Complaints30d) * 100 / float64(t.Sent30d)
@@ -106,7 +106,7 @@ func (s *Server) handleAlerts(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "manager.failed")
 		return
 	}
-	// Utilizador individual acima do teto de atenção → alerta próprio.
+	// Individual user above the attention threshold → its own alert.
 	for _, u := range top {
 		if u.Tokens >= aiUserHeavy {
 			alerts = append(alerts, alert{

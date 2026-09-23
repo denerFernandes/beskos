@@ -51,7 +51,7 @@ type CreateManagerUserParams struct {
 
 // Manager dashboard queries. These tables belong to the operator's control plane, not to a
 // tenant: the manager operates ON tenants rather than inside one. Used only by cmd/manager-api.
-// ---------- Utilizadores do manager ----------
+// ---------- Manager users ----------
 func (q *Queries) CreateManagerUser(ctx context.Context, arg CreateManagerUserParams) (ManagerUser, error) {
 	row := q.db.QueryRow(ctx, createManagerUser,
 		arg.Email,
@@ -245,7 +245,7 @@ type InsertManagerSessionParams struct {
 	ExpiresAt     time.Time `json:"expires_at"`
 }
 
-// ---------- Sessões ----------
+// ---------- Sessions ----------
 func (q *Queries) InsertManagerSession(ctx context.Context, arg InsertManagerSessionParams) error {
 	_, err := q.db.Exec(ctx, insertManagerSession,
 		arg.Token,
@@ -262,7 +262,7 @@ const listManagerServers = `-- name: ListManagerServers :many
 SELECT id, name, provider, monthly_cents, notes, active, created_at FROM manager_servers ORDER BY created_at
 `
 
-// ---------- Servidores (custo fixo por VPS — migração 00108) ----------
+// ---------- Servers (fixed cost per VPS — migration 00108) ----------
 func (q *Queries) ListManagerServers(ctx context.Context) ([]ManagerServer, error) {
 	rows, err := q.db.Query(ctx, listManagerServers)
 	if err != nil {
@@ -481,7 +481,7 @@ type ManagerFinanceRowsRow struct {
 	MailSent30d     int64     `json:"mail_sent_30d"`
 }
 
-// Base da margem por tenant: users atuais + storage do último rollup + fluxos de 30 dias.
+// Per-tenant margin basis: current users + storage from the latest rollup + 30-day flows.
 func (q *Queries) ManagerFinanceRows(ctx context.Context) ([]ManagerFinanceRowsRow, error) {
 	rows, err := q.db.Query(ctx, managerFinanceRows)
 	if err != nil {
@@ -723,8 +723,8 @@ type ManagerOverviewRow struct {
 }
 
 // ---------- Read-only view: the manager reads tenant data, it never writes ----------
-// Totais do dashboard. Storage = soma dos ficheiros não apagados (lixeira ainda ocupa espaço no
-// MinIO, mas o que interessa ao operador é o uso "vivo"; a lixeira é rotativa).
+// Dashboard totals. Storage = sum of non-deleted files (the trash still takes space in MinIO, but
+// what matters to the operator is "live" usage; the trash rotates).
 func (q *Queries) ManagerOverview(ctx context.Context) (ManagerOverviewRow, error) {
 	row := q.db.QueryRow(ctx, managerOverview)
 	var i ManagerOverviewRow
@@ -968,8 +968,8 @@ type ResetManagerUserCredentialsParams struct {
 	Email        string `json:"email"`
 }
 
-// Recuperação do acesso ao manager (MANAGER_BOOTSTRAP_RESET=1): repõe a senha e obriga a inscrever
-// o 2.º fator outra vez. Não é uma rota — só corre no arranque, com a variável explícita.
+// Manager access recovery (MANAGER_BOOTSTRAP_RESET=1): resets the password and forces the second
+// factor to be enrolled again. Not a route — it only runs at startup, with the variable set explicitly.
 func (q *Queries) ResetManagerUserCredentials(ctx context.Context, arg ResetManagerUserCredentialsParams) error {
 	_, err := q.db.Exec(ctx, resetManagerUserCredentials, arg.PasswordHash, arg.Email)
 	return err
@@ -999,7 +999,7 @@ type SetManagerTOTPLastStepParams struct {
 	ID           uuid.UUID `json:"id"`
 }
 
-// Anti-replay: só avança (nunca aceita um passo já usado que regravaria para trás).
+// Anti-replay: only moves forward (never accepts an already used step that would write it backwards).
 func (q *Queries) SetManagerTOTPLastStep(ctx context.Context, arg SetManagerTOTPLastStepParams) error {
 	_, err := q.db.Exec(ctx, setManagerTOTPLastStep, arg.LastTotpStep, arg.ID)
 	return err
@@ -1014,7 +1014,7 @@ type SetManagerTOTPSecretParams struct {
 	ID         uuid.UUID `json:"id"`
 }
 
-// Guarda o segredo (cifrado) ainda NÃO confirmado — o login só passa depois de confirmar.
+// Stores the (encrypted) secret, NOT yet confirmed — login only succeeds after confirmation.
 func (q *Queries) SetManagerTOTPSecret(ctx context.Context, arg SetManagerTOTPSecretParams) error {
 	_, err := q.db.Exec(ctx, setManagerTOTPSecret, arg.TotpSecret, arg.ID)
 	return err
@@ -1029,7 +1029,7 @@ type SetManagerUserActiveParams struct {
 	ID     uuid.UUID `json:"id"`
 }
 
-// Desativar corta o login E as sessões existentes (GetManagerSession filtra u.active).
+// Deactivating cuts off login AND existing sessions (GetManagerSession filters on u.active).
 func (q *Queries) SetManagerUserActive(ctx context.Context, arg SetManagerUserActiveParams) error {
 	_, err := q.db.Exec(ctx, setManagerUserActive, arg.Active, arg.ID)
 	return err

@@ -13,12 +13,12 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
-// Lista de tenants (M1, read-only): contagens por query direta; clicar abre o detalhe.
+// Tenant list (read-only): counts via direct query; clicking opens the detail.
 export default function TenantsPage() {
   const [q, setQ] = useState("");
   const tenants = useQuery({ queryKey: ["tenants"], queryFn: () => api.tenants() });
 
-  // A Search do topo navega para /tenants?q=… — semeia o filtro a partir da URL.
+  // The top Search navigates to /tenants?q=… — seed the filter from the URL.
   useEffect(() => {
     const initial = new URLSearchParams(window.location.search).get("q");
     if (initial) setQ(initial);

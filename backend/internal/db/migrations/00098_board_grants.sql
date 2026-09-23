@@ -1,10 +1,10 @@
 -- +goose Up
--- Permissões dos quadros do Kanban (pedido do utilizador): por pessoa, equipa ou organização, com
--- papéis viewer|editor|manager. Regras de visibilidade (aplicadas em SQL, padrão wiki):
---  - dono do quadro = manager;
---  - quadro LEGADO (owner NULL e sem grants) = toda a org edita (compatibilidade com o comportamento
---    anterior, em que todos viam todos os quadros);
---  - quem tem CARD ATRIBUÍDO no quadro ganha acesso de editor automaticamente.
+-- Kanban board permissions: per person, team or organization, with roles
+-- viewer|editor|manager. Visibility rules (enforced in SQL, same pattern as the wiki):
+--  - the board owner = manager;
+--  - LEGACY board (owner NULL and no grants) = the whole org can edit (compatible with the previous
+--    behavior, where everyone saw every board);
+--  - anyone with a card ASSIGNED on the board automatically gets editor access.
 ALTER TABLE boards ADD COLUMN owner_user_id UUID REFERENCES mail_users(id) ON DELETE SET NULL;
 
 CREATE TABLE board_grants (

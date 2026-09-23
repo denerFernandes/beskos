@@ -71,7 +71,7 @@ function AddGroupModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
   );
 }
 
-// Membros do grupo: adicionar/remover reflete no canal do chat automaticamente.
+// Group members: adding/removing is reflected in the chat channel automatically.
 function MembersModal({ g, canManage, onClose }: { g: Group; canManage: boolean; onClose: () => void }) {
   const { t } = useTranslation();
   const qc = useQueryClient();

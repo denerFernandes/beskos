@@ -1,4 +1,4 @@
-// Formatação via Intl (lei 4.5) — locale fixo pt-BR (ferramenta interna).
+// Formatting via Intl (docs/engineering-standards.md §4.5) — fixed pt-BR locale (internal tool).
 
 const LOCALE = "pt-BR";
 
@@ -20,13 +20,13 @@ export function formatDateTime(iso: string | null | undefined): string {
   return dateTime.format(new Date(iso));
 }
 
-// Cêntimos → moeda via Intl (lei 4.5).
+// Cents → currency via Intl (docs/engineering-standards.md §4.5).
 export function formatMoney(cents: number, currency: string): string {
   return new Intl.NumberFormat(LOCALE, { style: "currency", currency }).format(cents / 100);
 }
 
-// Bytes → unidade legível (base 1024). Intl não tem "bytes" adaptativo; escolhemos a unidade e
-// formatamos o número com Intl.
+// Bytes → readable unit (base 1024). Intl has no adaptive "bytes"; we pick the unit and format
+// the number with Intl.
 export function formatBytes(bytes: number): string {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];

@@ -13,13 +13,13 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/totp"
 )
 
-// dummyBcryptHash iguala o tempo do login com e-mail inexistente (anti-enumeração por timing).
+// dummyBcryptHash equalizes login time for a nonexistent email (anti-enumeration by timing).
 var dummyBcryptHash, _ = auth.HashPassword("manager-login-timing-equalizer")
 
 type loginReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	Code     string `json:"code"` // código TOTP (vazio no 1º passo)
+	Code     string `json:"code"` // TOTP code (empty on the first step)
 }
 
 // handleLogin authenticates an operator. TOTP is MANDATORY: without enrollment, a correct password
@@ -47,7 +47,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := s.q.GetManagerUserByEmail(r.Context(), req.Email)
 	if err != nil {
-		auth.CheckPassword(dummyBcryptHash, req.Password) // iguala o tempo de resposta
+		auth.CheckPassword(dummyBcryptHash, req.Password) // equalizes the response time
 		writeErr(w, http.StatusUnauthorized, "manager.invalid_credentials")
 		return
 	}
@@ -61,7 +61,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TOTP ativo: exige e valida o código, com anti-replay por passo de tempo.
+	// TOTP active: requires and validates the code, with anti-replay per time step.
 	if req.Code == "" {
 		writeErr(w, http.StatusUnauthorized, "manager.totp_code_required")
 		return
@@ -86,7 +86,7 @@ func (s *Server) loginEnroll(w http.ResponseWriter, r *http.Request, u db.Manage
 	if u.TotpSecret == "" || code == "" {
 		secret := ""
 		if u.TotpSecret != "" {
-			// Setup já iniciado (ex.: página recarregada): reapresenta o MESMO segredo.
+			// Setup already started (e.g. page reloaded): re-presents the SAME secret.
 			dec, err := s.box.Decrypt(u.TotpSecret)
 			if err == nil {
 				secret = dec
@@ -187,14 +187,14 @@ func publicUser(u db.ManagerUser) map[string]any {
 	return map[string]any{"id": u.ID, "email": u.Email, "name": u.Name, "role": u.Role}
 }
 
-// EnsureBootstrap cria o PRIMEIRO operador a partir do ambiente quando a tabela está vazia
-// (MANAGER_BOOTSTRAP_EMAIL/PASSWORD). Idempotente: com qualquer operador existente, não faz nada.
+// EnsureBootstrap creates the FIRST operator from the environment when the table is empty
+// (MANAGER_BOOTSTRAP_EMAIL/PASSWORD). Idempotent: with any existing operator, it does nothing.
 //
-// Recuperação de acesso: com MANAGER_BOOTSTRAP_RESET=1, repõe a senha do e-mail indicado (e limpa o
-// 2.º fator, para se voltar a inscrever) mesmo que já existam operadores — e cria-o se não existir.
-// Sem isto, mudar a senha no ambiente depois do primeiro arranque não tinha efeito nenhum e ficava-se
-// de fora da consola sem forma de entrar. A variável tem de ser RETIRADA a seguir: enquanto lá
-// estiver, cada arranque repõe a senha.
+// Access recovery: with MANAGER_BOOTSTRAP_RESET=1, it resets the password of the given email (and
+// clears the second factor, so it gets enrolled again) even if operators already exist — and
+// creates the operator if it doesn't exist. Without this, changing the password in the environment
+// after the first startup had no effect at all, leaving one locked out of the console with no way
+// in. The variable must be REMOVED afterwards: while it is set, every startup resets the password.
 func EnsureBootstrap(ctx context.Context, q *db.Queries, email, password string) error {
 	if os.Getenv("MANAGER_BOOTSTRAP_RESET") == "1" && email != "" && password != "" {
 		hash, err := auth.HashPassword(password)
@@ -207,20 +207,20 @@ func EnsureBootstrap(ctx context.Context, q *db.Queries, email, password string)
 			return err
 		}
 		log.Printf("manager bootstrap: RESET applied to %s (2nd factor cleared; remove MANAGER_BOOTSTRAP_RESET now)", email)
-		// Segue para o caminho normal: se o e-mail não existia, o create abaixo trata dele.
+		// Continue on the normal path: if the email didn't exist, the create below handles it.
 	}
 	n, err := q.CountManagerUsers(ctx)
 	if err != nil {
 		return err
 	}
 	if n > 0 {
-		// Com reset pedido e o e-mail ainda inexistente, cria-o na mesma — senão o reset não
-		// resolvia o caso "o operador antigo tem outro endereço".
+		// With a reset requested and the email still nonexistent, create it anyway — otherwise the
+		// reset wouldn't solve the case "the old operator has a different address".
 		if os.Getenv("MANAGER_BOOTSTRAP_RESET") != "1" || email == "" || password == "" {
 			return nil
 		}
 		if _, err := q.GetManagerUserByEmail(ctx, email); err == nil {
-			return nil // já existe e acabou de ser reposto
+			return nil // already exists and was just reset
 		}
 	}
 	if email == "" || password == "" {

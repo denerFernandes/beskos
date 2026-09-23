@@ -1,14 +1,14 @@
 -- +goose Up
--- Escolha de agente por turno (fase A3, §3.2). O encaminhamento decide a cada mensagem, portanto o
--- agente que respondeu é uma propriedade da MENSAGEM, não da conversa: um fio pode começar no
--- assistente geral e passar pela Caixa de entrada na pergunta seguinte.
+-- Per-turn agent choice (§3.2). Routing decides on every message, so the agent that answered is a
+-- property of the MESSAGE, not of the conversation: a thread can start with the general assistant
+-- and move to the Inbox agent on the next question.
 --
--- A escolha é sempre visível — daí guardá-la. Encaminhamento silencioso deixaria a pessoa sem
--- perceber porque é que o assistente às vezes consegue uma coisa e às vezes não.
+-- The choice is always visible — hence it is stored. Silent routing would leave the person unable
+-- to understand why the assistant can sometimes do something and sometimes cannot.
 ALTER TABLE assistant_messages ADD COLUMN agent TEXT NOT NULL DEFAULT '';
 
--- E é reversível: fixar um agente vale para o RESTO DO FIO, até a pessoa desfixar. Vazio = o
--- encaminhamento decide a cada turno.
+-- And it is reversible: pinning an agent applies to the REST OF THE THREAD, until the person
+-- unpins it. Empty = routing decides on every turn.
 ALTER TABLE assistant_conversations ADD COLUMN pinned_agent TEXT NOT NULL DEFAULT '';
 
 -- +goose Down

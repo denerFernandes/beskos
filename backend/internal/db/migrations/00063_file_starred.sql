@@ -1,5 +1,5 @@
 -- +goose Up
--- Favoritos/estrelas: marca um ficheiro como favorito do dono (filtro/ordenação no Drive).
+-- Favorites/stars: marks a file as a favorite of its owner (filter/sort in Drive).
 ALTER TABLE storage_files ADD COLUMN starred BOOLEAN NOT NULL DEFAULT false;
 
 -- +goose Down

@@ -84,8 +84,8 @@ jobs:
         continue-on-error: true
         run: "$(go env GOPATH)/bin/golangci-lint run --enable-only errcheck ./..."
       # Report-only: 130 pre-existing findings as of 2026-09-15, triaged by hand -- the real
-      # categories (SSRF, TLS, hardcoded credentials) are false positives (see docs/OPEN-SOURCE.md
-      # F5); the rest is unchecked integer-overflow noise across the codebase, not yet swept.
+      # categories (SSRF, TLS, hardcoded credentials) are false positives (see docs/OPEN-SOURCE.md);
+      # the rest is unchecked integer-overflow noise across the codebase, not yet swept.
       - name: gosec (report-only)
         continue-on-error: true
         run: |

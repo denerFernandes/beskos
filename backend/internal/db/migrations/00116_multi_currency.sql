@@ -1,8 +1,8 @@
 -- +goose Up
--- Moeda por país (24/07/2026): cada plano pode ter preço por moeda ({"USD":1900,"BRL":9900,...});
--- price_cents_per_user continua a ser o preço na moeda BASE (fallback). Cada tenant tem uma moeda
--- ('' = a global BILLING_CURRENCY); checkout/assinatura usam o preço dessa moeda via
--- currency_options do Price na Stripe.
+-- Currency per country: each plan can have a price per currency ({"USD":1900,"BRL":9900,...});
+-- price_cents_per_user remains the price in the BASE currency (fallback). Each tenant has a
+-- currency ('' = the global BILLING_CURRENCY); checkout/subscription use that currency's price via
+-- the Price's currency_options in Stripe.
 ALTER TABLE plans   ADD COLUMN prices   JSONB NOT NULL DEFAULT '{}';
 ALTER TABLE tenants ADD COLUMN currency TEXT  NOT NULL DEFAULT '';
 

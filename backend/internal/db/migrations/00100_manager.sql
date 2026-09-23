@@ -1,25 +1,25 @@
 -- +goose Up
--- Manager (docs/manager.md M0): utilizadores do PAINEL DO OPERADOR do SaaS — completamente
--- separados de mail_users (outra app, outra API, outra autenticação). TOTP é OBRIGATÓRIO:
--- o primeiro login força o enrollment antes de emitir sessão (totp_confirmed).
+-- Manager (docs/manager.md): users of the SaaS OPERATOR CONSOLE -- completely separate from
+-- mail_users (another app, another API, another authentication). TOTP is MANDATORY: the first
+-- login forces enrollment before a session is issued (totp_confirmed).
 CREATE TABLE manager_users (
     id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email          TEXT NOT NULL UNIQUE,
     name           TEXT NOT NULL DEFAULT '',
     password_hash  TEXT NOT NULL,
     role           TEXT NOT NULL DEFAULT 'admin' CHECK (role IN ('admin', 'viewer')),
-    -- Segredo TOTP cifrado em repouso (secretbox, prefixo "enc:"). Vazio = ainda não gerado.
+    -- TOTP secret encrypted at rest (secretbox, "enc:" prefix). Empty = not generated yet.
     totp_secret    TEXT NOT NULL DEFAULT '',
-    -- Só depois de confirmar um código do app o TOTP conta como ativo (e a conta pode logar).
+    -- TOTP only counts as active (and the account can log in) after a code from the app is confirmed.
     totp_confirmed BOOLEAN NOT NULL DEFAULT false,
-    -- Anti-replay: último passo de tempo TOTP aceito (um código só vale uma vez).
+    -- Anti-replay: last accepted TOTP time step (a code is valid only once).
     last_totp_step BIGINT NOT NULL DEFAULT 0,
     active         BOOLEAN NOT NULL DEFAULT true,
     last_login_at  TIMESTAMPTZ,
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Sessões por token opaco (revogável por DELETE), TTL curto (8h — ferramenta de operação).
+-- Opaque-token sessions (revocable by DELETE), short TTL (8h -- an operations tool).
 CREATE TABLE manager_sessions (
     token           TEXT PRIMARY KEY,
     manager_user_id UUID NOT NULL REFERENCES manager_users(id) ON DELETE CASCADE,
@@ -30,7 +30,7 @@ CREATE TABLE manager_sessions (
 );
 CREATE INDEX idx_manager_sessions_user ON manager_sessions(manager_user_id);
 
--- Audit log integral do manager: TODA ação de escrita regista quem/quando/o quê (payload jsonb).
+-- Full manager audit log: EVERY write action records who/when/what (jsonb payload).
 CREATE TABLE manager_audit (
     id          BIGSERIAL PRIMARY KEY,
     actor_id    UUID REFERENCES manager_users(id) ON DELETE SET NULL,

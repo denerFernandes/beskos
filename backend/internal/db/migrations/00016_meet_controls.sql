@@ -1,6 +1,6 @@
 -- +goose Up
--- Controles do organizador (estilo Google Meet): o que os participantes podem fazer na sala.
--- Aplicado de verdade nos grants do token do LiveKit + UpdateParticipant (não é só UI).
+-- Organizer controls (Google Meet style): what participants may do in the room.
+-- Actually enforced in the LiveKit token grants + UpdateParticipant (not just the UI).
 
 ALTER TABLE meetings ADD COLUMN allow_mic   BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE meetings ADD COLUMN allow_cam   BOOLEAN NOT NULL DEFAULT true;

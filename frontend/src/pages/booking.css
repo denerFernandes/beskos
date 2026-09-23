@@ -1,4 +1,4 @@
-/* Página pública de agendamento (/b/:org/:user) — cartão central sobre o fundo do tema. */
+/* Public booking page (/b/:org/:user) -- a centered card over the theme background. */
 .wm .bkp{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;background:var(--surface-2);}
 .wm .bkp-card{width:100%;max-width:560px;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px 28px;}
 .wm .bkp-center{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;padding:46px 28px;}

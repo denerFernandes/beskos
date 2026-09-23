@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# E2E da Fase 1: cria um cliente de ponta a ponta (domínio → provisionamento → mailbox).
-# Sobe Postgres + Stalwart reais, bootstrapa, roda API + worker, e exercita a API.
+# E2E: creates a customer end to end (domain → provisioning → mailbox).
+# Brings up real Postgres + Stalwart, bootstraps, runs API + worker, and exercises the API.
 set -euo pipefail
 
 PG=mailin-e2e-pg

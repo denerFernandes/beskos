@@ -1,6 +1,6 @@
 -- +goose Up
--- Convidados EXTERNOS de eventos (23/07/2026): pessoas fora da organização, por e-mail.
--- Recebem o convite por e-mail (best-effort via notify) — não têm conta nem RSVP interno.
+-- EXTERNAL event guests: people outside the organization, by email.
+-- They receive the invitation by email (best-effort via notify) -- no account and no internal RSVP.
 CREATE TABLE event_externals (
     event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

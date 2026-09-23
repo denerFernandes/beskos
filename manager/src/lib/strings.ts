@@ -1,5 +1,5 @@
-// Strings da UI centralizadas (doc manager.md §2: ferramenta interna, pt-BR chega — mas nada de
-// texto espalhado pelos componentes). Erros da API chegam como error_code e são traduzidos aqui.
+// Centralized UI strings (docs/manager.md §2: internal tool, pt-BR is enough — but no text
+// scattered across components). API errors arrive as error_code and are translated here.
 
 export const S = {
   appName: "Beskos Manager",

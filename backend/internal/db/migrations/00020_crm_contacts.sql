@@ -1,39 +1,39 @@
 -- +goose Up
--- CRM — parte 1: empresas, subcontatos com cargo, telefones com consentimento e privacidade.
--- Decisões (com o cliente): `companies` é tabela separada; contato pertence a uma empresa e tem
--- cargo; contato pode ser privado, compartilhado com grupos, ou de toda a organização.
+-- CRM — part 1: companies, subcontacts with a job title, phones with consent and privacy.
+-- Decisions: `companies` is a separate table; a contact belongs to a company and has a
+-- job title; a contact can be private, shared with groups, or visible to the whole organization.
 
 CREATE TABLE companies (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     owner_user_id UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
     name          TEXT NOT NULL,
-    domain        TEXT NOT NULL DEFAULT '',   -- site/domínio (ajuda a casar e-mails com a empresa)
+    domain        TEXT NOT NULL DEFAULT '',   -- website/domain (helps match emails to the company)
     phone         TEXT NOT NULL DEFAULT '',
     notes         TEXT NOT NULL DEFAULT '',
     tags          TEXT[] NOT NULL DEFAULT '{}',
-    -- Privacidade: private = só o dono; groups = dono + grupos em company_shares; tenant = todos.
-    -- Default fail-closed: quem cria decide abrir; nada vaza por omissão.
+    -- Privacy: private = owner only; groups = owner + groups in company_shares; tenant = everyone.
+    -- Fail-closed default: the creator decides to open it up; nothing leaks by omission.
     visibility    TEXT NOT NULL DEFAULT 'private',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_companies_tenant ON companies(tenant_id);
 
--- Contato ganha empresa, cargo, consentimento e privacidade.
+-- Contacts gain a company, job title, consent and privacy.
 ALTER TABLE contacts ADD COLUMN company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
-ALTER TABLE contacts ADD COLUMN title      TEXT NOT NULL DEFAULT '';   -- cargo
+ALTER TABLE contacts ADD COLUMN title      TEXT NOT NULL DEFAULT '';   -- job title
 ALTER TABLE contacts ADD COLUMN mobile     TEXT NOT NULL DEFAULT '';
--- Consentimento por canal (LGPD): dizer se PODE contatar, e por onde.
+-- Per-channel consent (LGPD): whether we MAY contact, and through which channel.
 ALTER TABLE contacts ADD COLUMN is_whatsapp  BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE contacts ADD COLUMN allow_phone  BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE contacts ADD COLUMN allow_email  BOOLEAN NOT NULL DEFAULT true;
--- ATENÇÃO: hoje os contatos são privados de fato (as queries filtram só por owner_user_id).
--- Default 'private' preserva exatamente esse comportamento — 'tenant' exporia, de uma vez, a
--- agenda inteira de todo mundo para a organização.
+-- WARNING: today contacts are effectively private (the queries filter only by owner_user_id).
+-- Default 'private' preserves exactly that behavior — 'tenant' would expose, all at once,
+-- everyone's entire address book to the organization.
 ALTER TABLE contacts ADD COLUMN visibility   TEXT NOT NULL DEFAULT 'private';
 CREATE INDEX idx_contacts_company ON contacts(company_id);
 
--- Compartilhamento com grupos (só vale quando visibility = 'groups').
+-- Sharing with groups (only applies when visibility = 'groups').
 CREATE TABLE contact_shares (
     contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
     group_id   UUID NOT NULL REFERENCES user_groups(id) ON DELETE CASCADE,
@@ -45,7 +45,7 @@ CREATE TABLE company_shares (
     PRIMARY KEY (company_id, group_id)
 );
 
--- Notas do CRM (timeline por contato/empresa) — separadas do campo `notes` livre.
+-- CRM notes (timeline per contact/company) — separate from the free-form `notes` field.
 CREATE TABLE crm_notes (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -54,13 +54,13 @@ CREATE TABLE crm_notes (
     author_id  UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
     body       TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- Uma nota é de um contato OU de uma empresa, nunca das duas nem de nenhuma.
+    -- A note belongs to a contact OR a company, never both and never neither.
     CHECK ((contact_id IS NULL) <> (company_id IS NULL))
 );
 CREATE INDEX idx_crm_notes_contact ON crm_notes(contact_id, created_at DESC);
 CREATE INDEX idx_crm_notes_company ON crm_notes(company_id, created_at DESC);
 
--- Tarefa do cliente = card do Kanban ligado ao contato (decisão: reusar o Kanban).
+-- Customer task = Kanban card linked to the contact (decision: reuse the Kanban).
 ALTER TABLE cards ADD COLUMN contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL;
 CREATE INDEX idx_cards_contact ON cards(contact_id);
 

@@ -604,7 +604,7 @@ production data in public artifacts.
 
 | Area | Observed state | Still required |
 |---|---|---|
-| Working tree | Substantial local changes across export, database queries, worker, API, and frontend; no commits or pushes in this conversation | Review and separate cohesive commits; preserve pre-existing `landing` and `.codex/` changes |
+| Working tree | Substantial local changes across export, database queries, worker, API, and frontend; not yet committed at the time of this review | Review and separate cohesive commits; preserve pre-existing `landing` and `.codex/` changes |
 | Public exclusion | Fresh local exports omit Manager, daily rollups, hosted checkout/Stripe/VAT/signup screens, marketing handlers, SES administration, and their dedicated tables/queries | Artifact-level security review, migration compatibility, remote verification |
 | Community access | Local export uses a `self_hosted` catalog and does not evaluate hosted trial expiration | Verify real onboarding, upgrade behavior, and end-to-end access |
 | Metering safety | Local code preserves recording rows after failed blob deletion, scopes deletion to the tenant, reports actual removal counts, and escalates repeated failures | Review runtime behavior and storage-startup failure handling |

@@ -1,5 +1,5 @@
 -- +goose Up
--- Gravações de reunião (LiveKit Egress → MinIO). Opcional: só quando o usuário liga a gravação.
+-- Meeting recordings (LiveKit Egress → MinIO). Optional: only when the user turns recording on.
 
 CREATE TABLE recordings (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),

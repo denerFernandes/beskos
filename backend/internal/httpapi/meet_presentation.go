@@ -255,7 +255,7 @@ func (s *Server) handleGetPresentation(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// POST /api/meet/presentation/{id}/slide — o apresentador fixa o slide atual (persistido para quem
+// POST /api/meet/presentation/{id}/slide — the presenter sets the current slide (persisted for whoever
 // joins later). Real-time sync goes over the data channel; this is just the baseline for latecomers.
 func (s *Server) handleSetPresentationSlide(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())

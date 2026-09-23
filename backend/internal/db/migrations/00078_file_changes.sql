@@ -1,9 +1,9 @@
 -- +goose Up
--- Feed de mudanças para o cliente de sincronização (daemon desktop, escrito em Rust): o daemon
--- pergunta "o que mudou desde o cursor X?" e reconcilia a pasta local. `updated_at` é atualizado
--- automaticamente por trigger em QUALQUER UPDATE — captura rename (nome), move (folder_id), nova
--- versão (hash/versao/blob_key), ir para a lixeira (deleted_at) e restauro, sem tocar nos handlers.
--- Ficheiros novos herdam updated_at = created_at pelo default.
+-- Change feed for the sync client (desktop daemon, written in Rust): the daemon asks "what changed
+-- since cursor X?" and reconciles the local folder. `updated_at` is set automatically by a trigger
+-- on ANY UPDATE — it captures rename (name), move (folder_id), new version (hash/`versao`/blob_key),
+-- moving to the trash (deleted_at) and restore, without touching the handlers.
+-- New files inherit updated_at = created_at through the default.
 ALTER TABLE storage_files ADD COLUMN updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 -- +goose StatementBegin
@@ -19,7 +19,7 @@ CREATE TRIGGER trg_storage_files_updated_at
   BEFORE UPDATE ON storage_files
   FOR EACH ROW EXECUTE FUNCTION storage_files_touch_updated_at();
 
--- Índice do feed: keyset por (owner, updated_at, id) — ordena e pagina sem varrer a tabela.
+-- Feed index: keyset on (owner, updated_at, id) — sorts and paginates without scanning the table.
 CREATE INDEX idx_files_changes ON storage_files (owner_user_id, updated_at, id);
 
 -- +goose Down

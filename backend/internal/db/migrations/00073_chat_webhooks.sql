@@ -1,6 +1,7 @@
 -- +goose Up
--- Webhooks de entrada (bots/integrações): um token por canal; um POST externo vira mensagem. A
--- mensagem guarda bot_name para o frontend a mostrar como integração (em vez do autor humano).
+-- Incoming webhooks (bots/integrations): one token per channel; an external POST becomes a message.
+-- The message stores bot_name so the frontend shows it as an integration (instead of a human
+-- author).
 ALTER TABLE messages ADD COLUMN bot_name TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE chat_webhooks (

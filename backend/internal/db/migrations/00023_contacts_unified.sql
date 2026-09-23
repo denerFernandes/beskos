@@ -1,42 +1,42 @@
 -- +goose Up
--- Contato ÚNICO: empresa ou pessoa, tudo da organização (decisão do cliente, 2026-07-15, tarde).
+-- A SINGLE contact: company or person, all owned by the organization (decided on 2026-07-15, afternoon).
 --
--- Histórico honesto: de manhã separámos agenda (privada) de cliente (partilhado) porque o modelo
--- se contradizia. A separação resolveu a contradição, mas criou dois lugares para "gente" — e a
--- queixa original nunca foi a tabela única, foi a CERIMÓNIA da privacidade (seletor de 3 níveis,
--- tabelas de partilha). Este passo mantém o corte da cerimónia e desfaz a separação:
+-- History: earlier the same day we separated the address book (private) from clients (shared) because
+-- the model contradicted itself. The separation resolved the contradiction but created two places for
+-- "people" — and the original complaint was never the single table, it was the privacy CEREMONY
+-- (3-level selector, sharing tables). This step keeps the ceremony removed and undoes the separation:
 --
---   `contacts` = tudo. kind = 'company' | 'person'. `company_id` aponta para o contato-empresa.
+--   `contacts` = everything. kind = 'company' | 'person'. `company_id` points at the company contact.
 --
--- VISIBILIDADE pelo GRUPO, não por contato: o contato é do dono e fica visível a quem está nas
--- EQUIPAS (user_groups) com que os GRUPOS DE CONTATO dele foram partilhados. Decide-se uma vez por
--- grupo — era escolher contato a contato que pesava. Grupo não partilhado = só o dono vê.
--- EDITAR/APAGAR continua só do dono (ver ≠ mexer).
+-- VISIBILITY by GROUP, not per contact: the contact belongs to its owner and is visible to members of
+-- the TEAMS (user_groups) its CONTACT GROUPS were shared with. The decision is made once per
+-- group — choosing contact by contact was the burden. An unshared group = only the owner sees it.
+-- EDIT/DELETE remains owner-only (viewing ≠ changing).
 
 ALTER TABLE contacts ADD COLUMN kind       TEXT NOT NULL DEFAULT 'person';
 ALTER TABLE contacts ADD COLUMN company_id UUID REFERENCES contacts(id) ON DELETE SET NULL;
-ALTER TABLE contacts ADD COLUMN domain     TEXT NOT NULL DEFAULT '';   -- só faz sentido em kind='company'
+ALTER TABLE contacts ADD COLUMN domain     TEXT NOT NULL DEFAULT '';   -- only meaningful for kind='company'
 ALTER TABLE contacts ADD COLUMN allow_phone BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE contacts ADD COLUMN allow_email BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE contacts ADD CONSTRAINT contacts_kind_ck CHECK (kind IN ('company', 'person'));
--- Empresa não é subordinada de ninguém; pessoa aponta para uma empresa (ou para ninguém).
+-- A company is subordinate to no one; a person points at a company (or at none).
 ALTER TABLE contacts ADD CONSTRAINT contacts_company_ck CHECK (kind = 'person' OR company_id IS NULL);
 CREATE INDEX idx_contacts_company ON contacts(company_id);
 CREATE INDEX idx_contacts_tenant_kind ON contacts(tenant_id, kind, name);
 
--- Partilha de um GRUPO DE CONTATOS com uma EQUIPA de utilizadores.
+-- Sharing of a CONTACT GROUP with a TEAM of users.
 CREATE TABLE contact_group_shares (
     group_id      UUID NOT NULL REFERENCES contact_groups(id) ON DELETE CASCADE,
     user_group_id UUID NOT NULL REFERENCES user_groups(id) ON DELETE CASCADE,
     PRIMARY KEY (group_id, user_group_id)
 );
 
--- 1) clients → contacts, MANTENDO os ids: notas, tarefas e chamados continuam a apontar certo.
+-- 1) clients → contacts, KEEPING the ids: notes, tasks and tickets keep pointing at the right row.
 INSERT INTO contacts (id, tenant_id, owner_user_id, kind, name, email, phone, domain, notes, tags, created_at)
 SELECT c.id, c.tenant_id, c.owner_user_id, c.kind, c.name, c.email, c.phone, c.domain, c.notes, c.tags, c.created_at
 FROM clients c;
 
--- 2) client_contacts → contacts (pessoas), ligadas à empresa pelo company_id.
+-- 2) client_contacts → contacts (people), linked to the company through company_id.
 INSERT INTO contacts (tenant_id, owner_user_id, kind, name, email, phone, mobile, is_whatsapp,
                       allow_phone, allow_email, title, company_id, notes, tags, created_at)
 SELECT p.tenant_id,
@@ -45,12 +45,12 @@ SELECT p.tenant_id,
        p.allow_phone, p.allow_email, p.title, p.client_id, p.notes, '{}', p.created_at
 FROM client_contacts p;
 
--- 3) O trabalho volta a apontar para o contato (o id é o mesmo do antigo cliente).
+-- 3) The work points at the contact again (the id is the same as the old client's).
 ALTER TABLE cards     RENAME COLUMN client_id TO contact_id;
 ALTER TABLE tickets   RENAME COLUMN client_id TO contact_id;
 ALTER TABLE crm_notes RENAME COLUMN client_id TO contact_id;
 
--- 4) As FKs apontavam para `clients`; agora apontam para `contacts`.
+-- 4) The FKs pointed at `clients`; now they point at `contacts`.
 ALTER TABLE cards     DROP CONSTRAINT IF EXISTS cards_client_id_fkey;
 ALTER TABLE tickets   DROP CONSTRAINT IF EXISTS tickets_client_id_fkey;
 ALTER TABLE crm_notes DROP CONSTRAINT IF EXISTS crm_notes_client_id_fkey;
@@ -61,13 +61,13 @@ ALTER TABLE crm_notes ADD CONSTRAINT crm_notes_contact_id_fkey FOREIGN KEY (cont
 DROP TABLE client_contacts;
 DROP TABLE clients;
 
--- Os contatos que vieram de `clients` eram visíveis a todo o tenant. Sem grupo partilhado ficariam
--- só do dono — invisíveis para os colegas de um dia para o outro. Põe-nos num grupo NOVO, partilhado
--- com todas as equipas, preservando quem via o quê.
+-- Contacts that came from `clients` were visible to the whole tenant. Without a shared group they
+-- would become owner-only — invisible to colleagues overnight. Put them in a NEW group, shared
+-- with every team, preserving who saw what.
 --
--- Nome próprio de propósito: reaproveitar um grupo existente (ex.: um "Clientes" que alguém já
--- criou) partilharia o grupo PESSOAL dessa pessoa com toda a gente — mudaria a intenção dela sem
--- ela pedir. DISTINCT ON garante um grupo por TENANT, não um por dono.
+-- A dedicated name on purpose: reusing an existing group (e.g. a "Clientes" someone already
+-- created) would share that person's PERSONAL group with everyone — changing their intent without
+-- them asking. DISTINCT ON guarantees one group per TENANT, not one per owner.
 INSERT INTO contact_groups (tenant_id, owner_user_id, name, color)
 SELECT DISTINCT ON (c.tenant_id) c.tenant_id, c.owner_user_id, 'Contatos da empresa', '#116466'
 FROM contacts c
@@ -88,8 +88,8 @@ WHERE g.name = 'Contatos da empresa'
 ON CONFLICT DO NOTHING;
 
 -- +goose Down
--- ASSIMÉTRICO (mesma razão de 00018 e 00022): o Up funde populações e o Down não sabe quem era
--- quem. Devolve o esquema para o goose poder descer; restaurar dados = restaurar backup.
+-- ASYMMETRIC (same reason as 00018 and 00022): Up merges populations and Down does not know who was
+-- who. It restores the schema so goose can migrate down; restoring data = restoring a backup.
 CREATE TABLE clients (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

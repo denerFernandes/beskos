@@ -10,7 +10,7 @@ import (
 	"github.com/beskosorg/beskos/backend/internal/db"
 )
 
-// Checklist/subtarefas de um card. Acesso via cardOr404 (mesmo tenant). Itens caem por cascata.
+// A card's checklist/subtasks. Access goes through cardOr404 (same tenant). Items are removed by cascade.
 
 func (s *Server) handleListChecklist(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
@@ -52,7 +52,7 @@ func (s *Server) handleCreateChecklistItem(w http.ResponseWriter, r *http.Reques
 
 func (s *Server) handleToggleChecklistItem(w http.ResponseWriter, r *http.Request) {
 	mu := mailUserFrom(r.Context())
-	if _, ok := s.cardOr404(w, r); !ok { // valida posse do card (tenant) antes de mexer no item
+	if _, ok := s.cardOr404(w, r); !ok { // checks card ownership (tenant) before touching the item
 		return
 	}
 	itemID, err := uuid.Parse(chi.URLParam(r, "itemId"))

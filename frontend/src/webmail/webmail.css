@@ -339,7 +339,7 @@
 .wm .ev{position:absolute;inset-inline-start:4px;inset-inline-end:4px;border-radius:8px;padding:6px 8px;font-size:11.5px;color:#fff;overflow:hidden;box-shadow:var(--shadow);}
 .wm .ev .et{font-weight:600;}.wm .ev .ez{opacity:.85;font-size:10.5px;}
 
-/* Drive (arquivos) */
+/* Drive (files) */
 .wm .dv{display:flex;flex-direction:column;height:100%;overflow:hidden;}
 .wm .dv-top{display:flex;align-items:center;gap:12px;padding:16px 22px 12px;}
 .wm .crumb{display:flex;align-items:center;gap:5px;font-size:16px;flex-wrap:wrap;}

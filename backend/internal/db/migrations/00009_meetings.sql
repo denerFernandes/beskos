@@ -1,6 +1,6 @@
 -- +goose Up
--- Meet: reuniões (agendadas/instantâneas) + participantes com RSVP. Integra com o calendário
--- (event_id) e com o LiveKit (room_name + tempos reais via webhook).
+-- Meet: meetings (scheduled/instant) + participants with RSVP. Integrates with the calendar
+-- (event_id) and with LiveKit (room_name + actual times via webhook).
 
 CREATE TABLE meetings (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -8,10 +8,10 @@ CREATE TABLE meetings (
     owner_user_id   UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
     title           TEXT NOT NULL,
     room_name       TEXT NOT NULL UNIQUE,
-    scheduled_start TIMESTAMPTZ,          -- NULL = reunião instantânea
+    scheduled_start TIMESTAMPTZ,          -- NULL = instant meeting
     scheduled_end   TIMESTAMPTZ,
-    actual_start    TIMESTAMPTZ,          -- via webhook room_started
-    actual_end      TIMESTAMPTZ,          -- via webhook room_finished (→ duração)
+    actual_start    TIMESTAMPTZ,          -- via the room_started webhook
+    actual_end      TIMESTAMPTZ,          -- via the room_finished webhook (→ duration)
     status          TEXT NOT NULL DEFAULT 'scheduled', -- scheduled | live | ended | canceled
     event_id        UUID REFERENCES events(id) ON DELETE SET NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -21,8 +21,8 @@ CREATE TABLE meeting_participants (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     meeting_id  UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
     tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-    email       TEXT NOT NULL,            -- convidado (pode ser externo)
-    user_id     UUID REFERENCES mail_users(id) ON DELETE SET NULL, -- se for do tenant
+    email       TEXT NOT NULL,            -- invitee (may be external)
+    user_id     UUID REFERENCES mail_users(id) ON DELETE SET NULL, -- if they belong to the tenant
     role        TEXT NOT NULL DEFAULT 'guest',   -- host | guest
     rsvp        TEXT NOT NULL DEFAULT 'pending', -- pending | accepted | declined | tentative
     notified_at TIMESTAMPTZ,

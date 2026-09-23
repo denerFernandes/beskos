@@ -1,11 +1,11 @@
 -- +goose Up
--- Preferências do utilizador, organizadas por app: {"email":{"signature":"…"}, "chat":{…}}.
+-- User preferences, organized by app: {"email":{"signature":"…"}, "chat":{…}}.
 --
--- JSONB (decisão do cliente, 2026-07-16): acrescentar uma preferência nova nunca mais precisa de
--- migração — é só mais uma chave. As que já existem (language, notify_email) ficam como colunas
--- próprias: já estão a ser usadas e são de tipo fixo. Isto é só para o que cresce.
+-- JSONB (decided on 2026-07-16): adding a new preference never again needs a
+-- migration — it is just one more key. The existing ones (language, notify_email) stay as their own
+-- columns: they are already in use and have a fixed type. This is only for what grows.
 --
--- Default '{}' (não NULL): o código lê sempre um objeto, sem ter de testar nulo a cada acesso.
+-- Default '{}' (not NULL): the code always reads an object, without testing for null on every access.
 ALTER TABLE mail_users ADD COLUMN settings JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- +goose Down

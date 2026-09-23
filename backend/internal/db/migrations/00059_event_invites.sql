@@ -1,6 +1,6 @@
 -- +goose Up
--- Convidados / RSVP: o dono convida colegas do tenant; o evento entra na agenda de cada convidado e
--- ele responde (pending|accepted|declined|maybe). Cai por cascata com o evento ou o utilizador.
+-- Guests / RSVP: the owner invites tenant colleagues; the event appears on each guest's calendar and
+-- they respond (pending|accepted|declined|maybe). Deleted by cascade with the event or the user.
 CREATE TABLE event_invites (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     event_id   UUID NOT NULL REFERENCES events(id) ON DELETE CASCADE,

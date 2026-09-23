@@ -1,7 +1,7 @@
 -- +goose Up
--- Bookmarks do canal: coleção curada de LINKS e FICHEIROS (estilo "Files & links" do Slack). Membros
--- adicionam e removem. Ficheiro referencia um storage_file; o download é autorizado por participação
--- no canal (não pela posse do ficheiro).
+-- Channel bookmarks: a curated collection of LINKS and FILES (Slack "Files & links" style). Members
+-- add and remove them. A file references a storage_file; download is authorized by channel
+-- membership (not by file ownership).
 CREATE TABLE channel_bookmarks (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,

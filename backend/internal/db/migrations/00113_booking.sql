@@ -1,7 +1,7 @@
 -- +goose Up
--- Booking (agenda pública estilo Calendly, 24/07/2026): cada colaborador pode ter UMA página
--- pública (/b/<org>/<colaborador>) onde externos marcam reunião nos horários livres.
--- windows: JSONB [{"weekday":1,"start":540,"end":1080}] — minutos desde 00:00, weekday 0=domingo.
+-- Booking (Calendly-style public scheduling): each member can have ONE public page
+-- (/b/<org>/<member>) where external people book meetings in the free slots.
+-- windows: JSONB [{"weekday":1,"start":540,"end":1080}] -- minutes since 00:00, weekday 0=Sunday.
 
 CREATE TABLE booking_pages (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,7 +36,7 @@ CREATE TABLE bookings (
 );
 CREATE INDEX idx_bookings_user ON bookings(user_id, starts_at);
 
--- O evento criado por uma reserva fica marcado — o calendário destaca-o.
+-- An event created by a booking is flagged -- the calendar highlights it.
 ALTER TABLE events ADD COLUMN booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL;
 
 -- +goose Down

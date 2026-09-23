@@ -6,20 +6,20 @@ CREATE TABLE plans (
     name                     TEXT NOT NULL,
     description              TEXT NOT NULL DEFAULT '',
     price_cents_per_user     INT NOT NULL DEFAULT 0,
-    min_users                INT NOT NULL DEFAULT 0,  -- tamanho mínimo da organização (0 = sem mínimo)
-    max_users                INT NOT NULL DEFAULT 0,  -- teto de caixas/utilizadores (0 = sem teto)
-    -- Apps do rail permitidas no plano. Vazio = todas (o gating soma com tenants.disabled_apps).
+    min_users                INT NOT NULL DEFAULT 0,  -- minimum organization size (0 = no minimum)
+    max_users                INT NOT NULL DEFAULT 0,  -- cap on mailboxes/users (0 = no cap)
+    -- Rail apps allowed on the plan. Empty = all (the gating adds up with tenants.disabled_apps).
     apps_enabled             TEXT[] NOT NULL DEFAULT '{}',
-    max_storage_gb           INT NOT NULL DEFAULT 0,  -- pool de storage do tenant (0 = sem teto)
-    ai_tokens_per_window     INT NOT NULL DEFAULT 0,  -- quota IA janela 6h (0 = default do produto)
+    max_storage_gb           INT NOT NULL DEFAULT 0,  -- tenant storage pool (0 = no cap)
+    ai_tokens_per_window     INT NOT NULL DEFAULT 0,  -- AI quota per 6h window (0 = product default)
     meet_max_participants    INT NOT NULL DEFAULT 0,
-    meet_max_minutes         INT NOT NULL DEFAULT 0,  -- duração máxima de sala (0 = sem teto)
-    -- Gravação de reuniões (decisão 22/07/2026): none | offline (track egress + montagem ffmpeg)
-    -- | offline_priority (mesma coisa, fila prioritária).
+    meet_max_minutes         INT NOT NULL DEFAULT 0,  -- maximum room duration (0 = no cap)
+    -- Meeting recording: none | offline (track egress + ffmpeg assembly)
+    -- | offline_priority (same thing, priority queue).
     recording                TEXT NOT NULL DEFAULT 'none'
         CHECK (recording IN ('none', 'offline', 'offline_priority')),
     recording_retention_days INT NOT NULL DEFAULT 30,
-    max_daily_send           INT NOT NULL DEFAULT 0,  -- envios/dia do tenant (0 = sem teto)
+    max_daily_send           INT NOT NULL DEFAULT 0,  -- tenant sends per day (0 = no cap)
     onlyoffice_edit          BOOLEAN NOT NULL DEFAULT true,
     wiki_public_links        BOOLEAN NOT NULL DEFAULT true,
     active                   BOOLEAN NOT NULL DEFAULT true,
@@ -28,8 +28,8 @@ CREATE TABLE plans (
     updated_at               TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Seed: os 4 planos do catálogo em código, com os MESMOS limites (zero mudança de comportamento).
--- Gravação conforme a decisão: plano de entrada sem gravação; pagos = offline; topo = prioridade.
+-- Seed: the 4 plans from the in-code catalog, with the SAME limits (zero behavior change).
+-- Recording per the decision: entry plan without recording; paid = offline; top = priority.
 INSERT INTO plans (key, name, price_cents_per_user, min_users, max_users, max_storage_gb,
                    ai_tokens_per_window, meet_max_participants, recording, max_daily_send, sort)
 VALUES

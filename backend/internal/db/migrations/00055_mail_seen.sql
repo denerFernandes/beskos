@@ -1,7 +1,7 @@
 -- +goose Up
--- Push de e-mail novo com app fechado: marca até quando já vimos a caixa de cada utilizador. O worker
--- compara com a chegada mais recente e notifica só o que é novo desde a última verificação.
--- NULL = ainda não estabelecemos a base (primeira verificação só regista, não notifica — evita enxurrada).
+-- New-email push with the app closed: records up to when each user's mailbox has been seen. The
+-- worker compares it with the most recent arrival and notifies only what is new since the last check.
+-- NULL = baseline not yet established (the first check only records, it does not notify, to avoid a flood).
 ALTER TABLE mail_users ADD COLUMN mail_seen_at TIMESTAMPTZ;
 
 -- +goose Down

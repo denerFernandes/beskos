@@ -1,109 +1,113 @@
-# Beskos — app desktop e mobile (Tauri 2)
+# Beskos — desktop and mobile app (Tauri 2)
 
-Empacota o mesmo frontend React num app nativo de **desktop** (macOS/Windows/Linux) e **mobile**
-(Android/iOS) via [Tauri 2](https://tauri.app). Não duplica código: é o `frontend/` a correr numa
-WebView nativa.
+Packages the same React frontend as a native **desktop** (macOS/Windows/Linux) and **mobile**
+(Android/iOS) app via [Tauri 2](https://tauri.app). No code is duplicated: it is `frontend/` running
+in a native WebView.
 
-## Pré-requisitos (uma vez)
+## Prerequisites (one-time)
 - **Rust**: https://rustup.rs
-- **Tauri CLI**: já está nos devDependencies (`npm i` na `frontend/`).
-- Dependências de sistema do Tauri (WebKit no Linux, Xcode no macOS/iOS, Android Studio + NDK no Android).
+- **Tauri CLI**: already in devDependencies (`npm i` in `frontend/`).
+- Tauri system dependencies (WebKit on Linux, Xcode on macOS/iOS, Android Studio + NDK on Android).
 
-## Ícones (obrigatório antes do 1º build)
-A pasta `icons/` está vazia. Gere os ícones a partir de um PNG quadrado (≥512px):
+## Icons (required before the first build)
+The `icons/` folder is empty. Generate the icons from a square PNG (≥512px):
 ```
 cd frontend
 npm run tauri icon caminho/para/logo.png
 ```
 
-## Base da API (IMPORTANTE)
-Na web, `/api` e `/jmap` funcionam por proxy (Vite/Caddy, mesma origem). No app **empacotado** não há
-proxy — o frontend carrega de um protocolo interno. Por isso as chamadas usam `VITE_API_BASE`
-(ver `frontend/src/apiBase.ts`): defina-a no build do app com a URL pública do servidor, ex.:
+## API base (IMPORTANT)
+On the web, `/api` and `/jmap` work through a proxy (Vite/Caddy, same origin). The **packaged** app
+has no proxy — the frontend loads from an internal protocol. Calls therefore use `VITE_API_BASE`
+(see `frontend/src/apiBase.ts`): set it in the app build to the server's public URL, e.g.:
 ```
 VITE_API_BASE=https://app.suaempresa.com npm run tauri build
 ```
-Sem `VITE_API_BASE` as chamadas ficam relativas (só funcionam na web/dev com proxy).
+Without `VITE_API_BASE`, calls stay relative (they only work on the web/dev with a proxy).
 
-Aponte `VITE_API_BASE` ao **backend Go** (control plane), não ao Stalwart. O backend serve:
-- `/api/*` — a nossa API (sessão por token: no app, o login guarda o token e envia-o em
-  `Authorization: Bearer`, já que o cookie cross-site não chega).
-- `/jmap/*`, `/auth/*`, `/.well-known/*` — **proxy transparente para o Stalwart** (o webmail fala
-  JMAP com a Basic auth do próprio utilizador, que passa direto; o backend nunca vê a password).
+Point `VITE_API_BASE` at the **Go backend** (control plane), not at Stalwart. The backend serves:
+- `/api/*` — our API (token session: in the app, login stores the token and sends it in
+  `Authorization: Bearer`, since the cross-site cookie does not reach it).
+- `/jmap/*`, `/auth/*`, `/.well-known/*` — a **transparent proxy to Stalwart** (the webmail speaks
+  JMAP with the user's own Basic auth, which passes straight through; the backend never sees the
+  password).
 
-Este proxy JMAP existe porque o Stalwart **não envia CORS** e o app é cross-origin. Ligue-o no
-backend com `APP_ORIGINS` (e `COOKIE_SECURE=true` em produção HTTPS):
+This JMAP proxy exists because Stalwart **does not send CORS headers** and the app is cross-origin.
+Enable it on the backend with `APP_ORIGINS` (and `COOKIE_SECURE=true` in HTTPS production):
 ```
 APP_ORIGINS=tauri://localhost,https://tauri.localhost
 COOKIE_SECURE=true
 ```
-Sem `APP_ORIGINS` o proxy e o CORS ficam desligados (a web usa o Caddy/Vite same-origin).
+Without `APP_ORIGINS`, the proxy and CORS are off (the web uses Caddy/Vite same-origin).
 
-## Correr / empacotar
+## Run / package
 ```
 cd frontend
-npm run tauri dev            # desktop, aponta ao Vite (http://localhost:5173)
-npm run tauri build          # instaladores desktop
+npm run tauri dev            # desktop, points to Vite (http://localhost:5173)
+npm run tauri build          # desktop installers
 
-# Mobile (uma vez para inicializar cada plataforma):
+# Mobile (once, to initialize each platform):
 npm run tauri android init
 npm run tauri ios init
 npm run tauri android dev    # / ios dev
 ```
 
-## Build de PRODUÇÃO — checklist
+## PRODUCTION build — checklist
 
-1. **Variáveis de build** (públicas, não-secretas — as únicas `VITE_` permitidas):
+1. **Build variables** (public, non-secret — the only `VITE_` variables allowed):
    ```
    VITE_API_BASE=https://app.suaempresa.com \
    VITE_PUBLIC_BASE=https://app.suaempresa.com \
    npm run tauri build
    ```
-   `VITE_PUBLIC_BASE` é a origem usada nos **links partilháveis** gerados no app (convite de
-   reunião `/j/<sala>`, links em e-mails, partilhas) — no desktop a origem local é `tauri://…`,
-   inútil para terceiros. Sem ela, cai em `VITE_API_BASE`.
+   `VITE_PUBLIC_BASE` is the origin used in **shareable links** generated in the app (meeting
+   invite `/j/<room>`, links in emails, shares) — on desktop the local origin is `tauri://…`,
+   useless to third parties. Without it, it falls back to `VITE_API_BASE`.
 
-2. **CSP** (`tauri.conf.json` → `app.security.csp`). A comitada é estrita e cobre API/LiveKit em
-   `https:`/`wss:`, mas o **OnlyOffice precisa de ser acrescentado explicitamente** (o editor
-   carrega o `api.js` do Document Server), senão os ficheiros Office não abrem no app:
+2. **CSP** (`tauri.conf.json` → `app.security.csp`). The committed policy is strict and covers
+   API/LiveKit over `https:`/`wss:`, but **OnlyOffice must be added explicitly** (the editor loads
+   `api.js` from the Document Server), otherwise Office files do not open in the app:
    - `script-src 'self' 'wasm-unsafe-eval' https://docs.suaempresa.com`
    - `frame-src 'self' data: blob: https://docs.suaempresa.com`
-   Opcionalmente, aperte `connect-src` para os hosts exatos (API, LiveKit `wss://`, OnlyOffice)
-   em vez de `https: wss:` genéricos.
-   Nota: builds de teste locais injetam origens `localhost` na CSP temporariamente (os scripts desta
-   sessão revertem-na); a CSP comitada deve permanecer a de produção.
+   Optionally, tighten `connect-src` to the exact hosts (API, LiveKit `wss://`, OnlyOffice)
+   instead of the generic `https: wss:`.
+   Note: local test builds temporarily inject `localhost` origins into the CSP (the build scripts
+   revert it); the committed CSP must stay the production one.
 
-3. **LiveKit em produção** tem de ser servido por **`wss://`** (TLS). Um `ws://` para host
-   não-localhost é bloqueado como conteúdo misto pelo webview.
+3. **LiveKit in production** must be served over **`wss://`** (TLS). A `ws://` to a non-localhost
+   host is blocked by the webview as mixed content.
 
-4. **Assinatura/notarização** (macOS): sem Developer ID, o Gatekeeper avisa em outras máquinas e o
-   Notification Center pode registar a app de forma instável entre reinstalações.
+4. **Signing/notarization** (macOS): without a Developer ID, Gatekeeper warns on other machines and
+   Notification Center may register the app inconsistently across reinstalls.
 
-## Segurança — nenhum segredo no pacote
+## Security — no secrets in the package
 
-O pacote desktop é distribuível e inspecionável, por isso **não pode conter segredos**. Garantias:
+The desktop package is distributable and inspectable, so it **must not contain secrets**.
+Guarantees:
 
-- **Todos os segredos vivem só no backend Go** (chaves de IA, admin do Stalwart, base de dados,
-  chave VAPID privada, JWT do OnlyOffice/LiveKit…). O frontend nunca os recebe.
-- **O login usa a credencial do próprio utilizador** (Basic auth JMAP contra o Stalwart), digitada em
-  runtime — não há credencial embutida.
-- **Vars de ambiente**: o Vite injeta em texto claro qualquer `VITE_*`. Só `VITE_API_BASE` (uma URL
-  pública, não-secreta) é permitida — o `vite.config.ts` **falha o build** se aparecer outra `VITE_*`.
-- **Sem sourcemaps** no build (`build.sourcemap: false`) — o código-fonte não vai no pacote.
-- **CSP restritiva** (`tauri.conf.json`): sem scripts inline, sem eval (exceto WASM), e `connect-src`
-  limitado a `https:`/`wss:`. Recomendado apertar `connect-src` para o host exato do backend em
-  produção (ex.: `connect-src 'self' https://app.suaempresa.com wss://app.suaempresa.com`).
-- **Auditoria**: `dist/` foi verificado — 0 valores de segredos, 0 sourcemaps.
+- **All secrets live only in the Go backend** (AI keys, Stalwart admin, database, private VAPID
+  key, OnlyOffice/LiveKit JWT…). The frontend never receives them.
+- **Login uses the user's own credential** (JMAP Basic auth against Stalwart), typed at runtime —
+  there is no embedded credential.
+- **Environment variables**: Vite injects any `VITE_*` in plain text. Only `VITE_API_BASE` (a
+  public, non-secret URL) is allowed — `vite.config.ts` **fails the build** if any other `VITE_*`
+  appears.
+- **No sourcemaps** in the build (`build.sourcemap: false`) — the source code is not shipped in the
+  package.
+- **Restrictive CSP** (`tauri.conf.json`): no inline scripts, no eval (except WASM), and
+  `connect-src` limited to `https:`/`wss:`. Tightening `connect-src` to the exact backend host in
+  production is recommended (e.g. `connect-src 'self' https://app.suaempresa.com wss://app.suaempresa.com`).
+- **Audit**: `dist/` was checked — 0 secret values, 0 sourcemaps.
 
-Regra de ouro: se um dado é sensível, ele **não entra no frontend** — passa a ser um endpoint no
-backend que o serve/usa mediante a sessão autenticada.
+Golden rule: if a piece of data is sensitive, it **does not enter the frontend** — it becomes a
+backend endpoint that serves or uses it under the authenticated session.
 
-Nota (runtime, não pacote): o token de sessão do utilizador é guardado no `localStorage` do webview.
-No desktop, considere migrar para o **keychain do SO** (plugin `tauri-plugin-stronghold` ou
-`keyring`) para não deixar o token em disco em claro — melhoria de hardening, separada do "sem
-segredos no pacote".
+Note (runtime, not package): the user's session token is stored in the webview's `localStorage`.
+On desktop, consider migrating it to the **OS keychain** (`tauri-plugin-stronghold` or `keyring`
+plugin) so the token is not left on disk in plain text — a hardening improvement, separate from
+"no secrets in the package".
 
-## Estrutura
-- `tauri.conf.json` — config (janela, bundle, devUrl=Vite, frontendDist=../dist).
-- `Cargo.toml` / `build.rs` / `src/` — o "shell" Rust (partilhado desktop+mobile via `lib.rs`).
-- `capabilities/default.json` — permissões da janela (modelo de segurança do Tauri 2).
+## Structure
+- `tauri.conf.json` — config (window, bundle, devUrl=Vite, frontendDist=../dist).
+- `Cargo.toml` / `build.rs` / `src/` — the Rust "shell" (shared by desktop and mobile via `lib.rs`).
+- `capabilities/default.json` — window permissions (Tauri 2 security model).

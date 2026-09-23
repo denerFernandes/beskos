@@ -27,8 +27,8 @@ import {
 
 const RANGES = [7, 30, 90, 365];
 
-// Dashboard fiel ao exemplo do shadcn com FILTRO DE PERÍODO real (comanda gráficos e o export),
-// tab Analytics (storage/IA/Meet/e-mail + top consumidores) e alertas de uso exagerado.
+// Dashboard faithful to the shadcn example with a real PERIOD FILTER (drives the charts and the
+// export), an Analytics tab (storage/AI/Meet/email + top consumers) and excessive-usage alerts.
 export default function DashboardPage() {
   const [days, setDays] = useState(30);
   const [tab, setTab] = useState("overview");
@@ -39,7 +39,7 @@ export default function DashboardPage() {
   const tenants = useQuery({ queryKey: ["tenants"], queryFn: () => api.tenants() });
   const alertsQ = useQuery({
     queryKey: ["alerts"], queryFn: () => api.alerts(),
-    refetchInterval: 60_000, // alertas atualizam sozinhos
+    refetchInterval: 60_000, // alerts refresh on their own
   });
   const deliv = useQuery({ queryKey: ["deliverability"], queryFn: () => api.deliverability() });
 
@@ -83,7 +83,7 @@ export default function DashboardPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-3xl font-bold tracking-tight">{S.dashboard.title}</h1>
         <div className="flex items-center gap-2">
-          {/* Filtro de período REAL: presets que comandam os gráficos e o Download. */}
+          {/* REAL period filter: presets that drive the charts and the Download. */}
           <DropdownMenu>
             <DropdownMenuTrigger
               className={buttonVariants({ variant: "outline", size: "sm" }) + " tabular-nums"}>
@@ -319,7 +319,7 @@ export default function DashboardPage() {
   );
 }
 
-// AlertsCard: uso exagerado — badges por severidade, link para o tenant quando há id.
+// AlertsCard: excessive usage — badges by severity, link to the tenant when there is an id.
 function AlertsCard({ alerts }: { alerts: import("@/lib/api").Alert[] }) {
   return (
     <Card className="border-amber-300/60">

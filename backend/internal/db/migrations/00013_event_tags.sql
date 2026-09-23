@@ -1,5 +1,5 @@
 -- +goose Up
--- Catálogo de tags por tenant (compartilhado: eventos, contatos, futuro tarefas) + tags/Meet no evento.
+-- Tag catalog per tenant (shared: events, contacts, later tasks) + tags/Meet on the event.
 
 CREATE TABLE tags (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -11,7 +11,7 @@ CREATE TABLE tags (
 );
 
 ALTER TABLE events ADD COLUMN tags TEXT[] NOT NULL DEFAULT '{}';
-ALTER TABLE events ADD COLUMN meeting_room TEXT NOT NULL DEFAULT ''; -- sala do Meet vinculada (opcional)
+ALTER TABLE events ADD COLUMN meeting_room TEXT NOT NULL DEFAULT ''; -- linked Meet room (optional)
 
 -- +goose Down
 ALTER TABLE events DROP COLUMN meeting_room;

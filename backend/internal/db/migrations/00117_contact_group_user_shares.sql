@@ -1,7 +1,7 @@
 -- +goose Up
--- Partilha de GRUPO DE CONTATOS com um UTILIZADOR específico (além de com equipas). Antes só se
--- podia partilhar com uma equipa (contact_group_shares); agora também com uma pessoa. A visibilidade
--- do contato passa a considerar as duas vias (ver ListContacts/GetContact). (24/07/2026)
+-- Sharing a CONTACT GROUP with a specific USER (in addition to teams). Previously a group could
+-- only be shared with a team (contact_group_shares); now also with a person. Contact visibility
+-- now considers both paths (see ListContacts/GetContact).
 CREATE TABLE contact_group_user_shares (
     group_id UUID NOT NULL REFERENCES contact_groups(id) ON DELETE CASCADE,
     user_id  UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,

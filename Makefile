@@ -14,7 +14,7 @@ PROD_ENV := VITE_API_BASE=$(PROD_API) VITE_PUBLIC_BASE=$(PROD_API)
 DEV_ENV  := VITE_API_BASE=http://localhost:8000 VITE_PUBLIC_BASE=http://localhost:5173
 
 .DEFAULT_GOAL := help
-.PHONY: help deps web web-dev desktop desktop-prod desktop-dev desktop-run android ios android-dev ios-dev icons doctor clean mobile
+.PHONY: help hooks deps web web-dev desktop desktop-prod desktop-dev desktop-run android ios android-dev ios-dev icons doctor clean mobile
 
 help: ## Shows the available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -70,6 +70,10 @@ doctor: ## Checks prerequisites (tauri info)
 clean: ## Cleans build artifacts (dist + the Rust target dir)
 	rm -rf $(FRONTEND)/dist
 	cd $(FRONTEND)/src-tauri && cargo clean
+
+hooks: ## Enables the versioned git hooks (commit messages in English, no tool attribution)
+	git config core.hooksPath scripts/githooks
+	@echo "hooks: scripts/githooks"
 
 check: ## Checks the engineering standards on new lines (language and file size)
 	@python3 scripts/check_laws.py && echo "laws: ok"

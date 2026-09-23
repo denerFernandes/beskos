@@ -22,7 +22,7 @@ func (s *Server) handleGrowth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orEmpty(rows))
 }
 
-// csvOut prepara a resposta CSV (download). O writer devolvido tem de levar Flush no fim.
+// csvOut prepares the CSV response (download). The returned writer must be flushed at the end.
 func csvOut(w http.ResponseWriter, filename string) *csv.Writer {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)

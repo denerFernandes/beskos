@@ -1,6 +1,6 @@
 -- +goose Up
--- Templates de resposta (canned responses): textos reutilizáveis do dono para inserir na composição.
--- Escopo por dono (não partilhado nesta fase) e por tenant, como os deals/contatos.
+-- Reply templates (canned responses): the owner's reusable texts to insert while composing.
+-- Scoped per owner (not shared) and per tenant, like deals/contacts.
 CREATE TABLE mail_templates (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

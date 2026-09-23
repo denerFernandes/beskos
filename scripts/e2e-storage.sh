@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E2E do armazenamento (MinIO real): upload, dedup por hash, versionamento, download, share, delete.
+# Storage E2E (real MinIO): upload, dedup by hash, versioning, download, share, delete.
 set -euo pipefail
 PG=st-pg; SW=st-sw; MO=st-minio
 PGPORT=55439; SWPORT=18094; MOPORT=19000; APIPORT=8206
@@ -67,7 +67,7 @@ $WM -X POST $API/files/$FID/share -d '{"principal":"colega@st-demo.com","nivel":
 echo "== delete + limpeza de blob por refcount =="
 $WM -X DELETE $API/files/$FID >/dev/null
 [[ $(code -b /tmp/st-wm $API/files/$FID/download) == 404 ]]&&pass "arquivo removido (404)"||fail "não removeu"
-# blob ainda existe (a versao 1 aponta pra ele) → download da v1 funciona
+# blob still exists (version 1 points to it) → downloading v1 works
 FID1=$($WM $API/files | J "[0]['id']")
 [[ $(code -b /tmp/st-wm $API/files/$FID1/download) == 200 ]]&&pass "blob preservado enquanto outra versão referencia"||fail "blob removido cedo demais"
 

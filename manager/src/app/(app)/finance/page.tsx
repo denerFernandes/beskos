@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/table";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
-// Financeiro (M4): MRR/ARR/ARPU (receita contratada: preço do plano × utilizadores), custo
-// variável estimado por driver e margem por tenant. Estimativas — a página avisa.
+// Finance: MRR/ARR/ARPU (contracted revenue: plan price × users), estimated variable cost per
+// driver and margin per tenant. Estimates — the page says so.
 export default function FinancePage() {
   const qc = useQueryClient();
   const fin = useQuery({ queryKey: ["finance"], queryFn: () => api.finance() });
@@ -101,7 +101,7 @@ export default function FinancePage() {
   );
 }
 
-// Editor do modelo de custos (admin-only no backend; o form mostra o erro se um viewer tentar).
+// Cost model editor (admin-only on the backend; the form shows the error if a viewer tries).
 function CostModelCard({ onSaved }: { onSaved: () => void }) {
   const [form, setForm] = useState<CostModel | null>(null);
   const [msg, setMsg] = useState("");
@@ -163,7 +163,7 @@ function CostModelCard({ onSaved }: { onSaved: () => void }) {
 }
 
 
-// Servidores da infra: custo fixo por VPS. Editar/criar em Sheet (regra da casa: sem diálogos nativos).
+// Infrastructure servers: fixed cost per VPS. Edit/create in a Sheet (house rule: no native dialogs).
 function ServersCard({ onChanged, currency }: { onChanged: () => void; currency: string }) {
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ["servers"], queryFn: () => api.servers() });

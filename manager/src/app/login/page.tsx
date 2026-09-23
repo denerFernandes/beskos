@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Login do operador. TOTP é obrigatório: o fluxo tem 3 estados — credenciais, enrollment
-// (1º login: mostra o segredo/otpauth e pede o 1º código) e verificação (código de sempre).
+// Operator login. TOTP is mandatory: the flow has 3 states — credentials, enrollment
+// (1st login: shows the secret/otpauth and asks for the 1st code) and verification (the usual code).
 type Step = "credentials" | "enroll" | "verify";
 
 export default function LoginPage() {
@@ -44,7 +44,7 @@ export default function LoginPage() {
     } catch (err) {
       const code = err instanceof ApiError ? err.code : "manager.failed";
       if (code === "manager.totp_code_required") {
-        setStep("verify"); // senha ok; falta o 2º fator
+        setStep("verify"); // password ok; the 2nd factor is still missing
       } else {
         setError(errorText(code));
       }
@@ -81,8 +81,8 @@ export default function LoginPage() {
 
             {step === "enroll" && setup && (
               <div className="grid gap-3 rounded-md border bg-muted/50 p-3 text-sm">
-                {/* QR do otpauth://: aponta a câmara do app autenticador. Fundo branco fixo para
-                    contraste também no tema escuro. */}
+                {/* otpauth:// QR: point the authenticator app's camera at it. Fixed white background for
+                    contrast in the dark theme too. */}
                 <div className="flex justify-center rounded-md bg-white p-3">
                   <QRCodeSVG value={setup.otpauth_uri} size={168} marginSize={1} />
                 </div>

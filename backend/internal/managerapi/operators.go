@@ -70,7 +70,7 @@ func (s *Server) handleSetOperatorActive(w http.ResponseWriter, r *http.Request)
 		writeErr(w, http.StatusBadRequest, "manager.invalid_id")
 		return
 	}
-	// Não se desativa a si próprio (evita trancar o último admin para fora).
+	// An operator cannot deactivate themselves (avoids locking the last admin out).
 	if id == me.ID {
 		writeErr(w, http.StatusBadRequest, "manager.operator_self")
 		return

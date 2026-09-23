@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Sobe a stack completa e deixa o webmail React (ligado ao backend real) pronto para screenshots.
-# Provisiona domínio+mailboxes, semeia e-mails, roda API+worker+IA-fake+Vite.
+# Brings up the full stack and leaves the React webmail (wired to the real backend) ready for
+# screenshots. Provisions domain+mailboxes, seeds emails, runs API+worker+fake AI+Vite.
 set -euo pipefail
 PG=demo-pg; SW=demo-sw
 PGPORT=55436; SWPORT=18093; AIPORT=8792; VITEPORT=5199
@@ -18,7 +18,7 @@ docker run -d --name $SW -e STALWART_RECOVERY_ADMIN="admin:$SECRET" -p $SWPORT:8
 for i in $(seq 1 30); do docker exec $PG pg_isready -U mailin >/dev/null 2>&1 && break; sleep 1; done
 for i in $(seq 1 30); do curl -fsS http://localhost:$SWPORT/jmap/session -u admin:$SECRET >/dev/null 2>&1 && break; sleep 1; done
 
-# IA fake context-aware (resumo/briefing = frase; extração = JSON)
+# Context-aware fake AI (summary/briefing = sentence; extraction = JSON)
 cat > /tmp/fakeai.py <<'PY'
 import http.server,json,sys
 class H(http.server.BaseHTTPRequestHandler):
@@ -77,7 +77,7 @@ SW="http://localhost:$SWPORT" node /tmp/demo-send.mjs
 echo "== vite dev (:$VITEPORT) =="
 cd "$FRONT"
 STALWART_URL="http://localhost:$SWPORT" npx vite --port $VITEPORT >/tmp/demo-vite.log 2>&1 & VITE_PID=$!
-# o proxy /api do vite aponta para :8000 (default do vite.config)
+# vite's /api proxy points to :8000 (vite.config default)
 for i in $(seq 1 25); do curl -fsS localhost:$VITEPORT/ >/dev/null 2>&1 && break; sleep 1; done
 echo "   webmail em http://localhost:$VITEPORT/mail  (ana@aurora-demo.com / $PW)"
 

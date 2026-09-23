@@ -1,6 +1,6 @@
 -- +goose Up
--- Billing: idempotência de webhooks (brief §10). A assinatura vive em subscriptions (00001)
--- e o plano atual do tenant em tenants.plano.
+-- Billing: webhook idempotency (brief §10). The subscription lives in subscriptions (00001)
+-- and the tenant's current plan in tenants.plano.
 CREATE TABLE processed_webhooks (
     event_id     TEXT PRIMARY KEY,
     processed_at TIMESTAMPTZ NOT NULL DEFAULT now()

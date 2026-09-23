@@ -1,6 +1,6 @@
 -- +goose Up
--- Histórico/atividade do card: quem fez o quê e quando (criou, moveu, editou). Cai com o card.
--- detail guarda um dado livre do evento (ex.: o column_id de destino num "moved"); a UI resolve o nome.
+-- Card history/activity: who did what and when (created, moved, edited). Deleted with the card.
+-- detail holds free-form event data (e.g. the destination column_id in a "moved"); the UI resolves the name.
 CREATE TABLE card_activity (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

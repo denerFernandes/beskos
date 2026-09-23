@@ -1,7 +1,7 @@
 -- +goose Up
--- Múltiplos e-mails/telefones por contato. O e-mail/telefone principais (colunas email/phone) seguem
--- sendo a fonte para autocomplete, histórico, dedup e lista de distribuição — mexer nisso tocaria
--- meio sistema. Estes arrays guardam os SECUNDÁRIOS (ex.: e-mail pessoal + trabalho). Mesmo padrão de tags[].
+-- Multiple emails/phones per contact. The primary email/phone (email/phone columns) remain the
+-- source for autocomplete, history, dedup and distribution lists; changing that would touch half
+-- the system. These arrays hold the SECONDARY ones (e.g. personal + work email). Same pattern as tags[].
 ALTER TABLE contacts ADD COLUMN extra_emails TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE contacts ADD COLUMN extra_phones TEXT[] NOT NULL DEFAULT '{}';
 

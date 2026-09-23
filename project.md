@@ -1,8 +1,7 @@
 Project brief — Email + storage platform (Google Workspace alternative)
 
 
-Paste this entire document as the initial prompt to a coding agent (Claude Code, Cursor, etc.).
-It describes the product, the non-negotiable constraints, the architecture, and the phase plan.
+This document describes the product, the non-negotiable constraints, the architecture, and the phase plan.
 Read the "How you should work" section before writing any code.
 
 

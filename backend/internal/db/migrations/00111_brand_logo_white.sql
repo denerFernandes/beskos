@@ -1,6 +1,7 @@
 -- +goose Up
--- Branding: opção de forçar o logo a BRANCO no tema escuro (pedido 23/07/2026) — logos escuros
--- desapareciam sobre o fundo escuro; com a flag, a UI aplica um filtro que o torna silhueta branca.
+-- Branding: option to force the logo to WHITE in the dark theme -- dark logos disappeared
+-- against the dark background; with the flag, the UI applies a filter that turns it into a white
+-- silhouette.
 ALTER TABLE tenants ADD COLUMN brand_logo_white_dark BOOLEAN NOT NULL DEFAULT false;
 
 -- +goose Down

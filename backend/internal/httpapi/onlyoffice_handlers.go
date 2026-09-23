@@ -210,7 +210,7 @@ type ooCallback struct {
 }
 
 // handleDocCallback: the Document Server notifies that the document was saved; we fetch the
-// edited file and write it as a NEW version in MinIO. Phase A (view) never triggers a save.
+// edited file and write it as a NEW version in MinIO. A view-only session never triggers a save.
 func (s *Server) handleDocCallback(w http.ResponseWriter, r *http.Request) {
 	cl, f, ok := s.docAuth(w, r)
 	if !ok {

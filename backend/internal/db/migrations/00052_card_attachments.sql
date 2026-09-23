@@ -1,7 +1,7 @@
 -- +goose Up
--- Anexos no card: liga um ficheiro do Files a um card. O download é TENANT-scoped (qualquer membro do
--- quadro abre), diferente do Files pessoal (owner-scoped) — por isso a tabela guarda o tenant.
--- Cai por cascata com o card OU com o ficheiro (se o ficheiro for purgado, o anexo some).
+-- Card attachments: links a Files file to a card. Download is TENANT-scoped (any board member can
+-- open it), unlike personal Files (owner-scoped); that is why the table stores the tenant.
+-- Deleted by cascade with the card OR the file (if the file is purged, the attachment disappears).
 CREATE TABLE card_attachments (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

@@ -1,6 +1,6 @@
 -- +goose Up
--- Anexos de mensagens do chat: liga uma mensagem a um arquivo do storage (MinIO). name/size
--- denormalizados para render rápido; a autorização de download é por participação no canal.
+-- Chat message attachments: links a message to a storage file (MinIO). name/size are
+-- denormalized for fast rendering; download authorization is by channel membership.
 
 CREATE TABLE message_attachments (
     message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,

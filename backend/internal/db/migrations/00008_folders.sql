@@ -1,11 +1,11 @@
 -- +goose Up
--- Pastas/subpastas para o serviço de arquivos (hierarquia). Por owner (mailbox logada).
+-- Folders/subfolders for the file service (hierarchy). Per owner (logged-in mailbox).
 
 CREATE TABLE storage_folders (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id     UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     owner_user_id UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
-    parent_id     UUID REFERENCES storage_folders(id) ON DELETE CASCADE, -- NULL = raiz
+    parent_id     UUID REFERENCES storage_folders(id) ON DELETE CASCADE, -- NULL = root
     name          TEXT NOT NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

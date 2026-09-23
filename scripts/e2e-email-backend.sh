@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# E2E do backend de e-mail (features nossas): sessão de webmail + IA + Kanban + labels + eventos.
-# Stack real (Postgres + Stalwart) + um servidor de IA fake (OpenAI-compatível).
+# Email backend E2E (our features): webmail session + AI + Kanban + labels + events.
+# Real stack (Postgres + Stalwart) + a fake AI server (OpenAI-compatible).
 set -euo pipefail
 
 PG=mailin-eb-pg; SW=mailin-eb-sw

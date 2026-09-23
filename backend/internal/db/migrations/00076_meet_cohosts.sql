@@ -1,6 +1,6 @@
 -- +goose Up
--- Co-hosts: outros utilizadores que o organizador promove a anfitrião. Recebem poderes de host
--- (mutar, remover, bloquear, gravar) e entram com política plena. O dono continua a gerir a lista.
+-- Co-hosts: other users the organizer promotes to host. They get host powers (mute, remove,
+-- lock, record) and join with the full policy. The owner still manages the list.
 CREATE TABLE meeting_cohosts (
     meeting_id UUID NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
     user_id    UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,

@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-// Assina uma mensagem SNS com um cert de teste e verifica o caminho completo (fetch injetado).
+// Signs an SNS message with a test cert and verifies the full path (injected fetch).
 func TestSNSVerify(t *testing.T) {
 	key, _ := rsa.GenerateKey(rand.Reader, 2048)
 	tpl := &x509.Certificate{SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "sns.test"},
@@ -44,14 +44,14 @@ func TestSNSVerify(t *testing.T) {
 		t.Fatalf("type = %s", out.Type)
 	}
 
-	// Assinatura adulterada → rejeita.
+	// Tampered signature → rejected.
 	m.Message = `{"notificationType":"Complaint"}`
 	body, _ = json.Marshal(m)
 	if _, err := v.Verify(body); err == nil {
 		t.Fatal("tampered message should fail")
 	}
 
-	// Cert fora da AWS → rejeita sem sequer buscar.
+	// Cert outside AWS → rejected without even fetching it.
 	m.SigningCertURL = "https://evil.example.com/cert.pem"
 	body, _ = json.Marshal(m)
 	if _, err := v.Verify(body); err == nil {

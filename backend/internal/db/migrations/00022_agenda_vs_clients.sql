@@ -1,28 +1,28 @@
 -- +goose Up
--- Separa AGENDA de CLIENTE (decisão de 2026-07-15: "estamos misturando conceitos").
+-- Separates ADDRESS BOOK from CLIENT (decided on 2026-07-15: the model was mixing concepts).
 --
--- Antes: `contacts` servia três donos com regras opostas — agenda (minha, privada), cliente (da
--- empresa, partilhado) e atendimento. Daí o seletor de visibilidade de 3 níveis, as tabelas de
--- partilha, e o sintoma "Chamado #12 de —" (chamado partilhado + contato privado = nome nulo).
+-- Before: `contacts` served three owners with opposite rules — address book (mine, private), client
+-- (the company's, shared) and support. Hence the 3-level visibility selector, the sharing tables,
+-- and the symptom "Ticket #12 from —" (shared ticket + private contact = null name).
 --
--- Agora:
---   `contacts`        = agenda pessoal. Sempre privada (só o dono). Serve o "Para:" do e-mail.
---   `clients`         = cliente da empresa (kind = company | person). Sempre visível ao tenant.
---   `client_contacts` = as pessoas de um cliente (cargo, telefone, consentimento LGPD).
+-- Now:
+--   `contacts`        = personal address book. Always private (owner only). Feeds the email "To:".
+--   `clients`         = the company's client (kind = company | person). Always visible to the tenant.
+--   `client_contacts` = a client's people (job title, phone, LGPD consent).
 --
--- A mesma pessoa pode estar nos dois lados (na minha agenda e como contato de um cliente). Isso é
--- correto, não duplicação: são registos de donos diferentes — como Google Contacts vs CRM.
+-- The same person can be on both sides (in my address book and as a client's contact). That is
+-- correct, not duplication: they are records of different owners — like Google Contacts vs a CRM.
 
--- 1) companies → clients. RENAME preserva os ids, então crm_notes/cards/tickets não se perdem.
+-- 1) companies → clients. RENAME preserves the ids, so crm_notes/cards/tickets are not lost.
 ALTER TABLE companies RENAME TO clients;
 ALTER TABLE clients ADD COLUMN kind  TEXT NOT NULL DEFAULT 'company';
-ALTER TABLE clients ADD COLUMN email TEXT NOT NULL DEFAULT '';   -- usado quando kind = 'person'
+ALTER TABLE clients ADD COLUMN email TEXT NOT NULL DEFAULT '';   -- used when kind = 'person'
 ALTER TABLE clients ADD CONSTRAINT clients_kind_ck CHECK (kind IN ('company', 'person'));
--- Cliente é activo da empresa, não de quem o cadastrou: a visibilidade deixa de existir.
+-- A client is an asset of the company, not of whoever registered it: visibility goes away.
 ALTER TABLE clients DROP COLUMN visibility;
 DROP TABLE company_shares;
 
--- 2) As pessoas de um cliente. O consentimento (LGPD) vive aqui — é a empresa que contata.
+-- 2) A client's people. Consent (LGPD) lives here — it is the company that makes contact.
 CREATE TABLE client_contacts (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -40,21 +40,21 @@ CREATE TABLE client_contacts (
 );
 CREATE INDEX idx_client_contacts ON client_contacts(client_id);
 
--- 3) Contato COM empresa → é pessoa de um cliente.
+-- 3) Contact WITH a company → becomes a client's person.
 INSERT INTO client_contacts (tenant_id, client_id, name, title, email, phone, mobile,
                              is_whatsapp, allow_phone, allow_email, notes, created_at)
 SELECT c.tenant_id, c.company_id, c.name, c.title, c.email, c.phone, c.mobile,
        c.is_whatsapp, c.allow_phone, c.allow_email, c.notes, c.created_at
 FROM contacts c WHERE c.company_id IS NOT NULL;
 
--- 4) Contato partilhado SEM empresa → vira cliente pessoa física.
---    Mantém o id do contato para que notas/tarefas/chamados apontem para o mesmo UUID.
+-- 4) Shared contact WITHOUT a company → becomes an individual client.
+--    Keeps the contact id so that notes/tasks/tickets point at the same UUID.
 INSERT INTO clients (id, tenant_id, owner_user_id, name, domain, phone, notes, tags, created_at, kind, email)
 SELECT c.id, c.tenant_id, c.owner_user_id, c.name, '', c.phone, c.notes, c.tags, c.created_at, 'person', c.email
 FROM contacts c WHERE c.company_id IS NULL AND c.visibility <> 'private';
 
--- 5) Remapear o trabalho: contact_id → client_id.
---    Quem tinha empresa passa a apontar para a empresa; quem virou pessoa física manteve o id.
+-- 5) Remap the work: contact_id → client_id.
+--    Those with a company now point at the company; those that became individuals kept their id.
 ALTER TABLE cards   ADD COLUMN client_id UUID REFERENCES clients(id) ON DELETE SET NULL;
 ALTER TABLE tickets ADD COLUMN client_id UUID REFERENCES clients(id) ON DELETE SET NULL;
 UPDATE cards k SET client_id = COALESCE(
@@ -70,34 +70,34 @@ ALTER TABLE tickets DROP COLUMN contact_id;
 CREATE INDEX idx_cards_client   ON cards(client_id);
 CREATE INDEX idx_tickets_client ON tickets(client_id);
 
--- 6) Notas do CRM: passam a ser do cliente (contact XOR company deixa de fazer sentido).
+-- 6) CRM notes now belong to the client (contact XOR company no longer makes sense).
 ALTER TABLE crm_notes ADD COLUMN client_id UUID REFERENCES clients(id) ON DELETE CASCADE;
 UPDATE crm_notes n SET client_id = COALESCE(
     n.company_id,
     (SELECT c.company_id FROM contacts c WHERE c.id = n.contact_id),
     (SELECT cl.id FROM clients cl WHERE cl.id = n.contact_id));
-DELETE FROM crm_notes WHERE client_id IS NULL;  -- nota de contato que ficou na agenda: sem cliente
+DELETE FROM crm_notes WHERE client_id IS NULL;  -- contact note that stayed in the address book: no client
 ALTER TABLE crm_notes DROP CONSTRAINT IF EXISTS crm_notes_check;
 ALTER TABLE crm_notes DROP COLUMN contact_id;
 ALTER TABLE crm_notes DROP COLUMN company_id;
 ALTER TABLE crm_notes ALTER COLUMN client_id SET NOT NULL;
 CREATE INDEX idx_crm_notes_client ON crm_notes(client_id, created_at DESC);
 
--- 7) A agenda emagrece: some a visibilidade, a partilha e o que era de CRM.
---    O que se perde aqui já foi copiado para client_contacts no passo 3.
-DELETE FROM contacts WHERE company_id IS NULL AND visibility <> 'private'; -- virou cliente pessoa
-DELETE FROM contacts WHERE company_id IS NOT NULL;                          -- virou client_contact
+-- 7) The address book slims down: visibility, sharing and the CRM fields go away.
+--    What is lost here was already copied into client_contacts in step 3.
+DELETE FROM contacts WHERE company_id IS NULL AND visibility <> 'private'; -- became an individual client
+DELETE FROM contacts WHERE company_id IS NOT NULL;                          -- became a client_contact
 DROP TABLE contact_shares;
 ALTER TABLE contacts DROP COLUMN visibility;
 ALTER TABLE contacts DROP COLUMN company_id;
-ALTER TABLE contacts DROP COLUMN allow_phone;   -- consentimento é conceito de cliente, não de agenda
+ALTER TABLE contacts DROP COLUMN allow_phone;   -- consent is a client concept, not an address-book one
 ALTER TABLE contacts DROP COLUMN allow_email;
 
 -- +goose Down
--- ASSIMÉTRICO DE PROPÓSITO. O Up funde e separa populações; desfazer exatamente exigiria saber
--- quem era quem antes, e adivinhar erraria — pior que falhar. O Down devolve o ESQUEMA antigo
--- (para o goose poder descer), não os dados na disposição original. Restaurar dados = restaurar
--- backup. Ver a mesma decisão em 00018_unify_users.sql.
+-- ASYMMETRIC ON PURPOSE. Up merges and splits populations; undoing it exactly would require knowing
+-- who was who before, and guessing would get it wrong — worse than failing. Down restores the old SCHEMA
+-- (so goose can migrate down), not the data in its original layout. Restoring data = restoring a
+-- backup. See the same decision in 00018_unify_users.sql.
 ALTER TABLE contacts ADD COLUMN allow_email BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE contacts ADD COLUMN allow_phone BOOLEAN NOT NULL DEFAULT true;
 ALTER TABLE contacts ADD COLUMN company_id UUID;

@@ -1,18 +1,18 @@
 -- +goose Up
--- Biblioteca de GIFs pessoal (decisão do cliente, 2026-07-16: sem Giphy/Tenor).
+-- Personal GIF library (decided on 2026-07-16: no Giphy/Tenor).
 --
--- Não há tabela de ficheiro nova: o GIF é um `storage_files` como qualquer outro, já no MinIO.
--- Isto aqui é só a marca "este ficheiro está na minha gaveta de GIFs" — quem já anexou um GIF
--- pode guardá-lo e reusar sem voltar a carregar.
+-- There is no new file table: the GIF is a `storage_files` row like any other, already in MinIO.
+-- This is only the marker "this file is in my GIF drawer" — anyone who has attached a GIF
+-- can save it and reuse it without uploading it again.
 --
--- Pessoal de propósito: é o gosto de cada um, não um activo da empresa. Se um dia fizer sentido
--- partilhar, o caminho é o mesmo dos contatos — um grupo, não um campo por GIF.
+-- Personal on purpose: it is each person's taste, not a company asset. If sharing ever makes
+-- sense, the path is the same as for contacts — a group, not a per-GIF field.
 CREATE TABLE gif_library (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     owner_user_id UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
-    -- ON DELETE CASCADE: apagar o ficheiro no Drive tira-o da gaveta. Uma entrada apontando para
-    -- um ficheiro que já não existe seria um GIF partido na cara de quem o escolhesse.
+    -- ON DELETE CASCADE: deleting the file in Drive removes it from the drawer. An entry pointing at
+    -- a file that no longer exists would be a broken GIF in front of whoever picked it.
     file_id    UUID NOT NULL REFERENCES storage_files(id) ON DELETE CASCADE,
     name       TEXT NOT NULL DEFAULT '',
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),

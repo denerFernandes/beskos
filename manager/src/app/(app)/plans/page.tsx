@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { PlanSheet } from "./plan-sheet";
 
-// Catálogo de planos (M2). Editar abre um Sheet lateral (nunca diálogos nativos).
+// Plan catalog. Editing opens a side Sheet (never native dialogs).
 export default function PlansPage() {
   const qc = useQueryClient();
   const plansQ = useQuery({ queryKey: ["plans"], queryFn: () => api.plans() });

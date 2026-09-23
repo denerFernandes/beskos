@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Pipeline de vídeo/gravação no nó "media" (VPS-3). Fora do overlay do CapRover: LiveKit e Egress
-# precisam de rede host (WebRTC UDP direto), por isso correm como containers `docker run` normais.
-#   Redis local  — coordena LiveKit <-> Egress (gravação).
-#   LiveKit       — SFU WebRTC (sinalização em 7880, media em 7881/tcp + 50000-60000/udp).
-#   Egress        — grava a sala (RoomComposite) e sobe o MP4 para o R2 (creds vêm por-requisição da API).
-#   Caddy         — termina TLS em meet.<dominio> (443) e faz proxy wss -> 127.0.0.1:7880.
-# Idempotente: recria os containers a cada execução. Configs geradas a partir do ambiente (sem segredos no git).
+# Video/recording pipeline on the "media" node (VPS-3). Outside the CapRover overlay: LiveKit and
+# Egress need host networking (direct WebRTC UDP), so they run as plain `docker run` containers.
+#   Local Redis  -- coordinates LiveKit <-> Egress (recording).
+#   LiveKit       -- WebRTC SFU (signaling on 7880, media on 7881/tcp + 50000-60000/udp).
+#   Egress        -- records the room (RoomComposite) and uploads the MP4 to R2 (creds come
+#                    per request from the API).
+#   Caddy         -- terminates TLS on meet.<domain> (443) and proxies wss -> 127.0.0.1:7880.
+# Idempotent: recreates the containers on every run. Configs are generated from the environment
+# (no secrets in git).
 set -euo pipefail
 
 : "${LIVEKIT_API_KEY:?}"; : "${LIVEKIT_API_SECRET:?}"
@@ -13,10 +15,10 @@ MEET_HOST="${MEET_HOST:-meet.beskos.com}"
 PUBLIC_IP="${PUBLIC_IP:-$(curl -s https://api.ipify.org || true)}"
 API_WEBHOOK_URL="${API_WEBHOOK_URL:-https://app.beskos.com/meet/webhook}"
 DIR=/opt/beskos/livekit
-# Servidor atualizado p/ v1.13 (25/07/2026): o client livekit-client 2.20.x usa o caminho de
-# sinalização /rtc/v1, que a v1.8 não tinha (dava 404 → "negotiation timed out", Meet não ligava).
+# Server updated to v1.13 (25/07/2026): the livekit-client 2.20.x client uses the /rtc/v1 signaling
+# path, which v1.8 did not have (it returned 404 -> "negotiation timed out", Meet would not connect).
 LK_IMG='livekit/livekit-server:v1.13'
-EG_IMG='livekit/egress:v1.13'  # em sincronia com o servidor (25/07/2026)
+EG_IMG='livekit/egress:v1.13'  # in sync with the server (25/07/2026)
 
 sudo mkdir -p "$DIR"
 
@@ -44,7 +46,7 @@ logging:
   level: info
 YAML
 
-# --- egress.yaml (S3/R2 vai por-requisição a partir da API) ---
+# --- egress.yaml (S3/R2 comes per request from the API) ---
 sudo tee "$DIR/egress.yaml" >/dev/null <<YAML
 redis:
   address: 127.0.0.1:6379
@@ -55,7 +57,7 @@ insecure: false
 log_level: info
 YAML
 
-# --- Caddyfile (TLS automático Let's Encrypt para wss) ---
+# --- Caddyfile (automatic Let's Encrypt TLS for wss) ---
 sudo tee "$DIR/Caddyfile" >/dev/null <<CADDY
 ${MEET_HOST} {
   reverse_proxy 127.0.0.1:7880
@@ -81,7 +83,7 @@ sudo docker run -d --restart=always --name beskos-egress --network host \
   "$EG_IMG" >/dev/null
 
 echo "== caddy (TLS 80/443 -> livekit 7880) =="
-# Rede host: precisa de alcançar o LiveKit em 127.0.0.1:7880 (também host network) e ligar 80/443.
+# Host network: it must reach LiveKit at 127.0.0.1:7880 (also host network) and bind 80/443.
 sudo docker rm -f beskos-caddy 2>/dev/null || true
 sudo docker run -d --restart=always --name beskos-caddy --network host \
   -v "$DIR/Caddyfile:/etc/caddy/Caddyfile:ro" \

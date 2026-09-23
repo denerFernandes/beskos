@@ -1,41 +1,41 @@
 #!/usr/bin/env python3
-"""Publica no CapRover sem passar pelo GitHub Actions.
+"""Publish to CapRover without going through GitHub Actions.
 
-Envia o código para o CapRover, que constrói no servidor. Serve como via alternativa quando o
-Actions está indisponível — foi escrito quando a conta do GitHub ficou bloqueada por faturação e
-seis builds foram cancelados de uma vez — e como forma de publicar sem esperar pela fila.
+Sends the code to CapRover, which builds on the server. Serves as a fallback when Actions is
+unavailable — it was written when the GitHub account was blocked over billing and six builds were
+cancelled at once — and as a way to publish without waiting in the queue.
 
-    python3 deploy/deploy.py landing            # constrói NO SERVIDOR (recomendado)
-    python3 deploy/deploy.py api worker         # várias
-    python3 deploy/deploy.py --todas
-    python3 deploy/deploy.py --local landing    # constrói NESTA máquina e envia a imagem
-    python3 deploy/deploy.py --em vps3 landing  # constrói NOUTRO VPS e envia a imagem
+    python3 deploy/deploy.py landing            # builds ON THE SERVER (recommended)
+    python3 deploy/deploy.py api worker         # several
+    python3 deploy/deploy.py --all
+    python3 deploy/deploy.py --local landing    # builds ON THIS machine and pushes the image
+    python3 deploy/deploy.py --em vps3 landing  # builds ON ANOTHER VPS and pushes the image
 
-Onde construir:
+Where to build:
 
-  **No servidor** (por omissão) — envia o código, o CapRover constrói. Rápido, porque é a mesma
-  arquitetura de destino (amd64), e não gasta a sua ligação. O custo é ocupar o VPS-1 durante o
-  build, que é a máquina que também corre o correio.
+  **On the server** (default) — sends the code, CapRover builds. Fast, because it is the same
+  target architecture (amd64), and it does not use the local connection. The cost is occupying
+  VPS-1 during the build, which is the machine that also runs mail.
 
-  **Nesta máquina** (`--local`) — poupa o servidor, mas num Mac com Apple Silicon a imagem tem de
-  ser cruzada para amd64 por emulação, o que é várias vezes mais lento, e depois há uma imagem
-  inteira a subir pela sua ligação. Vale a pena quando não se quer carga no servidor.
+  **On this machine** (`--local`) — spares the server, but on an Apple Silicon Mac the image has
+  to be cross-built for amd64 through emulation, which is several times slower, and then a whole
+  image goes up over the local connection. Worth it when the server should take no load.
 
-  **Noutro VPS** (`--em vps2|vps3|<ip>`) — o melhor dos dois: arquitetura nativa, ligação de
-  centro de dados, e o VPS-1 fica livre. É o Docker do outro VPS que constrói, por SSH.
+  **On another VPS** (`--em vps2|vps3|<ip>`) — the best of both: native architecture, data-centre
+  bandwidth, and VPS-1 stays free. The other VPS's Docker does the build, over SSH.
 
-  Porquê isto e não uma opção do CapRover: o CapRover constrói SEMPRE no líder (VPS-1), porque é lá
-  que corre o contentor do captain, o único com acesso ao Docker. Os outros nós só executam.
-  Construir noutro sítio é falar com o Docker desse nó diretamente.
+  Why this and not a CapRover option: CapRover ALWAYS builds on the leader (VPS-1), because that is
+  where the captain container runs, the only one with access to Docker. The other nodes only run
+  workloads. Building elsewhere means talking to that node's Docker directly.
 
-  Requer que a chave esteja autorizada nesse VPS:
+  Requires the key to be authorized on that VPS:
       ssh-copy-id -i ~/.ssh/beskos_deploy.pub root@<ip>
 
-As apps que partilham a MESMA imagem (api, worker, manager-api) são construídas uma só vez: a
-primeira constrói, as outras recebem a imagem que saiu dela. Construir três vezes o mesmo código
-seria desperdiçar minutos do servidor que corre o correio dos clientes.
+Apps that share the SAME image (api, worker, manager-api) are built only once: the first one
+builds, the others receive the image it produced. Building the same code three times would waste
+minutes on the server that runs the customers' mail.
 
-Credenciais em deploy/secrets.env (CAPROVER_URL, CAPROVER_PASSWORD).
+Credentials in deploy/secrets.env (CAPROVER_URL, CAPROVER_PASSWORD).
 """
 
 import json
@@ -51,7 +51,7 @@ import uuid
 
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
 
-# app → pasta que é o contexto de build. As três primeiras partilham a imagem do backend.
+# app -> folder that is the build context. The first three share the backend image.
 APPS = {
     "api": "backend",
     "worker": "backend",
@@ -90,8 +90,8 @@ EXCLUIR = ["node_modules", ".next", ".git", "dist", "target", "tsconfig.tsbuildi
            ".env", ".env.local", ".env.tauri", ".env.development", ".env.production",
            ".env.development.local", ".env.production.local"]
 
-# Máquinas de build alternativas. O VPS-1 é o líder e corre o correio e a base de dados — é o que
-# se quer poupar. O VPS-3 (média) é o mais folgado: só trabalha durante reuniões.
+# Alternative build machines. VPS-1 is the leader and runs mail and the database -- it is the one
+# to spare. VPS-3 (media) has the most headroom: it only works during meetings.
 MAQUINAS = {"vps2": "185.232.71.20", "vps3": "185.232.69.0"}
 
 
@@ -121,7 +121,7 @@ class Captain:
             return json.loads(r.read())
 
     def enviar_fonte(self, app: str, tar: pathlib.Path) -> None:
-        """Envia o tarball; o CapRover constrói a partir do captain-definition."""
+        """Send the tarball; CapRover builds from the captain-definition."""
         fronteira = "----beskos" + uuid.uuid4().hex
         corpo = (
             f'--{fronteira}\r\nContent-Disposition: form-data; name="sourceFile"; '
@@ -139,10 +139,10 @@ class Captain:
     def enviar_imagem(self, app: str, imagem: str) -> None:
         definicao = json.dumps({"schemaVersion": 2, "imageName": imagem})
         self._pedir(f"/api/v2/user/apps/appData/{app}", {"captainDefinitionContent": definicao, "gitHash": ""})
-        print(f"  {app}: a receber {imagem}")
+        print(f"  {app}: receiving {imagem}")
 
     def esperar(self, app: str, minutos: int = 15) -> bool:
-        """Espera pelo fim do build. Devolve False se falhou — para não continuar às cegas."""
+        """Wait for the build to finish. Return False if it failed — so as not to carry on blindly."""
         for _ in range(minutos * 3):
             time.sleep(20)
             try:
@@ -151,12 +151,12 @@ class Captain:
                 continue
             if not d.get("isAppBuilding"):
                 if d.get("isBuildFailed"):
-                    linhas = (d.get("logs") or {}).get("lines") or []
-                    print(f"  {app}: FALHOU\n" + "\n".join(l.strip() for l in linhas[-12:]))
+                    lines = (d.get("logs") or {}).get("lines") or []
+                    print(f"  {app}: FAILED\n" + "\n".join(l.strip() for l in lines[-12:]))
                     return False
-                print(f"  {app}: construído")
+                print(f"  {app}: built")
                 return True
-        print(f"  {app}: sem resposta ao fim de {minutos} min")
+        print(f"  {app}: no response after {minutos} min")
         return False
 
     def imagem_atual(self, app: str) -> str | None:
@@ -167,37 +167,37 @@ class Captain:
 
 
 def construir_fora(nome: str, contexto: str, etiqueta: str, em: str | None) -> str:
-    """Constrói e envia para o registo. Devolve o nome da imagem.
+    """Build and push to the registry. Return the image name.
 
-    `em` vazio = nesta máquina; caso contrário, o Docker do VPS indicado, por SSH.
+    `em` empty = on this machine; otherwise, the Docker of the given VPS, over SSH.
 
-    --platform linux/amd64 é OBRIGATÓRIO quando se constrói num Mac com Apple Silicon: os
-    servidores são amd64 e uma imagem arm64 rebenta no arranque com "exec format error". Num VPS
-    a arquitetura já é a certa, mas indicá-la não custa nada e evita surpresas.
+    --platform linux/amd64 is MANDATORY when building on an Apple Silicon Mac: the servers are
+    amd64 and an arm64 image crashes at startup with "exec format error". On a VPS the
+    architecture is already the right one, but stating it costs nothing and avoids surprises.
     """
     imagem = f"ghcr.io/denerfernandes/{nome}:{etiqueta}"
     ambiente = dict(os.environ)
-    onde = "nesta máquina, cruzada para amd64"
+    where = "on this machine, cross-built for amd64"
     if em:
         anfitriao = MAQUINAS.get(em, em)
-        # Confirmar o SSH primeiro: sem isto, a falha aparece como um erro do `docker login`, que
-        # não diz nada a quem o lê às duas da manhã.
+        # Check SSH first: without this, the failure shows up as a `docker login` error, which
+        # tells nothing to whoever reads it at two in the morning.
         alcance = subprocess.run(["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=15",
                                   f"root@{anfitriao}", "docker version --format {{.Server.Version}}"],
                                  capture_output=True, text=True)
         if alcance.returncode != 0:
             raise SystemExit(
-                f"\n  Não consigo falar com o Docker de {anfitriao}:\n"
-                f"    {alcance.stderr.strip().splitlines()[-1] if alcance.stderr.strip() else 'sem resposta'}\n\n"
-                f"  Autorize a chave nesse VPS:\n"
+                f"\n  Cannot reach Docker on {anfitriao}:\n"
+                f"    {alcance.stderr.strip().splitlines()[-1] if alcance.stderr.strip() else 'no response'}\n\n"
+                f"  Authorize the key on that VPS:\n"
                 f"    ssh-copy-id -i ~/.ssh/beskos_deploy.pub root@{anfitriao}\n")
         ambiente["DOCKER_HOST"] = f"ssh://root@{anfitriao}"
-        onde = f"em {anfitriao} (Docker {alcance.stdout.strip()}), nativa"
+        where = f"on {anfitriao} (Docker {alcance.stdout.strip()}), native"
 
     token = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, check=True).stdout.strip()
     subprocess.run(["docker", "login", "ghcr.io", "-u", "denerFernandes", "--password-stdin"],
                    input=token, text=True, check=True, capture_output=True, env=ambiente)
-    print(f"  a construir {imagem} ({onde})")
+    print(f"  building {imagem} ({where})")
     subprocess.run(["docker", "buildx", "build", "--platform", "linux/amd64",
                     "-t", imagem, "--push", str(RAIZ / contexto)], check=True, env=ambiente)
     return imagem
@@ -212,7 +212,7 @@ def empacotar(contexto: str) -> pathlib.Path:
 
 def publicar(apps: list[str], local: bool = False, em: str | None = None) -> int:
     cap = Captain()
-    feitos: dict[str, str] = {}          # contexto → imagem já construída
+    feitos: dict[str, str] = {}          # context -> image already built
     erros = 0
     etiqueta = subprocess.run(["git", "rev-parse", "--short", "HEAD"], capture_output=True,
                               text=True, cwd=RAIZ).stdout.strip() or "manual"
@@ -254,15 +254,15 @@ if __name__ == "__main__":
     if "--em" in args:
         i = args.index("--em")
         if i + 1 >= len(args):
-            print("--em precisa da máquina:", ", ".join(MAQUINAS), "ou um endereço"); raise SystemExit(2)
+            print("--em needs a machine:", ", ".join(MAQUINAS), "or an address"); raise SystemExit(2)
         em = args[i + 1]
         args = args[:i] + args[i + 2:]
     args = [a for a in args if a != "--local"]
     if not args:
-        print("indique as apps, ou --todas"); raise SystemExit(2)
-    escolhidas = list(APPS) if args[0] == "--todas" else args
+        print("specify the apps, or --all"); raise SystemExit(2)
+    escolhidas = list(APPS) if args[0] == "--all" else args
     desconhecidas = [a for a in escolhidas if a not in APPS]
     if desconhecidas:
-        print("app desconhecida:", ", ".join(desconhecidas), "\napps:", ", ".join(APPS))
+        print("unknown app:", ", ".join(desconhecidas), "\napps:", ", ".join(APPS))
         raise SystemExit(2)
     raise SystemExit(1 if publicar(escolhidas, local=local, em=em) else 0)

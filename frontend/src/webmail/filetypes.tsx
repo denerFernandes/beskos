@@ -33,7 +33,7 @@ export function FileTypeIcon({ name, size }: { name: string; size?: number }) {
   return <Ic size={size} />;
 }
 
-// Categoria para o filtro "Tipo" (chips estilo Drive).
+// Category for the "Type" filter (Drive-style chips).
 const CAT: Record<string, string> = {
   pdf: "pdf",
   doc: "doc", docx: "doc", txt: "doc", rtf: "doc", md: "doc", odt: "doc",

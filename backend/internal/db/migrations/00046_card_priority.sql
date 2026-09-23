@@ -1,6 +1,6 @@
 -- +goose Up
--- Prioridade da tarefa (voltou dos tickets, removida na 00024). Escala fixa; a UI mostra cor/ícone.
--- 'normal' como default preserva os cards existentes sem tocar em nada.
+-- Task priority (brought back from tickets, removed in 00024). Fixed scale; the UI shows color/icon.
+-- 'normal' as the default keeps existing cards unchanged.
 ALTER TABLE cards ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'
     CONSTRAINT cards_priority_ck CHECK (priority IN ('low', 'normal', 'high', 'urgent'));
 

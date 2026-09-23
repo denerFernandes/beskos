@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
-"""Põe variáveis de ambiente numa app do CapRover, a partir do deploy/secrets.env.
+"""Set environment variables on a CapRover app, from deploy/secrets.env.
 
     python3 deploy/setenv.py api FILE_ENC_KEYS
     python3 deploy/setenv.py api worker -- FILE_ENC_KEYS
-    python3 deploy/setenv.py --ver backup            # mostra o que lá está (valores tapados)
+    python3 deploy/setenv.py --ver backup            # shows what is there (values masked)
 
-FUNDE, não substitui. A API do CapRover recebe a lista COMPLETA de variáveis da app e escreve-a por
-cima da que lá estava: mandar só a variável nova apagaria a base de dados, as credenciais do
-armazenamento e tudo o resto. Por isso lê-se a definição da app, altera-se o que se pediu, e
-devolve-se o conjunto inteiro.
+MERGES, does not replace. The CapRover API takes the app's COMPLETE list of variables and writes it
+over the one that was there: sending only the new variable would wipe the database, the storage
+credentials and everything else. So the app definition is read, the requested change is applied,
+and the whole set is sent back.
 
-Só passa variáveis que existam no secrets.env, e uma de cada vez por nome — nunca o ficheiro todo.
-O que fica na sua máquina fica na sua máquina: a chave privada das cópias de segurança
-(BACKUP_AGE_IDENTITY) está lá e não tem nada que ir para o servidor.
+Only variables that exist in secrets.env are passed, one at a time by name — never the whole file.
+What stays on the local machine stays there: the backup private key (BACKUP_AGE_IDENTITY) lives in
+that file and has no business going to the server.
 """
 
 import json
 import sys
 
-from deploy import Captain, env  # mesmo diretório: reaproveita o cliente e a leitura de segredos
+from deploy import Captain, env  # same directory: reuses the client and the secrets reader
 
-# Nunca sobem, mesmo que sejam pedidas pelo nome. A privada do age é o único meio de restaurar uma
-# cópia: pô-la no mesmo servidor que escreve as cópias anula a razão de a cifra ser assimétrica.
-NUNCA = {"BACKUP_AGE_IDENTITY", "CAPROVER_PASSWORD", "GITHUB_TOKEN"}
+# Never uploaded, even when requested by name. The age private key is the only way to restore a
+# backup: putting it on the same server that writes the backups defeats the point of asymmetric
+# encryption.
+NEVER = {"BACKUP_AGE_IDENTITY", "CAPROVER_PASSWORD", "GITHUB_TOKEN"}
 
 
 def tapar(valor: str) -> str:
@@ -33,7 +34,7 @@ def definicao(cap: Captain, app: str) -> dict:
     for a in cap._pedir("/api/v2/user/apps/appDefinitions")["data"]["appDefinitions"]:
         if a["appName"] == app:
             return a
-    raise SystemExit(f"app desconhecida: {app}")
+    raise SystemExit(f"unknown app: {app}")
 
 
 def ver(cap: Captain, app: str) -> None:
@@ -42,26 +43,26 @@ def ver(cap: Captain, app: str) -> None:
         print(f"  {v['key']}={tapar(v['value'])}")
 
 
-def por(cap: Captain, app: str, nomes: list[str], segredos: dict[str, str]) -> None:
+def put(cap: Captain, app: str, names: list[str], segredos: dict[str, str]) -> None:
     d = definicao(cap, app)
     atuais = {v["key"]: v["value"] for v in d.get("envVars", [])}
 
     mudou = []
-    for nome in nomes:
-        if nome in NUNCA:
-            raise SystemExit(f"{nome} não sobe para o servidor — ver a lista NUNCA neste ficheiro")
-        if nome not in segredos:
-            raise SystemExit(f"{nome} não está no deploy/secrets.env")
-        if atuais.get(nome) == segredos[nome]:
-            print(f"  {app}: {nome} já está igual")
+    for name in names:
+        if name in NEVER:
+            raise SystemExit(f"{name} is never uploaded to the server — see the NEVER list in this file")
+        if name not in segredos:
+            raise SystemExit(f"{name} is not in deploy/secrets.env")
+        if atuais.get(name) == segredos[name]:
+            print(f"  {app}: {name} is already up to date")
             continue
-        atuais[nome] = segredos[nome]
-        mudou.append(nome)
+        atuais[name] = segredos[name]
+        mudou.append(name)
 
     if not mudou:
         return
 
-    # A definição vai inteira: o CapRover substitui o que lá está pelo que receber.
+    # The whole definition is sent: CapRover replaces what is there with what it receives.
     cap._pedir("/api/v2/user/apps/appDefinitions/update", {
         "appName": app,
         "instanceCount": d.get("instanceCount", 1),
@@ -83,7 +84,7 @@ def por(cap: Captain, app: str, nomes: list[str], segredos: dict[str, str]) -> N
         "httpAuth": d.get("httpAuth", {}),
         "appDeployTokenConfig": d.get("appDeployTokenConfig", {}),
     })
-    print(f"  {app}: {', '.join(mudou)} — a app reinicia")
+    print(f"  {app}: {', '.join(mudou)} — the app restarts")
 
 
 def main() -> int:
@@ -101,13 +102,13 @@ def main() -> int:
 
     if "--" in args:
         i = args.index("--")
-        apps, nomes = args[:i], args[i + 1:]
+        apps, names = args[:i], args[i + 1:]
     else:
-        apps, nomes = args[:1], args[1:]
+        apps, names = args[:1], args[1:]
 
     segredos = env()
     for app in apps:
-        por(cap, app, nomes, segredos)
+        put(cap, app, names, segredos)
     return 0
 
 

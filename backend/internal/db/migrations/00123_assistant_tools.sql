@@ -1,9 +1,9 @@
 -- +goose Up
--- Ferramentas do assistente desligadas pela organização. Granularidade fina por cima do que já
--- existia (ligar/desligar um agente inteiro, ou uma app do rail): aqui corta-se UMA capacidade —
--- "a IA nunca envia e-mail", por exemplo — e o corte vale para TODOS os agentes, de origem ou
--- criados pelo cliente. É um teto, nunca uma extensão: não dá para conceder o que o agente não tem.
--- Só se guarda o que diverge do padrão; ausência = ligada.
+-- Assistant tools turned off by the organization. Finer granularity on top of what already
+-- existed (turning an entire assistant or a rail app on/off): here ONE capability is cut --
+-- "the AI never sends email", for example -- and the cut applies to ALL assistants, built-in or
+-- created by the customer. It is a ceiling, never an extension: it cannot grant what the assistant
+-- lacks. Only what differs from the default is stored; absence = on.
 CREATE TABLE assistant_tool_settings (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     tool      TEXT NOT NULL,

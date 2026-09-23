@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Gate rápido por cookie: sem sessão → /login; com sessão em /login → home. A validação REAL da
-// sessão é do manager-api (o shell chama /me); aqui é só para não piscar páginas protegidas.
+// Fast cookie gate: no session → /login; session on /login → home. The REAL session validation
+// belongs to manager-api (the shell calls /me); this only keeps protected pages from flashing.
 export function proxy(request: NextRequest) {
   const hasSession = Boolean(request.cookies.get("mgr_session")?.value);
   const { pathname } = request.nextUrl;
@@ -17,6 +17,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Tudo menos a API (proxy de rewrites), assets e ficheiros estáticos.
+  // Everything except the API (rewrites proxy), assets and static files.
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|ico)).*)"],
 };

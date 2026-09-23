@@ -1,28 +1,28 @@
 -- +goose Up
--- Tarefas com identificador estilo Jira: PREFIXO-NÚMERO (ex.: QUA-12), por quadro.
+-- Tasks with a Jira-style identifier: PREFIX-NUMBER (e.g. QUA-12), per board.
 --
--- O número é por QUADRO, não global: é o que faz "QUA-1" ser o primeiro card do quadro Quadro,
--- independentemente do que acontece nos outros. Mesmo mecanismo de sequência dos antigos chamados:
--- UPDATE ... RETURNING trava a linha do quadro, então dois cards criados ao mesmo tempo nunca
--- recebem o mesmo número (MAX(number)+1 daria empate).
+-- The number is per BOARD, not global: that is what makes "QUA-1" the first card of the board Quadro,
+-- regardless of what happens in the others. Same sequence mechanism as the old tickets:
+-- UPDATE ... RETURNING locks the board's row, so two cards created at the same time never
+-- get the same number (MAX(number)+1 would tie).
 
 ALTER TABLE boards ADD COLUMN prefix   TEXT NOT NULL DEFAULT '';
 ALTER TABLE boards ADD COLUMN card_seq BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE cards  ADD COLUMN number   BIGINT;
 
--- Prefixo padrão: as 3 primeiras letras/dígitos do nome, em maiúsculas ("Quadro" → QUA).
--- Nome sem letras nenhumas (ex.: "🚀") cairia em '' — daí o COALESCE para 'TSK'.
+-- Default prefix: the first 3 letters/digits of the name, uppercased ("Quadro" → QUA).
+-- A name with no letters at all (e.g. "🚀") would fall to '' — hence the COALESCE to 'TSK'.
 UPDATE boards SET prefix = COALESCE(
     NULLIF(upper(substring(regexp_replace(name, '[^a-zA-Z0-9]', '', 'g') from 1 for 3)), ''),
     'TSK');
 
--- Numera os cards que já existem por ordem de criação, para o mais antigo ser o #1.
+-- Number the existing cards in creation order, so the oldest is #1.
 WITH numbered AS (
     SELECT id, row_number() OVER (PARTITION BY board_id ORDER BY created_at, id) AS n FROM cards
 )
 UPDATE cards c SET number = numbered.n FROM numbered WHERE numbered.id = c.id;
 
--- O contador de cada quadro continua de onde a numeração parou.
+-- Each board's counter continues from where the numbering stopped.
 UPDATE boards b SET card_seq = COALESCE((SELECT max(c.number) FROM cards c WHERE c.board_id = b.id), 0);
 
 ALTER TABLE cards ALTER COLUMN number SET NOT NULL;

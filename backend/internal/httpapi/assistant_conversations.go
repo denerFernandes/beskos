@@ -13,7 +13,7 @@ import (
 )
 
 // assistantConvListLimit is how many conversations the list shows. Enough for recent history;
-// searching the history is work for another phase.
+// searching the history is not supported.
 const assistantConvListLimit = 50
 
 // assistantMsgLimit caps how much of a conversation is returned at once.

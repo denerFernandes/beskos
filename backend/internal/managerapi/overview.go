@@ -87,7 +87,7 @@ func (s *Server) handleUsageSeries(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, orEmpty(rows))
 }
 
-// handleDeliverability devolve enviados/bounces/complaints 30d por tenant (tabela do Analytics).
+// handleDeliverability returns sent/bounces/complaints over 30 days per tenant (the Analytics table).
 func (s *Server) handleDeliverability(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.q.ManagerDeliverability(r.Context())
 	if err != nil {

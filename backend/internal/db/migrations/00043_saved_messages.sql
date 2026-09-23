@@ -1,5 +1,5 @@
 -- +goose Up
--- Mensagens salvas por usuário ("saved items" do chat). Uma linha por (usuário, mensagem).
+-- Messages saved per user (chat "saved items"). One row per (user, message).
 CREATE TABLE saved_messages (
     user_id    UUID NOT NULL REFERENCES mail_users(id) ON DELETE CASCADE,
     message_id UUID NOT NULL REFERENCES messages(id) ON DELETE CASCADE,

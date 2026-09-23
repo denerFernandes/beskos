@@ -13,9 +13,9 @@ import (
 // Split out of server.go when that file reached its 600-line limit (law 1.4). The route table there
 // stays a table; this is one subject.
 func (s *Server) mountMail(r chi.Router) {
-	r.Post("/mail/snooze", s.handleSnoozeEmail)         // adiar e-mail (worker devolve à inbox)
+	r.Post("/mail/snooze", s.handleSnoozeEmail)         // snooze an email (the worker returns it to the inbox)
 	r.Post("/mail/outbox", s.handleCreateOutbox)        // agenda o envio (undo-send / agendado)
-	r.Get("/mail/outbox", s.handleListOutbox)           // e-mails ainda por enviar
+	r.Get("/mail/outbox", s.handleListOutbox)           // emails not yet sent
 	r.Delete("/mail/outbox/{id}", s.handleCancelOutbox) // cancela um envio pendente
 	r.Get("/mail/templates", s.handleListTemplates)     // templates de resposta (canned)
 	r.Post("/mail/templates", s.handleCreateTemplate)

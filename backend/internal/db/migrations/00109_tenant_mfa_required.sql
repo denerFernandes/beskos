@@ -1,7 +1,7 @@
 -- +goose Up
--- Política de segurança DA ORGANIZAÇÃO (pedido 22/07/2026): com mfa_required ligado, todo
--- colaborador do tenant sem 2º fator é OBRIGADO a configurar TOTP ou SMS no próximo acesso
--- (gate bloqueante no webmail via /me). A página admin/security passa a gerir isto.
+-- ORGANIZATION security policy: with mfa_required on, every member of the tenant without a
+-- second factor MUST set up TOTP or SMS on their next access (a blocking gate in the webmail via
+-- /me). The admin/security page manages this.
 ALTER TABLE tenants ADD COLUMN mfa_required BOOLEAN NOT NULL DEFAULT false;
 
 -- +goose Down

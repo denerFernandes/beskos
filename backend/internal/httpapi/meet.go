@@ -26,7 +26,7 @@ import (
 // network-only service, unmodified (laws §2/§5.4).
 
 type meet struct {
-	url    string // WebSocket que o BROWSER usa (ws://…)
+	url    string // WebSocket the BROWSER uses (ws://…)
 	apiKey string
 	secret []byte
 
@@ -38,7 +38,7 @@ type meet struct {
 	s3bucket   string
 }
 
-// EnableMeet liga o Meet. Sem URL/chaves, fica desligado.
+// EnableMeet turns Meet on. Without URL/keys, it stays off.
 func (s *Server) EnableMeet(url, apiKey, secret string) {
 	if url == "" || apiKey == "" || secret == "" {
 		return

@@ -4,16 +4,17 @@ CREATE TABLE tenant_daily_usage (
     tenant_id        UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     day              DATE NOT NULL,
     users            INT NOT NULL DEFAULT 0,
-    users_active     INT NOT NULL DEFAULT 0,  -- mail_seen_at no dia
+    users_active     INT NOT NULL DEFAULT 0,  -- mail_seen_at on that day
     storage_bytes    BIGINT NOT NULL DEFAULT 0,
     files            INT NOT NULL DEFAULT 0,
     ai_tokens        BIGINT NOT NULL DEFAULT 0,
-    meet_minutes     INT NOT NULL DEFAULT 0,  -- soma de sessões (joined_at→left_at) no dia
+    meet_minutes     INT NOT NULL DEFAULT 0,  -- sum of sessions (joined_at->left_at) on that day
     recordings       INT NOT NULL DEFAULT 0,
     recordings_bytes BIGINT NOT NULL DEFAULT 0,
     wiki_pages       INT NOT NULL DEFAULT 0,
     cards            INT NOT NULL DEFAULT 0,
-    -- Envio de e-mail: fica 0 até o relay SES medir (registado no doc §4 como knob sem medição).
+    -- Email sending: stays 0 until the SES relay measures it (recorded in docs/manager.md §4 as a knob
+    -- without metering).
     mail_sent        INT NOT NULL DEFAULT 0,
     updated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (tenant_id, day)

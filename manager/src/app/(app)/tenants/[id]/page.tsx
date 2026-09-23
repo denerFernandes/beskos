@@ -17,7 +17,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
-// Detalhe de um tenant (M1, read-only): números + lista de utilizadores. Ações chegam na M2+.
+// Tenant detail (read-only): figures + user list.
 export default function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const qc = useQueryClient();
@@ -27,7 +27,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
   const t = q.data?.tenant;
   const users = q.data?.users ?? [];
 
-  // Mudar o plano do tenant (M2): select + aplicar, com feedback inline.
+  // Change the tenant's plan: select + apply, with inline feedback.
   const [planPick, setPlanPick] = useState("");
   const [planMsg, setPlanMsg] = useState("");
   const [curPick, setCurPick] = useState("");
@@ -80,7 +80,7 @@ export default function TenantDetailPage({ params }: { params: Promise<{ id: str
         </Button>
         {planMsg && <span className="text-sm text-muted-foreground">{planMsg}</span>}
 
-        {/* Moeda de cobrança do tenant ('' = global). Assinatura existente mantém a moeda até à próxima troca. */}
+        {/* Tenant billing currency ('' = global). An existing subscription keeps its currency until the next change. */}
         <span className="ml-4 text-sm text-muted-foreground">{S.tenantPlan.currency}:</span>
         <Select value={curPick || t?.currency || "default"} onValueChange={(v) => setCurrency.mutate(!v || v === "default" ? "" : v)}>
           <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>

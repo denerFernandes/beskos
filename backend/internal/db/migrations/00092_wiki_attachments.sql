@@ -1,7 +1,8 @@
 -- +goose Up
--- Anexos das páginas da wiki (docs/wiki-features.md §3.6): liga ficheiros do Files (storage_files) a
--- uma página, reusando o storage existente (não reinventa upload). Anexar/desanexar exige editor;
--- descarregar exige viewer da página (conferido no serviço). Multi-tenant: tenant_id + índice.
+-- Wiki page attachments (docs/wiki-features.md §3.6): links files from Files (storage_files) to a
+-- page, reusing the existing storage (upload is not reinvented). Attaching/detaching requires
+-- editor; downloading requires viewer on the page (checked in the service). Multi-tenant:
+-- tenant_id + index.
 CREATE TABLE wiki_attachments (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

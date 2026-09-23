@@ -1,7 +1,7 @@
 -- +goose Up
--- MFA do painel: TOTP + SMS + códigos de recuperação. Login em 2 passos.
--- NOTA de segurança: totp_secret é sensível. Hoje guardado em claro; hardening futuro =
--- cifrar em repouso com chave da aplicação/KMS. sms_code/recovery são guardados como HASH.
+-- Panel MFA: TOTP + SMS + recovery codes. Two-step login.
+-- SECURITY NOTE: totp_secret is sensitive. Currently stored in plaintext; future hardening =
+-- encrypt at rest with an application/KMS key. sms_code/recovery are stored as a HASH.
 
 ALTER TABLE panel_users
     ADD COLUMN totp_secret      TEXT    NOT NULL DEFAULT '',
@@ -9,7 +9,7 @@ ALTER TABLE panel_users
     ADD COLUMN phone            TEXT    NOT NULL DEFAULT '',
     ADD COLUMN mfa_sms_enabled  BOOLEAN NOT NULL DEFAULT false;
 
--- Códigos de recuperação (uso único). Guardados com bcrypt.
+-- Recovery codes (single use). Stored with bcrypt.
 CREATE TABLE recovery_codes (
     id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id   UUID NOT NULL REFERENCES panel_users(id) ON DELETE CASCADE,
@@ -18,7 +18,7 @@ CREATE TABLE recovery_codes (
 );
 CREATE INDEX idx_recovery_user ON recovery_codes(user_id) WHERE used_at IS NULL;
 
--- Desafio de login: emitido após a senha quando há MFA; troca por sessão ao verificar o 2º fator.
+-- Login challenge: issued after the password when MFA is on; exchanged for a session once the 2nd factor is verified.
 CREATE TABLE mfa_challenges (
     token         TEXT PRIMARY KEY,
     user_id       UUID NOT NULL REFERENCES panel_users(id) ON DELETE CASCADE,

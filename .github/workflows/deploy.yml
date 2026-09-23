@@ -1,30 +1,30 @@
 name: build & deploy
 
-# Constrói APENAS o que mudou e publica no CapRover (rolling update).
+# Builds ONLY what changed and publishes it to CapRover (rolling update).
 #
-# Antes corria a cada push e reconstruía as seis imagens: mudar uma palavra num texto reiniciava o
-# correio, a API e o editor de documentos. Gastava minutos à toa — foi o que esgotou o limite da
-# conta — e cada reinício desnecessário é uma janela de risco que ninguém pediu. Um passo `plano`
-# olha agora para os ficheiros alterados e monta a matriz; se nada mexeu num contexto, não há build.
+# It used to run on every push and rebuild all six images: changing one word in a text restarted
+# mail, the API and the document editor. It burned minutes for nothing — that is what exhausted the
+# account's limit — and every unnecessary restart is a window of risk nobody asked for. A `plano`
+# step now looks at the changed files and builds the matrix; if nothing touched a context, no build.
 #
-# Segredos necessários (repo → Settings → Secrets):
-#   CAPROVER_URL       ex.: https://captain.beskos.com
-#   CAPROVER_PASSWORD  password do painel CapRover
-# O push para o ghcr usa o GITHUB_TOKEN (packages: write). O CapRover puxa do ghcr — configurar
-# uma vez o registry privado ghcr no painel (Cluster → Docker Registries).
+# Required secrets (repo → Settings → Secrets):
+#   CAPROVER_URL       e.g.: https://captain.beskos.com
+#   CAPROVER_PASSWORD  CapRover dashboard password
+# The push to ghcr uses GITHUB_TOKEN (packages: write). CapRover pulls from ghcr — configure the
+# private ghcr registry once in the dashboard (Cluster → Docker Registries).
 #
-# Via alternativa, sem GitHub: `python3 deploy/deploy.py <app>` constrói no próprio CapRover.
+# Alternative route, without GitHub: `python3 deploy/deploy.py <app>` builds on CapRover itself.
 
-# NÃO corre sozinho. A via normal de publicação passou a ser `python3 deploy/deploy.py <app>`,
-# que constrói no CapRover e não consome minutos do GitHub — foram eles que esgotaram o limite da
-# conta. Este workflow fica para quando se quiser usar o Actions de propósito: Actions → build &
-# deploy → Run workflow. A seleção do que construir continua a valer (só o que mudou).
+# Does NOT run on its own. The normal publishing route is now `python3 deploy/deploy.py <app>`,
+# which builds on CapRover and does not consume GitHub minutes — those are what exhausted the
+# account's limit. This workflow remains for when Actions is used on purpose: Actions → build &
+# deploy → Run workflow. The selection of what to build still applies (only what changed).
 on:
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  OWNER: denerfernandes          # namespace ghcr (minúsculas)
+  OWNER: denerfernandes          # ghcr namespace (lowercase)
 
 jobs:
   plano:
@@ -45,8 +45,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Push forçado, primeiro commit ou arranque manual: constrói tudo. Mais vale gastar uma
-          # vez do que deixar produção com uma imagem que não corresponde ao código.
+          # Forced push, first commit or manual start: build everything. Better to spend once than
+          # to leave production with an image that does not match the code.
           if [ "$MANUAL" = "true" ] || [ -z "$ANTES" ] \
              || [ "$ANTES" = "0000000000000000000000000000000000000000" ] \
              || ! git cat-file -e "$ANTES^{commit}" 2>/dev/null; then
@@ -58,7 +58,7 @@ jobs:
 
           tocou() {
             [ "$MUDOU" = "TUDO" ] && return 0
-            # Mexer no próprio workflow reconstrói tudo: a receita mudou.
+            # Touching the workflow itself rebuilds everything: the recipe changed.
             echo "$MUDOU" | grep -qE '^\.github/workflows/' && return 0
             echo "$MUDOU" | grep -qE "^$1" && return 0
             return 1
@@ -83,7 +83,7 @@ jobs:
             builds=$(juntar "$builds" '{"name":"beskos-manager","context":"manager"}')
             deploys=$(juntar "$deploys" '{"app":"manager","image":"beskos-manager"}')
           fi
-          # Document Server com a nossa marca: imagem oficial pinada + patch aplicado no build.
+          # Document Server with our branding: pinned official image + patch applied at build time.
           if tocou 'deploy/onlyoffice/'; then
             builds=$(juntar "$builds" '{"name":"beskos-docs","context":"deploy/onlyoffice"}')
             deploys=$(juntar "$deploys" '{"app":"docs","image":"beskos-docs"}')
@@ -110,8 +110,8 @@ jobs:
       contents: read
       packages: write
     strategy:
-      # Sem fail-fast: uma imagem que falha não cancela as outras. Foi assim que um único job
-      # recusado por faturação levou os outros cinco atrás.
+      # No fail-fast: one failing image does not cancel the others. That is how a single job
+      # refused over billing took the other five down with it.
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.plano.outputs.builds) }}
@@ -139,7 +139,7 @@ jobs:
     if: needs.plano.outputs.deploys != '[]'
     runs-on: ubuntu-latest
     strategy:
-      max-parallel: 1            # um de cada vez (rolling, sem sobrecarregar o cluster)
+      max-parallel: 1            # one at a time (rolling, without overloading the cluster)
       fail-fast: false
       matrix:
         include: ${{ fromJson(needs.plano.outputs.deploys) }}

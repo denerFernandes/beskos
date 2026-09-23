@@ -21,10 +21,10 @@ import (
 
 var planKeyRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,31}$`)
 
-// appsRail espelha toggleableApps do produto (apps que um plano pode ligar/desligar).
+// appsRail mirrors the product's toggleableApps (apps a plan can turn on/off).
 var appsRail = []string{"today", "mail", "chat", "kanban", "cal", "files", "contacts", "meet", "wiki"}
 
-// requireAdmin corta operadores viewer em rotas de escrita.
+// requireAdmin blocks viewer operators on write routes.
 func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) bool {
 	if managerUserFrom(r.Context()).Role != "admin" {
 		writeErr(w, http.StatusForbidden, "manager.admin_only")
@@ -33,8 +33,8 @@ func (s *Server) requireAdmin(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// planView expõe o plano com os preços por moeda DECODIFICADOS: db.Plan.Prices é []byte (JSONB)
-// e o encoding/json serializava-o como base64 — a UI precisa do objeto {"USD":1900,...}.
+// planView exposes the plan with the per-currency prices DECODED: db.Plan.Prices is []byte (JSONB)
+// and encoding/json serialized it as base64 — the UI needs the object {"USD":1900,...}.
 type planView struct {
 	db.Plan
 	Prices map[string]int `json:"prices"`
@@ -77,11 +77,11 @@ type planReq struct {
 	OnlyofficeEdit         bool           `json:"onlyoffice_edit"`
 	WikiPublicLinks        bool           `json:"wiki_public_links"`
 	Sort                   int32          `json:"sort"`
-	Prices                 map[string]int `json:"prices"` // preço por moeda (cêntimos); chaves BRL/USD/EUR
+	Prices                 map[string]int `json:"prices"` // price per currency (cents); keys BRL/USD/EUR
 }
 
-// handleSavePlan cria/atualiza um plano (upsert pela key). Valida a key, o modo de gravação e as
-// apps (só as do rail; vazio = todas ligadas).
+// handleSavePlan creates/updates a plan (upsert by key). Validates the key, the recording mode, and
+// the apps (only those in the rail; empty = all on).
 func (s *Server) handleSavePlan(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return
@@ -112,11 +112,11 @@ func (s *Server) handleSavePlan(w http.ResponseWriter, r *http.Request) {
 			apps = append(apps, a)
 		}
 	}
-	// Todas as apps marcadas = sem restrição; normaliza para vazio (não trava apps futuras).
+	// All apps checked = no restriction; normalizes to empty (doesn't lock out future apps).
 	if len(apps) == len(appsRail) {
 		apps = []string{}
 	}
-	// Moeda por país: só moedas suportadas, valores não negativos; vazio remove o preço da moeda.
+	// Currency per country: supported currencies only, non-negative values; empty removes that currency's price.
 	prices := map[string]int{}
 	for cur, cents := range req.Prices {
 		cur = strings.ToUpper(strings.TrimSpace(cur))
@@ -139,8 +139,8 @@ func (s *Server) handleSavePlan(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "manager.failed")
 		return
 	}
-	// Espelha na Stripe (Product + Price): a gestão financeira fica toda lá. Best-effort com
-	// aviso — o plano fica gravado na BD mesmo se a Stripe estiver fora.
+	// Mirrors to Stripe (Product + Price): financial management lives entirely there. Best-effort
+	// with a warning — the plan is saved in the DB even if Stripe is down.
 	stripeSync := ""
 	if s.billing != nil {
 		priceChanged := before.StripePriceID == "" || before.PriceCentsPerUser != p.PriceCentsPerUser ||
@@ -170,8 +170,8 @@ type activeReq struct {
 	Active bool `json:"active"`
 }
 
-// handleSetPlanActive liga/desliga um plano no catálogo. Desativar não mexe nos tenants que já o
-// têm (continuam com os limites do plano); só bloqueia novas atribuições/checkout.
+// handleSetPlanActive turns a plan on/off in the catalog. Deactivating doesn't touch tenants that
+// already have it (they keep the plan's limits); it only blocks new assignments/checkout.
 func (s *Server) handleSetPlanActive(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return
@@ -198,7 +198,7 @@ type tenantPlanReq struct {
 	Plan string `json:"plan"`
 }
 
-// handleSetTenantPlan atribui um plano (ativo) a um tenant.
+// handleSetTenantPlan assigns an (active) plan to a tenant.
 func (s *Server) handleSetTenantPlan(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return
@@ -231,8 +231,8 @@ func (s *Server) handleSetTenantPlan(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"tenant_id": id, "plan": plan.Key})
 }
 
-// handleSetTenantCurrency define a moeda de cobrança do tenant (” = global). A assinatura Stripe
-// existente mantém a moeda original até à próxima troca de plano/checkout.
+// handleSetTenantCurrency sets the tenant's billing currency (” = global). The existing Stripe
+// subscription keeps its original currency until the next plan change/checkout.
 func (s *Server) handleSetTenantCurrency(w http.ResponseWriter, r *http.Request) {
 	if !s.requireAdmin(w, r) {
 		return

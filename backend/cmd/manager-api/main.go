@@ -29,8 +29,8 @@ func main() {
 		addr = ":8091"
 	}
 
-	// Mesmo esquema do cmd/api: as migrations são idempotentes (goose), então tanto faz quem
-	// arranca primeiro — o manager pode correr sozinho num ambiente sem o api.
+	// Same scheme as cmd/api: the migrations are idempotent (goose), so it does not matter which
+	// starts first -- the manager can run on its own in an environment without the api.
 	if err := db.Migrate(dbURL); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
@@ -42,13 +42,13 @@ func main() {
 	defer pool.Close()
 	q := db.New(pool)
 
-	// Primeiro operador via ambiente (tabela vazia). TOTP é confirmado no primeiro login.
+	// First operator via the environment (empty table). TOTP is confirmed on the first login.
 	if err := managerapi.EnsureBootstrap(context.Background(), q,
 		os.Getenv("MANAGER_BOOTSTRAP_EMAIL"), os.Getenv("MANAGER_BOOTSTRAP_PASSWORD")); err != nil {
 		log.Fatalf("bootstrap: %v", err)
 	}
 
-	// MFA_ENC_KEY: a MESMA chave do produto serve (cifra AES-GCM de segredos TOTP em repouso).
+	// MFA_ENC_KEY: the SAME key as the product works (AES-GCM encryption of TOTP secrets at rest).
 	bp, err := ee.NewBillingProvider(billing.FromEnv())
 	if err != nil {
 		log.Fatalf("billing provider: %v", err)

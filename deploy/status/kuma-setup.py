@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Configura a página de estado (status.beskos.com) — sondas e página pública.
+"""Configure the status page (status.beskos.com) — monitors and the public page.
 
-O Uptime Kuma só se configura pela interface web, e dez sondas feitas à mão são dez oportunidades
-de erro que não ficam registadas em lado nenhum. Este script é a fonte de verdade: correr de novo
-não duplica nada (salta o que já existe) e serve de documentação do que medimos e porquê.
+Uptime Kuma is configured only through its web interface, and ten monitors made by hand are ten
+chances for mistakes that are recorded nowhere. This script is the source of truth: running it
+again duplicates nothing (it skips what already exists) and documents what is measured and why.
 
     pip install "python-socketio[client]"
     python3 deploy/status/kuma-setup.py
 
-Lê STATUS_ADMIN_USER/STATUS_ADMIN_PASSWORD e AI_API_KEY de deploy/secrets.env.
-Na primeira execução cria a conta de administração; nas seguintes só entra.
+Reads STATUS_ADMIN_USER/STATUS_ADMIN_PASSWORD and AI_API_KEY from deploy/secrets.env.
+The first run creates the admin account; later runs only log in.
 """
 
 import base64
@@ -31,8 +31,8 @@ def load_env() -> dict[str, str]:
 
 
 def monitor(name: str, **kw) -> dict:
-    """Sonda com os valores por omissão. Nomes voltados para quem lê a página, que é pública:
-    "Mail — sending", não "smtp-465"."""
+    """Monitor with the default values. Names are written for whoever reads the page, which is
+    public: "Mail — sending", not "smtp-465"."""
     base = {
         "type": "http", "name": name, "interval": 60, "retryInterval": 60, "resendInterval": 0,
         "maxretries": 2, "timeout": 30, "method": "GET", "accepted_statuscodes": ["200-299"],
@@ -42,24 +42,24 @@ def monitor(name: str, **kw) -> dict:
     return {**base, **kw}
 
 
-# Nomes e textos da página em INGLÊS: é uma página pública, lida por clientes de vários países e
-# citada em conversas com auditores. (A moldura do Kuma — "All Systems Operational", "Last
-# Updated" — segue o idioma do browser de quem visita; o 1.x não tem como fixá-la do servidor.)
+# Page names and texts in ENGLISH: it is a public page, read by customers in many countries and
+# cited in conversations with auditors. (Kuma's frame -- "All Systems Operational", "Last
+# Updated" -- follows the visitor's browser language; 1.x has no way to pin it from the server.)
 def monitors(ai_key: str) -> list[dict]:
     return [
         monitor("Application", url="https://app.beskos.com/",
                 description="The web application: mail, files, calendar and the rest."),
-        # /api/readyz e não /healthz: o primeiro toca na base de dados. E tem de ser dentro de
-        # /api — o proxy público só encaminha esse prefixo para a API; na raiz mediríamos o
-        # servidor de ficheiros estáticos e diríamos "no ar" com a base em baixo.
+        # /api/readyz and not /healthz: the former touches the database. And it has to be under
+        # /api -- the public proxy only forwards that prefix to the API; at the root we would
+        # measure the static file server and report "up" with the database down.
         monitor("API", url="https://app.beskos.com/api/readyz",
                 description="Our API, including the database connection."),
         monitor("Mail — sending (SMTP)", type="port", hostname="mail.beskos.com", port=465,
                 description="Outbound mail server."),
         monitor("Mail — access (IMAP)", type="port", hostname="mail.beskos.com", port=993,
                 description="Mailbox access over IMAP."),
-        # 401 é a resposta CERTA de um endpoint que exige autenticação: prova que o servidor de
-        # correio respondeu. Aceitar só 2xx deixaria isto vermelho para sempre.
+        # 401 is the CORRECT answer from an endpoint that requires authentication: it proves the
+        # mail server responded. Accepting only 2xx would leave this red forever.
         monitor("Mail — access (JMAP)", url="https://app.beskos.com/.well-known/jmap",
                 accepted_statuscodes=["401"], description="JMAP session, which is what the webmail uses."),
         monitor("Documents", type="keyword", keyword="true",
@@ -76,7 +76,8 @@ def monitors(ai_key: str) -> list[dict]:
     ]
 
 
-# Medidos, mas fora da página pública: listar um painel interno é dizer ao mundo que existe e onde.
+# Measured, but kept off the public page: listing an internal panel tells the world it exists and
+# where.
 PRIVATE = {"Operator console (internal)"}
 
 
@@ -91,21 +92,21 @@ def main() -> int:
     call = lambda ev, *a: sio.call(ev, a if len(a) != 1 else a[0], timeout=60)
 
     r = call("setup", user, password)
-    print("conta:", (r or {}).get("msg", "já existia"))
+    print("account:", (r or {}).get("msg", "already existed"))
     r = call("login", {"username": user, "password": password, "token": ""})
     if not (r or {}).get("ok"):
-        print("login falhou:", r, file=sys.stderr)
+        print("login failed:", r, file=sys.stderr)
         return 1
     time.sleep(2)
 
     existing = {m["name"] for m in known.values()}
     for m in monitors(env.get("AI_API_KEY", "")):
         if m["name"] in existing:
-            print(f'{m["name"]:28} já existe')
+            print(f'{m["name"]:28} already exists')
             continue
         print(f'{m["name"]:28} {call("add", m).get("msg")}')
 
-    # Logo: o Kuma só aceita PNG (rejeita SVG com "Only allowed PNG logo").
+    # Logo: Kuma only accepts PNG (it rejects SVG with "Only allowed PNG logo").
     #   rsvg-convert -w 256 -h 256 frontend/public/beskos-mark.svg -o /tmp/mark.png
     png = ROOT / "deploy" / "status" / "mark.png"
     icon = ("data:image/png;base64," + base64.b64encode(png.read_bytes()).decode()) if png.exists() else "/icon.svg"
@@ -122,13 +123,13 @@ def main() -> int:
         "footerText": "Beskos · Open Solutions", "showPoweredBy": False,
         "googleAnalyticsId": None, "showCertificateExpiry": False,
     }
-    # imgDataUrl TEM de ser string: com None o servidor rebenta em `startsWith`.
+    # imgDataUrl MUST be a string: with None the server crashes on `startsWith`.
     r = call("saveStatusPage", SLUG, config, icon, [{"name": "Services", "weight": 1, "monitorList": mons}])
-    print("página pública:", "ok" if (r or {}).get("ok") else r)
+    print("public page:", "ok" if (r or {}).get("ok") else r)
 
-    # A raiz mostra a página pública, não o ecrã de entrada: quem escreve status.beskos.com
-    # quer ver o estado.
-    print("entrada:", call("setSettings", {"entryPage": f"statusPage-{SLUG}", "checkUpdate": False,
+    # The root shows the public page, not the login screen: whoever types status.beskos.com
+    # wants to see the status.
+    print("entry page:", call("setSettings", {"entryPage": f"statusPage-{SLUG}", "checkUpdate": False,
                                            "checkBeta": False, "searchEngineIndex": True,
                                            "trustProxy": True}, password))
     sio.disconnect()

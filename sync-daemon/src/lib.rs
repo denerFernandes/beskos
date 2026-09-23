@@ -1,8 +1,8 @@
-//! Motor de sincronização do Beskos, como **biblioteca** — para correr dentro da app desktop
-//! (Beskos.app) e não como uma segunda aplicação — a app hospeda o motor, o tray e a UI.
+//! The Beskos sync engine, as a **library** -- to run inside the desktop app (Beskos.app) rather
+//! than as a second application: the app hosts the engine, the tray and the UI.
 //!
-//! O ponto de entrada para embeber é o [`engine::Engine`]: arranca uma thread de fundo que
-//! sincroniza, reage ao watcher do sistema de ficheiros e publica o estado para a UI ler.
+//! The embedding entry point is [`engine::Engine`]: it starts a background thread that syncs,
+//! reacts to the filesystem watcher and publishes its state for the UI to read.
 
 pub mod api;
 pub mod config;

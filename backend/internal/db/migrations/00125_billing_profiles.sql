@@ -1,25 +1,27 @@
 -- +goose Up
--- Dados de faturação do cliente (quem assina, para onde vai a fatura). Antes o checkout ia para a
--- Stripe sem nada: a fatura saía sem razão social, sem morada e sem NIF, o que não serve a uma
--- empresa que precisa de deduzir o IVA. Guardamos cá porque a fatura é NOSSA obrigação legal — a
--- Stripe é só o meio de cobrança, e trocar de provedor não pode levar os dados fiscais com ele.
+-- Customer billing details (who subscribes, where the invoice goes). Previously checkout went to
+-- Stripe with nothing: the invoice went out without a company name, address or tax ID, which does
+-- not work for a company that needs to deduct VAT. We store it here because the invoice is OUR
+-- legal obligation -- Stripe is only the payment channel, and switching providers must not take
+-- the tax data with it.
 CREATE TABLE billing_profiles (
     tenant_id      UUID PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
-    -- company | individual: mudam os campos obrigatórios (NIF/razão social) e a regra do IVA.
+    -- company | individual: changes the required fields (tax ID/company name) and the VAT rule.
     kind           TEXT NOT NULL DEFAULT 'company',
     legal_name     TEXT NOT NULL DEFAULT '',
-    -- NIF/VAT com prefixo do país (PL1234567890). Vazio no particular e na empresa sem número.
+    -- Tax ID/VAT number with the country prefix (PL1234567890). Empty for individuals and for
+    -- companies without a number.
     tax_id         TEXT NOT NULL DEFAULT '',
-    country        TEXT NOT NULL DEFAULT '',  -- ISO 3166-1 alfa-2, maiúsculas
+    country        TEXT NOT NULL DEFAULT '',  -- ISO 3166-1 alpha-2, uppercase
     city           TEXT NOT NULL DEFAULT '',
     postal_code    TEXT NOT NULL DEFAULT '',
     address_line1  TEXT NOT NULL DEFAULT '',
     address_line2  TEXT NOT NULL DEFAULT '',
-    -- Responsável financeiro: é para aqui que vai a fatura, e não para quem calhou de assinar.
+    -- Billing contact: the invoice goes here, not to whoever happened to subscribe.
     invoice_email  TEXT NOT NULL DEFAULT '',
     invoice_name   TEXT NOT NULL DEFAULT '',
     phone          TEXT NOT NULL DEFAULT '',
-    -- Cliente espelhado na Stripe (cus_…): reutilizado a cada checkout para não duplicar clientes.
+    -- Customer mirrored in Stripe (cus_...): reused on every checkout so customers are not duplicated.
     stripe_customer TEXT NOT NULL DEFAULT '',
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );

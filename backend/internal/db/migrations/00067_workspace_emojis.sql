@@ -1,5 +1,5 @@
 -- +goose Up
--- Emojis customizados do workspace (:nome:). A imagem é um storage_files (reusa upload + /thumb).
+-- Custom workspace emojis (:name:). The image is a storage_files row (reuses upload + /thumb).
 CREATE TABLE workspace_emojis (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id  UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,

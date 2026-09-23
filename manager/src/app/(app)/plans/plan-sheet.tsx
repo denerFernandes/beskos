@@ -25,7 +25,7 @@ const EMPTY: PlanInput = {
   onlyoffice_edit: true, wiki_public_links: true, sort: 0,
 };
 
-// Sheet lateral de criação/edição de plano (regra da casa: sidecar, nunca diálogo nativo).
+// Side Sheet for creating/editing a plan (house rule: sidecar, never a native dialog).
 export function PlanSheet({ plan, onClose, onSaved }: {
   plan: Plan | null; onClose: () => void; onSaved: () => void;
 }) {
@@ -35,7 +35,7 @@ export function PlanSheet({ plan, onClose, onSaved }: {
   const save = useMutation({
     mutationFn: () => api.savePlan(form),
     onSuccess: (r) => {
-      // Plano gravado; se o espelho na Stripe falhou, avisa em vez de fingir sucesso total.
+      // Plan saved; if the Stripe mirror failed, warn instead of pretending full success.
       if (r.stripe_sync === "failed") setError("Plano salvo, mas a sincronização com a Stripe falhou — salve de novo para tentar outra vez.");
       else onSaved();
     },
@@ -91,7 +91,7 @@ export function PlanSheet({ plan, onClose, onSaved }: {
               <Label>{S.plans.price}</Label>
               <Input {...num("price_cents_per_user")} />
             </div>
-            {/* Moeda por país: preço em centavos por moeda; 0 = usa o preço base. */}
+            {/* Currency per country: price in cents per currency; 0 = use the base price. */}
             {(["BRL", "USD", "EUR", "PLN"] as const).map((cur) => (
               <div key={cur} className="grid gap-1.5">
                 <Label>{S.plans.priceIn} {cur}</Label>

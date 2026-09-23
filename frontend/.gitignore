@@ -1,7 +1,7 @@
 node_modules
 dist
 
-# segredos/config local — nunca versionar (exceto o exemplo)
+# secrets/local config -- never commit (except the example)
 .env
 .env.local
 .env.*.local

@@ -191,7 +191,7 @@ type smsStartReq struct {
 
 func (s *Server) handleSMSStart(w http.ResponseWriter, r *http.Request) {
 	u := mailUserFrom(r.Context())
-	// Rate-limited per IP and per account (audit P5): unlike the login-time SMS send, which is
+	// Rate-limited per IP and per account (audit): unlike the login-time SMS send, which is
 	// only reachable after the correct password and is bounded by loginUser, this is an ordinary
 	// authenticated endpoint that accepts an arbitrary phone number and fires a real SMS -- without
 	// a limit here, any signed-up account can script it into an SMS bomb against any phone number.

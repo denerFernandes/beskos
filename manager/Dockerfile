@@ -1,5 +1,5 @@
-# Consola SaaS (Next.js) em standalone. Serve a UI e reencaminha /api/manager/* para o manager-api
-# (via next.config rewrites, host em MANAGER_API_URL).
+# SaaS console (Next.js) in standalone mode. Serves the UI and forwards /api/manager/* to
+# manager-api (via next.config rewrites, host in MANAGER_API_URL).
 FROM node:22-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
@@ -11,10 +11,10 @@ FROM node:22-alpine AS run
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
-# Saída standalone do Next: server.js + node_modules mínimos + estáticos.
+# Next standalone output: server.js + minimal node_modules + static files.
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public
-# MANAGER_API_URL definido no deploy (ex.: http://srv-captain--manager-api:8091).
+# MANAGER_API_URL set at deploy time (e.g.: http://srv-captain--manager-api:8091).
 EXPOSE 3000
 CMD ["node", "server.js"]

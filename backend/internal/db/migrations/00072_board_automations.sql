@@ -1,6 +1,6 @@
 -- +goose Up
--- Automações do quadro: quando um card entra numa coluna (gatilho), aplica uma ação.
--- action: assign (assignee_id = value) | label (label = value) | archive (arquiva o card).
+-- Board automations: when a card enters a column (trigger), an action is applied.
+-- action: assign (assignee_id = value) | label (label = value) | archive (archives the card).
 CREATE TABLE board_automations (
     id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     board_id          UUID NOT NULL REFERENCES boards(id) ON DELETE CASCADE,

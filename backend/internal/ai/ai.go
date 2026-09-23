@@ -1,5 +1,5 @@
 // Package ai is Beskos's AI layer. The Provider interface abstracts the model/vendor,
-// so that switching (DeepSeek today; Claude/OpenAI/etc. in the future) is just configuration — the
+// so that switching (any OpenAI-compatible provider) is just configuration — the
 // rest of the code depends on `Provider`, never on a specific SDK (law §1.1/2.5).
 //
 // The API key lives ONLY in the backend, via the environment (law §3.5/§10). Nothing here leaks to the frontend.

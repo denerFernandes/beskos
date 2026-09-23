@@ -544,7 +544,7 @@ Worth not mixing them up, because they serve different purposes and fail in diff
 to stop loops: an agent that gets stuck repeating the same tool stops here. **Always applies**,
 even to someone with quota to spare — available quota is no reason to let a loop run wild.
 
-**Usage quota — per 6-hour window.** Commercial limit, on the Claude model: every user gets a
+**Usage quota — per 6-hour window.** Commercial limit, in the style of subscription AI products: every user gets a
 volume per 6-hour sliding window, which renews on its own. This is what will come to distinguish
 plans.
 
