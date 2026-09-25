@@ -20,7 +20,7 @@
     "@livekit/components-react": "^2.9.23",
     "@livekit/components-styles": "^1.2.0",
     "@livekit/track-processors": "^0.7.2",
-    "@mantine/core": "^8.3.18",
+    "@mantine/core": "^9.6.2",
     "@mantine/hooks": "^8.3.18",
     "@mediapipe/tasks-vision": "^0.10.35",
     "@tanstack/react-query": "^5.62.0",
