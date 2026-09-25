@@ -76,7 +76,7 @@ jobs:
       - run: npm ci --legacy-peer-deps
         working-directory: frontend
 
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           # Only the default offered in the first-launch field; empty here on purpose, so the
           # published build asks rather than arriving pointed at somebody else's instance.
